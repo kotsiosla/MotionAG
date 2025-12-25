@@ -156,7 +156,9 @@ const Index = () => {
             <TabsContent value="map" className="h-[calc(100vh-220px)] m-0">
               <VehicleMap
                 vehicles={filteredVehicles}
+                trips={filteredTrips}
                 stops={staticStopsQuery.data?.data || []}
+                routeNamesMap={routeNamesMap}
                 isLoading={vehiclesQuery.isLoading}
               />
             </TabsContent>
