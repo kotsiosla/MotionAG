@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { X, Navigation, MapPin, Clock, LocateFixed, Moon, Sun, Bell, BellOff, Volume2, VolumeX, Star, Heart } from "lucide-react";
+import { X, Navigation, MapPin, Clock, LocateFixed, Moon, Sun, Bell, BellOff, Volume2, VolumeX, Star, Heart, Route } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import type { Vehicle, StaticStop, Trip, RouteInfo } from "@/types/gtfs";
+import { useTransitRouting } from "@/hooks/useTransitRouting";
+import { RoutePlanner } from "@/components/RoutePlanner";
 
 interface VehicleMapProps {
   vehicles: Vehicle[];
@@ -131,7 +133,23 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
     }
   });
   const [showFavorites, setShowFavorites] = useState(false);
+  const [showRoutePlanner, setShowRoutePlanner] = useState(false);
+  const [selectingMode, setSelectingMode] = useState<'origin' | 'destination' | null>(null);
 
+  // Initialize transit routing hook
+  const routesArray = useMemo(() => 
+    routeNamesMap ? Array.from(routeNamesMap.values()) : [], 
+    [routeNamesMap]
+  );
+  
+  const {
+    state: routingState,
+    searchAddress,
+    setOrigin,
+    setDestination,
+    calculateRoutes,
+    clearRouting,
+  } = useTransitRouting(stops, trips, routesArray);
   // Save favorites to localStorage when they change
   useEffect(() => {
     try {
@@ -441,6 +459,33 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
 
         walkingRouteSourceRef.current = true;
         setMapLoaded(true);
+
+        // Add route planning layers
+        mapRef.current!.addSource('route-line', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] }
+        });
+
+        mapRef.current!.addLayer({
+          id: 'route-line-layer',
+          type: 'line',
+          source: 'route-line',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': ['get', 'color'],
+            'line-width': 5,
+            'line-opacity': 0.8
+          }
+        });
+
+        // Add origin/destination markers source
+        mapRef.current!.addSource('route-points', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] }
+        });
       }
     });
 
@@ -993,6 +1038,70 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
     }
   }, [userLocation, nearestStop]);
 
+  // Handle map click for route planning
+  useEffect(() => {
+    if (!mapRef.current || !selectingMode) return;
+
+    const handleClick = (e: maplibregl.MapMouseEvent) => {
+      const { lng, lat } = e.lngLat;
+      
+      if (selectingMode === 'origin') {
+        setOrigin(lat, lng);
+      } else if (selectingMode === 'destination') {
+        setDestination(lat, lng);
+      }
+      setSelectingMode(null);
+    };
+
+    mapRef.current.on('click', handleClick);
+    mapRef.current.getCanvas().style.cursor = 'crosshair';
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.off('click', handleClick);
+        mapRef.current.getCanvas().style.cursor = '';
+      }
+    };
+  }, [selectingMode, setOrigin, setDestination]);
+
+  // Draw route on map when routes are available
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded) return;
+
+    const source = mapRef.current.getSource('route-line') as maplibregl.GeoJSONSource;
+    if (!source) return;
+
+    if (routingState.routes.length > 0) {
+      const selectedRoute = routingState.routes[0];
+      const features: GeoJSON.Feature[] = [];
+
+      selectedRoute.segments.forEach((segment, idx) => {
+        const color = segment.type === 'walk' 
+          ? '#6b7280' 
+          : (segment.routeColor ? `#${segment.routeColor}` : '#3b82f6');
+        
+        features.push({
+          type: 'Feature',
+          properties: { color },
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [segment.from.lon, segment.from.lat],
+              [segment.to.lon, segment.to.lat]
+            ]
+          }
+        });
+      });
+
+      source.setData({
+        type: 'FeatureCollection',
+        features
+      });
+    } else {
+      source.setData({ type: 'FeatureCollection', features: [] });
+    }
+  }, [routingState.routes, mapLoaded]);
+
   // Follow the selected vehicle in realtime
   useEffect(() => {
     if (!followedVehicleId || !mapRef.current) return;
@@ -1010,6 +1119,19 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
     }
   }, [vehicles, followedVehicleId]);
 
+  // Handler for using current location as origin
+  const useCurrentLocationAsOrigin = useCallback(() => {
+    if (userLocation) {
+      setOrigin(userLocation.lat, userLocation.lng, 'Η τοποθεσία μου');
+    } else {
+      locateUser();
+      toast({
+        title: 'Εντοπισμός τοποθεσίας',
+        description: 'Παρακαλώ περιμένετε...',
+      });
+    }
+  }, [userLocation, setOrigin, locateUser, toast]);
+
   // Get followed vehicle info
   const followedVehicle = followedVehicleId
     ? vehicles.find((v) => (v.vehicleId || v.id) === followedVehicleId)
@@ -1024,6 +1146,36 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
   return (
     <div className="relative h-full w-full rounded-lg overflow-hidden">
       <div ref={containerRef} className="h-full w-full" />
+      
+      {/* Route Planner */}
+      <RoutePlanner
+        isOpen={showRoutePlanner}
+        onClose={() => setShowRoutePlanner(false)}
+        origin={routingState.origin}
+        destination={routingState.destination}
+        routes={routingState.routes}
+        isSearching={routingState.isSearching}
+        error={routingState.error}
+        onSearchAddress={searchAddress}
+        onSetOrigin={setOrigin}
+        onSetDestination={setDestination}
+        onCalculateRoutes={calculateRoutes}
+        onClearRouting={clearRouting}
+        onUseCurrentLocation={useCurrentLocationAsOrigin}
+        selectingMode={selectingMode}
+        onSetSelectingMode={setSelectingMode}
+      />
+
+      {/* Route Planner Button */}
+      <Button
+        variant="default"
+        size="sm"
+        className="absolute top-4 left-4 z-[1000] gap-2"
+        onClick={() => setShowRoutePlanner(true)}
+      >
+        <Route className="h-4 w-4" />
+        Σχεδιασμός Διαδρομής
+      </Button>
       {isLoading && (
         <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center">
           <div className="flex items-center gap-2 text-muted-foreground">
