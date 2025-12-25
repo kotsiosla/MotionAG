@@ -216,6 +216,13 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
               'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'
             ],
             tileSize: 256
+          },
+          'openmaptiles': {
+            type: 'vector',
+            tiles: [
+              'https://api.maptiler.com/tiles/v3/{z}/{x}/{y}.pbf?key=get_your_own_OpIi9ZULNHzrESv6T2vL'
+            ],
+            maxzoom: 14
           }
         },
         layers: [
@@ -232,13 +239,45 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
             source: 'labels',
             minzoom: 0,
             maxzoom: 22
+          },
+          {
+            id: '3d-buildings',
+            source: 'openmaptiles',
+            'source-layer': 'building',
+            type: 'fill-extrusion',
+            minzoom: 14,
+            paint: {
+              'fill-extrusion-color': [
+                'interpolate',
+                ['linear'],
+                ['get', 'render_height'],
+                0, '#e8e0d8',
+                50, '#d4c8bc',
+                100, '#c0b0a0'
+              ],
+              'fill-extrusion-height': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                14, 0,
+                15, ['get', 'render_height']
+              ],
+              'fill-extrusion-base': [
+                'case',
+                ['>=', ['get', 'zoom'], 15],
+                ['get', 'render_min_height'],
+                0
+              ],
+              'fill-extrusion-opacity': 0.85
+            }
           }
         ]
       },
       center: [33.0, 35.0], // Center of Cyprus
       zoom: 9,
-      pitch: 0,
+      pitch: 45, // Start with some pitch to show 3D effect
       bearing: 0,
+      maxPitch: 70,
     });
 
     // Add navigation controls
