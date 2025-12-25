@@ -151,7 +151,7 @@ export function TripsTable({ trips, isLoading, routeNames }: TripsTableProps) {
                                 {trip.vehicleId && <span>Όχημα: {trip.vehicleId}</span>}
                               </div>
                               {route.longName && (
-                                <div className="text-xs text-muted-foreground truncate max-w-[280px]">
+                                <div className="text-xs text-muted-foreground">
                                   {route.longName}
                                 </div>
                               )}
