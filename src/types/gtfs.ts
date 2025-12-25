@@ -93,6 +93,16 @@ export interface RouteInfo {
   route_text_color?: string;
 }
 
+export interface StaticStop {
+  stop_id: string;
+  stop_name: string;
+  stop_lat?: number;
+  stop_lon?: number;
+  stop_code?: string;
+  location_type?: number;
+  parent_station?: string;
+}
+
 export interface OperatorInfo {
   id: string;
   name: string;

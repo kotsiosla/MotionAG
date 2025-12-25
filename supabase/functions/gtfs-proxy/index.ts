@@ -712,8 +712,9 @@ const GTFS_STATIC_URLS: Record<string, string> = {
   '11': 'https://www.motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C11_google_transit.zip&rel=True', // PAME EXPRESS
 };
 
-// Simple in-memory cache for routes
+// Simple in-memory cache for routes and stops
 const routesCache: Map<string, { data: RouteInfo[]; timestamp: number }> = new Map();
+const stopsCache: Map<string, { data: StopInfo[]; timestamp: number }> = new Map();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 interface RouteInfo {
@@ -723,6 +724,16 @@ interface RouteInfo {
   route_type?: number;
   route_color?: string;
   route_text_color?: string;
+}
+
+interface StopInfo {
+  stop_id: string;
+  stop_name: string;
+  stop_lat?: number;
+  stop_lon?: number;
+  stop_code?: string;
+  location_type?: number;
+  parent_station?: string;
 }
 
 async function unzipAndParseRoutes(zipData: Uint8Array): Promise<RouteInfo[]> {
@@ -849,6 +860,128 @@ async function unzipAndParseRoutes(zipData: Uint8Array): Promise<RouteInfo[]> {
   return routes;
 }
 
+async function unzipAndParseStops(zipData: Uint8Array): Promise<StopInfo[]> {
+  let offset = 0;
+  const stops: StopInfo[] = [];
+  
+  while (offset < zipData.length - 4) {
+    if (zipData[offset] === 0x50 && zipData[offset + 1] === 0x4b && 
+        zipData[offset + 2] === 0x03 && zipData[offset + 3] === 0x04) {
+      
+      const view = new DataView(zipData.buffer, zipData.byteOffset + offset);
+      const compressionMethod = view.getUint16(8, true);
+      const compressedSize = view.getUint32(18, true);
+      const uncompressedSize = view.getUint32(22, true);
+      const fileNameLength = view.getUint16(26, true);
+      const extraFieldLength = view.getUint16(28, true);
+      
+      const fileNameStart = offset + 30;
+      const fileName = new TextDecoder().decode(zipData.slice(fileNameStart, fileNameStart + fileNameLength));
+      
+      const dataStart = fileNameStart + fileNameLength + extraFieldLength;
+      
+      if (fileName === 'stops.txt') {
+        let fileContent: string;
+        
+        if (compressionMethod === 0) {
+          fileContent = new TextDecoder().decode(zipData.slice(dataStart, dataStart + uncompressedSize));
+        } else if (compressionMethod === 8) {
+          try {
+            const compressedData = zipData.slice(dataStart, dataStart + compressedSize);
+            const ds = new DecompressionStream('deflate-raw');
+            const writer = ds.writable.getWriter();
+            const reader = ds.readable.getReader();
+            
+            writer.write(compressedData);
+            writer.close();
+            
+            const chunks: Uint8Array[] = [];
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              chunks.push(value);
+            }
+            
+            const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+            const decompressed = new Uint8Array(totalLength);
+            let position = 0;
+            for (const chunk of chunks) {
+              decompressed.set(chunk, position);
+              position += chunk.length;
+            }
+            
+            fileContent = new TextDecoder().decode(decompressed);
+          } catch (e) {
+            console.error('Failed to decompress stops.txt:', e);
+            break;
+          }
+        } else {
+          console.log(`Unsupported compression method: ${compressionMethod}`);
+          break;
+        }
+        
+        // Parse CSV
+        const lines = fileContent.split('\n');
+        if (lines.length > 0) {
+          const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+          const stopIdIdx = header.indexOf('stop_id');
+          const stopNameIdx = header.indexOf('stop_name');
+          const stopLatIdx = header.indexOf('stop_lat');
+          const stopLonIdx = header.indexOf('stop_lon');
+          const stopCodeIdx = header.indexOf('stop_code');
+          const locationTypeIdx = header.indexOf('location_type');
+          const parentStationIdx = header.indexOf('parent_station');
+          
+          for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            const values: string[] = [];
+            let current = '';
+            let inQuotes = false;
+            for (const char of line) {
+              if (char === '"') {
+                inQuotes = !inQuotes;
+              } else if (char === ',' && !inQuotes) {
+                values.push(current.trim());
+                current = '';
+              } else {
+                current += char;
+              }
+            }
+            values.push(current.trim());
+            
+            if (values.length > stopIdIdx && stopIdIdx >= 0) {
+              const lat = stopLatIdx >= 0 && values[stopLatIdx] ? parseFloat(values[stopLatIdx]) : undefined;
+              const lon = stopLonIdx >= 0 && values[stopLonIdx] ? parseFloat(values[stopLonIdx]) : undefined;
+              
+              // Only include stops with valid coordinates
+              if (lat && lon && !isNaN(lat) && !isNaN(lon)) {
+                stops.push({
+                  stop_id: values[stopIdIdx] || '',
+                  stop_name: stopNameIdx >= 0 ? values[stopNameIdx] || '' : '',
+                  stop_lat: lat,
+                  stop_lon: lon,
+                  stop_code: stopCodeIdx >= 0 ? values[stopCodeIdx] || undefined : undefined,
+                  location_type: locationTypeIdx >= 0 && values[locationTypeIdx] ? parseInt(values[locationTypeIdx]) : undefined,
+                  parent_station: parentStationIdx >= 0 ? values[parentStationIdx] || undefined : undefined,
+                });
+              }
+            }
+          }
+        }
+        break;
+      }
+      
+      offset = dataStart + compressedSize;
+    } else {
+      offset++;
+    }
+  }
+  
+  return stops;
+}
+
 async function fetchStaticRoutes(operatorId?: string): Promise<RouteInfo[]> {
   const operators = operatorId && operatorId !== 'all' ? [operatorId] : Object.keys(GTFS_STATIC_URLS);
   const allRoutes: RouteInfo[] = [];
@@ -892,6 +1025,47 @@ async function fetchStaticRoutes(operatorId?: string): Promise<RouteInfo[]> {
   return allRoutes;
 }
 
+async function fetchStaticStops(operatorId?: string): Promise<StopInfo[]> {
+  const operators = operatorId && operatorId !== 'all' ? [operatorId] : Object.keys(GTFS_STATIC_URLS);
+  const allStops: StopInfo[] = [];
+  
+  for (const opId of operators) {
+    const cacheKey = `stops_${opId}`;
+    const cached = stopsCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      allStops.push(...cached.data);
+      continue;
+    }
+    
+    const url = GTFS_STATIC_URLS[opId];
+    if (!url) continue;
+    
+    try {
+      console.log(`Fetching static GTFS stops for operator ${opId}`);
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        console.error(`Failed to fetch GTFS for operator ${opId}: ${response.status}`);
+        continue;
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const zipData = new Uint8Array(arrayBuffer);
+      
+      const stops = await unzipAndParseStops(zipData);
+      console.log(`Parsed ${stops.length} stops for operator ${opId}`);
+      
+      stopsCache.set(cacheKey, { data: stops, timestamp: Date.now() });
+      allStops.push(...stops);
+    } catch (error) {
+      console.error(`Error fetching static GTFS stops for operator ${opId}:`, error);
+    }
+  }
+  
+  return allStops;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -911,6 +1085,24 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           data: routes,
+          timestamp: Date.now(),
+        }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=3600',
+          } 
+        }
+      );
+    }
+    
+    // Handle static stops endpoint
+    if (path === '/stops') {
+      const stops = await fetchStaticStops(operatorId);
+      return new Response(
+        JSON.stringify({
+          data: stops,
           timestamp: Date.now(),
         }),
         { 
