@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { OperatorSelector } from "@/components/OperatorSelector";
+import { RouteSelector } from "@/components/RouteSelector";
 
 interface HeaderProps {
   isDark: boolean;
@@ -18,6 +19,9 @@ interface HeaderProps {
   isLoading: boolean;
   selectedOperator: string;
   onOperatorChange: (operator: string) => void;
+  selectedRoute: string;
+  onRouteChange: (route: string) => void;
+  availableRoutes: string[];
 }
 
 export function Header({
@@ -29,6 +33,9 @@ export function Header({
   isLoading,
   selectedOperator,
   onOperatorChange,
+  selectedRoute,
+  onRouteChange,
+  availableRoutes,
 }: HeaderProps) {
   const formatLastUpdate = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -62,6 +69,13 @@ export function Header({
             <OperatorSelector
               value={selectedOperator}
               onChange={onOperatorChange}
+            />
+
+            <RouteSelector
+              value={selectedRoute}
+              onChange={onRouteChange}
+              routes={availableRoutes}
+              disabled={selectedOperator === 'all'}
             />
 
             {lastUpdate && (

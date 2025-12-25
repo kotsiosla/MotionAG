@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Map, Route, MapPin, Bell } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Header } from "@/components/Header";
@@ -14,10 +14,41 @@ const Index = () => {
   const [refreshInterval, setRefreshInterval] = useState(10);
   const [activeTab, setActiveTab] = useState("map");
   const [selectedOperator, setSelectedOperator] = useState("all");
+  const [selectedRoute, setSelectedRoute] = useState("all");
 
   const vehiclesQuery = useVehicles(refreshInterval, selectedOperator);
   const tripsQuery = useTrips(refreshInterval, selectedOperator);
   const alertsQuery = useAlerts(refreshInterval, selectedOperator);
+
+  // Extract unique routes from data
+  const availableRoutes = useMemo(() => {
+    const routeSet = new Set<string>();
+    vehiclesQuery.data?.data?.forEach(v => {
+      if (v.routeId) routeSet.add(v.routeId);
+    });
+    tripsQuery.data?.data?.forEach(t => {
+      if (t.routeId) routeSet.add(t.routeId);
+    });
+    return Array.from(routeSet);
+  }, [vehiclesQuery.data, tripsQuery.data]);
+
+  // Reset route when operator changes
+  useEffect(() => {
+    setSelectedRoute("all");
+  }, [selectedOperator]);
+
+  // Filter data by selected route
+  const filteredVehicles = useMemo(() => {
+    const vehicles = vehiclesQuery.data?.data || [];
+    if (selectedRoute === "all") return vehicles;
+    return vehicles.filter(v => v.routeId === selectedRoute);
+  }, [vehiclesQuery.data, selectedRoute]);
+
+  const filteredTrips = useMemo(() => {
+    const trips = tripsQuery.data?.data || [];
+    if (selectedRoute === "all") return trips;
+    return trips.filter(t => t.routeId === selectedRoute);
+  }, [tripsQuery.data, selectedRoute]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -52,6 +83,9 @@ const Index = () => {
         isLoading={isLoading}
         selectedOperator={selectedOperator}
         onOperatorChange={setSelectedOperator}
+        selectedRoute={selectedRoute}
+        onRouteChange={setSelectedRoute}
+        availableRoutes={availableRoutes}
       />
 
       {hasError && (
@@ -87,21 +121,21 @@ const Index = () => {
           <div className="flex-1 min-h-0 glass-card rounded-lg overflow-hidden">
             <TabsContent value="map" className="h-[calc(100vh-220px)] m-0">
               <VehicleMap
-                vehicles={vehiclesQuery.data?.data || []}
+                vehicles={filteredVehicles}
                 isLoading={vehiclesQuery.isLoading}
               />
             </TabsContent>
 
             <TabsContent value="trips" className="h-[calc(100vh-220px)] m-0">
               <TripsTable
-                trips={tripsQuery.data?.data || []}
+                trips={filteredTrips}
                 isLoading={tripsQuery.isLoading}
               />
             </TabsContent>
 
             <TabsContent value="stops" className="h-[calc(100vh-220px)] m-0">
               <StopsView
-                trips={tripsQuery.data?.data || []}
+                trips={filteredTrips}
                 isLoading={tripsQuery.isLoading}
               />
             </TabsContent>
