@@ -16,6 +16,7 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("map");
   const [selectedOperator, setSelectedOperator] = useState("all");
   const [selectedRoute, setSelectedRoute] = useState("all");
+  const [showLiveOnly, setShowLiveOnly] = useState(false);
 
   const vehiclesQuery = useVehicles(refreshInterval, selectedOperator);
   const tripsQuery = useTrips(refreshInterval, selectedOperator);
@@ -31,15 +32,8 @@ const Index = () => {
     return routeMap;
   }, [staticRoutesQuery.data]);
 
-  // Get all available routes from static data, fallback to realtime data
-  const availableRoutes = useMemo(() => {
-    // First try to get routes from static GTFS data
-    const staticRoutes = staticRoutesQuery.data?.data?.map(r => r.route_id) || [];
-    if (staticRoutes.length > 0) {
-      return staticRoutes;
-    }
-    
-    // Fallback: extract unique routes from realtime data
+  // Get routes with active vehicles/trips
+  const liveRoutes = useMemo(() => {
     const routeSet = new Set<string>();
     vehiclesQuery.data?.data?.forEach(v => {
       if (v.routeId) routeSet.add(v.routeId);
@@ -47,8 +41,24 @@ const Index = () => {
     tripsQuery.data?.data?.forEach(t => {
       if (t.routeId) routeSet.add(t.routeId);
     });
-    return Array.from(routeSet);
-  }, [staticRoutesQuery.data, vehiclesQuery.data, tripsQuery.data]);
+    return routeSet;
+  }, [vehiclesQuery.data, tripsQuery.data]);
+
+  // Get all available routes from static data, or live routes only
+  const availableRoutes = useMemo(() => {
+    if (showLiveOnly) {
+      return Array.from(liveRoutes);
+    }
+    
+    // Get routes from static GTFS data
+    const staticRoutes = staticRoutesQuery.data?.data?.map(r => r.route_id) || [];
+    if (staticRoutes.length > 0) {
+      return staticRoutes;
+    }
+    
+    // Fallback: use live routes
+    return Array.from(liveRoutes);
+  }, [staticRoutesQuery.data, liveRoutes, showLiveOnly]);
 
   // Reset route when operator changes
   useEffect(() => {
@@ -106,6 +116,9 @@ const Index = () => {
         availableRoutes={availableRoutes}
         routeNamesMap={routeNamesMap}
         isRoutesLoading={staticRoutesQuery.isLoading}
+        showLiveOnly={showLiveOnly}
+        onShowLiveOnlyChange={setShowLiveOnly}
+        liveRoutesCount={liveRoutes.size}
       />
 
       {hasError && (

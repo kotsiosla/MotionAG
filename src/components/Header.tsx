@@ -7,6 +7,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { OperatorSelector } from "@/components/OperatorSelector";
 import { RouteSelector } from "@/components/RouteSelector";
 import type { RouteInfo } from "@/types/gtfs";
@@ -26,6 +28,9 @@ interface HeaderProps {
   availableRoutes: string[];
   routeNamesMap?: Map<string, RouteInfo>;
   isRoutesLoading?: boolean;
+  showLiveOnly?: boolean;
+  onShowLiveOnlyChange?: (value: boolean) => void;
+  liveRoutesCount?: number;
 }
 
 export function Header({
@@ -42,6 +47,9 @@ export function Header({
   availableRoutes,
   routeNamesMap,
   isRoutesLoading,
+  showLiveOnly,
+  onShowLiveOnlyChange,
+  liveRoutesCount,
 }: HeaderProps) {
   const formatLastUpdate = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -79,6 +87,18 @@ export function Header({
                 disabled={selectedOperator === 'all'}
                 isLoading={isRoutesLoading}
               />
+              {onShowLiveOnlyChange && (
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="live-only"
+                    checked={showLiveOnly}
+                    onCheckedChange={onShowLiveOnlyChange}
+                  />
+                  <Label htmlFor="live-only" className="text-xs text-muted-foreground cursor-pointer">
+                    Live only ({liveRoutesCount || 0})
+                  </Label>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col items-end gap-1">
