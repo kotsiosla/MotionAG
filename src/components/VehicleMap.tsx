@@ -1,9 +1,11 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
+import { X, Navigation } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { Vehicle } from "@/types/gtfs";
 
 interface VehicleMapProps {
@@ -11,14 +13,16 @@ interface VehicleMapProps {
   isLoading: boolean;
 }
 
-const createVehicleIcon = (bearing?: number) => {
+const createVehicleIcon = (bearing?: number, isFollowed?: boolean) => {
   const rotation = bearing || 0;
+  const ringClass = isFollowed ? 'animate-ping' : 'animate-pulse-ring';
+  const glowClass = isFollowed ? 'transit-glow ring-2 ring-yellow-400' : 'transit-glow';
   return L.divIcon({
     className: 'vehicle-marker',
     html: `
       <div class="relative">
-        <div class="absolute inset-0 bg-primary rounded-full animate-pulse-ring opacity-50"></div>
-        <div class="relative w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg transit-glow" style="transform: rotate(${rotation}deg)">
+        <div class="absolute inset-0 bg-primary rounded-full ${ringClass} opacity-50"></div>
+        <div class="relative w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg ${glowClass}" style="transform: rotate(${rotation}deg)">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary-foreground">
             <path d="M8 6v6"/>
             <path d="M15 6v6"/>
@@ -56,6 +60,8 @@ export function VehicleMap({ vehicles, isLoading }: VehicleMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.MarkerClusterGroup | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [followedVehicleId, setFollowedVehicleId] = useState<string | null>(null);
+  const markerMapRef = useRef<Map<string, L.Marker>>(new Map());
 
   // Initialize map
   useEffect(() => {
@@ -99,21 +105,29 @@ export function VehicleMap({ vehicles, isLoading }: VehicleMapProps) {
     if (!markersRef.current) return;
 
     markersRef.current.clearLayers();
+    markerMapRef.current.clear();
 
     const validVehicles = vehicles.filter(
       (v) => v.latitude !== undefined && v.longitude !== undefined
     );
 
     validVehicles.forEach((vehicle) => {
+      const vehicleId = vehicle.vehicleId || vehicle.id;
+      const isFollowed = followedVehicleId === vehicleId;
+      
       const marker = L.marker([vehicle.latitude!, vehicle.longitude!], {
-        icon: createVehicleIcon(vehicle.bearing),
+        icon: createVehicleIcon(vehicle.bearing, isFollowed),
+      });
+
+      marker.on('click', () => {
+        setFollowedVehicleId(vehicleId);
       });
 
       marker.bindPopup(`
         <div class="p-3 min-w-[200px]">
           <div class="font-semibold text-base mb-2 flex items-center gap-2">
             <span class="inline-block w-2 h-2 bg-primary rounded-full"></span>
-            Όχημα ${vehicle.vehicleId || vehicle.id}
+            Όχημα ${vehicleId}
           </div>
           <div class="space-y-1.5 text-sm">
             ${vehicle.label ? `<div class="flex justify-between"><span class="text-muted-foreground">Ετικέτα:</span><span class="font-mono">${vehicle.label}</span></div>` : ''}
@@ -129,17 +143,40 @@ export function VehicleMap({ vehicles, isLoading }: VehicleMapProps) {
         className: 'vehicle-popup',
       });
 
+      markerMapRef.current.set(vehicleId, marker);
       markersRef.current!.addLayer(marker);
     });
 
-    // Fit bounds if we have vehicles
-    if (validVehicles.length > 0 && mapRef.current) {
+    // If not following a vehicle, fit bounds to show all
+    if (!followedVehicleId && validVehicles.length > 0 && mapRef.current) {
       const bounds = L.latLngBounds(
         validVehicles.map((v) => [v.latitude!, v.longitude!])
       );
       mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
     }
-  }, [vehicles]);
+  }, [vehicles, followedVehicleId]);
+
+  // Follow the selected vehicle in realtime
+  useEffect(() => {
+    if (!followedVehicleId || !mapRef.current) return;
+
+    const followedVehicle = vehicles.find(
+      (v) => (v.vehicleId || v.id) === followedVehicleId
+    );
+
+    if (followedVehicle?.latitude && followedVehicle?.longitude) {
+      mapRef.current.setView(
+        [followedVehicle.latitude, followedVehicle.longitude],
+        16,
+        { animate: true, duration: 0.5 }
+      );
+    }
+  }, [vehicles, followedVehicleId]);
+
+  // Get followed vehicle info
+  const followedVehicle = followedVehicleId
+    ? vehicles.find((v) => (v.vehicleId || v.id) === followedVehicleId)
+    : null;
 
   return (
     <div className="relative h-full w-full rounded-lg overflow-hidden">
@@ -152,6 +189,32 @@ export function VehicleMap({ vehicles, isLoading }: VehicleMapProps) {
           </div>
         </div>
       )}
+      
+      {/* Following indicator */}
+      {followedVehicle && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 glass-card rounded-lg px-4 py-2 flex items-center gap-3 z-[1000]">
+          <Navigation className="h-4 w-4 text-primary animate-pulse" />
+          <div className="text-sm">
+            <span className="text-muted-foreground">Παρακολούθηση: </span>
+            <span className="font-semibold">{followedVehicle.vehicleId || followedVehicle.id}</span>
+            {followedVehicle.routeId && (
+              <span className="text-muted-foreground ml-2">({followedVehicle.routeId})</span>
+            )}
+            {followedVehicle.speed !== undefined && (
+              <span className="ml-2 text-primary">{formatSpeed(followedVehicle.speed)}</span>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => setFollowedVehicleId(null)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+      
       <div className="absolute bottom-4 left-4 glass-card rounded-lg px-3 py-2 text-sm">
         <span className="font-medium">{vehicles.filter(v => v.latitude && v.longitude).length}</span>
         <span className="text-muted-foreground ml-1">οχήματα</span>
