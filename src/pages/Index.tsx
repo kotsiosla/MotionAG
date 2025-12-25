@@ -1,12 +1,117 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState, useEffect } from "react";
+import { Map, Route, MapPin, Bell } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Header } from "@/components/Header";
+import { ErrorBanner } from "@/components/ErrorBanner";
+import { VehicleMap } from "@/components/VehicleMap";
+import { TripsTable } from "@/components/TripsTable";
+import { StopsView } from "@/components/StopsView";
+import { AlertsList } from "@/components/AlertsList";
+import { useVehicles, useTrips, useAlerts } from "@/hooks/useGtfsData";
 
 const Index = () => {
+  const [isDark, setIsDark] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(10);
+  const [activeTab, setActiveTab] = useState("map");
+
+  const vehiclesQuery = useVehicles(refreshInterval);
+  const tripsQuery = useTrips(refreshInterval);
+  const alertsQuery = useAlerts(refreshInterval);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDark);
+  }, [isDark]);
+
+  const isLoading = vehiclesQuery.isLoading || tripsQuery.isLoading || alertsQuery.isLoading;
+  const hasError = vehiclesQuery.isError || tripsQuery.isError || alertsQuery.isError;
+  const errorMessage = vehiclesQuery.error?.message || tripsQuery.error?.message || alertsQuery.error?.message;
+
+  const lastUpdate = Math.max(
+    vehiclesQuery.data?.timestamp || 0,
+    tripsQuery.data?.timestamp || 0,
+    alertsQuery.data?.timestamp || 0
+  );
+
+  const handleRetry = () => {
+    vehiclesQuery.refetch();
+    tripsQuery.refetch();
+    alertsQuery.refetch();
+  };
+
+  const alertCount = alertsQuery.data?.data?.length || 0;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen flex flex-col bg-background">
+      <Header
+        isDark={isDark}
+        onToggleTheme={() => setIsDark(!isDark)}
+        refreshInterval={refreshInterval}
+        onRefreshIntervalChange={setRefreshInterval}
+        lastUpdate={lastUpdate || null}
+        isLoading={isLoading}
+      />
+
+      {hasError && (
+        <ErrorBanner message={errorMessage || "Αποτυχία σύνδεσης"} onRetry={handleRetry} />
+      )}
+
+      <main className="flex-1 container mx-auto px-4 py-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+          <TabsList className="grid w-full grid-cols-4 mb-4">
+            <TabsTrigger value="map" className="flex items-center gap-2">
+              <Map className="h-4 w-4" />
+              <span className="hidden sm:inline">Χάρτης</span>
+            </TabsTrigger>
+            <TabsTrigger value="trips" className="flex items-center gap-2">
+              <Route className="h-4 w-4" />
+              <span className="hidden sm:inline">Δρομολόγια</span>
+            </TabsTrigger>
+            <TabsTrigger value="stops" className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              <span className="hidden sm:inline">Στάσεις</span>
+            </TabsTrigger>
+            <TabsTrigger value="alerts" className="flex items-center gap-2 relative">
+              <Bell className="h-4 w-4" />
+              <span className="hidden sm:inline">Ειδοποιήσεις</span>
+              {alertCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
+                  {alertCount}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="flex-1 min-h-0 glass-card rounded-lg overflow-hidden">
+            <TabsContent value="map" className="h-[calc(100vh-220px)] m-0">
+              <VehicleMap
+                vehicles={vehiclesQuery.data?.data || []}
+                isLoading={vehiclesQuery.isLoading}
+              />
+            </TabsContent>
+
+            <TabsContent value="trips" className="h-[calc(100vh-220px)] m-0">
+              <TripsTable
+                trips={tripsQuery.data?.data || []}
+                isLoading={tripsQuery.isLoading}
+              />
+            </TabsContent>
+
+            <TabsContent value="stops" className="h-[calc(100vh-220px)] m-0">
+              <StopsView
+                trips={tripsQuery.data?.data || []}
+                isLoading={tripsQuery.isLoading}
+              />
+            </TabsContent>
+
+            <TabsContent value="alerts" className="h-[calc(100vh-220px)] m-0 overflow-auto">
+              <AlertsList
+                alerts={alertsQuery.data?.data || []}
+                isLoading={alertsQuery.isLoading}
+              />
+            </TabsContent>
+          </div>
+        </Tabs>
+      </main>
     </div>
   );
 };
