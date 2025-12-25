@@ -27,22 +27,23 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
   return L.divIcon({
     className: 'vehicle-marker',
     html: `
-      <div class="relative">
-        <div class="absolute inset-0 rounded-full ${ringClass} opacity-50" style="background: ${bgColor}"></div>
-        <div class="relative w-9 h-9 rounded-full flex items-center justify-center shadow-lg" style="background: ${bgColor}; ${glowStyle}; transform: rotate(${rotation}deg)">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 6v6"/>
-            <path d="M15 6v6"/>
-            <path d="M2 12h19.6"/>
-            <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H6C4.9 6 3.9 6.8 3.6 7.8l-1.4 5c-.1.4-.2.8-.2 1.2 0 .4.1.8.2 1.2.3 1.1.8 2.8.8 2.8h3"/>
-            <circle cx="7" cy="18" r="2"/>
-            <circle cx="17" cy="18" r="2"/>
-          </svg>
+      <div class="relative" style="transform: rotate(${rotation}deg)">
+        <div class="absolute inset-0 rounded-lg ${ringClass} opacity-50" style="background: ${bgColor}"></div>
+        <div class="relative flex flex-col items-center">
+          <div style="width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 8px solid ${bgColor}; margin-bottom: -2px;"></div>
+          <div class="w-8 h-6 rounded flex items-center justify-center shadow-lg" style="background: ${bgColor}; ${glowStyle}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="14" rx="2"/>
+              <circle cx="7" cy="18" r="1.5" fill="white"/>
+              <circle cx="17" cy="18" r="1.5" fill="white"/>
+              <path d="M3 10h18"/>
+            </svg>
+          </div>
         </div>
       </div>
     `,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
+    iconSize: [32, 40],
+    iconAnchor: [16, 20],
   });
 };
 
