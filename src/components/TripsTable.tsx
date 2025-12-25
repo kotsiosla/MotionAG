@@ -148,7 +148,12 @@ export function TripsTable({ trips, isLoading, routeNames }: TripsTableProps) {
                               </div>
                               <div className="flex items-center gap-3 text-xs text-muted-foreground mb-1">
                                 <span>Trip: {trip.tripId || '-'}</span>
-                                {trip.vehicleId && <span>Όχημα: {trip.vehicleId}</span>}
+                                {trip.vehicleId && (
+                                  <span>
+                                    Όχημα: {trip.vehicleId}
+                                    {trip.vehicleLabel && ` (${trip.vehicleLabel})`}
+                                  </span>
+                                )}
                               </div>
                               {route.longName && (
                                 <div className="text-xs text-muted-foreground">
