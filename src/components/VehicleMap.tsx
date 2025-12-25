@@ -1068,15 +1068,18 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
     });
   }, [nearbyStops, trips, notificationsEnabled, getArrivalsForStop, toast, playNotificationSound]);
 
-  // Display bus route shapes on map with route colors and filtering
+  // Display bus route shapes on map - only when following a vehicle
   useEffect(() => {
     if (!mapRef.current || !shapesSourceRef.current || !mapLoaded) return;
 
     const source = mapRef.current.getSource('bus-shapes') as maplibregl.GeoJSONSource;
     if (!source) return;
 
-    if (shapes.length === 0 || tripMappings.length === 0) {
-      source.setData({ type: 'FeatureCollection', features: [] });
+    // Clear shapes immediately - will rebuild only if following a vehicle
+    source.setData({ type: 'FeatureCollection', features: [] });
+
+    // Only show shapes when following a specific vehicle (clicked on it)
+    if (!followedVehicleId || shapes.length === 0 || tripMappings.length === 0) {
       return;
     }
 
@@ -1091,24 +1094,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       shapeToRoute.set(mapping.shape_id, mapping.route_id);
     });
 
-    // Determine which shapes to show based on filtering
-    let shapesToShow: Set<string>;
+    // Show shapes only for the followed vehicle's route
+    let shapesToShow: Set<string> = new Set();
     
-    if (selectedRoute && selectedRoute !== 'all') {
-      // Show only the selected route's shapes
-      shapesToShow = routeToShapes.get(selectedRoute) || new Set();
-    } else if (followedVehicleId) {
-      // Show only the followed vehicle's route shapes
-      const followedVehicle = vehicles.find(v => v.id === followedVehicleId);
-      if (followedVehicle?.routeId) {
-        shapesToShow = routeToShapes.get(followedVehicle.routeId) || new Set();
-      } else {
-        shapesToShow = new Set();
-      }
-    } else {
-      // No filter - don't show any shapes to avoid clutter
-      source.setData({ type: 'FeatureCollection', features: [] });
-      return;
+    const followedVehicle = vehicles.find(v => v.id === followedVehicleId || v.vehicleId === followedVehicleId);
+    if (followedVehicle?.routeId) {
+      shapesToShow = routeToShapes.get(followedVehicle.routeId) || new Set();
     }
 
     if (shapesToShow.size === 0) {
@@ -1165,7 +1156,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       type: 'FeatureCollection',
       features
     });
-  }, [shapes, tripMappings, mapLoaded, selectedRoute, followedVehicleId, vehicles, routeNamesMap]);
+  }, [shapes, tripMappings, mapLoaded, followedVehicleId, vehicles, routeNamesMap]);
 
   // Handle map click for route planning
   useEffect(() => {
