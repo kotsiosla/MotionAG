@@ -4,12 +4,15 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
-import { X, Navigation } from "lucide-react";
+import { X, Navigation, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Vehicle } from "@/types/gtfs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import type { Vehicle, StaticStop } from "@/types/gtfs";
 
 interface VehicleMapProps {
   vehicles: Vehicle[];
+  stops?: StaticStop[];
   isLoading: boolean;
 }
 
@@ -39,6 +42,21 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean) => {
   });
 };
 
+const createStopIcon = () => {
+  return L.divIcon({
+    className: 'stop-marker',
+    html: `
+      <div class="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center shadow-md border-2 border-white">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </div>
+    `,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  });
+};
+
 const formatTimestamp = (timestamp?: number) => {
   if (!timestamp) return 'Άγνωστο';
   const date = new Date(timestamp * 1000);
@@ -56,11 +74,13 @@ const formatSpeed = (speed?: number) => {
   return `${(speed * 3.6).toFixed(1)} km/h`;
 };
 
-export function VehicleMap({ vehicles, isLoading }: VehicleMapProps) {
+export function VehicleMap({ vehicles, stops = [], isLoading }: VehicleMapProps) {
   const mapRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<L.MarkerClusterGroup | null>(null);
+  const vehicleMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
+  const stopMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [followedVehicleId, setFollowedVehicleId] = useState<string | null>(null);
+  const [showStops, setShowStops] = useState(true);
   const markerMapRef = useRef<Map<string, L.Marker>>(new Map());
 
   // Initialize map
@@ -68,8 +88,8 @@ export function VehicleMap({ vehicles, isLoading }: VehicleMapProps) {
     if (!containerRef.current || mapRef.current) return;
 
     mapRef.current = L.map(containerRef.current, {
-      center: [38.5, 23.5], // Center of Greece
-      zoom: 7,
+      center: [35.0, 33.0], // Center of Cyprus
+      zoom: 9,
       zoomControl: true,
     });
 
@@ -77,7 +97,7 @@ export function VehicleMap({ vehicles, isLoading }: VehicleMapProps) {
       attribution: '© OpenStreetMap contributors',
     }).addTo(mapRef.current);
 
-    markersRef.current = L.markerClusterGroup({
+    vehicleMarkersRef.current = L.markerClusterGroup({
       chunkedLoading: true,
       spiderfyOnMaxZoom: true,
       showCoverageOnHover: false,
@@ -92,7 +112,24 @@ export function VehicleMap({ vehicles, isLoading }: VehicleMapProps) {
       },
     });
 
-    mapRef.current.addLayer(markersRef.current);
+    stopMarkersRef.current = L.markerClusterGroup({
+      chunkedLoading: true,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      maxClusterRadius: 60,
+      disableClusteringAtZoom: 15,
+      iconCreateFunction: (cluster) => {
+        const count = cluster.getChildCount();
+        return L.divIcon({
+          html: `<div class="stop-cluster"><div>${count}</div></div>`,
+          className: 'stop-cluster-container',
+          iconSize: L.point(30, 30),
+        });
+      },
+    });
+
+    mapRef.current.addLayer(vehicleMarkersRef.current);
+    mapRef.current.addLayer(stopMarkersRef.current);
 
     return () => {
       mapRef.current?.remove();
@@ -100,11 +137,11 @@ export function VehicleMap({ vehicles, isLoading }: VehicleMapProps) {
     };
   }, []);
 
-  // Update markers when vehicles change
+  // Update vehicle markers when vehicles change
   useEffect(() => {
-    if (!markersRef.current) return;
+    if (!vehicleMarkersRef.current) return;
 
-    markersRef.current.clearLayers();
+    vehicleMarkersRef.current.clearLayers();
     markerMapRef.current.clear();
 
     const validVehicles = vehicles.filter(
@@ -144,7 +181,7 @@ export function VehicleMap({ vehicles, isLoading }: VehicleMapProps) {
       });
 
       markerMapRef.current.set(vehicleId, marker);
-      markersRef.current!.addLayer(marker);
+      vehicleMarkersRef.current!.addLayer(marker);
     });
 
     // If not following a vehicle, fit bounds to show all
@@ -155,6 +192,42 @@ export function VehicleMap({ vehicles, isLoading }: VehicleMapProps) {
       mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
     }
   }, [vehicles, followedVehicleId]);
+
+  // Update stop markers when stops change or visibility toggles
+  useEffect(() => {
+    if (!stopMarkersRef.current || !mapRef.current) return;
+
+    stopMarkersRef.current.clearLayers();
+
+    if (!showStops) return;
+
+    const validStops = stops.filter(
+      (s) => s.stop_lat !== undefined && s.stop_lon !== undefined
+    );
+
+    validStops.forEach((stop) => {
+      const marker = L.marker([stop.stop_lat!, stop.stop_lon!], {
+        icon: createStopIcon(),
+      });
+
+      marker.bindPopup(`
+        <div class="p-3 min-w-[180px]">
+          <div class="font-semibold text-base mb-2 flex items-center gap-2">
+            <span class="inline-block w-2 h-2 bg-orange-500 rounded-full"></span>
+            ${stop.stop_name || 'Στάση'}
+          </div>
+          <div class="space-y-1.5 text-sm">
+            <div class="flex justify-between"><span class="text-muted-foreground">ID:</span><span class="font-mono">${stop.stop_id}</span></div>
+            ${stop.stop_code ? `<div class="flex justify-between"><span class="text-muted-foreground">Κωδικός:</span><span class="font-mono">${stop.stop_code}</span></div>` : ''}
+          </div>
+        </div>
+      `, {
+        className: 'stop-popup',
+      });
+
+      stopMarkersRef.current!.addLayer(marker);
+    });
+  }, [stops, showStops]);
 
   // Follow the selected vehicle in realtime
   useEffect(() => {
@@ -214,6 +287,19 @@ export function VehicleMap({ vehicles, isLoading }: VehicleMapProps) {
           </Button>
         </div>
       )}
+
+      {/* Map controls */}
+      <div className="absolute top-4 right-4 glass-card rounded-lg px-3 py-2 flex items-center gap-2 z-[1000]">
+        <Switch
+          id="show-stops"
+          checked={showStops}
+          onCheckedChange={setShowStops}
+        />
+        <Label htmlFor="show-stops" className="text-xs cursor-pointer flex items-center gap-1">
+          <MapPin className="h-3 w-3 text-orange-500" />
+          Στάσεις ({stops.length})
+        </Label>
+      </div>
       
       <div className="absolute bottom-4 left-4 glass-card rounded-lg px-3 py-2 text-sm">
         <span className="font-medium">{vehicles.filter(v => v.latitude && v.longitude).length}</span>
