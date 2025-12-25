@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { X, Navigation, MapPin, Clock, LocateFixed, Moon, Sun, Bell, BellOff, Volume2, VolumeX } from "lucide-react";
+import { X, Navigation, MapPin, Clock, LocateFixed, Moon, Sun, Bell, BellOff, Volume2, VolumeX, Star, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -121,6 +121,38 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [favoriteStops, setFavoriteStops] = useState<Set<string>>(() => {
+    // Load favorites from localStorage
+    try {
+      const saved = localStorage.getItem('favoriteStops');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+  const [showFavorites, setShowFavorites] = useState(false);
+
+  // Save favorites to localStorage when they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('favoriteStops', JSON.stringify([...favoriteStops]));
+    } catch (error) {
+      console.error('Error saving favorites:', error);
+    }
+  }, [favoriteStops]);
+
+  // Toggle favorite stop
+  const toggleFavorite = useCallback((stopId: string) => {
+    setFavoriteStops(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(stopId)) {
+        newSet.delete(stopId);
+      } else {
+        newSet.add(stopId);
+      }
+      return newSet;
+    });
+  }, []);
 
   // Play notification sound using Web Audio API
   const playNotificationSound = useCallback(() => {
@@ -1061,67 +1093,167 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
       {/* Nearby stops panel */}
       {userLocation && nearbyStops.length > 0 && (
         <div className="absolute bottom-4 right-4 glass-card rounded-lg p-3 z-[1000] max-w-[300px] max-h-[60vh] overflow-hidden flex flex-col">
-          <div className="flex items-center gap-2 mb-2">
-            <MapPin className="h-4 w-4 text-blue-500 flex-shrink-0" />
-            <span className="text-xs font-medium text-muted-foreground">
-              Στάσεις σε ακτίνα 500μ ({nearbyStops.length})
-            </span>
+          {/* Tabs for nearby and favorites */}
+          <div className="flex gap-1 mb-2">
+            <button
+              onClick={() => setShowFavorites(false)}
+              className={`flex-1 text-xs py-1 px-2 rounded-md transition-colors ${
+                !showFavorites ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              <MapPin className="h-3 w-3 inline mr-1" />
+              Κοντινές ({nearbyStops.length})
+            </button>
+            <button
+              onClick={() => setShowFavorites(true)}
+              className={`flex-1 text-xs py-1 px-2 rounded-md transition-colors ${
+                showFavorites ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              <Heart className="h-3 w-3 inline mr-1" />
+              Αγαπημένες ({favoriteStops.size})
+            </button>
           </div>
           
           <div className="overflow-auto flex-1 space-y-2 scrollbar-thin">
-            {nearbyStops.map((item, index) => {
-              const arrivals = getArrivalsForStop(item.stop.stop_id);
-              const walkTime = Math.ceil(item.distance / 83.3);
-              const isNearest = index === 0;
-              
-              return (
-                <div 
-                  key={item.stop.stop_id}
-                  className={`p-2 rounded-lg border transition-colors cursor-pointer hover:bg-muted/50 ${
-                    isNearest ? 'border-blue-500 bg-blue-500/10' : 'border-border'
-                  }`}
-                  onClick={() => {
-                    if (item.stop.stop_lat && item.stop.stop_lon) {
-                      mapRef.current?.flyTo({
-                        center: [item.stop.stop_lon, item.stop.stop_lat],
-                        zoom: 17,
-                        duration: 500
-                      });
-                    }
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <div className="font-medium text-sm flex-1 min-w-0">
-                      {isNearest && <span className="text-blue-500 mr-1">★</span>}
-                      {item.stop.stop_name || item.stop.stop_id}
+            {!showFavorites ? (
+              // Nearby stops
+              nearbyStops.map((item, index) => {
+                const arrivals = getArrivalsForStop(item.stop.stop_id);
+                const walkTime = Math.ceil(item.distance / 83.3);
+                const isNearest = index === 0;
+                const isFavorite = favoriteStops.has(item.stop.stop_id);
+                
+                return (
+                  <div 
+                    key={item.stop.stop_id}
+                    className={`p-2 rounded-lg border transition-colors ${
+                      isNearest ? 'border-blue-500 bg-blue-500/10' : 'border-border'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div 
+                        className="font-medium text-sm flex-1 min-w-0 cursor-pointer hover:text-primary"
+                        onClick={() => {
+                          if (item.stop.stop_lat && item.stop.stop_lon) {
+                            mapRef.current?.flyTo({
+                              center: [item.stop.stop_lon, item.stop.stop_lat],
+                              zoom: 17,
+                              duration: 500
+                            });
+                          }
+                        }}
+                      >
+                        {isNearest && <span className="text-blue-500 mr-1">★</span>}
+                        {item.stop.stop_name || item.stop.stop_id}
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(item.stop.stop_id);
+                        }}
+                        className="p-1 hover:bg-muted rounded transition-colors"
+                        title={isFavorite ? 'Αφαίρεση από αγαπημένα' : 'Προσθήκη στα αγαπημένα'}
+                      >
+                        <Heart className={`h-3.5 w-3.5 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} />
+                      </button>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                    <span>{Math.round(item.distance)} μ.</span>
-                    <span className="text-blue-500">~{walkTime} λεπ.</span>
-                  </div>
-                  
-                  {arrivals.length > 0 ? (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {arrivals.slice(0, 3).map((arr, idx) => (
-                        <div key={idx} className="flex items-center gap-1 text-xs">
-                          <span 
-                            className="font-bold px-1 py-0.5 rounded text-white text-[10px]"
-                            style={{ backgroundColor: arr.routeColor ? `#${arr.routeColor}` : '#0ea5e9' }}
-                          >
-                            {arr.routeShortName || '?'}
-                          </span>
-                          <span className="font-mono text-primary text-[10px]">{formatETA(arr.arrivalTime)}</span>
-                        </div>
-                      ))}
+                    
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                      <span>{Math.round(item.distance)} μ.</span>
+                      <span className="text-blue-500">~{walkTime} λεπ.</span>
                     </div>
-                  ) : (
-                    <div className="text-[10px] text-muted-foreground">Δεν υπάρχουν αφίξεις</div>
-                  )}
+                    
+                    {arrivals.length > 0 ? (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {arrivals.slice(0, 3).map((arr, idx) => (
+                          <div key={idx} className="flex items-center gap-1 text-xs">
+                            <span 
+                              className="font-bold px-1 py-0.5 rounded text-white text-[10px]"
+                              style={{ backgroundColor: arr.routeColor ? `#${arr.routeColor}` : '#0ea5e9' }}
+                            >
+                              {arr.routeShortName || '?'}
+                            </span>
+                            <span className="font-mono text-primary text-[10px]">{formatETA(arr.arrivalTime)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-muted-foreground">Δεν υπάρχουν αφίξεις</div>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              // Favorite stops
+              favoriteStops.size === 0 ? (
+                <div className="text-center py-4 text-xs text-muted-foreground">
+                  <Heart className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p>Δεν έχετε αγαπημένες στάσεις</p>
+                  <p className="mt-1">Πατήστε την καρδιά σε μια στάση</p>
                 </div>
-              );
-            })}
+              ) : (
+                [...favoriteStops].map(stopId => {
+                  const stop = stops.find(s => s.stop_id === stopId);
+                  if (!stop) return null;
+                  
+                  const arrivals = getArrivalsForStop(stopId);
+                  
+                  return (
+                    <div 
+                      key={stopId}
+                      className="p-2 rounded-lg border border-red-500/30 bg-red-500/5"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <div 
+                          className="font-medium text-sm flex-1 min-w-0 cursor-pointer hover:text-primary"
+                          onClick={() => {
+                            if (stop.stop_lat && stop.stop_lon) {
+                              mapRef.current?.flyTo({
+                                center: [stop.stop_lon, stop.stop_lat],
+                                zoom: 17,
+                                duration: 500
+                              });
+                            }
+                          }}
+                        >
+                          <Heart className="h-3 w-3 inline mr-1 fill-red-500 text-red-500" />
+                          {stop.stop_name || stop.stop_id}
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(stopId);
+                          }}
+                          className="p-1 hover:bg-muted rounded transition-colors"
+                          title="Αφαίρεση από αγαπημένα"
+                        >
+                          <X className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                      </div>
+                      
+                      {arrivals.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {arrivals.slice(0, 3).map((arr, idx) => (
+                            <div key={idx} className="flex items-center gap-1 text-xs">
+                              <span 
+                                className="font-bold px-1 py-0.5 rounded text-white text-[10px]"
+                                style={{ backgroundColor: arr.routeColor ? `#${arr.routeColor}` : '#0ea5e9' }}
+                              >
+                                {arr.routeShortName || '?'}
+                              </span>
+                              <span className="font-mono text-primary text-[10px]">{formatETA(arr.arrivalTime)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-muted-foreground">Δεν υπάρχουν αφίξεις</div>
+                      )}
+                    </div>
+                  );
+                })
+              )
+            )}
           </div>
         </div>
       )}
