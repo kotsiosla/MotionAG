@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
-import { X, Navigation, MapPin, Clock } from "lucide-react";
+import { X, Navigation, MapPin, Clock, LocateFixed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -108,6 +108,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
   const [followedVehicleId, setFollowedVehicleId] = useState<string | null>(null);
   const [showStops, setShowStops] = useState(true);
   const markerMapRef = useRef<Map<string, L.Marker>>(new Map());
+  const userLocationMarkerRef = useRef<L.Marker | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   // Create a map of tripId -> Trip for quick lookup
   const tripMap = useMemo(() => {
@@ -340,7 +343,57 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
     return stoppedAtStops;
   }, [vehicles]);
 
-  // Update stop markers when stops change or visibility toggles
+  // Handle user location
+  const locateUser = () => {
+    if (!mapRef.current) return;
+    
+    setIsLocating(true);
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserLocation({ lat: latitude, lng: longitude });
+        
+        // Create or update user location marker
+        if (userLocationMarkerRef.current) {
+          userLocationMarkerRef.current.setLatLng([latitude, longitude]);
+        } else {
+          const userIcon = L.divIcon({
+            className: 'user-location-marker',
+            html: `
+              <div class="relative">
+                <div class="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-50"></div>
+                <div class="relative w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg"></div>
+              </div>
+            `,
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
+          });
+          
+          userLocationMarkerRef.current = L.marker([latitude, longitude], { icon: userIcon })
+            .bindPopup('<div class="p-2 text-sm font-medium">📍 Η τοποθεσία σας</div>')
+            .addTo(mapRef.current!);
+        }
+        
+        // Pan to user location
+        mapRef.current?.setView([latitude, longitude], 15, { animate: true });
+        setIsLocating(false);
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        setIsLocating(false);
+        alert('Δεν ήταν δυνατή η εύρεση της τοποθεσίας σας. Βεβαιωθείτε ότι έχετε επιτρέψει την πρόσβαση στην τοποθεσία.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // Update user location marker position
+  useEffect(() => {
+    if (!userLocation || !userLocationMarkerRef.current) return;
+    userLocationMarkerRef.current.setLatLng([userLocation.lat, userLocation.lng]);
+  }, [userLocation]);
+
   useEffect(() => {
     if (!stopMarkersRef.current || !mapRef.current) return;
 
@@ -520,6 +573,18 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
           Στάσεις ({stops.length})
         </Label>
       </div>
+
+      {/* Location button */}
+      <Button
+        variant="secondary"
+        size="icon"
+        className="absolute top-16 right-4 z-[1000] glass-card h-9 w-9"
+        onClick={locateUser}
+        disabled={isLocating}
+        title="Εντοπισμός τοποθεσίας"
+      >
+        <LocateFixed className={`h-4 w-4 ${isLocating ? 'animate-pulse' : ''} ${userLocation ? 'text-blue-500' : ''}`} />
+      </Button>
       
       <div className="absolute bottom-4 left-4 glass-card rounded-lg px-3 py-2 text-sm">
         <span className="font-medium">{vehicles.filter(v => v.latitude && v.longitude).length}</span>
