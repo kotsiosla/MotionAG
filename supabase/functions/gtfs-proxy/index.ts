@@ -130,25 +130,33 @@ function parseTripDescriptor(data: Uint8Array): Record<string, unknown> {
   const fields = parseProtobuf(data);
   const trip: Record<string, unknown> = {};
   
+  // GTFS-RT TripDescriptor field numbers:
+  // 1: trip_id
+  // 2: start_time (e.g., "23:10:00")
+  // 3: start_date (e.g., "20251225")
+  // 4: schedule_relationship
+  // 5: route_id (e.g., "58")
+  // 6: direction_id
+  
   for (const field of fields) {
     switch (field.fieldNumber) {
       case 1:
         if (field.rawBytes) trip.tripId = readString(field.rawBytes, 0, field.rawBytes.length);
         break;
       case 2:
-        if (field.rawBytes) trip.routeId = readString(field.rawBytes, 0, field.rawBytes.length);
-        break;
-      case 3:
-        trip.directionId = field.value;
-        break;
-      case 4:
         if (field.rawBytes) trip.startTime = readString(field.rawBytes, 0, field.rawBytes.length);
         break;
-      case 5:
+      case 3:
         if (field.rawBytes) trip.startDate = readString(field.rawBytes, 0, field.rawBytes.length);
         break;
-      case 6:
+      case 4:
         trip.scheduleRelationship = field.value;
+        break;
+      case 5:
+        if (field.rawBytes) trip.routeId = readString(field.rawBytes, 0, field.rawBytes.length);
+        break;
+      case 6:
+        trip.directionId = field.value;
         break;
     }
   }
