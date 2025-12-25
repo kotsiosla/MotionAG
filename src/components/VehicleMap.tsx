@@ -406,10 +406,11 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
   };
 
   // Find nearest stop to user location
-  const nearestStop = useMemo(() => {
+  const nearestStopData = useMemo(() => {
     if (!userLocation) return null;
     
-    let nearest: { stop: StaticStop; distance: number } | null = null;
+    let nearestId: string | null = null;
+    let minDistance = Infinity;
     
     stops.forEach(stop => {
       if (stop.stop_lat === undefined || stop.stop_lon === undefined) return;
@@ -419,21 +420,33 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
         stop.stop_lat, stop.stop_lon
       );
       
-      if (!nearest || distance < nearest.distance) {
-        nearest = { stop, distance };
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestId = stop.stop_id;
       }
     });
     
-    return nearest;
+    return nearestId ? { stopId: nearestId, distance: minDistance } : null;
   }, [userLocation, stops]);
+
+  // Get the actual stop object (stable reference when stopId doesn't change)
+  const nearestStop = useMemo(() => {
+    if (!nearestStopData) return null;
+    const stop = stops.find(s => s.stop_id === nearestStopData.stopId);
+    return stop ? { stop, distance: nearestStopData.distance } : null;
+  }, [nearestStopData?.stopId, nearestStopData?.distance, stops]);
 
   // Calculate walking time (average walking speed ~5 km/h = 83.3 m/min)
   const walkingTimeMinutes = useMemo(() => {
     if (!nearestStop) return null;
     return Math.ceil(nearestStop.distance / 83.3);
-  }, [nearestStop]);
+  }, [nearestStop?.distance]);
 
-  // Draw walking route to nearest stop
+  // Draw walking route to nearest stop - only when stopId or userLocation changes
+  const nearestStopId = nearestStopData?.stopId;
+  const nearestStopLat = nearestStop?.stop.stop_lat;
+  const nearestStopLon = nearestStop?.stop.stop_lon;
+  
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -444,10 +457,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
     }
 
     // Draw new route if we have user location and nearest stop
-    if (userLocation && nearestStop?.stop.stop_lat && nearestStop?.stop.stop_lon) {
+    if (userLocation && nearestStopLat && nearestStopLon) {
       const routeCoords: L.LatLngExpression[] = [
         [userLocation.lat, userLocation.lng],
-        [nearestStop.stop.stop_lat, nearestStop.stop.stop_lon]
+        [nearestStopLat, nearestStopLon]
       ];
 
       walkingRouteRef.current = L.polyline(routeCoords, {
@@ -458,7 +471,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
         className: 'walking-route'
       }).addTo(mapRef.current);
     }
-  }, [userLocation, nearestStop]);
+  }, [userLocation?.lat, userLocation?.lng, nearestStopId, nearestStopLat, nearestStopLon]);
 
   // Update user location marker position
   useEffect(() => {
