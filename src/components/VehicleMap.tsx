@@ -388,6 +388,44 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
     );
   };
 
+  // Calculate distance between two points (Haversine formula)
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // Distance in meters
+  };
+
+  // Find nearest stop to user location
+  const nearestStop = useMemo(() => {
+    if (!userLocation) return null;
+    
+    let nearest: { stop: StaticStop; distance: number } | null = null;
+    
+    stops.forEach(stop => {
+      if (stop.stop_lat === undefined || stop.stop_lon === undefined) return;
+      
+      const distance = calculateDistance(
+        userLocation.lat, userLocation.lng,
+        stop.stop_lat, stop.stop_lon
+      );
+      
+      if (!nearest || distance < nearest.distance) {
+        nearest = { stop, distance };
+      }
+    });
+    
+    return nearest;
+  }, [userLocation, stops]);
+
   // Update user location marker position
   useEffect(() => {
     if (!userLocation || !userLocationMarkerRef.current) return;
@@ -585,6 +623,59 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
       >
         <LocateFixed className={`h-4 w-4 ${isLocating ? 'animate-pulse' : ''} ${userLocation ? 'text-blue-500' : ''}`} />
       </Button>
+
+      {/* Nearest stop info */}
+      {nearestStop && userLocation && (
+        <div className="absolute bottom-4 right-4 glass-card rounded-lg p-3 z-[1000] max-w-[280px]">
+          <div className="flex items-center gap-2 mb-2">
+            <MapPin className="h-4 w-4 text-blue-500 flex-shrink-0" />
+            <span className="text-xs font-medium text-muted-foreground">Κοντινότερη στάση</span>
+          </div>
+          <div className="font-medium text-sm mb-1">{nearestStop.stop.stop_name || nearestStop.stop.stop_id}</div>
+          <div className="text-xs text-muted-foreground mb-2">
+            {nearestStop.distance < 1000 
+              ? `${Math.round(nearestStop.distance)} μέτρα` 
+              : `${(nearestStop.distance / 1000).toFixed(1)} χλμ`}
+          </div>
+          {(() => {
+            const arrivals = getArrivalsForStop(nearestStop.stop.stop_id);
+            if (arrivals.length === 0) return <div className="text-xs text-muted-foreground">Δεν υπάρχουν αφίξεις</div>;
+            return (
+              <div className="space-y-1 border-t border-border pt-2">
+                {arrivals.slice(0, 3).map((arr, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-xs">
+                    <span 
+                      className="font-bold px-1.5 py-0.5 rounded text-white"
+                      style={{ backgroundColor: arr.routeColor ? `#${arr.routeColor}` : '#0ea5e9' }}
+                    >
+                      {arr.routeShortName || arr.routeId || '?'}
+                    </span>
+                    <span className="font-mono text-primary">{formatETA(arr.arrivalTime)}</span>
+                    {arr.arrivalDelay !== undefined && arr.arrivalDelay !== 0 && (
+                      <span className={arr.arrivalDelay > 0 ? 'text-destructive' : 'text-green-500'}>
+                        {formatDelay(arr.arrivalDelay)}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full mt-2 text-xs h-7"
+            onClick={() => {
+              if (nearestStop.stop.stop_lat && nearestStop.stop.stop_lon) {
+                mapRef.current?.setView([nearestStop.stop.stop_lat, nearestStop.stop.stop_lon], 17, { animate: true });
+              }
+            }}
+          >
+            <Navigation className="h-3 w-3 mr-1" />
+            Πήγαινε στη στάση
+          </Button>
+        </div>
+      )}
       
       <div className="absolute bottom-4 left-4 glass-card rounded-lg px-3 py-2 text-sm">
         <span className="font-medium">{vehicles.filter(v => v.latitude && v.longitude).length}</span>
