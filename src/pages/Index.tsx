@@ -142,63 +142,6 @@ const Index = () => {
       )}
 
       <main className="flex-1 container mx-auto px-4 py-6">
-        <section className="mb-8">
-          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-            <div className="space-y-4 rounded-3xl border border-border/60 bg-card/80 p-6 shadow-sm">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-primary">
-                  Motionbus Live
-                </span>
-                <span className="rounded-full border border-border/60 px-3 py-1 text-xs text-muted-foreground">
-                  Νέο UI
-                </span>
-              </div>
-              <h2 className="text-3xl font-semibold">Κέντρο Ελέγχου Δικτύου</h2>
-              <p className="text-sm text-muted-foreground max-w-2xl">
-                Κεντρικοποίησε την εικόνα του στόλου, των δρομολογίων και των ειδοποιήσεων. Διάλεξε operator, φίλτραρε
-                γραμμές και δες αμέσως τι συμβαίνει στο δίκτυο.
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <Button size="sm" className="rounded-full">
-                  Άνοιγμα Χάρτη
-                </Button>
-                <Button size="sm" variant="outline" className="rounded-full">
-                  Δες ειδοποιήσεις
-                </Button>
-                <div className="flex items-center gap-3 rounded-full border border-border/60 bg-background/80 px-4 py-2 text-xs text-muted-foreground">
-                  <span className={`h-2.5 w-2.5 rounded-full ${isLoading ? "bg-warning animate-pulse" : "bg-success"}`} />
-                  <span>Τελευταία ενημέρωση</span>
-                  <span className="font-semibold text-foreground">{formattedLastUpdate}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-border/60 bg-card/80 p-6 shadow-sm">
-              <h3 className="text-sm font-semibold">Σύνοψη δικτύου</h3>
-              <div className="mt-4 space-y-3 text-sm text-muted-foreground">
-                <div className="flex items-center justify-between">
-                  <span>Ενεργές γραμμές</span>
-                  <span className="font-semibold text-foreground">{routeCount}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Ζωντανά οχήματα</span>
-                  <span className="font-semibold text-foreground">{vehicleCount}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Ενεργά δρομολόγια</span>
-                  <span className="font-semibold text-foreground">{tripCount}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Σύνολο στάσεων</span>
-                  <span className="font-semibold text-foreground">{stopCount}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Ειδοποιήσεις</span>
-                  <span className="font-semibold text-foreground">{alertCount}</span>
-                </div>
-              </div>
-              <div className="mt-5 rounded-2xl bg-muted/60 p-4 text-xs text-muted-foreground">
-                Ενημέρωση live δεδομένων κάθε {refreshInterval} sec.
               </div>
             </div>
           </div>
@@ -240,15 +183,6 @@ const Index = () => {
                 <span className="rounded-full bg-destructive/10 p-2 text-destructive">
                   <Bell className="h-4 w-4" />
                 </span>
-              </div>
-              <p className="mt-3 text-2xl font-semibold">
-                {routeCount} / {alertCount}
-              </p>
-              <p className="text-xs text-muted-foreground">Routes & alerts</p>
-            </div>
-          </div>
-        </section>
-
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-4">
           <TabsList className="grid w-full grid-cols-4 rounded-full bg-muted/60 p-1 shadow-sm">
             <TabsTrigger value="map" className="flex items-center gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow">
