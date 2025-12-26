@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Map as MapIcon, Route, MapPin, Bell } from "lucide-react";
+import { Map as MapIcon, Route, MapPin, Bell, Bus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Header } from "@/components/Header";
 import { ErrorBanner } from "@/components/ErrorBanner";
@@ -102,9 +102,21 @@ const Index = () => {
   };
 
   const alertCount = alertsQuery.data?.data?.length || 0;
+  const vehicleCount = filteredVehicles.length;
+  const tripCount = filteredTrips.length;
+  const stopCount = staticStopsQuery.data?.data?.length || 0;
+  const routeCount = selectedRoute === "all" ? availableRoutes.length : 1;
+  const formattedLastUpdate = lastUpdate
+    ? new Date(lastUpdate).toLocaleTimeString("el-GR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      })
+    : "—";
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-background via-background to-muted/30">
       <Header
         isDark={isDark}
         onToggleTheme={() => setIsDark(!isDark)}
@@ -128,22 +140,85 @@ const Index = () => {
         <ErrorBanner message={errorMessage || "Αποτυχία σύνδεσης"} onRetry={handleRetry} />
       )}
 
-      <main className="flex-1 container mx-auto px-4 py-2">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-4 mb-2">
-            <TabsTrigger value="map" className="flex items-center gap-2">
+      <main className="flex-1 container mx-auto px-4 py-6">
+        <section className="mb-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-[0.35em] text-muted-foreground">Motionbus Live</p>
+              <h2 className="text-3xl font-semibold">Κέντρο Ζωντανής Παρακολούθησης</h2>
+              <p className="text-sm text-muted-foreground max-w-2xl">
+                Παρακολούθησε στόλο, δρομολόγια και ειδοποιήσεις σε πραγματικό χρόνο, με γρήγορα φίλτρα και
+                καθαρή εικόνα της κατάστασης στο δίκτυο.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card/80 px-4 py-3 shadow-sm">
+              <span className={`h-2.5 w-2.5 rounded-full ${isLoading ? "bg-warning animate-pulse" : "bg-success"}`} />
+              <div>
+                <p className="text-xs text-muted-foreground">Τελευταία ενημέρωση</p>
+                <p className="text-sm font-semibold">{formattedLastUpdate}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">Οχήματα σε κίνηση</p>
+                <span className="rounded-full bg-primary/10 p-2 text-primary">
+                  <Bus className="h-4 w-4" />
+                </span>
+              </div>
+              <p className="mt-3 text-2xl font-semibold">{vehicleCount}</p>
+              <p className="text-xs text-muted-foreground">Live vehicles</p>
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">Ενεργά δρομολόγια</p>
+                <span className="rounded-full bg-accent/10 p-2 text-accent">
+                  <Route className="h-4 w-4" />
+                </span>
+              </div>
+              <p className="mt-3 text-2xl font-semibold">{tripCount}</p>
+              <p className="text-xs text-muted-foreground">Trips now</p>
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">Διαθέσιμες στάσεις</p>
+                <span className="rounded-full bg-warning/10 p-2 text-warning">
+                  <MapPin className="h-4 w-4" />
+                </span>
+              </div>
+              <p className="mt-3 text-2xl font-semibold">{stopCount}</p>
+              <p className="text-xs text-muted-foreground">Static stops</p>
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">Δίκτυο & ειδοποιήσεις</p>
+                <span className="rounded-full bg-destructive/10 p-2 text-destructive">
+                  <Bell className="h-4 w-4" />
+                </span>
+              </div>
+              <p className="mt-3 text-2xl font-semibold">{routeCount} / {alertCount}</p>
+              <p className="text-xs text-muted-foreground">Routes & alerts</p>
+            </div>
+          </div>
+        </section>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-4">
+          <TabsList className="grid w-full grid-cols-4 rounded-full bg-muted/60 p-1 shadow-sm">
+            <TabsTrigger value="map" className="flex items-center gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow">
               <MapIcon className="h-4 w-4" />
               <span className="hidden sm:inline">Χάρτης</span>
             </TabsTrigger>
-            <TabsTrigger value="trips" className="flex items-center gap-2">
+            <TabsTrigger value="trips" className="flex items-center gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow">
               <Route className="h-4 w-4" />
               <span className="hidden sm:inline">Δρομολόγια</span>
             </TabsTrigger>
-            <TabsTrigger value="stops" className="flex items-center gap-2">
+            <TabsTrigger value="stops" className="flex items-center gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow">
               <MapPin className="h-4 w-4" />
               <span className="hidden sm:inline">Στάσεις</span>
             </TabsTrigger>
-            <TabsTrigger value="alerts" className="flex items-center gap-2 relative">
+            <TabsTrigger value="alerts" className="flex items-center gap-2 relative rounded-full data-[state=active]:bg-background data-[state=active]:shadow">
               <Bell className="h-4 w-4" />
               <span className="hidden sm:inline">Ειδοποιήσεις</span>
               {alertCount > 0 && (
@@ -154,8 +229,8 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 min-h-0 glass-card rounded-lg overflow-hidden">
-            <TabsContent value="map" className="h-[calc(100vh-220px)] m-0">
+          <div className="flex-1 min-h-[520px] glass-card rounded-2xl overflow-hidden">
+            <TabsContent value="map" className="h-full m-0">
               <VehicleMap
                 vehicles={filteredVehicles}
                 trips={filteredTrips}
@@ -170,7 +245,7 @@ const Index = () => {
               />
             </TabsContent>
 
-            <TabsContent value="trips" className="h-[calc(100vh-220px)] m-0">
+            <TabsContent value="trips" className="h-full m-0">
               <TripsTable
                 trips={filteredTrips}
                 isLoading={tripsQuery.isLoading}
@@ -178,14 +253,14 @@ const Index = () => {
               />
             </TabsContent>
 
-            <TabsContent value="stops" className="h-[calc(100vh-220px)] m-0">
+            <TabsContent value="stops" className="h-full m-0">
               <StopsView
                 trips={filteredTrips}
                 isLoading={tripsQuery.isLoading}
               />
             </TabsContent>
 
-            <TabsContent value="alerts" className="h-[calc(100vh-220px)] m-0 overflow-auto">
+            <TabsContent value="alerts" className="h-full m-0 overflow-auto">
               <AlertsList
                 alerts={alertsQuery.data?.data || []}
                 isLoading={alertsQuery.isLoading}
