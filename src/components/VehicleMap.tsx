@@ -85,17 +85,20 @@ const createVehicleElement = (bearing?: number, isFollowed?: boolean, routeColor
 };
 
 // Create stop marker element
-const createStopElement = (hasVehicleStopped?: boolean) => {
+const createStopElement = (hasVehicleStopped?: boolean, isFavorite?: boolean) => {
   const el = document.createElement('div');
   el.className = 'stop-marker-maplibre';
-  const bgColor = hasVehicleStopped ? '#22c55e' : '#f97316';
+  // Priority: vehicle stopped (green) > favorite (pink/red) > normal (orange)
+  const bgColor = hasVehicleStopped ? '#22c55e' : isFavorite ? '#ec4899' : '#f97316';
   
   el.innerHTML = `
-    <div style="width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: ${bgColor}; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+    <div style="width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: ${bgColor}; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3)${isFavorite ? ', 0 0 8px ' + bgColor : ''};">
       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         ${hasVehicleStopped 
           ? '<rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="7" cy="18" r="1.5" fill="white"/><circle cx="17" cy="18" r="1.5" fill="white"/>' 
-          : '<circle cx="12" cy="12" r="3"/>'}
+          : isFavorite 
+            ? '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>'
+            : '<circle cx="12" cy="12" r="3"/>'}
       </svg>
     </div>
   `;
@@ -684,7 +687,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       const hasVehicleStopped = stopsWithVehicles.has(stop.stop_id);
       const arrivals = getArrivalsForStop(stop.stop_id);
       
-      const el = createStopElement(hasVehicleStopped);
+      const isFavorite = favoriteStops.has(stop.stop_id);
+      const el = createStopElement(hasVehicleStopped, isFavorite);
 
       const statusColor = hasVehicleStopped ? '#22c55e' : '#f97316';
       const statusText = hasVehicleStopped ? '<div style="color: #22c55e; font-weight: 500; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e5e5;">🚌 Λεωφορείο στη στάση</div>' : '';
@@ -747,7 +751,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
 
       stopMarkersRef.current.set(stop.stop_id, marker);
     });
-  }, [stops, showStops, stopsWithVehicles, getArrivalsForStop]);
+  }, [stops, showStops, stopsWithVehicles, getArrivalsForStop, favoriteStops]);
 
   // Handle user location
   const locateUser = () => {
