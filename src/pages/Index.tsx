@@ -183,11 +183,6 @@ const Index = () => {
                 <span className="rounded-full bg-destructive/10 p-2 text-destructive">
                   <Bell className="h-4 w-4" />
                 </span>
-              </div
-              <p className="text-xs text-muted-foreground">Routes & alerts</p>
-            </div>
-          </div>
-        </section>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-4">
           <TabsList className="grid w-full grid-cols-4 rounded-full bg-muted/60 p-1 shadow-sm">
             <TabsTrigger value="map" className="flex items-center gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow">
