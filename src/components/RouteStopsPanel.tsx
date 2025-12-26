@@ -204,23 +204,83 @@ export function RouteStopsPanel({
 
   // Find which stop each vehicle is at or approaching
   const vehiclePositions = useMemo(() => {
-    const positions = new Map<string, { vehicleId: string; label?: string; status: 'at' | 'approaching' }>();
+    const positions = new Map<string, { vehicleId: string; label?: string; status: 'at' | 'approaching'; stopSequence: number }>();
     
     routeVehicles.forEach(vehicle => {
       if (vehicle.stopId) {
         const existing = positions.get(vehicle.stopId);
+        const stopData = orderedStops.find(s => s.stopId === vehicle.stopId);
         if (!existing) {
           positions.set(vehicle.stopId, {
             vehicleId: vehicle.vehicleId,
             label: vehicle.label,
-            status: vehicle.currentStatus === 'STOPPED_AT' ? 'at' : 'approaching'
+            status: vehicle.currentStatus === 'STOPPED_AT' ? 'at' : 'approaching',
+            stopSequence: stopData?.stopSequence || 0
           });
         }
       }
     });
     
     return positions;
-  }, [routeVehicles]);
+  }, [routeVehicles, orderedStops]);
+
+  // Track previous vehicle positions for animation
+  const prevVehiclePositionsRef = useRef<Map<string, string>>(new Map());
+  const [animatingVehicles, setAnimatingVehicles] = useState<Map<string, { fromStopId: string; toStopId: string; progress: number }>>(new Map());
+
+  // Detect vehicle movement and trigger animation
+  useEffect(() => {
+    const newAnimations = new Map<string, { fromStopId: string; toStopId: string; progress: number }>();
+    
+    vehiclePositions.forEach((pos, stopId) => {
+      const prevStopId = prevVehiclePositionsRef.current.get(pos.vehicleId);
+      
+      if (prevStopId && prevStopId !== stopId) {
+        // Vehicle moved to a new stop - start animation
+        newAnimations.set(pos.vehicleId, {
+          fromStopId: prevStopId,
+          toStopId: stopId,
+          progress: 0
+        });
+      }
+      
+      prevVehiclePositionsRef.current.set(pos.vehicleId, stopId);
+    });
+    
+    if (newAnimations.size > 0) {
+      setAnimatingVehicles(newAnimations);
+      
+      // Animate progress
+      let startTime: number | null = null;
+      const duration = 1500; // 1.5 seconds animation
+      
+      const animate = (timestamp: number) => {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Ease out cubic
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        
+        setAnimatingVehicles(prev => {
+          const updated = new Map(prev);
+          updated.forEach((anim, vehicleId) => {
+            updated.set(vehicleId, { ...anim, progress: easeProgress });
+          });
+          return updated;
+        });
+        
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          // Animation complete
+          setAnimatingVehicles(new Map());
+        }
+      };
+      
+      requestAnimationFrame(animate);
+    }
+  }, [vehiclePositions]);
 
   const totalPages = Math.ceil(orderedStops.length / STOPS_PER_PAGE);
   
@@ -476,7 +536,44 @@ export function RouteStopsPanel({
                 />
                 
                 {/* Stops */}
-                <div className="space-y-0">
+                <div className="space-y-0 relative">
+                  {/* Animated bus moving between stops */}
+                  {Array.from(animatingVehicles.entries()).map(([vehicleId, anim]) => {
+                    const fromIndex = currentStops.findIndex(s => s.stopId === anim.fromStopId);
+                    const toIndex = currentStops.findIndex(s => s.stopId === anim.toStopId);
+                    
+                    // Only show animation if both stops are on current page
+                    if (fromIndex === -1 || toIndex === -1) return null;
+                    
+                    // Calculate position (each stop is roughly 40px apart based on py-1.5 + content)
+                    const stopHeight = 44; // Approximate height of each stop item
+                    const fromY = fromIndex * stopHeight + 12;
+                    const toY = toIndex * stopHeight + 12;
+                    const currentY = fromY + (toY - fromY) * anim.progress;
+                    
+                    return (
+                      <div
+                        key={`animated-bus-${vehicleId}`}
+                        className="absolute left-0 z-20 pointer-events-none"
+                        style={{
+                          top: currentY,
+                          transform: 'translateY(-50%)',
+                          transition: 'none'
+                        }}
+                      >
+                        <div 
+                          className="w-7 h-7 rounded-full flex items-center justify-center shadow-lg"
+                          style={{ 
+                            backgroundColor: routeColor,
+                            boxShadow: `0 0 12px ${routeColor}, 0 4px 8px rgba(0,0,0,0.3)`
+                          }}
+                        >
+                          <Bus className="h-4 w-4 text-white" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
                   {currentStops.map((stop, index) => {
                     const globalIndex = globalStartIndex + index;
                     const isFirst = globalIndex === 0;
@@ -486,11 +583,22 @@ export function RouteStopsPanel({
                     const vehicleHere = vehiclePositions.get(stop.stopId);
                     const isHighlighted = highlightedStopId === stop.stopId;
                     
+                    // Check if any vehicle is currently animating away from or to this stop
+                    const isAnimatingAway = Array.from(animatingVehicles.values()).some(
+                      anim => anim.fromStopId === stop.stopId && anim.progress < 1
+                    );
+                    const isAnimatingTo = Array.from(animatingVehicles.values()).some(
+                      anim => anim.toStopId === stop.stopId && anim.progress < 1
+                    );
+                    
+                    // Hide static bus icon if it's animating
+                    const showStaticBus = vehicleHere && !isAnimatingAway && !isAnimatingTo;
+                    
                     return (
                       <div 
                         key={stop.stopId}
                         className={`stop-item relative flex items-start gap-3 py-1.5 cursor-pointer hover:bg-muted/50 rounded-lg transition-all group pl-1 ${
-                          vehicleHere ? 'bg-primary/10' : ''
+                          vehicleHere && !isAnimatingAway ? 'bg-primary/10' : ''
                         } ${isHighlighted ? 'bg-cyan-500/20 ring-2 ring-cyan-500 ring-inset' : ''}`}
                         onClick={() => handleStopClick(stop)}
                         onTouchEnd={(e) => {
@@ -500,9 +608,9 @@ export function RouteStopsPanel({
                       >
                         {/* Station dot / Bus icon */}
                         <div className="relative z-10 flex-shrink-0">
-                          {vehicleHere ? (
+                          {showStaticBus ? (
                             <div 
-                              className="w-6 h-6 rounded-full flex items-center justify-center animate-pulse"
+                              className="w-6 h-6 rounded-full flex items-center justify-center animate-pulse transition-all duration-300"
                               style={{ backgroundColor: routeColor }}
                             >
                               <Bus className="h-3.5 w-3.5 text-white" />
