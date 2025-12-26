@@ -684,33 +684,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
     mapRef.current.dragRotate.enable();
     mapRef.current.touchZoomRotate.enableRotation();
 
-    // Add bus route shapes and route planning layers when map loads
+    // Add route planning layers when map loads
     mapRef.current.on('load', () => {
-      if (mapRef.current && !mapRef.current.getSource('bus-shapes')) {
-        // Add bus route shapes source (initially empty)
-        mapRef.current.addSource('bus-shapes', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] }
-        });
-
-        // Add bus route shape layer
-        mapRef.current.addLayer({
-          id: 'bus-shapes-layer',
-          type: 'line',
-          source: 'bus-shapes',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round'
-          },
-          paint: {
-            'line-color': ['get', 'color'],
-            'line-width': 4,
-            'line-opacity': 0.8
-          }
-        });
-
-        shapesSourceRef.current = true;
-
+      if (mapRef.current && !mapRef.current.getSource('route-line')) {
         // Add route planning source (no layer for now - disabled)
         mapRef.current!.addSource('route-line', {
           type: 'geojson',
@@ -799,85 +775,19 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
     }
   }, [isNightMode, mapLoaded]);
 
-  // Update route shapes when selected route changes
+  // Handle route selection - show stops and zoom to live vehicle
   useEffect(() => {
-    if (!mapRef.current || !mapLoaded || !shapesSourceRef.current) return;
+    if (!mapRef.current || !mapLoaded) return;
     
     const map = mapRef.current;
-    const source = map.getSource('bus-shapes') as maplibregl.GeoJSONSource;
-    if (!source) return;
 
-    // If no route selected or "all" selected, clear shapes and hide stops
+    // If no route selected or "all" selected, hide stops
     if (!selectedRoute || selectedRoute === 'all') {
-      source.setData({ type: 'FeatureCollection', features: [] });
       return;
     }
 
     // Enable stops display when a route is selected
     setShowStops(true);
-
-    // Find shape_ids for the selected route using tripMappings
-    const routeShapeIds = new Set<string>();
-    tripMappings.forEach(mapping => {
-      if (mapping.route_id === selectedRoute) {
-        routeShapeIds.add(mapping.shape_id);
-      }
-    });
-
-    // If no shapes found for this route, clear
-    if (routeShapeIds.size === 0) {
-      source.setData({ type: 'FeatureCollection', features: [] });
-      return;
-    }
-
-    // Group shape points by shape_id
-    const shapePointsMap = new Map<string, ShapePoint[]>();
-    shapes.forEach(point => {
-      if (routeShapeIds.has(point.shape_id)) {
-        if (!shapePointsMap.has(point.shape_id)) {
-          shapePointsMap.set(point.shape_id, []);
-        }
-        shapePointsMap.get(point.shape_id)!.push(point);
-      }
-    });
-
-    // Get route color
-    const routeInfo = routeNamesMap?.get(selectedRoute);
-    const routeColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : '#3b82f6';
-
-    // Create GeoJSON features and calculate bounds
-    const features: GeoJSON.Feature[] = [];
-    let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
-    
-    shapePointsMap.forEach((points, shapeId) => {
-      // Sort by sequence
-      points.sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence);
-      
-      // Create line coordinates and update bounds
-      const coordinates = points.map(p => {
-        minLng = Math.min(minLng, p.shape_pt_lon);
-        maxLng = Math.max(maxLng, p.shape_pt_lon);
-        minLat = Math.min(minLat, p.shape_pt_lat);
-        maxLat = Math.max(maxLat, p.shape_pt_lat);
-        return [p.shape_pt_lon, p.shape_pt_lat];
-      });
-      
-      if (coordinates.length >= 2) {
-        features.push({
-          type: 'Feature',
-          properties: { 
-            shape_id: shapeId,
-            color: routeColor
-          },
-          geometry: {
-            type: 'LineString',
-            coordinates
-          }
-        });
-      }
-    });
-
-    source.setData({ type: 'FeatureCollection', features });
 
     // Find live vehicle on this route
     const liveVehicle = vehicles.find(v => 
@@ -886,7 +796,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       v.longitude !== undefined
     );
 
-    // Zoom to fit the route or center on live vehicle
+    // Zoom to live vehicle or route area
     if (liveVehicle && liveVehicle.latitude && liveVehicle.longitude) {
       // If there's a live bus, center on it at street level and follow it
       map.flyTo({
@@ -896,14 +806,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       });
       // Auto-follow the live vehicle
       setFollowedVehicleId(liveVehicle.vehicleId || liveVehicle.id);
-    } else if (minLng !== Infinity && features.length > 0) {
-      // Otherwise fit to route bounds
-      map.fitBounds(
-        [[minLng, minLat], [maxLng, maxLat]],
-        { padding: 50, duration: 1000, maxZoom: 14 }
-      );
     }
-  }, [selectedRoute, shapes, tripMappings, routeNamesMap, mapLoaded, vehicles]);
+  }, [selectedRoute, mapLoaded, vehicles]);
 
   // Get stops with vehicles currently stopped
   const stopsWithVehicles = useMemo(() => {
