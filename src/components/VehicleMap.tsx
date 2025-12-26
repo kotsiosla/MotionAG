@@ -19,6 +19,7 @@ interface VehicleMapProps {
   routeNamesMap?: Map<string, RouteInfo>;
   isLoading: boolean;
   selectedRoute?: string;
+  isActive?: boolean;
 }
 
 const formatTimestamp = (timestamp?: number) => {
@@ -103,7 +104,17 @@ const createStopElement = (hasVehicleStopped?: boolean) => {
   return el;
 };
 
-export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], tripMappings = [], routeNamesMap, isLoading, selectedRoute }: VehicleMapProps) {
+export function VehicleMap({
+  vehicles,
+  trips = [],
+  stops = [],
+  shapes = [],
+  tripMappings = [],
+  routeNamesMap,
+  isLoading,
+  selectedRoute,
+  isActive = true,
+}: VehicleMapProps) {
   const { toast } = useToast();
   const mapRef = useRef<maplibregl.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -517,6 +528,24 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       }
     }
   }, [isNightMode, mapLoaded]);
+
+  useEffect(() => {
+    if (!mapRef.current || !isActive) return;
+
+    const map = mapRef.current;
+    const resize = () => map.resize();
+    const rafId = requestAnimationFrame(resize);
+    const timeoutId = window.setTimeout(resize, 150);
+
+    if (!map.isStyleLoaded()) {
+      map.once('load', resize);
+    }
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.clearTimeout(timeoutId);
+    };
+  }, [isActive]);
 
   // Get stops with vehicles currently stopped
   const stopsWithVehicles = useMemo(() => {
