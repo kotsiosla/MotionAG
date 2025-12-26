@@ -531,7 +531,6 @@ export function VehicleMap({
 
   useEffect(() => {
     if (!mapRef.current || !containerRef.current || !isActive) return;
-
     const map = mapRef.current;
     const container = containerRef.current;
     let rafId: number | null = null;
