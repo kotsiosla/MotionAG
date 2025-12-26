@@ -82,7 +82,7 @@ export function Header({
                 onChange={onOperatorChange}
               />
             </div>
-            <div className="flex items-center gap-3 flex-wrap justify-center">
+            <div className="flex items-center gap-3 flex-wrap justify-center mt-2">
               <RouteSelector
                 value={selectedRoute}
                 onChange={onRouteChange}
