@@ -146,15 +146,15 @@ export function SchedulePanel({
       >
         <div className="flex items-center gap-2">
           <CalendarDays className="h-5 w-5" style={{ color: routeTextColor }} />
+          <span className="text-sm font-medium" style={{ color: routeTextColor }}>
+            Πρόγραμμα της
+          </span>
           <div 
             className="font-bold text-sm px-2 py-0.5 rounded-md"
             style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: routeTextColor }}
           >
             {routeInfo?.route_short_name || selectedRoute}
           </div>
-          <span className="text-sm font-medium" style={{ color: routeTextColor }}>
-            Δρομολόγια
-          </span>
         </div>
         <Button
           variant="ghost"

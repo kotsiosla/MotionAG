@@ -187,7 +187,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
   const [is3DMode, setIs3DMode] = useState(false);
   const [selectingMode, setSelectingMode] = useState<'origin' | 'destination' | null>(null);
   const [showRouteStopsPanel, setShowRouteStopsPanel] = useState(true);
-  const [showSchedulePanel, setShowSchedulePanel] = useState(false);
+  const [showSchedulePanel, setShowSchedulePanel] = useState(true);
   const [highlightedStopId, setHighlightedStopId] = useState<string | null>(null);
   const highlightedMarkerRef = useRef<maplibregl.Marker | null>(null);
 
@@ -1796,17 +1796,6 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
             <span className="font-medium">{routeTerminals.totalKm} km</span>
           </div>
         )}
-        {selectedRoute && selectedRoute !== 'all' && selectedOperator && selectedOperator !== 'all' && (
-          <Button
-            variant={showSchedulePanel ? "default" : "outline"}
-            size="sm"
-            className={`h-8 text-xs gap-1.5 ml-2 ${showSchedulePanel ? '' : 'bg-primary/10 border-primary text-primary hover:bg-primary/20'}`}
-            onClick={() => setShowSchedulePanel(!showSchedulePanel)}
-          >
-            <Clock className="h-4 w-4" />
-            <span className="font-medium">Πρόγραμμα</span>
-          </Button>
-        )}
       </div>
 
       {/* Route Stops Panel - Metro style */}
@@ -2126,7 +2115,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       )}
 
       {/* Schedule Panel */}
-      {selectedRoute && selectedRoute !== 'all' && showSchedulePanel && selectedOperator && selectedOperator !== 'all' && (
+      {selectedRoute && selectedRoute !== 'all' && showSchedulePanel && selectedOperator && (
         <SchedulePanel
           selectedRoute={selectedRoute}
           routeInfo={routeNamesMap?.get(selectedRoute)}
