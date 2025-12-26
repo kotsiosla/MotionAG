@@ -140,52 +140,7 @@ const Index = () => {
       {hasError && (
         <ErrorBanner message={errorMessage || "Αποτυχία σύνδεσης"} onRetry={handleRetry} />
       )}
-
-      <main className="flex-1 container mx-auto px-4 py-6">
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Οχήματα σε κίνηση</p>
-                <span className="rounded-full bg-primary/10 p-2 text-primary">
-                  <Bus className="h-4 w-4" />
-                </span>
-              </div>
-              <p className="mt-3 text-2xl font-semibold">{vehicleCount}</p>
-              <p className="text-xs text-muted-foreground">Live vehicles</p>
-            </div>
-            <div className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Ενεργά δρομολόγια</p>
-                <span className="rounded-full bg-accent/10 p-2 text-accent">
-                  <Route className="h-4 w-4" />
-                </span>
-              </div>
-              <p className="mt-3 text-2xl font-semibold">{tripCount}</p>
-              <p className="text-xs text-muted-foreground">Trips now</p>
-            </div>
-            <div className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Διαθέσιμες στάσεις</p>
-                <span className="rounded-full bg-warning/10 p-2 text-warning">
-                  <MapPin className="h-4 w-4" />
-                </span>
-              </div>
-              <p className="mt-3 text-2xl font-semibold">{stopCount}</p>
-              <p className="text-xs text-muted-foreground">Static stops</p>
-            </div>
-            <div className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Δίκτυο & ειδοποιήσεις</p>
-                <span className="rounded-full bg-destructive/10 p-2 text-destructive">
-                  <Bell className="h-4 w-4" />
-                </span>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-4">
-          <TabsList className="grid w-full grid-cols-4 rounded-full bg-muted/60 p-1 shadow-sm">
-            <TabsTrigger value="map" className="flex items-center gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow">
+main
               <MapIcon className="h-4 w-4" />
               <span className="hidden sm:inline">Χάρτης</span>
             </TabsTrigger>
@@ -219,8 +174,6 @@ const Index = () => {
                 routeNamesMap={routeNamesMap}
                 isLoading={vehiclesQuery.isLoading}
                 selectedRoute={selectedRoute}
-                selectedOperator={selectedOperator}
-                onRouteChange={setSelectedRoute}
               />
             </TabsContent>
 

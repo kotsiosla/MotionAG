@@ -180,12 +180,6 @@
 .leaflet-container {
   font-family: inherit;
   background: hsl(var(--background));
-  transform: translateZ(0);
-}
-
-.leaflet-tile {
-  backface-visibility: hidden;
-  transform: translateZ(0);
 }
 
 .dark .leaflet-tile {
@@ -248,15 +242,6 @@
 }
 
 /* MapLibre GL Popup Styles */
-.maplibregl-canvas {
-  backface-visibility: hidden;
-  transform: translateZ(0);
-}
-
-.maplibregl-canvas-container {
-  background: hsl(var(--background));
-}
-
 .maplibregl-popup {
   z-index: 9999 !important;
 }
