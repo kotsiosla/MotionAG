@@ -139,8 +139,11 @@ const Index = () => {
 
       {hasError && (
         <ErrorBanner message={errorMessage || "Αποτυχία σύνδεσης"} onRetry={handleRetry} />
-      )}
-main
+            )}
+      <main className="flex-1 p-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="w-full justify-start gap-2 bg-muted/40 p-1 rounded-full">
+            <TabsTrigger value="map" className="flex items-center gap-2 rounded-full data-[state=active]:bg-background data-[state=active]:shadow">
               <MapIcon className="h-4 w-4" />
               <span className="hidden sm:inline">Χάρτης</span>
             </TabsTrigger>
