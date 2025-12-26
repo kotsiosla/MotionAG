@@ -7,6 +7,31 @@ const corsHeaders = {
 
 const GTFS_RT_BASE_URL = "http://20.19.98.194:8328/Api/api/gtfs-realtime";
 
+// Whitelist of valid operator IDs
+const VALID_OPERATOR_IDS = ['2', '4', '5', '6', '9', '10', '11'];
+
+// Validate operator ID against whitelist
+function validateOperatorId(operatorId: string | null | undefined): string | undefined {
+  if (!operatorId || operatorId === 'all') {
+    return undefined; // No filter, return all operators
+  }
+  
+  // Sanitize: only allow alphanumeric characters
+  const sanitized = operatorId.replace(/[^a-zA-Z0-9]/g, '');
+  
+  if (sanitized !== operatorId) {
+    console.warn(`Operator ID contained invalid characters: ${operatorId}`);
+    return undefined;
+  }
+  
+  if (!VALID_OPERATOR_IDS.includes(sanitized)) {
+    console.warn(`Invalid operator ID requested: ${sanitized}`);
+    return undefined;
+  }
+  
+  return sanitized;
+}
+
 // GTFS-Realtime Protocol Buffer Parser
 // Based on the GTFS-RT specification: https://gtfs.org/realtime/reference/
 
@@ -1408,9 +1433,12 @@ serve(async (req) => {
 
   const url = new URL(req.url);
   const path = url.pathname.replace('/gtfs-proxy', '');
-  const operatorId = url.searchParams.get('operator') || undefined;
+  
+  // Validate and sanitize operator ID
+  const rawOperatorId = url.searchParams.get('operator');
+  const operatorId = validateOperatorId(rawOperatorId);
 
-  console.log(`Request path: ${path}, operator: ${operatorId || 'all'}`);
+  console.log(`Request path: ${path}, operator: ${operatorId || 'all'}, raw: ${rawOperatorId || 'none'}`);
 
   try {
     // Handle static routes endpoint separately
