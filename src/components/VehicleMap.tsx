@@ -139,6 +139,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
     }
   });
   const [showFavorites, setShowFavorites] = useState(false);
+  const [showNearbyPanel, setShowNearbyPanel] = useState(true);
   const [showRoutePlanner, setShowRoutePlanner] = useState(false);
   const [selectingMode, setSelectingMode] = useState<'origin' | 'destination' | null>(null);
 
@@ -763,6 +764,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       (position) => {
         const { latitude, longitude } = position.coords;
         setUserLocation({ lat: latitude, lng: longitude });
+        setShowNearbyPanel(true); // Reopen panel when locating
         
         if (userMarkerRef.current) {
           userMarkerRef.current.setLngLat([longitude, latitude]);
@@ -1209,8 +1211,20 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       </Button>
 
       {/* Nearby stops panel */}
-      {userLocation && nearbyStops.length > 0 && (
+      {userLocation && nearbyStops.length > 0 && showNearbyPanel && (
         <div className="absolute bottom-4 right-4 glass-card rounded-lg p-3 z-[1000] max-w-[300px] max-h-[60vh] overflow-hidden flex flex-col">
+          {/* Header with close button */}
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-muted-foreground">Στάσεις</span>
+            <button
+              onClick={() => setShowNearbyPanel(false)}
+              className="p-1 hover:bg-muted rounded transition-colors"
+              title="Κλείσιμο"
+            >
+              <X className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          </div>
+          
           {/* Tabs for nearby and favorites */}
           <div className="flex gap-1 mb-2">
             <button
