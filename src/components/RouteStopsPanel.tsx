@@ -14,12 +14,15 @@ interface RouteStopsPanelProps {
   vehicles: Vehicle[];
   onClose: () => void;
   onStopClick?: (stopId: string, lat: number, lon: number) => void;
+  highlightedStopId?: string | null;
+  onHighlightStop?: (stopId: string | null) => void;
 }
 
 const STOPS_PER_PAGE = 10;
 const MIN_WIDTH = 240;
 const MAX_WIDTH = 450;
 const MIN_HEIGHT = 200;
+const STORAGE_KEY = 'route-stops-panel-state';
 
 const formatETA = (arrivalTime?: number) => {
   if (!arrivalTime) return null;
@@ -42,6 +45,28 @@ const formatMinutesFromNow = (arrivalTime?: number) => {
   return `${minutes}'`;
 };
 
+// Load saved state from localStorage
+const loadSavedState = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Error loading panel state:', e);
+  }
+  return null;
+};
+
+// Save state to localStorage
+const saveState = (position: { x: number; y: number }, size: { width: number; height: number }) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ position, size }));
+  } catch (e) {
+    console.error('Error saving panel state:', e);
+  }
+};
+
 export function RouteStopsPanel({
   selectedRoute,
   routeInfo,
@@ -52,21 +77,33 @@ export function RouteStopsPanel({
   vehicles,
   onClose,
   onStopClick,
+  highlightedStopId,
+  onHighlightStop,
 }: RouteStopsPanelProps) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   
+  // Load initial state from localStorage
+  const savedState = useMemo(() => loadSavedState(), []);
+  
   // Draggable state
-  const [position, setPosition] = useState({ x: 16, y: 80 });
+  const [position, setPosition] = useState(savedState?.position || { x: 16, y: 80 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   
   // Resizable state
-  const [size, setSize] = useState({ width: 288, height: 400 });
+  const [size, setSize] = useState(savedState?.size || { width: 288, height: 400 });
   const [isResizing, setIsResizing] = useState<string | null>(null);
-  const resizeStartRef = useRef({ x: 0, y: 0, width: 0, height: 0 });
+  const resizeStartRef = useRef({ x: 0, y: 0, width: 0, height: 0, posX: 0 });
   
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // Save state when position or size changes
+  useEffect(() => {
+    if (!isDragging && !isResizing) {
+      saveState(position, size);
+    }
+  }, [position, size, isDragging, isResizing]);
 
   // Get vehicles on this route
   const routeVehicles = useMemo(() => {
@@ -209,21 +246,31 @@ export function RouteStopsPanel({
     }
   }, [vehiclePositions, orderedStops]);
 
+  // Get client coordinates from mouse or touch event
+  const getEventCoords = (e: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) => {
+    if ('touches' in e) {
+      return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+    }
+    return { clientX: e.clientX, clientY: e.clientY };
+  };
+
   // Drag handlers
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button, .resize-handle')) return;
+  const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest('button, .resize-handle, .stop-item')) return;
     e.preventDefault();
+    const coords = getEventCoords(e);
     setIsDragging(true);
     setDragOffset({
-      x: e.clientX - position.x,
-      y: e.clientY - position.y
+      x: coords.clientX - position.x,
+      y: coords.clientY - position.y
     });
   }, [position]);
 
-  const handleDragMove = useCallback((e: MouseEvent) => {
+  const handleDragMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!isDragging) return;
-    const newX = Math.max(0, Math.min(window.innerWidth - size.width, e.clientX - dragOffset.x));
-    const newY = Math.max(0, Math.min(window.innerHeight - 100, e.clientY - dragOffset.y));
+    const coords = getEventCoords(e);
+    const newX = Math.max(0, Math.min(window.innerWidth - size.width, coords.clientX - dragOffset.x));
+    const newY = Math.max(0, Math.min(window.innerHeight - 100, coords.clientY - dragOffset.y));
     setPosition({ x: newX, y: newY });
   }, [isDragging, dragOffset, size.width]);
 
@@ -232,36 +279,38 @@ export function RouteStopsPanel({
   }, []);
 
   // Resize handlers
-  const handleResizeStart = useCallback((e: React.MouseEvent, direction: string) => {
+  const handleResizeStart = useCallback((e: React.MouseEvent | React.TouchEvent, direction: string) => {
     e.preventDefault();
     e.stopPropagation();
+    const coords = getEventCoords(e);
     setIsResizing(direction);
     resizeStartRef.current = {
-      x: e.clientX,
-      y: e.clientY,
+      x: coords.clientX,
+      y: coords.clientY,
       width: size.width,
-      height: size.height
+      height: size.height,
+      posX: position.x
     };
-  }, [size]);
+  }, [size, position]);
 
-  const handleResizeMove = useCallback((e: MouseEvent) => {
+  const handleResizeMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!isResizing) return;
+    const coords = getEventCoords(e);
     
-    const deltaX = e.clientX - resizeStartRef.current.x;
-    const deltaY = e.clientY - resizeStartRef.current.y;
+    const deltaX = coords.clientX - resizeStartRef.current.x;
+    const deltaY = coords.clientY - resizeStartRef.current.y;
     
     let newWidth = resizeStartRef.current.width;
     let newHeight = resizeStartRef.current.height;
     let newX = position.x;
-    let newY = position.y;
     
     if (isResizing.includes('e')) {
       newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, resizeStartRef.current.width + deltaX));
     }
     if (isResizing.includes('w')) {
-      const widthDelta = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, resizeStartRef.current.width - deltaX)) - resizeStartRef.current.width;
-      newWidth = resizeStartRef.current.width + widthDelta;
-      newX = position.x - widthDelta;
+      const potentialWidth = resizeStartRef.current.width - deltaX;
+      newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, potentialWidth));
+      newX = resizeStartRef.current.posX + (resizeStartRef.current.width - newWidth);
     }
     if (isResizing.includes('s')) {
       newHeight = Math.max(MIN_HEIGHT, Math.min(window.innerHeight - position.y - 50, resizeStartRef.current.height + deltaY));
@@ -277,28 +326,54 @@ export function RouteStopsPanel({
     setIsResizing(null);
   }, []);
 
-  // Global event listeners
+  // Global event listeners for mouse
   useEffect(() => {
     if (isDragging) {
-      window.addEventListener('mousemove', handleDragMove);
-      window.addEventListener('mouseup', handleDragEnd);
+      const handleMove = (e: MouseEvent | TouchEvent) => handleDragMove(e);
+      const handleEnd = () => handleDragEnd();
+      
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleEnd);
+      window.addEventListener('touchmove', handleMove, { passive: false });
+      window.addEventListener('touchend', handleEnd);
+      
       return () => {
-        window.removeEventListener('mousemove', handleDragMove);
-        window.removeEventListener('mouseup', handleDragEnd);
+        window.removeEventListener('mousemove', handleMove);
+        window.removeEventListener('mouseup', handleEnd);
+        window.removeEventListener('touchmove', handleMove);
+        window.removeEventListener('touchend', handleEnd);
       };
     }
   }, [isDragging, handleDragMove, handleDragEnd]);
 
   useEffect(() => {
     if (isResizing) {
-      window.addEventListener('mousemove', handleResizeMove);
-      window.addEventListener('mouseup', handleResizeEnd);
+      const handleMove = (e: MouseEvent | TouchEvent) => handleResizeMove(e);
+      const handleEnd = () => handleResizeEnd();
+      
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleEnd);
+      window.addEventListener('touchmove', handleMove, { passive: false });
+      window.addEventListener('touchend', handleEnd);
+      
       return () => {
-        window.removeEventListener('mousemove', handleResizeMove);
-        window.removeEventListener('mouseup', handleResizeEnd);
+        window.removeEventListener('mousemove', handleMove);
+        window.removeEventListener('mouseup', handleEnd);
+        window.removeEventListener('touchmove', handleMove);
+        window.removeEventListener('touchend', handleEnd);
       };
     }
   }, [isResizing, handleResizeMove, handleResizeEnd]);
+
+  // Handle stop click
+  const handleStopClick = useCallback((stop: { stopId: string; lat?: number; lon?: number }) => {
+    if (stop.lat && stop.lon) {
+      // Highlight this stop
+      onHighlightStop?.(stop.stopId);
+      // Navigate to the stop on the map
+      onStopClick?.(stop.stopId, stop.lat, stop.lon);
+    }
+  }, [onStopClick, onHighlightStop]);
 
   const routeColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : '#0ea5e9';
   const routeTextColor = routeInfo?.route_text_color ? `#${routeInfo.route_text_color}` : '#ffffff';
@@ -319,14 +394,16 @@ export function RouteStopsPanel({
         width: size.width,
         height: isMinimized ? 'auto' : size.height,
         cursor: isDragging ? 'grabbing' : 'default',
-        userSelect: isDragging || isResizing ? 'none' : 'auto'
+        userSelect: isDragging || isResizing ? 'none' : 'auto',
+        touchAction: 'none'
       }}
     >
       {/* Header - Draggable */}
       <div 
-        className="px-3 py-2 flex items-center justify-between cursor-grab active:cursor-grabbing select-none"
-        style={{ backgroundColor: routeColor }}
+        className="px-3 py-2 flex items-center justify-between select-none touch-none"
+        style={{ backgroundColor: routeColor, cursor: isDragging ? 'grabbing' : 'grab' }}
         onMouseDown={handleDragStart}
+        onTouchStart={handleDragStart}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <GripHorizontal className="h-4 w-4 opacity-50 flex-shrink-0" style={{ color: routeTextColor }} />
@@ -407,15 +484,18 @@ export function RouteStopsPanel({
                     const eta = formatETA(stop.arrivalTime);
                     const minutesAway = formatMinutesFromNow(stop.arrivalTime);
                     const vehicleHere = vehiclePositions.get(stop.stopId);
+                    const isHighlighted = highlightedStopId === stop.stopId;
                     
                     return (
                       <div 
                         key={stop.stopId}
-                        className={`relative flex items-start gap-3 py-1.5 cursor-pointer hover:bg-muted/50 rounded-lg transition-colors group pl-1 ${vehicleHere ? 'bg-primary/10' : ''}`}
-                        onClick={() => {
-                          if (stop.lat && stop.lon && onStopClick) {
-                            onStopClick(stop.stopId, stop.lat, stop.lon);
-                          }
+                        className={`stop-item relative flex items-start gap-3 py-1.5 cursor-pointer hover:bg-muted/50 rounded-lg transition-all group pl-1 ${
+                          vehicleHere ? 'bg-primary/10' : ''
+                        } ${isHighlighted ? 'bg-cyan-500/20 ring-2 ring-cyan-500 ring-inset' : ''}`}
+                        onClick={() => handleStopClick(stop)}
+                        onTouchEnd={(e) => {
+                          e.stopPropagation();
+                          handleStopClick(stop);
                         }}
                       >
                         {/* Station dot / Bus icon */}
@@ -429,16 +509,20 @@ export function RouteStopsPanel({
                             </div>
                           ) : (
                             <div 
-                              className={`w-6 h-6 rounded-full border-4 flex items-center justify-center transition-transform group-hover:scale-110 bg-background`}
+                              className={`w-6 h-6 rounded-full border-4 flex items-center justify-center transition-transform group-hover:scale-110 ${
+                                isHighlighted ? 'bg-cyan-500 scale-110' : 'bg-background'
+                              }`}
                               style={{ 
-                                borderColor: routeColor,
-                                boxShadow: `0 0 0 2px ${routeColor}20`
+                                borderColor: isHighlighted ? '#06b6d4' : routeColor,
+                                boxShadow: isHighlighted 
+                                  ? '0 0 12px rgba(6, 182, 212, 0.6)' 
+                                  : `0 0 0 2px ${routeColor}20`
                               }}
                             >
-                              {(isFirst || isLast) && (
+                              {(isFirst || isLast || isHighlighted) && (
                                 <div 
                                   className="w-2 h-2 rounded-full"
-                                  style={{ backgroundColor: routeColor }}
+                                  style={{ backgroundColor: isHighlighted ? '#ffffff' : routeColor }}
                                 />
                               )}
                             </div>
@@ -447,7 +531,7 @@ export function RouteStopsPanel({
                         
                         {/* Stop info */}
                         <div className="flex-1 min-w-0 pt-0.5">
-                          <div className="font-medium text-sm leading-tight truncate">
+                          <div className={`font-medium text-sm leading-tight truncate ${isHighlighted ? 'text-cyan-600 dark:text-cyan-400' : ''}`}>
                             {stop.stopName}
                           </div>
                           
@@ -566,28 +650,33 @@ export function RouteStopsPanel({
         <>
           {/* Right edge */}
           <div 
-            className="resize-handle absolute top-0 right-0 w-2 h-full cursor-e-resize hover:bg-primary/20 transition-colors"
+            className="resize-handle absolute top-0 right-0 w-3 h-full cursor-e-resize hover:bg-primary/20 transition-colors touch-none"
             onMouseDown={(e) => handleResizeStart(e, 'e')}
+            onTouchStart={(e) => handleResizeStart(e, 'e')}
           />
           {/* Bottom edge */}
           <div 
-            className="resize-handle absolute bottom-0 left-0 w-full h-2 cursor-s-resize hover:bg-primary/20 transition-colors"
+            className="resize-handle absolute bottom-0 left-0 w-full h-3 cursor-s-resize hover:bg-primary/20 transition-colors touch-none"
             onMouseDown={(e) => handleResizeStart(e, 's')}
+            onTouchStart={(e) => handleResizeStart(e, 's')}
           />
           {/* Left edge */}
           <div 
-            className="resize-handle absolute top-0 left-0 w-2 h-full cursor-w-resize hover:bg-primary/20 transition-colors"
+            className="resize-handle absolute top-0 left-0 w-3 h-full cursor-w-resize hover:bg-primary/20 transition-colors touch-none"
             onMouseDown={(e) => handleResizeStart(e, 'w')}
+            onTouchStart={(e) => handleResizeStart(e, 'w')}
           />
           {/* Bottom-right corner */}
           <div 
-            className="resize-handle absolute bottom-0 right-0 w-4 h-4 cursor-se-resize hover:bg-primary/30 transition-colors rounded-tl"
+            className="resize-handle absolute bottom-0 right-0 w-5 h-5 cursor-se-resize hover:bg-primary/30 transition-colors rounded-tl touch-none"
             onMouseDown={(e) => handleResizeStart(e, 'se')}
+            onTouchStart={(e) => handleResizeStart(e, 'se')}
           />
           {/* Bottom-left corner */}
           <div 
-            className="resize-handle absolute bottom-0 left-0 w-4 h-4 cursor-sw-resize hover:bg-primary/30 transition-colors rounded-tr"
+            className="resize-handle absolute bottom-0 left-0 w-5 h-5 cursor-sw-resize hover:bg-primary/30 transition-colors rounded-tr touch-none"
             onMouseDown={(e) => handleResizeStart(e, 'sw')}
+            onTouchStart={(e) => handleResizeStart(e, 'sw')}
           />
         </>
       )}
