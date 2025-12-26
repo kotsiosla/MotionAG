@@ -1206,38 +1206,40 @@ export function VehicleMap({
   return (
     <div className="relative h-full w-full rounded-lg overflow-hidden">
       <div ref={containerRef} className="absolute inset-0 z-0" />
-      <div className="relative z-10 h-full w-full">
-        {/* Route Planner */}
-        <RoutePlanner
-          isOpen={showRoutePlanner}
-          onClose={() => setShowRoutePlanner(false)}
-          origin={routingState.origin}
-          destination={routingState.destination}
-          routes={routingState.routes}
-          isSearching={routingState.isSearching}
-          error={routingState.error}
-          onSearchAddress={searchAddress}
-          onSetOrigin={setOrigin}
-          onSetDestination={setDestination}
-          onCalculateRoutes={calculateRoutes}
-          onClearRouting={clearRouting}
-          onUseCurrentLocation={useCurrentLocationAsOrigin}
-          selectingMode={selectingMode}
-          onSetSelectingMode={setSelectingMode}
-        />
+      <div className="absolute inset-0 z-10 pointer-events-none">
+        <div className="pointer-events-auto">
+          {/* Route Planner */}
+          <RoutePlanner
+            isOpen={showRoutePlanner}
+            onClose={() => setShowRoutePlanner(false)}
+            origin={routingState.origin}
+            destination={routingState.destination}
+            routes={routingState.routes}
+            isSearching={routingState.isSearching}
+            error={routingState.error}
+            onSearchAddress={searchAddress}
+            onSetOrigin={setOrigin}
+            onSetDestination={setDestination}
+            onCalculateRoutes={calculateRoutes}
+            onClearRouting={clearRouting}
+            onUseCurrentLocation={useCurrentLocationAsOrigin}
+            selectingMode={selectingMode}
+            onSetSelectingMode={setSelectingMode}
+          />
+        </div>
 
         {/* Route Planner Button */}
         <Button
           variant="default"
           size="sm"
-          className="absolute bottom-16 left-4 z-[1000] gap-2 shadow-lg"
+          className="absolute bottom-16 left-4 z-[1000] gap-2 shadow-lg pointer-events-auto"
           onClick={() => setShowRoutePlanner(true)}
         >
           <Route className="h-4 w-4" />
           Σχεδιασμός Διαδρομής
         </Button>
         {isLoading && (
-          <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center">
+          <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center pointer-events-auto">
             <div className="flex items-center gap-2 text-muted-foreground">
               <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               <span>Φόρτωση...</span>
@@ -1247,7 +1249,7 @@ export function VehicleMap({
       
         {/* Following indicator */}
         {followedVehicle && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 glass-card rounded-lg px-4 py-2 z-[1000] min-w-[280px] max-w-[95%]">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 glass-card rounded-lg px-4 py-2 z-[1000] min-w-[280px] max-w-[95%] pointer-events-auto">
             <div className="flex items-center gap-3">
               <Navigation 
                 className="h-4 w-4 animate-pulse flex-shrink-0" 
@@ -1298,12 +1300,12 @@ export function VehicleMap({
         )}
 
         {/* Rotation hint */}
-        <div className="absolute top-4 left-14 glass-card rounded-lg px-2 py-1 z-[1000] text-xs text-muted-foreground">
+        <div className="absolute top-4 left-14 glass-card rounded-lg px-2 py-1 z-[1000] text-xs text-muted-foreground pointer-events-auto">
           Ctrl+Scroll ή δεξί κλικ για περιστροφή
         </div>
 
         {/* Map controls */}
-        <div className="absolute top-4 right-4 glass-card rounded-lg px-3 py-2 flex items-center gap-2 z-[1000]">
+        <div className="absolute top-4 right-4 glass-card rounded-lg px-3 py-2 flex items-center gap-2 z-[1000] pointer-events-auto">
           <Switch
             id="show-stops"
             checked={showStops}
@@ -1319,7 +1321,7 @@ export function VehicleMap({
         <Button
           variant="secondary"
           size="icon"
-          className={`absolute top-16 right-4 z-[1000] glass-card h-9 w-9 ${isAutoNightMode ? 'ring-2 ring-primary/50' : ''}`}
+          className={`absolute top-16 right-4 z-[1000] glass-card h-9 w-9 pointer-events-auto ${isAutoNightMode ? 'ring-2 ring-primary/50' : ''}`}
           onClick={handleNightModeToggle}
           title={`${isNightMode ? 'Λειτουργία ημέρας' : 'Λειτουργία νύχτας'}${isAutoNightMode ? ' (αυτόματο)' : ''}`}
         >
@@ -1334,7 +1336,7 @@ export function VehicleMap({
         <Button
           variant="secondary"
           size="sm"
-          className={`absolute top-[6.5rem] right-4 z-[1000] glass-card h-7 px-2 text-[10px] ${isAutoNightMode ? 'bg-primary/20' : ''}`}
+          className={`absolute top-[6.5rem] right-4 z-[1000] glass-card h-7 px-2 text-[10px] pointer-events-auto ${isAutoNightMode ? 'bg-primary/20' : ''}`}
           onClick={() => setIsAutoNightMode(!isAutoNightMode)}
           title="Αυτόματη εναλλαγή βάσει ώρας"
         >
@@ -1345,7 +1347,7 @@ export function VehicleMap({
         <Button
           variant="secondary"
           size="icon"
-          className="absolute top-[8.5rem] right-4 z-[1000] glass-card h-9 w-9"
+          className="absolute top-[8.5rem] right-4 z-[1000] glass-card h-9 w-9 pointer-events-auto"
           onClick={locateUser}
           disabled={isLocating}
           title="Εντοπισμός τοποθεσίας"
@@ -1357,7 +1359,7 @@ export function VehicleMap({
         <Button
           variant="secondary"
           size="icon"
-          className={`absolute top-[10.5rem] right-4 z-[1000] glass-card h-9 w-9 ${notificationsEnabled ? 'ring-2 ring-green-500/50' : ''}`}
+          className={`absolute top-[10.5rem] right-4 z-[1000] glass-card h-9 w-9 pointer-events-auto ${notificationsEnabled ? 'ring-2 ring-green-500/50' : ''}`}
           onClick={() => setNotificationsEnabled(!notificationsEnabled)}
           title={notificationsEnabled ? 'Απενεργοποίηση ειδοποιήσεων' : 'Ενεργοποίηση ειδοποιήσεων'}
         >
@@ -1372,7 +1374,7 @@ export function VehicleMap({
         <Button
           variant="secondary"
           size="icon"
-          className={`absolute top-[12.5rem] right-4 z-[1000] glass-card h-9 w-9 ${soundEnabled ? 'ring-2 ring-blue-500/50' : ''}`}
+          className={`absolute top-[12.5rem] right-4 z-[1000] glass-card h-9 w-9 pointer-events-auto ${soundEnabled ? 'ring-2 ring-blue-500/50' : ''}`}
           onClick={() => setSoundEnabled(!soundEnabled)}
           title={soundEnabled ? 'Απενεργοποίηση ήχου' : 'Ενεργοποίηση ήχου'}
         >
@@ -1385,7 +1387,7 @@ export function VehicleMap({
 
       {/* Nearby stops panel */}
       {userLocation && nearbyStops.length > 0 && (
-        <div className="absolute bottom-4 right-4 glass-card rounded-lg p-3 z-[1000] max-w-[300px] max-h-[60vh] overflow-hidden flex flex-col">
+        <div className="absolute bottom-4 right-4 glass-card rounded-lg p-3 z-[1000] max-w-[300px] max-h-[60vh] overflow-hidden flex flex-col pointer-events-auto">
           {/* Tabs for nearby and favorites */}
           <div className="flex gap-1 mb-2">
             <button
@@ -1551,7 +1553,7 @@ export function VehicleMap({
         </div>
       )}
       
-      <div className="absolute bottom-4 left-4 glass-card rounded-lg px-3 py-2 text-sm">
+      <div className="absolute bottom-4 left-4 glass-card rounded-lg px-3 py-2 text-sm pointer-events-auto">
         <span className="font-medium">{vehicles.filter(v => v.latitude && v.longitude).length}</span>
         <span className="text-muted-foreground ml-1">οχήματα</span>
       </div>
