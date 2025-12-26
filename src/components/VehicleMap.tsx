@@ -71,17 +71,16 @@ const createVehicleElement = (bearing?: number, isFollowed?: boolean, routeColor
   
   el.innerHTML = `
     <div style="transform: rotate(${rotation}deg); position: relative;">
-      <div style="position: absolute; inset: 0; border-radius: 4px; background: ${bgColor}; opacity: 0.5; animation: pulse 2s infinite;"></div>
-      <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
-        <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 6px solid ${bgColor}; margin-bottom: -1px;"></div>
-        <div style="width: 22px; height: 18px; border-radius: 3px; display: flex; align-items: center; justify-content: center; background: ${bgColor}; ${glowStyle}">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="14" rx="2"/>
-            <circle cx="7" cy="18" r="1.5" fill="white"/>
-            <circle cx="17" cy="18" r="1.5" fill="white"/>
-            <path d="M3 10h18"/>
-          </svg>
-        </div>
+      <div style="position: absolute; inset: 0; border-radius: 50%; background: ${bgColor}; opacity: 0.4; animation: pulse 2s infinite;"></div>
+      <div style="position: relative; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: ${bgColor}; border: 2px solid white; ${glowStyle}">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="3" width="16" height="13" rx="2"/>
+          <path d="M4 8h16"/>
+          <path d="M7 16v2"/>
+          <path d="M17 16v2"/>
+          <circle cx="7" cy="19" r="1.5" fill="white"/>
+          <circle cx="17" cy="19" r="1.5" fill="white"/>
+        </svg>
       </div>
     </div>
   `;
@@ -1535,34 +1534,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
     // Always clear first
     source.setData({ type: 'FeatureCollection', features: [] });
 
-    // Only draw if we have routes from the route planner
-    if (routingState.routes.length > 0 && routingState.origin && routingState.destination) {
-      const selectedRoute = routingState.routes[0];
-      const features: GeoJSON.Feature[] = [];
-
-      selectedRoute.segments.forEach((segment) => {
-        const color = segment.type === 'walk' 
-          ? '#6b7280' 
-          : (segment.routeColor ? `#${segment.routeColor}` : '#3b82f6');
-        
-        features.push({
-          type: 'Feature',
-          properties: { color },
-          geometry: {
-            type: 'LineString',
-            coordinates: [
-              [segment.from.lon, segment.from.lat],
-              [segment.to.lon, segment.to.lat]
-            ]
-          }
-        });
-      });
-
-      source.setData({
-        type: 'FeatureCollection',
-        features
-      });
-    }
+    // Route line drawing disabled to avoid straight overlay lines.
   }, [routingState.routes, routingState.origin, routingState.destination, mapLoaded]);
 
   // Follow the selected vehicle in realtime
