@@ -562,6 +562,9 @@ export function VehicleMap({
     }
 
     return () => {
+      if (!map.isStyleLoaded()) {
+        map.off('load', scheduleResize);
+      }
       observer.disconnect();
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
