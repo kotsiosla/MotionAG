@@ -146,6 +146,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
   const [is3DMode, setIs3DMode] = useState(false);
   const [selectingMode, setSelectingMode] = useState<'origin' | 'destination' | null>(null);
   const [showRouteStopsPanel, setShowRouteStopsPanel] = useState(true);
+  const [highlightedStopId, setHighlightedStopId] = useState<string | null>(null);
+  const highlightedMarkerRef = useRef<maplibregl.Marker | null>(null);
 
   // Initialize transit routing hook
   const routesArray = useMemo(() => 
@@ -1346,12 +1348,53 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
           shapes={shapes}
           tripMappings={tripMappings}
           vehicles={vehicles}
-          onClose={() => setShowRouteStopsPanel(false)}
+          highlightedStopId={highlightedStopId}
+          onHighlightStop={(stopId) => {
+            // Remove previous highlighted marker
+            if (highlightedMarkerRef.current) {
+              highlightedMarkerRef.current.remove();
+              highlightedMarkerRef.current = null;
+            }
+            setHighlightedStopId(stopId);
+            
+            // Create highlighted marker on map
+            if (stopId && mapRef.current) {
+              const stop = stops.find(s => s.stop_id === stopId);
+              if (stop?.stop_lat && stop?.stop_lon) {
+                const el = document.createElement('div');
+                el.className = 'highlighted-stop-marker';
+                el.innerHTML = `
+                  <div style="position: relative;">
+                    <div style="position: absolute; inset: -8px; background: rgba(6, 182, 212, 0.3); border-radius: 50%; animation: ping 1.5s infinite;"></div>
+                    <div style="width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #06b6d4; border: 3px solid white; box-shadow: 0 0 20px rgba(6, 182, 212, 0.8), 0 4px 12px rgba(0,0,0,0.3);">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </div>
+                  </div>
+                `;
+                
+                highlightedMarkerRef.current = new maplibregl.Marker({ element: el })
+                  .setLngLat([stop.stop_lon, stop.stop_lat])
+                  .addTo(mapRef.current);
+              }
+            }
+          }}
+          onClose={() => {
+            setShowRouteStopsPanel(false);
+            // Clear highlighted stop when closing panel
+            if (highlightedMarkerRef.current) {
+              highlightedMarkerRef.current.remove();
+              highlightedMarkerRef.current = null;
+            }
+            setHighlightedStopId(null);
+          }}
           onStopClick={(stopId, lat, lon) => {
             mapRef.current?.flyTo({
               center: [lon, lat],
-              zoom: 17,
-              duration: 500
+              zoom: 18,
+              pitch: 45,
+              duration: 800
             });
             setShowStops(true);
           }}
