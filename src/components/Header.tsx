@@ -75,12 +75,14 @@ export function Header({
           </div>
 
           {/* Center: Operators and Routes */}
-          <div className="flex flex-col items-center gap-3 flex-1 -ml-32">
-            <OperatorSelector
-              value={selectedOperator}
-              onChange={onOperatorChange}
-            />
-            <div className="flex items-center gap-3 flex-wrap justify-center mt-1">
+          <div className="flex flex-col items-center gap-3 flex-1">
+            <div className="-ml-48">
+              <OperatorSelector
+                value={selectedOperator}
+                onChange={onOperatorChange}
+              />
+            </div>
+            <div className="flex items-center gap-3 flex-wrap justify-center">
               <RouteSelector
                 value={selectedRoute}
                 onChange={onRouteChange}
