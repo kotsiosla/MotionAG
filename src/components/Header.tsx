@@ -73,7 +73,7 @@ export function Header({
             </div>
           </div>
 
-          <div className="flex items-start gap-3 flex-wrap justify-end">
+          <div className="flex items-start gap-3 flex-wrap justify-end mr-8">
             <div className="flex flex-col gap-1">
               <OperatorSelector
                 value={selectedOperator}
