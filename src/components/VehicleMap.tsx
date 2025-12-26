@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { X, Navigation, MapPin, Clock, LocateFixed, Moon, Sun, Bell, BellOff, Volume2, VolumeX, Star, Heart, Route, Box, Layers, Home, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { X, Navigation, MapPin, Clock, LocateFixed, Moon, Sun, Bell, BellOff, Volume2, VolumeX, Star, Heart, Route } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -9,9 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import type { Vehicle, StaticStop, Trip, RouteInfo, ShapePoint, TripShapeMapping } from "@/types/gtfs";
 import { useTransitRouting } from "@/hooks/useTransitRouting";
 import { RoutePlanner } from "@/components/RoutePlanner";
-import { RouteStopsPanel } from "@/components/RouteStopsPanel";
-import { SchedulePanel } from "@/components/SchedulePanel";
-import { FollowingPanel } from "@/components/FollowingPanel";
 
 interface VehicleMapProps {
   vehicles: Vehicle[];
@@ -22,8 +19,6 @@ interface VehicleMapProps {
   routeNamesMap?: Map<string, RouteInfo>;
   isLoading: boolean;
   selectedRoute?: string;
-  selectedOperator?: string;
-  onRouteChange?: (routeId: string) => void;
 }
 
 const formatTimestamp = (timestamp?: number) => {
@@ -71,16 +66,17 @@ const createVehicleElement = (bearing?: number, isFollowed?: boolean, routeColor
   
   el.innerHTML = `
     <div style="transform: rotate(${rotation}deg); position: relative;">
-      <div style="position: absolute; inset: 0; border-radius: 50%; background: ${bgColor}; opacity: 0.4; animation: pulse 2s infinite;"></div>
-      <div style="position: relative; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: ${bgColor}; border: 2px solid white; ${glowStyle}">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="4" y="3" width="16" height="13" rx="2"/>
-          <path d="M4 8h16"/>
-          <path d="M7 16v2"/>
-          <path d="M17 16v2"/>
-          <circle cx="7" cy="19" r="1.5" fill="white"/>
-          <circle cx="17" cy="19" r="1.5" fill="white"/>
-        </svg>
+      <div style="position: absolute; inset: 0; border-radius: 4px; background: ${bgColor}; opacity: 0.5; animation: pulse 2s infinite;"></div>
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+        <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 6px solid ${bgColor}; margin-bottom: -1px;"></div>
+        <div style="width: 22px; height: 18px; border-radius: 3px; display: flex; align-items: center; justify-content: center; background: ${bgColor}; ${glowStyle}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="14" rx="2"/>
+            <circle cx="7" cy="18" r="1.5" fill="white"/>
+            <circle cx="17" cy="18" r="1.5" fill="white"/>
+            <path d="M3 10h18"/>
+          </svg>
+        </div>
       </div>
     </div>
   `;
@@ -89,63 +85,25 @@ const createVehicleElement = (bearing?: number, isFollowed?: boolean, routeColor
 };
 
 // Create stop marker element
-const createStopElement = (hasVehicleStopped?: boolean, isFavorite?: boolean, stopType?: 'first' | 'last' | 'normal', sequenceNumber?: number) => {
+const createStopElement = (hasVehicleStopped?: boolean) => {
   const el = document.createElement('div');
   el.className = 'stop-marker-maplibre';
+  const bgColor = hasVehicleStopped ? '#22c55e' : '#f97316';
   
-  // Priority: vehicle stopped (green) > first stop (green) > last stop (red) > favorite (pink) > normal (orange)
-  let bgColor = '#f97316'; // normal orange
-  let size = sequenceNumber !== undefined ? 24 : 20; // Slightly larger when showing number
-  
-  if (hasVehicleStopped) {
-    bgColor = '#22c55e';
-  } else if (stopType === 'first') {
-    bgColor = '#10b981'; // emerald green for start
-    size = 28;
-  } else if (stopType === 'last') {
-    bgColor = '#ef4444'; // red for end
-    size = 28;
-  } else if (isFavorite) {
-    bgColor = '#ec4899';
-  }
-  
-  const glowEffect = (stopType === 'first' || stopType === 'last') ? `, 0 0 12px ${bgColor}` : (isFavorite ? `, 0 0 8px ${bgColor}` : '');
-  
-  // Show sequence number if provided, otherwise show icon
-  if (sequenceNumber !== undefined) {
-    const fontSize = size > 24 ? 12 : 10;
-    el.innerHTML = `
-      <div style="width: ${size}px; height: ${size}px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: ${bgColor}; border: ${size > 24 ? 3 : 2}px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3)${glowEffect};">
-        <span style="color: white; font-weight: 700; font-size: ${fontSize}px; font-family: system-ui, -apple-system, sans-serif; line-height: 1;">
-          ${sequenceNumber}
-        </span>
-      </div>
-    `;
-  } else {
-    let icon = '<circle cx="12" cy="12" r="3"/>';
-    if (hasVehicleStopped) {
-      icon = '<rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="7" cy="18" r="1.5" fill="white"/><circle cx="17" cy="18" r="1.5" fill="white"/>';
-    } else if (stopType === 'first') {
-      icon = '<polygon points="5 3 19 12 5 21 5 3" fill="white" stroke="none"/>';
-    } else if (stopType === 'last') {
-      icon = '<rect x="6" y="6" width="12" height="12" rx="2" fill="white" stroke="none"/>';
-    } else if (isFavorite) {
-      icon = '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>';
-    }
-    
-    el.innerHTML = `
-      <div style="width: ${size}px; height: ${size}px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: ${bgColor}; border: ${size > 24 ? 3 : 2}px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3)${glowEffect};">
-        <svg xmlns="http://www.w3.org/2000/svg" width="${size * 0.6}" height="${size * 0.6}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          ${icon}
-        </svg>
-      </div>
-    `;
-  }
+  el.innerHTML = `
+    <div style="width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: ${bgColor}; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        ${hasVehicleStopped 
+          ? '<rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="7" cy="18" r="1.5" fill="white"/><circle cx="17" cy="18" r="1.5" fill="white"/>' 
+          : '<circle cx="12" cy="12" r="3"/>'}
+      </svg>
+    </div>
+  `;
   
   return el;
 };
 
-export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], tripMappings = [], routeNamesMap, isLoading, selectedRoute, selectedOperator, onRouteChange }: VehicleMapProps) {
+export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], tripMappings = [], routeNamesMap, isLoading, selectedRoute }: VehicleMapProps) {
   const { toast } = useToast();
   const mapRef = useRef<maplibregl.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -178,16 +136,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
     }
   });
   const [showFavorites, setShowFavorites] = useState(false);
-  const [showNearbyPanel, setShowNearbyPanel] = useState(true);
   const [showRoutePlanner, setShowRoutePlanner] = useState(false);
-  const [showRotationHint, setShowRotationHint] = useState(true);
-  const [showStopsControl, setShowStopsControl] = useState(true);
-  const [is3DMode, setIs3DMode] = useState(false);
   const [selectingMode, setSelectingMode] = useState<'origin' | 'destination' | null>(null);
-  const [showRouteStopsPanel, setShowRouteStopsPanel] = useState(true);
-  const [showSchedulePanel, setShowSchedulePanel] = useState(true);
-  const [highlightedStopId, setHighlightedStopId] = useState<string | null>(null);
-  const highlightedMarkerRef = useRef<maplibregl.Marker | null>(null);
 
   // Initialize transit routing hook
   const routesArray = useMemo(() => 
@@ -212,13 +162,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
     }
   }, [favoriteStops]);
 
-  // Show route stops panel when route changes
-  useEffect(() => {
-    if (selectedRoute && selectedRoute !== 'all') {
-      setShowRouteStopsPanel(true);
-    }
-  }, [selectedRoute]);
-
+  // Toggle favorite stop
   const toggleFavorite = useCallback((stopId: string) => {
     setFavoriteStops(prev => {
       const newSet = new Set(prev);
@@ -231,18 +175,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
     });
   }, []);
 
-  // Play notification sound and vibration
+  // Play notification sound using Web Audio API
   const playNotificationSound = useCallback(() => {
-    // Trigger vibration on mobile (works even if sound is disabled)
-    if ('vibrate' in navigator) {
-      try {
-        // Pattern: vibrate 200ms, pause 100ms, vibrate 200ms
-        navigator.vibrate([200, 100, 200]);
-      } catch (error) {
-        console.error('Error triggering vibration:', error);
-      }
-    }
-    
     if (!soundEnabled) return;
     
     try {
@@ -334,187 +268,6 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
     return map;
   }, [stops]);
 
-  // Calculate the number of stops for the selected route (for the toggle display)
-  const routeStopsCount = useMemo(() => {
-    if (!selectedRoute || selectedRoute === 'all') {
-      return stops.filter(s => s.stop_lat !== undefined && s.stop_lon !== undefined).length;
-    }
-    
-    const routeStopIds = new Set<string>();
-    
-    // First try to get stops from trips (realtime data)
-    trips.forEach(trip => {
-      if (trip.routeId === selectedRoute && trip.stopTimeUpdates) {
-        trip.stopTimeUpdates.forEach(stu => {
-          if (stu.stopId) {
-            routeStopIds.add(stu.stopId);
-          }
-        });
-      }
-    });
-    
-    // If no stops from trips, find stops near the route shape
-    if (routeStopIds.size === 0 && shapes.length > 0 && tripMappings.length > 0) {
-      const routeShapeIds = new Set<string>();
-      tripMappings.forEach(mapping => {
-        if (mapping.route_id === selectedRoute) {
-          routeShapeIds.add(mapping.shape_id);
-        }
-      });
-      
-      const routeShapePoints = shapes.filter(p => routeShapeIds.has(p.shape_id));
-      
-      if (routeShapePoints.length > 0) {
-        stops.forEach(stop => {
-          if (stop.stop_lat === undefined || stop.stop_lon === undefined) return;
-          
-          for (const point of routeShapePoints) {
-            const distance = Math.sqrt(
-              Math.pow((stop.stop_lat - point.shape_pt_lat) * 111000, 2) +
-              Math.pow((stop.stop_lon - point.shape_pt_lon) * 111000 * Math.cos(stop.stop_lat * Math.PI / 180), 2)
-            );
-            if (distance < 100) {
-              routeStopIds.add(stop.stop_id);
-              break;
-            }
-          }
-        });
-      }
-    }
-    
-    return routeStopIds.size > 0 ? routeStopIds.size : stops.filter(s => s.stop_lat !== undefined && s.stop_lon !== undefined).length;
-  }, [selectedRoute, trips, stops, shapes, tripMappings]);
-
-  // Get first and last stop IDs for the selected route + total distance + estimated time
-  const routeTerminals = useMemo(() => {
-    if (!selectedRoute || selectedRoute === 'all') {
-      return { firstStopId: null, lastStopId: null, totalKm: 0, estimatedMinutes: 0 };
-    }
-    
-    // Get ordered stops from trips
-    const routeTrips = trips.filter(t => t.routeId === selectedRoute && t.stopTimeUpdates?.length > 0);
-    
-    if (routeTrips.length > 0) {
-      // Find trip with most stop updates
-      const bestTrip = routeTrips.reduce((a, b) => 
-        (a.stopTimeUpdates?.length || 0) > (b.stopTimeUpdates?.length || 0) ? a : b
-      );
-      
-      if (bestTrip.stopTimeUpdates && bestTrip.stopTimeUpdates.length > 0) {
-        const sortedStops = [...bestTrip.stopTimeUpdates].sort((a, b) => 
-          (a.stopSequence || 0) - (b.stopSequence || 0)
-        );
-        
-        const firstStopId = sortedStops[0]?.stopId || null;
-        const lastStopId = sortedStops[sortedStops.length - 1]?.stopId || null;
-        
-        // Calculate estimated time from realtime data (first departure to last arrival)
-        let estimatedMinutes = 0;
-        const firstStop = sortedStops[0];
-        const lastStop = sortedStops[sortedStops.length - 1];
-        
-        const firstTime = firstStop?.departureTime || firstStop?.arrivalTime;
-        const lastTime = lastStop?.arrivalTime || lastStop?.departureTime;
-        
-        if (firstTime && lastTime && lastTime > firstTime) {
-          estimatedMinutes = Math.round((lastTime - firstTime) / 60);
-        }
-        
-        // Calculate distance from shapes
-        let totalKm = 0;
-        const routeShapeIds = new Set<string>();
-        tripMappings.forEach(mapping => {
-          if (mapping.route_id === selectedRoute) {
-            routeShapeIds.add(mapping.shape_id);
-          }
-        });
-        
-        if (routeShapeIds.size > 0) {
-          const routeShapePoints = shapes
-            .filter(p => routeShapeIds.has(p.shape_id))
-            .sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence);
-          
-          for (let i = 1; i < routeShapePoints.length; i++) {
-            const p1 = routeShapePoints[i - 1];
-            const p2 = routeShapePoints[i];
-            
-            // Haversine formula
-            const R = 6371; // Earth radius in km
-            const dLat = (p2.shape_pt_lat - p1.shape_pt_lat) * Math.PI / 180;
-            const dLon = (p2.shape_pt_lon - p1.shape_pt_lon) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(p1.shape_pt_lat * Math.PI / 180) * Math.cos(p2.shape_pt_lat * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            totalKm += R * c;
-          }
-        }
-        
-        return { firstStopId, lastStopId, totalKm: Math.round(totalKm * 10) / 10, estimatedMinutes };
-      }
-    }
-    
-    return { firstStopId: null, lastStopId: null, totalKm: 0, estimatedMinutes: 0 };
-  }, [selectedRoute, trips, shapes, tripMappings]);
-
-  // Zoom to fit the entire route
-  const zoomToRoute = useCallback(() => {
-    if (!mapRef.current || !selectedRoute || selectedRoute === 'all') return;
-
-    // Collect all coordinates from the route
-    const coordinates: [number, number][] = [];
-    
-    // Get coordinates from shapes
-    const routeShapeIds = new Set<string>();
-    tripMappings.forEach(mapping => {
-      if (mapping.route_id === selectedRoute) {
-        routeShapeIds.add(mapping.shape_id);
-      }
-    });
-    
-    shapes.forEach(point => {
-      if (routeShapeIds.has(point.shape_id)) {
-        coordinates.push([point.shape_pt_lon, point.shape_pt_lat]);
-      }
-    });
-    
-    // If no shapes, get coordinates from trip stops
-    if (coordinates.length === 0) {
-      const routeTrips = trips.filter(t => t.routeId === selectedRoute && t.stopTimeUpdates?.length > 0);
-      routeTrips.forEach(trip => {
-        trip.stopTimeUpdates?.forEach(stu => {
-          const stop = stopMap.get(stu.stopId || '');
-          if (stop?.stop_lat !== undefined && stop?.stop_lon !== undefined) {
-            coordinates.push([stop.stop_lon, stop.stop_lat]);
-          }
-        });
-      });
-    }
-    
-    if (coordinates.length === 0) return;
-    
-    // Calculate bounds
-    const bounds = coordinates.reduce(
-      (bounds, coord) => {
-        return [
-          [Math.min(bounds[0][0], coord[0]), Math.min(bounds[0][1], coord[1])],
-          [Math.max(bounds[1][0], coord[0]), Math.max(bounds[1][1], coord[1])]
-        ];
-      },
-      [[coordinates[0][0], coordinates[0][1]], [coordinates[0][0], coordinates[0][1]]] as [[number, number], [number, number]]
-    );
-    
-    // Fit the map to the bounds with padding
-    mapRef.current.fitBounds(
-      [bounds[0][0], bounds[0][1], bounds[1][0], bounds[1][1]] as [number, number, number, number],
-      {
-        padding: { top: 100, bottom: 100, left: 50, right: 50 },
-        duration: 1000,
-        maxZoom: 16
-      }
-    );
-  }, [selectedRoute, shapes, tripMappings, trips, stopMap]);
-
   // Get next stop info for a vehicle
   const getNextStopInfo = useCallback((vehicle: Vehicle) => {
     if (!vehicle.tripId) return null;
@@ -578,60 +331,6 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
     return arrivals.slice(0, 5);
   }, [trips, vehicles, routeNamesMap]);
 
-  // Track notified arrivals for highlighted stop to avoid duplicate notifications
-  const highlightedStopNotifiedRef = useRef<Set<string>>(new Set());
-
-  // Monitor arrivals at the highlighted stop and notify when bus is within 2 minutes
-  useEffect(() => {
-    if (!highlightedStopId || !notificationsEnabled) return;
-
-    const checkArrivals = () => {
-      const arrivals = getArrivalsForStop(highlightedStopId);
-      const now = Date.now() / 1000;
-      const twoMinutes = 2 * 60; // 2 minutes in seconds
-
-      arrivals.forEach(arrival => {
-        if (!arrival.arrivalTime) return;
-        
-        const timeUntilArrival = arrival.arrivalTime - now;
-        const notificationKey = `${highlightedStopId}-${arrival.tripId}-${arrival.arrivalTime}`;
-        
-        // Check if bus is within 2 minutes and we haven't notified yet
-        if (timeUntilArrival > 0 && timeUntilArrival <= twoMinutes && !highlightedStopNotifiedRef.current.has(notificationKey)) {
-          highlightedStopNotifiedRef.current.add(notificationKey);
-          
-          const stopInfo = stopMap.get(highlightedStopId);
-          const minutesAway = Math.round(timeUntilArrival / 60);
-          const routeName = arrival.routeShortName || arrival.routeId || 'Λεωφορείο';
-          
-          // Play notification sound
-          playNotificationSound();
-          
-          // Show toast notification
-          toast({
-            title: `🚌 ${routeName} σε ${minutesAway <= 1 ? '1 λεπτό' : `${minutesAway} λεπτά`}!`,
-            description: stopInfo?.stop_name || highlightedStopId,
-            duration: 8000,
-            className: 'bg-cyan-600 text-white border-cyan-500',
-          });
-        }
-      });
-    };
-
-    // Check immediately
-    checkArrivals();
-
-    // Check every 10 seconds
-    const interval = setInterval(checkArrivals, 10000);
-
-    return () => clearInterval(interval);
-  }, [highlightedStopId, notificationsEnabled, getArrivalsForStop, stopMap, playNotificationSound, toast]);
-
-  // Clear highlighted stop notifications when stop changes
-  useEffect(() => {
-    highlightedStopNotifiedRef.current.clear();
-  }, [highlightedStopId]);
-
   // Initialize map
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -641,36 +340,44 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       style: {
         version: 8,
         sources: {
-          osm: {
+          'satellite': {
             type: 'raster',
             tiles: [
-              'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+              'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
             ],
             tileSize: 256,
-            attribution: '© OpenStreetMap contributors'
+            attribution: 'Tiles © Esri'
+          },
+          'labels': {
+            type: 'raster',
+            tiles: [
+              'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'
+            ],
+            tileSize: 256
           }
         },
         layers: [
           {
-            id: 'osm-layer',
+            id: 'satellite-layer',
             type: 'raster',
-            source: 'osm',
+            source: 'satellite',
             minzoom: 0,
-            maxzoom: 22,
-          paint: {
-              'raster-resampling': 'linear',
-              'raster-fade-duration': 0
-            }
+            maxzoom: 22
+          },
+          {
+            id: 'labels-layer',
+            type: 'raster',
+            source: 'labels',
+            minzoom: 0,
+            maxzoom: 22
           }
         ]
       },
-      center: [33.0, 35.1], // Center of Cyprus
-      zoom: 6, // Zoomed out view
-      pitch: 0, // Flat/vertical view
+      center: [33.0, 35.0], // Center of Cyprus
+      zoom: 9,
+      pitch: 45, // Start with some pitch to show 3D effect
       bearing: 0,
       maxPitch: 70,
-      maxBounds: [[28.0, 33.0], [38.0, 37.0]], // Wider boundaries
-      minZoom: 5,
     });
 
     // Add navigation controls
@@ -684,13 +391,39 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
     mapRef.current.dragRotate.enable();
     mapRef.current.touchZoomRotate.enableRotation();
 
-    // Add route planning layers when map loads
+    // Add bus route shapes and route planning layers when map loads
     mapRef.current.on('load', () => {
-      if (mapRef.current && !mapRef.current.getSource('route-line')) {
-        // Add route planning source (no layer for now - disabled)
+      if (mapRef.current && !mapRef.current.getSource('bus-shapes')) {
+        // Add bus route shapes source (initially empty)
+        mapRef.current.addSource('bus-shapes', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] }
+        });
+
+        // Bus route shape layer - currently disabled to debug line issue
+        // Will be re-enabled when we fix the shapes rendering
+
+        shapesSourceRef.current = true;
+
+        // Add route planning layers
         mapRef.current!.addSource('route-line', {
           type: 'geojson',
           data: { type: 'FeatureCollection', features: [] }
+        });
+
+        mapRef.current!.addLayer({
+          id: 'route-line-layer',
+          type: 'line',
+          source: 'route-line',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': ['get', 'color'],
+            'line-width': 5,
+            'line-opacity': 0.8
+          }
         });
 
         // Add origin/destination markers source
@@ -733,8 +466,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
     }
 
     // Update satellite layer visibility
-    if (map.getLayer('osm-layer')) {
-      map.setLayoutProperty('osm-layer', 'visibility', isNightMode ? 'none' : 'visible');
+    if (map.getLayer('satellite-layer')) {
+      map.setLayoutProperty('satellite-layer', 'visibility', isNightMode ? 'none' : 'visible');
     }
     if (map.getLayer('labels-layer')) {
       map.setLayoutProperty('labels-layer', 'visibility', isNightMode ? 'none' : 'visible');
@@ -742,77 +475,38 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
 
     // Add or update dark base layers for night mode
     if (isNightMode) {
-      // Add simple dark background source if not exists
-      if (!map.getSource('dark-background')) {
-        map.addSource('dark-background', {
-          type: 'geojson',
-          data: {
-            type: 'FeatureCollection',
-            features: [{
-              type: 'Feature',
-              properties: {},
-              geometry: {
-                type: 'Polygon',
-                coordinates: [[[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]]]
-              }
-            }]
-          }
+      // Add dark tiles source if not exists
+      if (!map.getSource('carto-dark')) {
+        map.addSource('carto-dark', {
+          type: 'raster',
+          tiles: [
+            'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+            'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+            'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
+          ],
+          tileSize: 256,
+          attribution: '© CartoDB © OpenStreetMap'
         });
       }
 
-      // Add dark background layer if not exists
-      if (!map.getLayer('dark-background-layer')) {
+      // Add dark layer if not exists
+      if (!map.getLayer('carto-dark-layer')) {
         map.addLayer({
-          id: 'dark-background-layer',
-          type: 'fill',
-          source: 'dark-background',
-          paint: {
-            'fill-color': '#0f172a'
-          }
-        }, 'osm-layer'); // Insert below base map
+          id: 'carto-dark-layer',
+          type: 'raster',
+          source: 'carto-dark',
+          minzoom: 0,
+          maxzoom: 22
+        });
       }
-      map.setLayoutProperty('dark-background-layer', 'visibility', 'visible');
+      map.setLayoutProperty('carto-dark-layer', 'visibility', 'visible');
     } else {
       // Hide dark layer if exists
-      if (map.getLayer('dark-background-layer')) {
-        map.setLayoutProperty('dark-background-layer', 'visibility', 'none');
+      if (map.getLayer('carto-dark-layer')) {
+        map.setLayoutProperty('carto-dark-layer', 'visibility', 'none');
       }
     }
   }, [isNightMode, mapLoaded]);
-
-  // Handle route selection - show stops and zoom to live vehicle
-  useEffect(() => {
-    if (!mapRef.current || !mapLoaded) return;
-    
-    const map = mapRef.current;
-
-    // If no route selected or "all" selected, hide stops
-    if (!selectedRoute || selectedRoute === 'all') {
-      return;
-    }
-
-    // Enable stops display when a route is selected
-    setShowStops(true);
-
-    // Find live vehicle on this route
-    const liveVehicle = vehicles.find(v => 
-      v.routeId === selectedRoute && 
-      v.latitude !== undefined && 
-      v.longitude !== undefined
-    );
-
-    // Zoom to live vehicle or route area
-    if (liveVehicle && liveVehicle.latitude && liveVehicle.longitude) {
-      // If there's a live bus, center on it at street level and follow it
-      map.flyTo({
-        center: [liveVehicle.longitude, liveVehicle.latitude],
-        zoom: 15,
-        duration: 1000
-      });
-      // Auto-follow the live vehicle
-      setFollowedVehicleId(liveVehicle.vehicleId || liveVehicle.id);
-    }
-  }, [selectedRoute, mapLoaded, vehicles]);
 
   // Get stops with vehicles currently stopped
   const stopsWithVehicles = useMemo(() => {
@@ -854,22 +548,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
         // Update element
         const newEl = createVehicleElement(vehicle.bearing, isFollowed, routeColor);
         newEl.style.cursor = 'pointer';
-        newEl.onclick = () => {
-          // Auto-select route and follow vehicle
-          if (vehicle.routeId && onRouteChange) {
-            onRouteChange(vehicle.routeId);
-          }
-          setFollowedVehicleId(vehicleId);
-          // Zoom to street level
-          if (mapRef.current && vehicle.latitude && vehicle.longitude) {
-            mapRef.current.flyTo({
-              center: [vehicle.longitude, vehicle.latitude],
-              zoom: 18,
-              pitch: 60,
-              duration: 1000
-            });
-          }
-        };
+        newEl.onclick = () => setFollowedVehicleId(vehicleId);
         existingMarker.getElement().replaceWith(newEl);
         // Need to update the marker's internal element reference
         (existingMarker as any)._element = newEl;
@@ -877,22 +556,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
         // Create new marker
         const el = createVehicleElement(vehicle.bearing, isFollowed, routeColor);
         el.style.cursor = 'pointer';
-        el.onclick = () => {
-          // Auto-select route and follow vehicle
-          if (vehicle.routeId && onRouteChange) {
-            onRouteChange(vehicle.routeId);
-          }
-          setFollowedVehicleId(vehicleId);
-          // Zoom to street level
-          if (mapRef.current && vehicle.latitude && vehicle.longitude) {
-            mapRef.current.flyTo({
-              center: [vehicle.longitude, vehicle.latitude],
-              zoom: 18,
-              pitch: 60,
-              duration: 1000
-            });
-          }
-        };
+        el.onclick = () => setFollowedVehicleId(vehicleId);
 
         const popup = new maplibregl.Popup({ offset: 25, className: 'vehicle-popup-maplibre', maxWidth: 'none' })
           .setHTML(`
@@ -1039,286 +703,71 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
     stopMarkersRef.current.forEach(marker => marker.remove());
     stopMarkersRef.current.clear();
 
-    // When stops are off but route is selected, show only terminals
-    const showOnlyTerminals = !showStops && selectedRoute && selectedRoute !== 'all' && 
-      (routeTerminals.firstStopId || routeTerminals.lastStopId);
-    
-    if (!showStops && !showOnlyTerminals) return;
+    if (!showStops) return;
 
-    // Get stop IDs for the selected route from trips
-    const routeStopIds = new Set<string>();
-    if (selectedRoute && selectedRoute !== 'all') {
-      // First try to get stops from trips (realtime data)
-      trips.forEach(trip => {
-        if (trip.routeId === selectedRoute && trip.stopTimeUpdates) {
-          trip.stopTimeUpdates.forEach(stu => {
-            if (stu.stopId) {
-              routeStopIds.add(stu.stopId);
-            }
-          });
-        }
-      });
-      
-      // If no stops from trips, find stops near the route shape
-      if (routeStopIds.size === 0 && shapes.length > 0 && tripMappings.length > 0) {
-        // Get shape points for this route
-        const routeShapeIds = new Set<string>();
-        tripMappings.forEach(mapping => {
-          if (mapping.route_id === selectedRoute) {
-            routeShapeIds.add(mapping.shape_id);
-          }
-        });
-        
-        const routeShapePoints = shapes.filter(p => routeShapeIds.has(p.shape_id));
-        
-        // Find stops within 100m of any shape point
-        if (routeShapePoints.length > 0) {
-          stops.forEach(stop => {
-            if (stop.stop_lat === undefined || stop.stop_lon === undefined) return;
-            
-            for (const point of routeShapePoints) {
-              const distance = Math.sqrt(
-                Math.pow((stop.stop_lat - point.shape_pt_lat) * 111000, 2) +
-                Math.pow((stop.stop_lon - point.shape_pt_lon) * 111000 * Math.cos(stop.stop_lat * Math.PI / 180), 2)
-              );
-              if (distance < 100) { // 100 meters
-                routeStopIds.add(stop.stop_id);
-                break;
-              }
-            }
-          });
-        }
-      }
-    }
-
-    // Build stop sequence map for route stops
-    const stopSequenceMap = new Map<string, number>();
-    if (selectedRoute && selectedRoute !== 'all') {
-      // First try from trips (realtime data)
-      const routeTrips = trips.filter(t => t.routeId === selectedRoute && t.stopTimeUpdates?.length > 0);
-      if (routeTrips.length > 0) {
-        const bestTrip = routeTrips.reduce((a, b) => 
-          (a.stopTimeUpdates?.length || 0) > (b.stopTimeUpdates?.length || 0) ? a : b
-        );
-        if (bestTrip.stopTimeUpdates) {
-          const sortedUpdates = [...bestTrip.stopTimeUpdates].sort((a, b) => 
-            (a.stopSequence || 0) - (b.stopSequence || 0)
-          );
-          sortedUpdates.forEach((stu, index) => {
-            if (stu.stopId) {
-              stopSequenceMap.set(stu.stopId, index + 1);
-            }
-          });
-        }
-      }
-      
-      // If no trips data, assign sequence based on proximity to route shape
-      if (stopSequenceMap.size === 0 && routeStopIds.size > 0) {
-        // Get shape points for ordering
-        const routeShapeIds = new Set<string>();
-        tripMappings.forEach(mapping => {
-          if (mapping.route_id === selectedRoute) {
-            routeShapeIds.add(mapping.shape_id);
-          }
-        });
-        
-        const routeShapePoints = shapes
-          .filter(p => routeShapeIds.has(p.shape_id))
-          .sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence);
-        
-        if (routeShapePoints.length > 0) {
-          // For each stop, find closest shape point and use its sequence
-          const stopsWithShapeSeq: { stopId: string; shapeSeq: number }[] = [];
-          
-          routeStopIds.forEach(stopId => {
-            const stop = stops.find(s => s.stop_id === stopId);
-            if (!stop || stop.stop_lat === undefined || stop.stop_lon === undefined) return;
-            
-            let minDist = Infinity;
-            let closestSeq = 0;
-            
-            for (const point of routeShapePoints) {
-              const dist = Math.sqrt(
-                Math.pow((stop.stop_lat - point.shape_pt_lat) * 111000, 2) +
-                Math.pow((stop.stop_lon - point.shape_pt_lon) * 111000 * Math.cos(stop.stop_lat * Math.PI / 180), 2)
-              );
-              if (dist < minDist) {
-                minDist = dist;
-                closestSeq = point.shape_pt_sequence;
-              }
-            }
-            
-            stopsWithShapeSeq.push({ stopId, shapeSeq: closestSeq });
-          });
-          
-          // Sort by shape sequence and assign numbers
-          stopsWithShapeSeq.sort((a, b) => a.shapeSeq - b.shapeSeq);
-          stopsWithShapeSeq.forEach((item, index) => {
-            stopSequenceMap.set(item.stopId, index + 1);
-          });
-        }
-      }
-    }
-
-    // Filter stops based on mode
-    const validStops = stops.filter((s) => {
-      if (s.stop_lat === undefined || s.stop_lon === undefined) return false;
-      
-      // If showing only terminals, filter to first and last stop only
-      if (showOnlyTerminals) {
-        return s.stop_id === routeTerminals.firstStopId || s.stop_id === routeTerminals.lastStopId;
-      }
-      
-      // If a route is selected, show only its stops
-      if (selectedRoute && selectedRoute !== 'all' && routeStopIds.size > 0) {
-        return routeStopIds.has(s.stop_id);
-      }
-      return true;
-    });
+    const validStops = stops.filter(
+      (s) => s.stop_lat !== undefined && s.stop_lon !== undefined
+    );
 
     validStops.forEach((stop) => {
       const hasVehicleStopped = stopsWithVehicles.has(stop.stop_id);
       const arrivals = getArrivalsForStop(stop.stop_id);
       
-      const isFavorite = favoriteStops.has(stop.stop_id);
-      
-      // Determine stop type
-      let stopType: 'first' | 'last' | 'normal' = 'normal';
-      if (routeTerminals.firstStopId === stop.stop_id) {
-        stopType = 'first';
-      } else if (routeTerminals.lastStopId === stop.stop_id) {
-        stopType = 'last';
-      }
-      
-      // Get sequence number for this stop (only when a route is selected)
-      const sequenceNumber = selectedRoute && selectedRoute !== 'all' ? stopSequenceMap.get(stop.stop_id) : undefined;
-      
-      const el = createStopElement(hasVehicleStopped, isFavorite, stopType, sequenceNumber);
+      const el = createStopElement(hasVehicleStopped);
 
-      const statusColor = hasVehicleStopped ? '#22c55e' : stopType === 'first' ? '#10b981' : stopType === 'last' ? '#ef4444' : '#f97316';
+      const statusColor = hasVehicleStopped ? '#22c55e' : '#f97316';
       const statusText = hasVehicleStopped ? '<div style="color: #22c55e; font-weight: 500; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e5e5;">🚌 Λεωφορείο στη στάση</div>' : '';
 
-      // Generate arrivals HTML with countdown placeholders
-      const generateArrivalsHtml = (arrivalsData: typeof arrivals) => {
-        if (arrivalsData.length > 0) {
-          return `
-            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
-              <div style="font-weight: 500; font-size: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; color: #a5b4fc;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                Επόμενες αφίξεις
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 6px;">
-                ${arrivalsData.map((arr, index) => {
-                  const routeColor = arr.routeColor ? `#${arr.routeColor}` : '#06b6d4';
-                  const delayText = arr.arrivalDelay !== undefined && arr.arrivalDelay !== 0 
-                    ? `<span style="color: ${arr.arrivalDelay > 0 ? '#f87171' : '#4ade80'}; font-size: 11px;">${formatDelay(arr.arrivalDelay)}</span>` 
-                    : '';
-                  
-                  // Calculate initial countdown
-                  const now = Math.floor(Date.now() / 1000);
-                  const secondsUntil = arr.arrivalTime ? arr.arrivalTime - now : 0;
-                  const minutes = Math.floor(secondsUntil / 60);
-                  const seconds = secondsUntil % 60;
-                  const countdownText = secondsUntil > 0 
-                    ? `${minutes}:${seconds.toString().padStart(2, '0')}`
-                    : 'Τώρα';
-                  const countdownColor = secondsUntil <= 120 ? '#f87171' : secondsUntil <= 300 ? '#fbbf24' : '#22d3ee';
-                  
-                  return `
-                    <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 6px 8px; background: rgba(255,255,255,0.05); border-radius: 6px;">
-                      <span style="font-weight: 700; padding: 3px 8px; border-radius: 6px; color: white; font-size: 11px; background: ${routeColor}; box-shadow: 0 2px 8px ${routeColor}40;">${arr.routeShortName || arr.routeId || '?'}</span>
-                      <span data-countdown="${arr.arrivalTime || 0}" style="font-family: monospace; color: ${countdownColor}; font-weight: 600; min-width: 45px;" class="eta-countdown">${countdownText}</span>
-                      <span style="color: #64748b; font-size: 10px;">(${formatETA(arr.arrivalTime)})</span>
-                      ${delayText}
-                      ${arr.vehicleLabel ? `<span style="color: #64748b; font-size: 10px;">(${arr.vehicleLabel})</span>` : ''}
-                    </div>
-                  `;
-                }).join('')}
-              </div>
+      let arrivalsHtml = '';
+      if (arrivals.length > 0) {
+        arrivalsHtml = `
+          <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
+            <div style="font-weight: 500; font-size: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; color: #a5b4fc;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Επόμενες αφίξεις
             </div>
-          `;
-        } else {
-          return '<div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; font-size: 12px; color: #64748b; text-align: center;">Δεν υπάρχουν προγραμματισμένες αφίξεις</div>';
-        }
-      };
-
-      const arrivalsHtml = generateArrivalsHtml(arrivals);
-
-      // Terminal badge
-      const terminalBadge = stopType === 'first' 
-        ? '<div style="display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: #10b981; color: white; margin-left: 8px;">ΑΦΕΤΗΡΙΑ</div>'
-        : stopType === 'last'
-        ? '<div style="display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: #ef4444; color: white; margin-left: 8px;">ΤΕΡΜΑ</div>'
-        : '';
-
-      const popup = new maplibregl.Popup({ 
-        offset: 15, 
-        className: 'stop-popup-maplibre',
-        maxWidth: 'none',
-        closeOnClick: true
-      })
-      .setHTML(`
-        <div style="padding: 14px; min-width: 240px; max-width: 320px; font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #f8fafc; border-radius: 12px;">
-          <div style="font-weight: 600; font-size: 15px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${statusColor}; box-shadow: 0 0 8px ${statusColor};"></span>
-            <span style="color: #f1f5f9;">${stop.stop_name || 'Στάση'}</span>
-            ${terminalBadge}
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              ${arrivals.map(arr => {
+                const routeColor = arr.routeColor ? `#${arr.routeColor}` : '#06b6d4';
+                const delayText = arr.arrivalDelay !== undefined && arr.arrivalDelay !== 0 
+                  ? `<span style="color: ${arr.arrivalDelay > 0 ? '#f87171' : '#4ade80'}; font-size: 11px;">${formatDelay(arr.arrivalDelay)}</span>` 
+                  : '';
+                return `
+                  <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 6px 8px; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                    <span style="font-weight: 700; padding: 3px 8px; border-radius: 6px; color: white; font-size: 11px; background: ${routeColor}; box-shadow: 0 2px 8px ${routeColor}40;">${arr.routeShortName || arr.routeId || '?'}</span>
+                    <span style="font-family: monospace; color: #22d3ee; font-weight: 600;">${formatETA(arr.arrivalTime)}</span>
+                    ${delayText}
+                    ${arr.vehicleLabel ? `<span style="color: #64748b; font-size: 10px;">(${arr.vehicleLabel})</span>` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
           </div>
-          <div style="font-size: 12px; color: #94a3b8; background: rgba(255,255,255,0.05); padding: 8px 10px; border-radius: 8px; margin-bottom: 8px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>ID:</span><span style="font-family: monospace; color: #67e8f9;">${stop.stop_id}</span></div>
-            ${stop.stop_code ? `<div style="display: flex; justify-content: space-between;"><span>Κωδικός:</span><span style="font-family: monospace; color: #67e8f9;">${stop.stop_code}</span></div>` : ''}
-          </div>
-          ${hasVehicleStopped ? '<div style="color: #4ade80; font-weight: 500; padding: 8px 10px; background: rgba(74, 222, 128, 0.15); border-radius: 8px; font-size: 13px;">🚌 Λεωφορείο στη στάση</div>' : ''}
-          ${arrivalsHtml}
-        </div>
-      `);
+        `;
+      } else {
+        arrivalsHtml = '<div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; font-size: 12px; color: #64748b; text-align: center;">Δεν υπάρχουν προγραμματισμένες αφίξεις</div>';
+      }
 
-      // Setup countdown timer when popup opens
-      popup.on('open', () => {
-        const updateCountdowns = () => {
-          const countdownElements = document.querySelectorAll('.eta-countdown');
-          const now = Math.floor(Date.now() / 1000);
-          
-          countdownElements.forEach((el) => {
-            const arrivalTime = parseInt(el.getAttribute('data-countdown') || '0', 10);
-            if (arrivalTime === 0) return;
-            
-            const secondsUntil = arrivalTime - now;
-            
-            if (secondsUntil <= 0) {
-              el.textContent = 'Τώρα';
-              (el as HTMLElement).style.color = '#4ade80';
-            } else {
-              const minutes = Math.floor(secondsUntil / 60);
-              const seconds = secondsUntil % 60;
-              el.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-              
-              // Color based on urgency
-              if (secondsUntil <= 120) {
-                (el as HTMLElement).style.color = '#f87171'; // Red - very soon
-              } else if (secondsUntil <= 300) {
-                (el as HTMLElement).style.color = '#fbbf24'; // Yellow - soon
-              } else {
-                (el as HTMLElement).style.color = '#22d3ee'; // Cyan - normal
-              }
-            }
-          });
-        };
-        
-        // Update immediately and then every second
-        updateCountdowns();
-        const countdownInterval = setInterval(updateCountdowns, 1000);
-        
-        // Store interval reference for cleanup
-        (popup as any)._countdownInterval = countdownInterval;
-      });
-      
-      popup.on('close', () => {
-        // Clear countdown interval when popup closes
-        if ((popup as any)._countdownInterval) {
-          clearInterval((popup as any)._countdownInterval);
-        }
-      });
+        const popup = new maplibregl.Popup({ 
+          offset: 15, 
+          className: 'stop-popup-maplibre',
+          maxWidth: 'none',
+          closeOnClick: true
+        })
+        .setHTML(`
+          <div style="padding: 14px; min-width: 240px; max-width: 320px; font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #f8fafc; border-radius: 12px;">
+            <div style="font-weight: 600; font-size: 15px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+              <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${statusColor}; box-shadow: 0 0 8px ${statusColor};"></span>
+              <span style="color: #f1f5f9;">${stop.stop_name || 'Στάση'}</span>
+            </div>
+            <div style="font-size: 12px; color: #94a3b8; background: rgba(255,255,255,0.05); padding: 8px 10px; border-radius: 8px; margin-bottom: 8px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>ID:</span><span style="font-family: monospace; color: #67e8f9;">${stop.stop_id}</span></div>
+              ${stop.stop_code ? `<div style="display: flex; justify-content: space-between;"><span>Κωδικός:</span><span style="font-family: monospace; color: #67e8f9;">${stop.stop_code}</span></div>` : ''}
+            </div>
+            ${hasVehicleStopped ? '<div style="color: #4ade80; font-weight: 500; padding: 8px 10px; background: rgba(74, 222, 128, 0.15); border-radius: 8px; font-size: 13px;">🚌 Λεωφορείο στη στάση</div>' : ''}
+            ${arrivalsHtml}
+          </div>
+        `);
 
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([stop.stop_lon!, stop.stop_lat!])
@@ -1327,7 +776,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
 
       stopMarkersRef.current.set(stop.stop_id, marker);
     });
-  }, [stops, showStops, stopsWithVehicles, getArrivalsForStop, favoriteStops, selectedRoute, trips, shapes, tripMappings, routeTerminals]);
+  }, [stops, showStops, stopsWithVehicles, getArrivalsForStop]);
 
   // Handle user location
   const locateUser = () => {
@@ -1339,7 +788,6 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       (position) => {
         const { latitude, longitude } = position.coords;
         setUserLocation({ lat: latitude, lng: longitude });
-        setShowNearbyPanel(true); // Reopen panel when locating
         
         if (userMarkerRef.current) {
           userMarkerRef.current.setLngLat([longitude, latitude]);
@@ -1496,7 +944,93 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
     });
   }, [nearbyStops, trips, notificationsEnabled, getArrivalsForStop, toast, playNotificationSound]);
 
-  // Bus route shapes - disabled for now
+  // Display bus route shapes on map - only when following a vehicle
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded) return;
+
+    const source = mapRef.current.getSource('bus-shapes') as maplibregl.GeoJSONSource;
+    if (!source) return;
+
+    // Always start by clearing any existing shapes
+    source.setData({ type: 'FeatureCollection', features: [] });
+
+    // Exit early if no vehicle is being followed
+    if (!followedVehicleId) return;
+    
+    // Exit if we don't have the required data
+    if (!shapes || shapes.length === 0 || !tripMappings || tripMappings.length === 0) return;
+
+    // Find the followed vehicle
+    const followedVehicle = vehicles.find(v => v.id === followedVehicleId || v.vehicleId === followedVehicleId);
+    if (!followedVehicle?.routeId) return;
+
+    // Create route_id -> shape_ids mapping
+    const routeToShapes = new Map<string, Set<string>>();
+    const shapeToRoute = new Map<string, string>();
+    tripMappings.forEach(mapping => {
+      if (!routeToShapes.has(mapping.route_id)) {
+        routeToShapes.set(mapping.route_id, new Set());
+      }
+      routeToShapes.get(mapping.route_id)!.add(mapping.shape_id);
+      shapeToRoute.set(mapping.shape_id, mapping.route_id);
+    });
+
+    // Get shapes for the followed vehicle's route only
+    const shapesToShow = routeToShapes.get(followedVehicle.routeId);
+    if (!shapesToShow || shapesToShow.size === 0) return;
+
+    // Group shape points by shape_id and sort by sequence
+    const shapeGroups = new Map<string, { lat: number; lon: number; seq: number }[]>();
+    shapes.forEach(point => {
+      if (!shapesToShow.has(point.shape_id)) return;
+      
+      if (!shapeGroups.has(point.shape_id)) {
+        shapeGroups.set(point.shape_id, []);
+      }
+      shapeGroups.get(point.shape_id)!.push({
+        lat: point.shape_pt_lat,
+        lon: point.shape_pt_lon,
+        seq: point.shape_pt_sequence
+      });
+    });
+
+    // Create GeoJSON features for each shape with route color
+    const features: GeoJSON.Feature[] = [];
+    const routeInfo = routeNamesMap?.get(followedVehicle.routeId);
+    const color = routeInfo?.route_color ? `#${routeInfo.route_color}` : '#3b82f6';
+    const routeName = routeInfo?.route_short_name || followedVehicle.routeId || '';
+    const routeLongName = routeInfo?.route_long_name || '';
+
+    shapeGroups.forEach((points, shapeId) => {
+      // Sort by sequence
+      points.sort((a, b) => a.seq - b.seq);
+      
+      // Create LineString coordinates
+      const coordinates = points.map(p => [p.lon, p.lat]);
+      
+      if (coordinates.length > 1) {
+        features.push({
+          type: 'Feature',
+          properties: { 
+            shapeId,
+            routeId: followedVehicle.routeId,
+            color,
+            routeName,
+            routeLongName
+          },
+          geometry: {
+            type: 'LineString',
+            coordinates
+          }
+        });
+      }
+    });
+
+    source.setData({
+      type: 'FeatureCollection',
+      features
+    });
+  }, [shapes, tripMappings, mapLoaded, followedVehicleId, vehicles, routeNamesMap]);
 
   // Handle map click for route planning
   useEffect(() => {
@@ -1534,7 +1068,34 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
     // Always clear first
     source.setData({ type: 'FeatureCollection', features: [] });
 
-    // Route line drawing disabled to avoid straight overlay lines.
+    // Only draw if we have routes from the route planner
+    if (routingState.routes.length > 0 && routingState.origin && routingState.destination) {
+      const selectedRoute = routingState.routes[0];
+      const features: GeoJSON.Feature[] = [];
+
+      selectedRoute.segments.forEach((segment) => {
+        const color = segment.type === 'walk' 
+          ? '#6b7280' 
+          : (segment.routeColor ? `#${segment.routeColor}` : '#3b82f6');
+        
+        features.push({
+          type: 'Feature',
+          properties: { color },
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [segment.from.lon, segment.from.lat],
+              [segment.to.lon, segment.to.lat]
+            ]
+          }
+        });
+      });
+
+      source.setData({
+        type: 'FeatureCollection',
+        features
+      });
+    }
   }, [routingState.routes, routingState.origin, routingState.destination, mapLoaded]);
 
   // Follow the selected vehicle in realtime
@@ -1602,17 +1163,15 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       />
 
       {/* Route Planner Button */}
-      {!showRoutePlanner && (
-        <Button
-          variant="default"
-          size="sm"
-          className="absolute bottom-16 left-4 z-[1000] gap-2 shadow-lg"
-          onClick={() => setShowRoutePlanner(true)}
-        >
-          <Route className="h-4 w-4" />
-          Σχεδιασμός Διαδρομής
-        </Button>
-      )}
+      <Button
+        variant="default"
+        size="sm"
+        className="absolute bottom-16 left-4 z-[1000] gap-2 shadow-lg"
+        onClick={() => setShowRoutePlanner(true)}
+      >
+        <Route className="h-4 w-4" />
+        Σχεδιασμός Διαδρομής
+      </Button>
       {isLoading && (
         <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center">
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -1622,216 +1181,81 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
         </div>
       )}
       
-      {/* Following Panel */}
+      {/* Following indicator */}
       {followedVehicle && (
-        <FollowingPanel
-          vehicle={followedVehicle}
-          routeInfo={followedRouteInfo || undefined}
-          nextStop={followedNextStop}
-          onClose={() => setFollowedVehicleId(null)}
-        />
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 glass-card rounded-lg px-4 py-2 z-[1000] min-w-[280px] max-w-[95%]">
+          <div className="flex items-center gap-3">
+            <Navigation 
+              className="h-4 w-4 animate-pulse flex-shrink-0" 
+              style={{ color: followedRouteInfo?.route_color ? `#${followedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
+            />
+            <div className="text-sm flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-muted-foreground">Όχημα:</span>
+                <span className="font-semibold">{followedVehicle.label || followedVehicle.vehicleId || followedVehicle.id}</span>
+                {followedVehicle.speed !== undefined && (
+                  <span className="text-primary font-medium">{formatSpeed(followedVehicle.speed)}</span>
+                )}
+              </div>
+              {followedRouteInfo && (
+                <div 
+                  className="font-medium mt-0.5"
+                  style={{ color: followedRouteInfo.route_color ? `#${followedRouteInfo.route_color}` : 'inherit' }}
+                >
+                  {followedRouteInfo.route_short_name} - {followedRouteInfo.route_long_name}
+                </div>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 flex-shrink-0"
+              onClick={() => setFollowedVehicleId(null)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          {followedNextStop && (
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border text-sm flex-wrap">
+              <Clock className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+              <span className="text-muted-foreground">Επόμενη στάση:</span>
+              <span className="font-medium">{followedNextStop.stopName}</span>
+              {followedNextStop.arrivalTime && (
+                <span className="font-mono text-primary">{formatETA(followedNextStop.arrivalTime)}</span>
+              )}
+              {followedNextStop.arrivalDelay !== undefined && followedNextStop.arrivalDelay !== 0 && (
+                <span className={followedNextStop.arrivalDelay > 0 ? 'text-destructive' : 'text-green-500'}>
+                  {formatDelay(followedNextStop.arrivalDelay)}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Rotation hint */}
-      {showRotationHint && (
-        <div className="absolute top-4 left-14 glass-card rounded-lg px-2 py-1 z-[1000] text-xs text-muted-foreground flex items-center gap-2">
-          <span>Ctrl+Scroll ή δεξί κλικ για περιστροφή</span>
-          <button
-            onClick={() => setShowRotationHint(false)}
-            className="p-0.5 hover:bg-muted rounded transition-colors"
-            title="Κλείσιμο"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        </div>
-      )}
-
-      {/* Map controls */}
-      <div className="absolute top-2 right-2 glass-card rounded-lg px-3 py-2 flex items-center gap-3 z-[1000]">
-        <div className="flex items-center gap-2">
-          <Switch
-            id="show-stops"
-            checked={showStops}
-            onCheckedChange={setShowStops}
-            className="data-[state=checked]:bg-orange-500"
-          />
-          <Label htmlFor="show-stops" className="text-xs cursor-pointer flex items-center gap-1">
-            <MapPin className="h-3 w-3 text-orange-500" />
-            Στάσεις ({routeStopsCount})
-          </Label>
-        </div>
-        {routeTerminals.totalKm > 0 && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground border-l border-border pl-3">
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 6L6 18M8 6h10v10"/>
-            </svg>
-            <span className="font-medium">{routeTerminals.totalKm} km</span>
-          </div>
-        )}
+      <div className="absolute top-4 left-14 glass-card rounded-lg px-2 py-1 z-[1000] text-xs text-muted-foreground">
+        Ctrl+Scroll ή δεξί κλικ για περιστροφή
       </div>
 
-      {/* Route Stops Panel - Metro style */}
-      {selectedRoute && selectedRoute !== 'all' && showRouteStopsPanel && (
-        <RouteStopsPanel
-          selectedRoute={selectedRoute}
-          routeInfo={routeNamesMap?.get(selectedRoute)}
-          trips={trips}
-          stops={stops}
-          shapes={shapes}
-          tripMappings={tripMappings}
-          vehicles={vehicles}
-          totalKm={routeTerminals.totalKm}
-          estimatedMinutes={routeTerminals.estimatedMinutes}
-          highlightedStopId={highlightedStopId}
-          onHighlightStop={(stopId) => {
-            // Remove previous highlighted marker
-            if (highlightedMarkerRef.current) {
-              highlightedMarkerRef.current.remove();
-              highlightedMarkerRef.current = null;
-            }
-            
-            setHighlightedStopId(stopId);
-            
-            // Create highlighted marker on map with popup
-            if (stopId && mapRef.current) {
-              const stop = stops.find(s => s.stop_id === stopId);
-              if (stop?.stop_lat && stop?.stop_lon) {
-                const arrivals = getArrivalsForStop(stopId);
-                const routeInfo = selectedRoute ? routeNamesMap?.get(selectedRoute) : null;
-                const routeColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : '#06b6d4';
-                
-                // Calculate distance and walking time from user
-                let distanceText = '';
-                let walkingTimeText = '';
-                if (userLocation) {
-                  const distance = Math.sqrt(
-                    Math.pow((stop.stop_lat - userLocation.lat) * 111000, 2) +
-                    Math.pow((stop.stop_lon - userLocation.lng) * 111000 * Math.cos(stop.stop_lat * Math.PI / 180), 2)
-                  );
-                  distanceText = distance < 1000 
-                    ? `${Math.round(distance)} μ` 
-                    : `${(distance / 1000).toFixed(1)} χλμ`;
-                  const walkingMinutes = Math.round(distance / 80); // ~80m per minute walking
-                  walkingTimeText = walkingMinutes < 1 ? '< 1 λεπτό' : `${walkingMinutes} λεπτά`;
-                }
-                
-                // Build arrivals HTML
-                let arrivalsHtml = '';
-                if (arrivals.length > 0) {
-                  arrivalsHtml = `
-                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
-                      <div style="font-weight: 500; font-size: 11px; margin-bottom: 6px; color: #a5b4fc;">Επόμενες αφίξεις</div>
-                      ${arrivals.slice(0, 3).map(arr => {
-                        const arrRouteColor = arr.routeColor ? `#${arr.routeColor}` : '#06b6d4';
-                        return `
-                          <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 4px 6px; background: rgba(255,255,255,0.05); border-radius: 4px; margin-bottom: 4px;">
-                            <span style="font-weight: 700; padding: 2px 6px; border-radius: 4px; color: white; font-size: 10px; background: ${arrRouteColor};">${arr.routeShortName || '?'}</span>
-                            <span style="font-family: monospace; color: #22d3ee; font-weight: 600;">${formatETA(arr.arrivalTime)}</span>
-                          </div>
-                        `;
-                      }).join('')}
-                    </div>
-                  `;
-                }
-                
-                const el = document.createElement('div');
-                el.className = 'highlighted-stop-marker';
-                el.innerHTML = `
-                  <div style="position: relative; cursor: pointer;">
-                    <div style="position: absolute; inset: -8px; background: rgba(6, 182, 212, 0.3); border-radius: 50%; animation: ping 1.5s infinite;"></div>
-                    <div style="width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #06b6d4; border: 3px solid white; box-shadow: 0 0 20px rgba(6, 182, 212, 0.8), 0 4px 12px rgba(0,0,0,0.3);">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="3"/>
-                      </svg>
-                    </div>
-                  </div>
-                `;
-                
-                const popup = new maplibregl.Popup({ 
-                  offset: 20, 
-                  className: 'highlighted-stop-popup',
-                  maxWidth: 'none'
-                }).setHTML(`
-                  <div style="padding: 12px; min-width: 200px; max-width: 280px; font-family: system-ui, -apple-system, sans-serif; background: linear-gradient(135deg, #0e7490 0%, #0891b2 100%); color: white; border-radius: 12px;">
-                    <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-                      <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #22d3ee; box-shadow: 0 0 8px #22d3ee;"></span>
-                      ${stop.stop_name || 'Στάση'}
-                    </div>
-                    <div style="font-size: 11px; color: rgba(255,255,255,0.8); background: rgba(0,0,0,0.2); padding: 6px 8px; border-radius: 6px; margin-bottom: 8px;">
-                      <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                        <span>ID:</span>
-                        <span style="font-family: monospace;">${stop.stop_id}</span>
-                      </div>
-                      ${stop.stop_code ? `<div style="display: flex; justify-content: space-between;"><span>Κωδικός:</span><span style="font-family: monospace;">${stop.stop_code}</span></div>` : ''}
-                    </div>
-                    ${userLocation ? `
-                      <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                        <div style="flex: 1; background: rgba(0,0,0,0.2); padding: 6px 8px; border-radius: 6px; text-align: center;">
-                          <div style="font-size: 10px; opacity: 0.8;">Απόσταση</div>
-                          <div style="font-weight: 600; font-size: 13px;">${distanceText}</div>
-                        </div>
-                        <div style="flex: 1; background: rgba(0,0,0,0.2); padding: 6px 8px; border-radius: 6px; text-align: center;">
-                          <div style="font-size: 10px; opacity: 0.8;">🚶 Περπάτημα</div>
-                          <div style="font-weight: 600; font-size: 13px;">${walkingTimeText}</div>
-                        </div>
-                      </div>
-                    ` : ''}
-                    ${arrivalsHtml}
-                  </div>
-                `);
-                
-                highlightedMarkerRef.current = new maplibregl.Marker({ element: el })
-                  .setLngLat([stop.stop_lon, stop.stop_lat])
-                  .setPopup(popup)
-                  .addTo(mapRef.current);
-                
-                // Show popup automatically
-                highlightedMarkerRef.current.togglePopup();
-              }
-            }
-          }}
-          onClose={() => setShowRouteStopsPanel(false)}
-          onStopClick={(stopId, lat, lon) => {
-            mapRef.current?.flyTo({
-              center: [lon, lat],
-              zoom: 18,
-              pitch: 45,
-              duration: 800
-            });
-            setShowStops(true);
-          }}
+      {/* Map controls */}
+      <div className="absolute top-4 right-4 glass-card rounded-lg px-3 py-2 flex items-center gap-2 z-[1000]">
+        <Switch
+          id="show-stops"
+          checked={showStops}
+          onCheckedChange={setShowStops}
         />
-      )}
+        <Label htmlFor="show-stops" className="text-xs cursor-pointer flex items-center gap-1">
+          <MapPin className="h-3 w-3 text-orange-500" />
+          Στάσεις ({stops.length})
+        </Label>
+      </div>
 
-      {/* Schedule Panel */}
-      {selectedRoute && selectedRoute !== 'all' && showSchedulePanel && selectedOperator && (
-        <SchedulePanel
-          selectedRoute={selectedRoute}
-          routeInfo={routeNamesMap?.get(selectedRoute)}
-          operatorId={selectedOperator}
-          trips={trips}
-          vehicles={vehicles}
-          onClose={() => setShowSchedulePanel(false)}
-          onFollowVehicle={(vehicleId) => {
-            setFollowedVehicleId(vehicleId);
-            // Zoom to street level when following from schedule panel
-            const vehicle = vehicles.find(v => (v.vehicleId || v.id) === vehicleId);
-            if (vehicle?.latitude && vehicle?.longitude && mapRef.current) {
-              mapRef.current.flyTo({
-                center: [vehicle.longitude, vehicle.latitude],
-                zoom: 18,
-                pitch: 60,
-                duration: 1000
-              });
-            }
-          }}
-        />
-      )}
-
+      {/* Night mode button */}
       <Button
         variant="secondary"
         size="icon"
-        className={`absolute top-14 right-4 z-[1000] glass-card h-9 w-9 ${isAutoNightMode ? 'ring-2 ring-primary/50' : ''}`}
+        className={`absolute top-16 right-4 z-[1000] glass-card h-9 w-9 ${isAutoNightMode ? 'ring-2 ring-primary/50' : ''}`}
         onClick={handleNightModeToggle}
         title={`${isNightMode ? 'Λειτουργία ημέρας' : 'Λειτουργία νύχτας'}${isAutoNightMode ? ' (αυτόματο)' : ''}`}
       >
@@ -1846,7 +1270,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       <Button
         variant="secondary"
         size="sm"
-        className={`absolute top-24 right-4 z-[1000] glass-card h-7 px-2 text-[10px] ${isAutoNightMode ? 'bg-primary/20' : ''}`}
+        className={`absolute top-[6.5rem] right-4 z-[1000] glass-card h-7 px-2 text-[10px] ${isAutoNightMode ? 'bg-primary/20' : ''}`}
         onClick={() => setIsAutoNightMode(!isAutoNightMode)}
         title="Αυτόματη εναλλαγή βάσει ώρας"
       >
@@ -1857,7 +1281,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       <Button
         variant="secondary"
         size="icon"
-        className="absolute top-32 right-4 z-[1000] glass-card h-9 w-9"
+        className="absolute top-[8.5rem] right-4 z-[1000] glass-card h-9 w-9"
         onClick={locateUser}
         disabled={isLocating}
         title="Εντοπισμός τοποθεσίας"
@@ -1869,7 +1293,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       <Button
         variant="secondary"
         size="icon"
-        className={`absolute top-44 right-4 z-[1000] glass-card h-9 w-9 ${notificationsEnabled ? 'ring-2 ring-green-500/50' : ''}`}
+        className={`absolute top-[10.5rem] right-4 z-[1000] glass-card h-9 w-9 ${notificationsEnabled ? 'ring-2 ring-green-500/50' : ''}`}
         onClick={() => setNotificationsEnabled(!notificationsEnabled)}
         title={notificationsEnabled ? 'Απενεργοποίηση ειδοποιήσεων' : 'Ενεργοποίηση ειδοποιήσεων'}
       >
@@ -1884,7 +1308,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
       <Button
         variant="secondary"
         size="icon"
-        className={`absolute top-56 right-4 z-[1000] glass-card h-9 w-9 ${soundEnabled ? 'ring-2 ring-blue-500/50' : ''}`}
+        className={`absolute top-[12.5rem] right-4 z-[1000] glass-card h-9 w-9 ${soundEnabled ? 'ring-2 ring-blue-500/50' : ''}`}
         onClick={() => setSoundEnabled(!soundEnabled)}
         title={soundEnabled ? 'Απενεργοποίηση ήχου' : 'Ενεργοποίηση ήχου'}
       >
@@ -1895,100 +1319,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
         )}
       </Button>
 
-      {/* 2D/3D toggle */}
-      <Button
-        variant="secondary"
-        size="icon"
-        className={`absolute top-[17rem] right-4 z-[1000] glass-card h-9 w-9 ${is3DMode ? 'ring-2 ring-purple-500/50' : ''}`}
-        onClick={() => {
-          setIs3DMode(!is3DMode);
-          mapRef.current?.easeTo({
-            pitch: is3DMode ? 0 : 45,
-            duration: 500
-          });
-        }}
-        title={is3DMode ? 'Προβολή 2D' : 'Προβολή 3D'}
-      >
-        {is3DMode ? (
-          <Layers className="h-4 w-4 text-purple-500" />
-        ) : (
-          <Box className="h-4 w-4 text-muted-foreground" />
-        )}
-      </Button>
-
-      {/* Reset view button */}
-      <Button
-        variant="secondary"
-        size="icon"
-        className="absolute top-[20rem] right-4 z-[1000] glass-card h-9 w-9"
-        onClick={() => {
-          mapRef.current?.flyTo({
-            center: [33.0, 35.1],
-            zoom: 6,
-            pitch: 0,
-            bearing: 0,
-            duration: 1000
-          });
-          setIs3DMode(false);
-        }}
-        title="Επαναφορά χάρτη"
-      >
-        <Home className="h-4 w-4" />
-      </Button>
-
-      {/* Zoom In button */}
-      <Button
-        variant="secondary"
-        size="icon"
-        className="absolute top-[23rem] right-4 z-[1000] glass-card h-9 w-9"
-        onClick={() => {
-          mapRef.current?.zoomIn({ duration: 300 });
-        }}
-        title="Μεγέθυνση"
-      >
-        <ZoomIn className="h-4 w-4" />
-      </Button>
-
-      {/* Zoom Out button */}
-      <Button
-        variant="secondary"
-        size="icon"
-        className="absolute top-[26rem] right-4 z-[1000] glass-card h-9 w-9"
-        onClick={() => {
-          mapRef.current?.zoomOut({ duration: 300 });
-        }}
-        title="Σμίκρυνση"
-      >
-        <ZoomOut className="h-4 w-4" />
-      </Button>
-
-      {/* Zoom to fit route button */}
-      {selectedRoute && selectedRoute !== 'all' && (
-        <Button
-          variant="secondary"
-          size="icon"
-          className="absolute top-[29rem] right-4 z-[1000] glass-card h-9 w-9"
-          onClick={zoomToRoute}
-          title="Εμφάνιση ολόκληρης διαδρομής"
-        >
-          <Maximize2 className="h-4 w-4" />
-        </Button>
-      )}
-
-      {userLocation && nearbyStops.length > 0 && showNearbyPanel && (
+      {/* Nearby stops panel */}
+      {userLocation && nearbyStops.length > 0 && (
         <div className="absolute bottom-4 right-4 glass-card rounded-lg p-3 z-[1000] max-w-[300px] max-h-[60vh] overflow-hidden flex flex-col">
-          {/* Header with close button */}
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-muted-foreground">Στάσεις</span>
-            <button
-              onClick={() => setShowNearbyPanel(false)}
-              className="p-1 hover:bg-muted rounded transition-colors"
-              title="Κλείσιμο"
-            >
-              <X className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
-          </div>
-          
           {/* Tabs for nearby and favorites */}
           <div className="flex gap-1 mb-2">
             <button

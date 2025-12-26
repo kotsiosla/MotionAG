@@ -128,9 +128,9 @@ const Index = () => {
         <ErrorBanner message={errorMessage || "Αποτυχία σύνδεσης"} onRetry={handleRetry} />
       )}
 
-      <main className="flex-1 container mx-auto px-4 py-2">
+      <main className="flex-1 container mx-auto px-4 py-6 mt-2">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-4 mb-2">
+          <TabsList className="grid w-full grid-cols-4 mb-4">
             <TabsTrigger value="map" className="flex items-center gap-2">
               <MapIcon className="h-4 w-4" />
               <span className="hidden sm:inline">Χάρτης</span>
@@ -165,8 +165,6 @@ const Index = () => {
                 routeNamesMap={routeNamesMap}
                 isLoading={vehiclesQuery.isLoading}
                 selectedRoute={selectedRoute}
-                selectedOperator={selectedOperator}
-                onRouteChange={setSelectedRoute}
               />
             </TabsContent>
 
