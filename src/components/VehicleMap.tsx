@@ -22,6 +22,7 @@ interface VehicleMapProps {
   isLoading: boolean;
   selectedRoute?: string;
   selectedOperator?: string;
+  onRouteChange?: (routeId: string) => void;
 }
 
 const formatTimestamp = (timestamp?: number) => {
@@ -144,7 +145,7 @@ const createStopElement = (hasVehicleStopped?: boolean, isFavorite?: boolean, st
   return el;
 };
 
-export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], tripMappings = [], routeNamesMap, isLoading, selectedRoute, selectedOperator }: VehicleMapProps) {
+export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], tripMappings = [], routeNamesMap, isLoading, selectedRoute, selectedOperator, onRouteChange }: VehicleMapProps) {
   const { toast } = useToast();
   const mapRef = useRef<maplibregl.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -943,7 +944,22 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
         // Update element
         const newEl = createVehicleElement(vehicle.bearing, isFollowed, routeColor);
         newEl.style.cursor = 'pointer';
-        newEl.onclick = () => setFollowedVehicleId(vehicleId);
+        newEl.onclick = () => {
+          // Auto-select route and follow vehicle
+          if (vehicle.routeId && onRouteChange) {
+            onRouteChange(vehicle.routeId);
+          }
+          setFollowedVehicleId(vehicleId);
+          // Zoom to street level
+          if (mapRef.current && vehicle.latitude && vehicle.longitude) {
+            mapRef.current.flyTo({
+              center: [vehicle.longitude, vehicle.latitude],
+              zoom: 18,
+              pitch: 60,
+              duration: 1000
+            });
+          }
+        };
         existingMarker.getElement().replaceWith(newEl);
         // Need to update the marker's internal element reference
         (existingMarker as any)._element = newEl;
@@ -951,7 +967,22 @@ export function VehicleMap({ vehicles, trips = [], stops = [], shapes = [], trip
         // Create new marker
         const el = createVehicleElement(vehicle.bearing, isFollowed, routeColor);
         el.style.cursor = 'pointer';
-        el.onclick = () => setFollowedVehicleId(vehicleId);
+        el.onclick = () => {
+          // Auto-select route and follow vehicle
+          if (vehicle.routeId && onRouteChange) {
+            onRouteChange(vehicle.routeId);
+          }
+          setFollowedVehicleId(vehicleId);
+          // Zoom to street level
+          if (mapRef.current && vehicle.latitude && vehicle.longitude) {
+            mapRef.current.flyTo({
+              center: [vehicle.longitude, vehicle.latitude],
+              zoom: 18,
+              pitch: 60,
+              duration: 1000
+            });
+          }
+        };
 
         const popup = new maplibregl.Popup({ offset: 25, className: 'vehicle-popup-maplibre', maxWidth: 'none' })
           .setHTML(`

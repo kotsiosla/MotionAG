@@ -166,6 +166,7 @@ const Index = () => {
                 isLoading={vehiclesQuery.isLoading}
                 selectedRoute={selectedRoute}
                 selectedOperator={selectedOperator}
+                onRouteChange={setSelectedRoute}
               />
             </TabsContent>
 
