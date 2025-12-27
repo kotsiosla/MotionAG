@@ -262,6 +262,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
       zoomControl: true,
     });
 
+    mapRef.current.on('layeradd', (event) => {
+      if (!(event.layer instanceof L.TileLayer)) return;
+      if (event.layer === mapboxLayerRef.current || event.layer === fallbackLayerRef.current) return;
+      mapRef.current?.removeLayer(event.layer);
+    });
+
     vehicleMarkersRef.current = L.markerClusterGroup({
       chunkedLoading: true,
       spiderfyOnMaxZoom: true,
