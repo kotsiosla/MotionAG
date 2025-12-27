@@ -1120,6 +1120,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           vehicles={vehicles}
           stops={stops}
           routeInfo={selectedRouteInfo}
+          selectedOperator={selectedOperator}
           onClose={() => setShowRoutePanel(false)}
           onStopClick={handleStopClick}
         />
