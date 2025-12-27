@@ -435,19 +435,21 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     };
   }, []);
 
-  // Update vehicle markers when vehicles change
+  // Update vehicle markers when vehicles change - with smooth animation
   useEffect(() => {
-    if (!vehicleMarkersRef.current) return;
-
-    vehicleMarkersRef.current.clearLayers();
-    markerMapRef.current.clear();
+    if (!vehicleMarkersRef.current || !mapRef.current) return;
 
     const validVehicles = vehicles.filter(
       (v) => v.latitude !== undefined && v.longitude !== undefined
     );
 
+    // Track which vehicle IDs are currently in the data
+    const currentVehicleIds = new Set<string>();
+
     validVehicles.forEach((vehicle) => {
       const vehicleId = vehicle.vehicleId || vehicle.id;
+      currentVehicleIds.add(vehicleId);
+      
       const isFollowed = followedVehicleId === vehicleId;
       const isOnSelectedRoute = selectedRoute !== 'all' && vehicle.routeId === selectedRoute;
       
@@ -458,59 +460,123 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       
       // Get next stop info
       const nextStop = getNextStopInfo(vehicle);
+
+      const existingMarker = markerMapRef.current.get(vehicleId);
       
-      const marker = L.marker([vehicle.latitude!, vehicle.longitude!], {
-        icon: createVehicleIcon(vehicle.bearing, isFollowed, routeColor, isOnSelectedRoute),
-        zIndexOffset: isOnSelectedRoute ? 2000 : (isFollowed ? 1000 : 0),
-      });
-
-      marker.on('click', () => {
-        setFollowedVehicleId(vehicleId);
-      });
-
-      const etaHtml = nextStop ? `
-        <div class="mt-2 pt-2 border-t border-border">
-          <div class="flex items-center gap-1 text-primary font-medium mb-1">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Επόμενη στάση
+      if (existingMarker) {
+        // Smooth animation: update position of existing marker
+        const currentLatLng = existingMarker.getLatLng();
+        const newLatLng = L.latLng(vehicle.latitude!, vehicle.longitude!);
+        
+        // Only animate if position actually changed
+        if (currentLatLng.lat !== newLatLng.lat || currentLatLng.lng !== newLatLng.lng) {
+          // Get the marker's DOM element and add transition class
+          const markerElement = existingMarker.getElement();
+          if (markerElement) {
+            markerElement.style.transition = 'transform 1s ease-out';
+          }
+          existingMarker.setLatLng(newLatLng);
+        }
+        
+        // Update icon if needed (for rotation/bearing changes)
+        existingMarker.setIcon(createVehicleIcon(vehicle.bearing, isFollowed, routeColor, isOnSelectedRoute));
+        existingMarker.setZIndexOffset(isOnSelectedRoute ? 2000 : (isFollowed ? 1000 : 0));
+        
+        // Update popup content
+        const etaHtml = nextStop ? `
+          <div class="mt-2 pt-2 border-t border-border">
+            <div class="flex items-center gap-1 text-primary font-medium mb-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Επόμενη στάση
+            </div>
+            <div class="text-sm">
+              <div class="font-medium">${nextStop.stopName}</div>
+              ${nextStop.arrivalTime ? `<div class="text-muted-foreground">Άφιξη: <span class="text-foreground font-mono">${formatETA(nextStop.arrivalTime)}</span> ${formatDelay(nextStop.arrivalDelay)}</div>` : ''}
+            </div>
           </div>
-          <div class="text-sm">
-            <div class="font-medium">${nextStop.stopName}</div>
-            ${nextStop.arrivalTime ? `<div class="text-muted-foreground">Άφιξη: <span class="text-foreground font-mono">${formatETA(nextStop.arrivalTime)}</span> ${formatDelay(nextStop.arrivalDelay)}</div>` : ''}
-          </div>
-        </div>
-      ` : '';
+        ` : '';
 
-      marker.bindPopup(`
-        <div class="p-3 min-w-[220px]">
-          <div class="font-semibold text-base mb-2 flex items-center gap-2">
-            <span class="inline-block w-3 h-3 rounded-full" style="background: ${routeColor ? `#${routeColor}` : 'hsl(var(--primary))'}"></span>
-            Όχημα ${vehicleId}
+        existingMarker.setPopupContent(`
+          <div class="p-3 min-w-[220px]">
+            <div class="font-semibold text-base mb-2 flex items-center gap-2">
+              <span class="inline-block w-3 h-3 rounded-full" style="background: ${routeColor ? `#${routeColor}` : 'hsl(var(--primary))'}"></span>
+              Όχημα ${vehicleId}
+            </div>
+            <div class="space-y-1.5 text-sm">
+              ${vehicle.label ? `<div class="flex justify-between"><span class="text-muted-foreground">Ετικέτα:</span><span class="font-mono">${vehicle.label}</span></div>` : ''}
+              ${routeName ? `<div class="flex justify-between gap-2"><span class="text-muted-foreground">Γραμμή:</span><span class="text-right font-medium" style="color: ${routeColor ? `#${routeColor}` : 'inherit'}">${routeName}</span></div>` : ''}
+              <div class="flex justify-between"><span class="text-muted-foreground">Ταχύτητα:</span><span>${formatSpeed(vehicle.speed)}</span></div>
+              ${vehicle.bearing !== undefined ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατεύθυνση:</span><span>${vehicle.bearing.toFixed(0)}°</span></div>` : ''}
+              ${vehicle.currentStatus ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατάσταση:</span><span>${vehicle.currentStatus}</span></div>` : ''}
+              <div class="flex justify-between pt-1 border-t border-border mt-2"><span class="text-muted-foreground">Ενημ:</span><span class="text-xs">${formatTimestamp(vehicle.timestamp)}</span></div>
+            </div>
+            ${etaHtml}
           </div>
-          <div class="space-y-1.5 text-sm">
-            ${vehicle.label ? `<div class="flex justify-between"><span class="text-muted-foreground">Ετικέτα:</span><span class="font-mono">${vehicle.label}</span></div>` : ''}
-            ${routeName ? `<div class="flex justify-between gap-2"><span class="text-muted-foreground">Γραμμή:</span><span class="text-right font-medium" style="color: ${routeColor ? `#${routeColor}` : 'inherit'}">${routeName}</span></div>` : ''}
-            <div class="flex justify-between"><span class="text-muted-foreground">Ταχύτητα:</span><span>${formatSpeed(vehicle.speed)}</span></div>
-            ${vehicle.bearing !== undefined ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατεύθυνση:</span><span>${vehicle.bearing.toFixed(0)}°</span></div>` : ''}
-            ${vehicle.currentStatus ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατάσταση:</span><span>${vehicle.currentStatus}</span></div>` : ''}
-            <div class="flex justify-between pt-1 border-t border-border mt-2"><span class="text-muted-foreground">Ενημ:</span><span class="text-xs">${formatTimestamp(vehicle.timestamp)}</span></div>
-          </div>
-          ${etaHtml}
-        </div>
-      `, {
-        className: 'vehicle-popup',
-      });
+        `);
+      } else {
+        // Create new marker for new vehicles
+        const marker = L.marker([vehicle.latitude!, vehicle.longitude!], {
+          icon: createVehicleIcon(vehicle.bearing, isFollowed, routeColor, isOnSelectedRoute),
+          zIndexOffset: isOnSelectedRoute ? 2000 : (isFollowed ? 1000 : 0),
+        });
 
-      markerMapRef.current.set(vehicleId, marker);
-      vehicleMarkersRef.current!.addLayer(marker);
+        marker.on('click', () => {
+          setFollowedVehicleId(vehicleId);
+        });
+
+        const etaHtml = nextStop ? `
+          <div class="mt-2 pt-2 border-t border-border">
+            <div class="flex items-center gap-1 text-primary font-medium mb-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Επόμενη στάση
+            </div>
+            <div class="text-sm">
+              <div class="font-medium">${nextStop.stopName}</div>
+              ${nextStop.arrivalTime ? `<div class="text-muted-foreground">Άφιξη: <span class="text-foreground font-mono">${formatETA(nextStop.arrivalTime)}</span> ${formatDelay(nextStop.arrivalDelay)}</div>` : ''}
+            </div>
+          </div>
+        ` : '';
+
+        marker.bindPopup(`
+          <div class="p-3 min-w-[220px]">
+            <div class="font-semibold text-base mb-2 flex items-center gap-2">
+              <span class="inline-block w-3 h-3 rounded-full" style="background: ${routeColor ? `#${routeColor}` : 'hsl(var(--primary))'}"></span>
+              Όχημα ${vehicleId}
+            </div>
+            <div class="space-y-1.5 text-sm">
+              ${vehicle.label ? `<div class="flex justify-between"><span class="text-muted-foreground">Ετικέτα:</span><span class="font-mono">${vehicle.label}</span></div>` : ''}
+              ${routeName ? `<div class="flex justify-between gap-2"><span class="text-muted-foreground">Γραμμή:</span><span class="text-right font-medium" style="color: ${routeColor ? `#${routeColor}` : 'inherit'}">${routeName}</span></div>` : ''}
+              <div class="flex justify-between"><span class="text-muted-foreground">Ταχύτητα:</span><span>${formatSpeed(vehicle.speed)}</span></div>
+              ${vehicle.bearing !== undefined ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατεύθυνση:</span><span>${vehicle.bearing.toFixed(0)}°</span></div>` : ''}
+              ${vehicle.currentStatus ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατάσταση:</span><span>${vehicle.currentStatus}</span></div>` : ''}
+              <div class="flex justify-between pt-1 border-t border-border mt-2"><span class="text-muted-foreground">Ενημ:</span><span class="text-xs">${formatTimestamp(vehicle.timestamp)}</span></div>
+            </div>
+            ${etaHtml}
+          </div>
+        `, {
+          className: 'vehicle-popup',
+        });
+
+        markerMapRef.current.set(vehicleId, marker);
+        vehicleMarkersRef.current!.addLayer(marker);
+      }
     });
 
-    // If not following a vehicle, fit bounds to show all
-    if (!followedVehicleId && validVehicles.length > 0 && mapRef.current) {
-      const bounds = L.latLngBounds(
-        validVehicles.map((v) => [v.latitude!, v.longitude!])
-      );
-      mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
+    // Remove markers for vehicles that are no longer in the data
+    markerMapRef.current.forEach((marker, vehicleId) => {
+      if (!currentVehicleIds.has(vehicleId)) {
+        vehicleMarkersRef.current?.removeLayer(marker);
+        markerMapRef.current.delete(vehicleId);
+      }
+    });
+
+    // If not following a vehicle, fit bounds to show all (only on first load)
+    if (!followedVehicleId && validVehicles.length > 0 && mapRef.current && markerMapRef.current.size === validVehicles.length && markerMapRef.current.size <= validVehicles.length) {
+      // Only fit bounds if this is the initial load (marker count matches vehicle count exactly)
+      const isInitialLoad = Array.from(markerMapRef.current.keys()).every(id => currentVehicleIds.has(id));
+      if (isInitialLoad && markerMapRef.current.size === validVehicles.length) {
+        // Skip auto-fitting after initial load to prevent jarring movements
+      }
     }
   }, [vehicles, followedVehicleId, routeNamesMap, tripMap, stopMap, selectedRoute]);
 
