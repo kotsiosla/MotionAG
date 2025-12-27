@@ -703,30 +703,92 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
     }
 
-    // Add numbered stop markers
+    // Add numbered stop markers with ETA info
     direction.stops.forEach((stop, index) => {
       if (!stop.lat || !stop.lng) return;
 
       const hasVehicleStopped = stopsWithVehicles.has(stop.stop_id);
       const sequenceNumber = index + 1;
       
+      // Find ETA info from realtime trip updates for this stop on this route
+      const stopEtaInfo = trips
+        .filter(trip => trip.routeId === selectedRoute && trip.stopTimeUpdates?.length)
+        .map(trip => {
+          const stopUpdate = trip.stopTimeUpdates?.find(stu => stu.stopId === stop.stop_id);
+          if (!stopUpdate || !stopUpdate.arrivalTime) return null;
+          const vehicle = vehicles.find(v => v.tripId === trip.tripId);
+          return {
+            tripId: trip.tripId,
+            vehicleId: vehicle?.vehicleId || vehicle?.id || trip.vehicleId,
+            vehicleLabel: vehicle?.label || trip.vehicleLabel,
+            arrivalTime: stopUpdate.arrivalTime,
+            arrivalDelay: stopUpdate.arrivalDelay,
+          };
+        })
+        .filter((info): info is NonNullable<typeof info> => info !== null)
+        .sort((a, b) => a.arrivalTime - b.arrivalTime);
+
       const marker = L.marker([stop.lat, stop.lng], {
         icon: createStopIcon(hasVehicleStopped, sequenceNumber, routeColor),
         zIndexOffset: 1000 - index, // First stop on top
       });
 
+      // Build ETA HTML for popup
+      let etaHtml = '';
+      if (stopEtaInfo.length > 0) {
+        const etaItems = stopEtaInfo.slice(0, 3).map(info => {
+          const etaTime = formatETA(info.arrivalTime);
+          const delay = formatDelay(info.arrivalDelay);
+          const now = Math.floor(Date.now() / 1000);
+          const minutesUntil = Math.round((info.arrivalTime - now) / 60);
+          const timeUntilStr = minutesUntil <= 0 ? 'Τώρα' : `${minutesUntil} λεπτά`;
+          const delayClass = (info.arrivalDelay || 0) > 60 ? 'color: #ef4444;' : ((info.arrivalDelay || 0) < -30 ? 'color: #22c55e;' : '');
+          
+          return `
+            <div class="flex items-center justify-between py-1.5 border-b border-gray-200 last:border-0">
+              <div class="flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg>
+                <span class="text-xs">${info.vehicleLabel || info.vehicleId || 'Λεωφορείο'}</span>
+              </div>
+              <div class="text-right">
+                <div class="text-xs font-semibold">${etaTime}</div>
+                <div class="text-[10px]" style="${delayClass}">${timeUntilStr} ${delay}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+        
+        etaHtml = `
+          <div class="mt-2 pt-2 border-t border-gray-300">
+            <div class="flex items-center gap-1 text-xs font-medium mb-1.5" style="color: #0ea5e9;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Επόμενες αφίξεις
+            </div>
+            ${etaItems}
+          </div>
+        `;
+      } else {
+        etaHtml = `
+          <div class="mt-2 pt-2 border-t border-gray-300">
+            <div class="text-xs text-gray-500 italic">Δεν υπάρχουν δεδομένα ETA</div>
+          </div>
+        `;
+      }
+
       marker.bindPopup(`
-        <div class="p-3 min-w-[180px]">
+        <div class="p-3 min-w-[220px]">
           <div class="font-semibold text-base mb-2 flex items-center gap-2">
             <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-sm font-bold" style="background: #${routeColor}">${sequenceNumber}</span>
             ${stop.stop_name}
           </div>
-          <div class="text-sm text-muted-foreground">
+          <div class="text-sm text-gray-600">
             Στάση ${sequenceNumber} από ${direction.stops.length}
           </div>
+          ${etaHtml}
         </div>
       `, {
         className: 'stop-popup',
+        maxWidth: 280,
       });
 
       marker.addTo(mapRef.current!);
