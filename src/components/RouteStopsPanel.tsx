@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
-import { ChevronUp, ChevronDown, X, Clock, Bus, ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import { ChevronUp, ChevronDown, X, Clock, Bus, ChevronLeft, ChevronRight, GripVertical, ArrowLeftRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
+import { useRouteShape } from "@/hooks/useGtfsData";
 import type { Trip, Vehicle, StaticStop, RouteInfo, StopTimeUpdate } from "@/types/gtfs";
 
 interface RouteStopsPanelProps {
@@ -12,6 +13,7 @@ interface RouteStopsPanelProps {
   vehicles: Vehicle[];
   stops: StaticStop[];
   routeInfo?: RouteInfo;
+  selectedOperator?: string;
   onClose: () => void;
   onStopClick?: (stopId: string) => void;
 }
@@ -53,11 +55,16 @@ export function RouteStopsPanel({
   vehicles,
   stops,
   routeInfo,
+  selectedOperator,
   onClose,
   onStopClick,
 }: RouteStopsPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
+  const [selectedDirection, setSelectedDirection] = useState(0);
+
+  // Fetch static route shape data (includes stops for the route)
+  const { data: routeShapeData, isLoading: isLoadingShape } = useRouteShape(selectedRoute, selectedOperator);
 
   // Find trips for this route - prioritize ones with stop time updates
   const activeTrip = useMemo(() => {
@@ -86,27 +93,75 @@ export function RouteStopsPanel({
     return map;
   }, [stops]);
 
-  // Get all stops with their arrival info
-  const routeStops = useMemo(() => {
-    if (!activeTrip?.stopTimeUpdates) return [];
-    
-    return activeTrip.stopTimeUpdates
-      .filter(stu => stu.stopId)
-      .sort((a, b) => (a.stopSequence || 0) - (b.stopSequence || 0))
-      .map((stu, index) => {
-        const stopInfo = stu.stopId ? stopMap.get(stu.stopId) : null;
-        return {
-          stopId: stu.stopId!,
-          stopName: stopInfo?.stop_name || stu.stopId || 'Άγνωστη στάση',
-          stopSequence: stu.stopSequence || index,
-          arrivalTime: stu.arrivalTime,
-          arrivalDelay: stu.arrivalDelay,
-          departureTime: stu.departureTime,
-          isFirst: index === 0,
-          isLast: index === activeTrip.stopTimeUpdates.length - 1,
-        };
+  // Create a map of stopId -> arrival info from realtime data
+  const realtimeStopInfo = useMemo(() => {
+    const map = new Map<string, { arrivalTime?: number; arrivalDelay?: number; departureTime?: number }>();
+    if (activeTrip?.stopTimeUpdates) {
+      activeTrip.stopTimeUpdates.forEach(stu => {
+        if (stu.stopId) {
+          map.set(stu.stopId, {
+            arrivalTime: stu.arrivalTime,
+            arrivalDelay: stu.arrivalDelay,
+            departureTime: stu.departureTime,
+          });
+        }
       });
-  }, [activeTrip, stopMap]);
+    }
+    return map;
+  }, [activeTrip]);
+
+  // Get all stops - use static data from route shape, enrich with realtime if available
+  const routeStops = useMemo(() => {
+    // If we have route shape data with stops, use those
+    if (routeShapeData?.directions?.length > 0) {
+      const direction = routeShapeData.directions[selectedDirection] || routeShapeData.directions[0];
+      if (direction?.stops?.length > 0) {
+        return direction.stops
+          .sort((a, b) => (a.stop_sequence || 0) - (b.stop_sequence || 0))
+          .map((stop, index) => {
+            const realtimeInfo = realtimeStopInfo.get(stop.stop_id);
+            const staticStop = stopMap.get(stop.stop_id);
+            return {
+              stopId: stop.stop_id,
+              stopName: stop.stop_name || staticStop?.stop_name || stop.stop_id,
+              stopSequence: stop.stop_sequence || index,
+              arrivalTime: realtimeInfo?.arrivalTime,
+              arrivalDelay: realtimeInfo?.arrivalDelay,
+              departureTime: realtimeInfo?.departureTime,
+              isFirst: index === 0,
+              isLast: index === direction.stops.length - 1,
+              hasRealtime: !!realtimeInfo,
+            };
+          });
+      }
+    }
+
+    // Fallback to realtime data if no static shape data
+    if (activeTrip?.stopTimeUpdates?.length) {
+      return activeTrip.stopTimeUpdates
+        .filter(stu => stu.stopId)
+        .sort((a, b) => (a.stopSequence || 0) - (b.stopSequence || 0))
+        .map((stu, index) => {
+          const stopInfo = stu.stopId ? stopMap.get(stu.stopId) : null;
+          return {
+            stopId: stu.stopId!,
+            stopName: stopInfo?.stop_name || stu.stopId || 'Άγνωστη στάση',
+            stopSequence: stu.stopSequence || index,
+            arrivalTime: stu.arrivalTime,
+            arrivalDelay: stu.arrivalDelay,
+            departureTime: stu.departureTime,
+            isFirst: index === 0,
+            isLast: index === activeTrip.stopTimeUpdates!.length - 1,
+            hasRealtime: true,
+          };
+        });
+    }
+
+    return [];
+  }, [routeShapeData, selectedDirection, activeTrip, stopMap, realtimeStopInfo]);
+
+  // Get available directions
+  const availableDirections = routeShapeData?.directions || [];
 
   // Pagination
   const totalPages = Math.ceil(routeStops.length / STOPS_PER_PAGE);
@@ -188,6 +243,21 @@ export function RouteStopsPanel({
       {/* Content */}
       {!isCollapsed && (
         <>
+          {/* Direction selector - only show if multiple directions */}
+          {availableDirections.length > 1 && (
+            <div className="flex items-center justify-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setSelectedDirection(prev => prev === 0 ? 1 : 0)}
+              >
+                <ArrowLeftRight className="h-3 w-3" />
+                Κατεύθυνση {selectedDirection + 1}/{availableDirections.length}
+              </Button>
+            </div>
+          )}
+
           {/* Stops count and pagination */}
           <div className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground border-b border-border">
             <span className="flex items-center gap-1">
@@ -204,11 +274,16 @@ export function RouteStopsPanel({
           {/* Stops list */}
           <ScrollArea className="h-[320px]">
             <div className="p-2">
-              {routeStops.length === 0 ? (
+              {isLoadingShape ? (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 mb-2 animate-spin" />
+                  <p className="text-sm">Φόρτωση στάσεων...</p>
+                </div>
+              ) : routeStops.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <Bus className="h-8 w-8 mb-2 opacity-50" />
-                  <p className="text-sm">Δεν υπάρχουν διαθέσιμες στάσεις</p>
-                  <p className="text-xs">Αναμονή για δεδομένα...</p>
+                  <p className="text-sm">Δεν βρέθηκαν στάσεις</p>
+                  <p className="text-xs">Η διαδρομή δεν έχει καταχωρημένες στάσεις</p>
                 </div>
               ) : (
                 paginatedStops.map((stop, index) => {
