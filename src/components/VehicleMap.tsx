@@ -1296,11 +1296,11 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </DraggablePanel>
       )}
 
-      {/* Search box - compact, positioned at top center */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[999] w-52">
+      {/* Search box - top right corner outside map area */}
+      <div className="absolute top-2 right-[70px] z-[999] w-44">
         <div className="glass-card rounded-full shadow-md">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
             <Input
               type="text"
               placeholder="Αναζήτηση..."
@@ -1312,15 +1312,15 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
                 }
               }}
               onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
-              className="h-8 pl-8 pr-8 text-sm bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full"
+              className="h-7 pl-7 pr-7 text-xs bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full"
             />
             {isSearching ? (
-              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-muted-foreground" />
             ) : searchQuery && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full"
+                className="absolute right-0.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full"
                 onClick={() => {
                   setSearchQuery("");
                   setSearchResults([]);
@@ -1331,7 +1331,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
                   }
                 }}
               >
-                <X className="h-3 w-3" />
+                <X className="h-2.5 w-2.5" />
               </Button>
             )}
           </div>
@@ -1340,10 +1340,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
               {searchResults.map((result, idx) => (
                 <button
                   key={idx}
-                  className="w-full px-3 py-1.5 text-left text-xs hover:bg-muted/50 transition-colors flex items-start gap-2"
+                  className="w-full px-2.5 py-1.5 text-left text-[10px] hover:bg-muted/50 transition-colors flex items-start gap-1.5"
                   onClick={() => selectSearchResult(result)}
                 >
-                  <MapPin className="h-3 w-3 text-red-500 flex-shrink-0 mt-0.5" />
+                  <MapPin className="h-2.5 w-2.5 text-red-500 flex-shrink-0 mt-0.5" />
                   <span className="line-clamp-2">{result.display_name}</span>
                 </button>
               ))}
@@ -1352,47 +1352,48 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </div>
       </div>
 
-      {/* Right side controls toolbar - bottom right */}
-      <div className="absolute bottom-20 right-4 z-[1000] flex flex-col gap-2">
+      {/* Right side controls toolbar - far right edge */}
+      <div className="absolute top-12 right-2 z-[1000] flex flex-col gap-1.5">
         {/* Stops toggle */}
-        <div className="glass-card rounded-lg px-3 py-2 flex items-center gap-2">
+        <div className="glass-card rounded-lg px-2 py-1.5 flex items-center gap-1.5">
           <Switch
             id="show-stops"
             checked={showStops}
             onCheckedChange={setShowStops}
+            className="scale-75"
           />
-          <Label htmlFor="show-stops" className="text-xs cursor-pointer flex items-center gap-1">
-            <MapPin className="h-3 w-3 text-orange-500" />
+          <Label htmlFor="show-stops" className="text-[10px] cursor-pointer flex items-center gap-1">
+            <MapPin className="h-2.5 w-2.5 text-orange-500" />
             Στάσεις ({stops.length})
           </Label>
         </div>
 
-        {/* Control buttons - circular with press animation */}
+        {/* Control buttons - smaller circular */}
         <Button
           variant="secondary"
           size="icon"
-          className={`h-10 w-10 rounded-full shadow-lg transition-all duration-150 active:scale-90 ${showRoutePlanner ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-card/90 backdrop-blur-sm hover:bg-card hover:scale-105'}`}
+          className={`h-8 w-8 rounded-full shadow-md transition-all duration-150 active:scale-90 ${showRoutePlanner ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-card/90 backdrop-blur-sm hover:bg-card hover:scale-105'}`}
           onClick={() => setShowRoutePlanner(!showRoutePlanner)}
           title="Σχεδιασμός διαδρομής"
         >
-          <Route className="h-4 w-4" />
+          <Route className="h-3.5 w-3.5" />
         </Button>
         
         <Button
           variant="secondary"
           size="icon"
-          className="h-10 w-10 rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
+          className="h-8 w-8 rounded-full shadow-md bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
           onClick={locateUser}
           disabled={isLocating}
           title="Εντοπισμός τοποθεσίας"
         >
-          <LocateFixed className={`h-4 w-4 ${isLocating ? 'animate-pulse' : ''} ${userLocation ? 'text-blue-500' : ''}`} />
+          <LocateFixed className={`h-3.5 w-3.5 ${isLocating ? 'animate-pulse' : ''} ${userLocation ? 'text-blue-500' : ''}`} />
         </Button>
 
         <Button
           variant="secondary"
           size="icon"
-          className="h-10 w-10 rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
+          className="h-8 w-8 rounded-full shadow-md bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
           title="Αρχική θέση"
           onClick={() => {
             if (mapRef.current) {
@@ -1400,27 +1401,27 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             }
           }}
         >
-          <Home className="h-4 w-4" />
+          <Home className="h-3.5 w-3.5" />
         </Button>
 
         <Button
           variant="secondary"
           size="icon"
-          className="h-10 w-10 rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
+          className="h-8 w-8 rounded-full shadow-md bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
           title="Μεγέθυνση"
           onClick={() => mapRef.current?.zoomIn()}
         >
-          <ZoomIn className="h-4 w-4" />
+          <ZoomIn className="h-3.5 w-3.5" />
         </Button>
         
         <Button
           variant="secondary"
           size="icon"
-          className="h-10 w-10 rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
+          className="h-8 w-8 rounded-full shadow-md bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
           title="Σμίκρυνση"
           onClick={() => mapRef.current?.zoomOut()}
         >
-          <ZoomOut className="h-4 w-4" />
+          <ZoomOut className="h-3.5 w-3.5" />
         </Button>
       </div>
 
