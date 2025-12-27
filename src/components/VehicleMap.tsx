@@ -729,8 +729,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </div>
       )}
 
-      {/* Search box */}
-      <div className="absolute top-4 left-4 z-[1000] w-72">
+      {/* Search box - positioned to not overlap with RouteStopsPanel */}
+      <div className={`absolute top-4 z-[999] w-72 transition-all ${selectedRoute !== 'all' && showRoutePanel ? 'left-[400px]' : 'left-4'}`}>
         <div className="glass-card rounded-lg">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
