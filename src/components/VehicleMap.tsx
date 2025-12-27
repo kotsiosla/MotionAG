@@ -342,64 +342,57 @@ export function VehicleMap({
     return arrivals.slice(0, 5);
   }, [trips, vehicles, routeNamesMap]);
 
+  // Get current night mode state for initial style
+  const getInitialNightMode = () => {
+    const hour = new Date().getHours();
+    return hour >= 19 || hour < 6;
+  };
+
   // Initialize map
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
+    const initialNightMode = getInitialNightMode();
+
+    // Use OpenStreetMap as a reliable base that works everywhere
     mapRef.current = new maplibregl.Map({
       container: containerRef.current,
       style: {
         version: 8,
         sources: {
-          'satellite': {
+          'osm': {
             type: 'raster',
-            tiles: [
-              'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-            ],
+            tiles: initialNightMode 
+              ? [
+                  'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+                  'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+                  'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
+                ]
+              : [
+                  'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                ],
             tileSize: 256,
-            attribution: 'Tiles © Esri'
-          },
-          'labels': {
-            type: 'raster',
-            tiles: [
-              'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'
-            ],
-            tileSize: 256
+            attribution: initialNightMode ? '© CartoDB © OpenStreetMap' : '© OpenStreetMap contributors'
           }
         },
         layers: [
           {
-            id: 'satellite-layer',
+            id: 'osm-layer',
             type: 'raster',
-            source: 'satellite',
+            source: 'osm',
             minzoom: 0,
-            maxzoom: 22
-          },
-          {
-            id: 'labels-layer',
-            type: 'raster',
-            source: 'labels',
-            minzoom: 0,
-            maxzoom: 22
+            maxzoom: 19
           }
         ]
       },
       center: [33.0, 35.0], // Center of Cyprus
       zoom: 9,
-      pitch: 45, // Start with some pitch to show 3D effect
+      pitch: 45,
       bearing: 0,
       maxPitch: 70,
     });
-    const debugMap = mapRef.current as maplibregl.Map & {
-      showTileBoundaries?: boolean;
-      showCollisionBoxes?: boolean;
-      showPadding?: boolean;
-      showOverdrawInspector?: boolean;
-    };
-    debugMap.showTileBoundaries = false;
-    debugMap.showCollisionBoxes = false;
-    debugMap.showPadding = false;
-    debugMap.showOverdrawInspector = false;
 
     // Add navigation controls
     mapRef.current.addControl(new maplibregl.NavigationControl({
@@ -408,11 +401,11 @@ export function VehicleMap({
       showZoom: true,
     }), 'top-left');
 
-    // Enable rotation with scroll (using right-click drag or ctrl+scroll)
+    // Enable rotation with scroll
     mapRef.current.dragRotate.enable();
     mapRef.current.touchZoomRotate.enableRotation();
 
-    // Add bus route shapes and route planning layers when map loads
+    // Add additional layers when map loads
     mapRef.current.on('load', () => {
       if (mapRef.current && !mapRef.current.getSource('bus-shapes')) {
         // Add bus route shapes source (initially empty)
@@ -420,9 +413,6 @@ export function VehicleMap({
           type: 'geojson',
           data: { type: 'FeatureCollection', features: [] }
         });
-
-        // Bus route shape layer - currently disabled to debug line issue
-        // Will be re-enabled when we fix the shapes rendering
 
         shapesSourceRef.current = true;
 
@@ -453,13 +443,11 @@ export function VehicleMap({
           data: { type: 'FeatureCollection', features: [] }
         });
 
-        // Set map loaded AFTER all sources are added
         setMapLoaded(true);
       }
     });
 
     return () => {
-      // Clean up markers
       vehicleMarkersRef.current.forEach(marker => marker.remove());
       vehicleMarkersRef.current.clear();
       stopMarkersRef.current.forEach(marker => marker.remove());
@@ -471,61 +459,95 @@ export function VehicleMap({
     };
   }, []);
 
-  // Handle night mode toggle
+  // Handle night mode toggle - reload map with new style
   useEffect(() => {
     if (!mapRef.current || !mapLoaded) return;
 
     const map = mapRef.current;
     
-    // Ensure style is fully loaded before modifying
-    if (!map.isStyleLoaded()) {
-      map.once('style.load', () => {
-        // Re-trigger effect after style loads
-        setMapLoaded(prev => prev);
-      });
-      return;
-    }
-
-    // Update satellite layer visibility
-    if (map.getLayer('satellite-layer')) {
-      map.setLayoutProperty('satellite-layer', 'visibility', isNightMode ? 'none' : 'visible');
-    }
-    if (map.getLayer('labels-layer')) {
-      map.setLayoutProperty('labels-layer', 'visibility', isNightMode ? 'none' : 'visible');
-    }
-
-    // Add or update dark base layers for night mode
-    if (isNightMode) {
-      // Add dark tiles source if not exists
-      if (!map.getSource('carto-dark')) {
-        map.addSource('carto-dark', {
-          type: 'raster',
-          tiles: [
+    // Get the osm source and update its tiles
+    const osmSource = map.getSource('osm') as maplibregl.RasterTileSource;
+    if (osmSource) {
+      // We need to update the style - simplest way is to set new tiles
+      const newTiles = isNightMode 
+        ? [
             'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
             'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
             'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
-          ],
-          tileSize: 256,
-          attribution: '© CartoDB © OpenStreetMap'
-        });
-      }
-
-      // Add dark layer if not exists
-      if (!map.getLayer('carto-dark-layer')) {
-        map.addLayer({
-          id: 'carto-dark-layer',
-          type: 'raster',
-          source: 'carto-dark',
-          minzoom: 0,
-          maxzoom: 22
-        });
-      }
-      map.setLayoutProperty('carto-dark-layer', 'visibility', 'visible');
-    } else {
-      // Hide dark layer if exists
-      if (map.getLayer('carto-dark-layer')) {
-        map.setLayoutProperty('carto-dark-layer', 'visibility', 'none');
-      }
+          ]
+        : [
+            'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+          ];
+      
+      // MapLibre doesn't support changing tiles directly, so we update via setStyle
+      // but preserve zoom/center/pitch/bearing
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      const pitch = map.getPitch();
+      const bearing = map.getBearing();
+      
+      map.setStyle({
+        version: 8,
+        sources: {
+          'osm': {
+            type: 'raster',
+            tiles: newTiles,
+            tileSize: 256,
+            attribution: isNightMode ? '© CartoDB © OpenStreetMap' : '© OpenStreetMap contributors'
+          }
+        },
+        layers: [
+          {
+            id: 'osm-layer',
+            type: 'raster',
+            source: 'osm',
+            minzoom: 0,
+            maxzoom: 19
+          }
+        ]
+      });
+      
+      // Restore view after style change
+      map.setCenter(center);
+      map.setZoom(zoom);
+      map.setPitch(pitch);
+      map.setBearing(bearing);
+      
+      // Re-add sources after style change
+      map.once('style.load', () => {
+        if (!map.getSource('bus-shapes')) {
+          map.addSource('bus-shapes', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+          });
+        }
+        
+        if (!map.getSource('route-line')) {
+          map.addSource('route-line', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+          });
+          
+          map.addLayer({
+            id: 'route-line-layer',
+            type: 'line',
+            source: 'route-line',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': ['get', 'color'], 'line-width': 5, 'line-opacity': 0.8 }
+          });
+        }
+        
+        if (!map.getSource('route-points')) {
+          map.addSource('route-points', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+          });
+        }
+        
+        shapesSourceRef.current = true;
+      });
     }
   }, [isNightMode, mapLoaded]);
   useEffect(() => {
@@ -1203,9 +1225,8 @@ export function VehicleMap({
   const followedNextStop = followedVehicle ? getNextStopInfo(followedVehicle) : null;
 
   return (
-    <div className="relative h-full w-full rounded-lg overflow-hidden">
-      <div ref={containerRef} className="h-full w-full" />
-      <div ref={containerRef} className="absolute inset-0 z-0" />
+    <div className="relative h-full w-full min-h-[500px] rounded-lg overflow-hidden">
+      <div ref={containerRef} className="absolute inset-0" />
       <div className="absolute inset-0 z-10 pointer-events-none">
         <div className="pointer-events-auto">
           {/* Route Planner */}
