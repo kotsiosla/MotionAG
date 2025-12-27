@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
-import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Settings, Layers, Volume2, Bell, Home, ZoomIn, ZoomOut, GripVertical, Route } from "lucide-react";
+import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Home, ZoomIn, ZoomOut, Route } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -1264,47 +1264,11 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             variant="ghost"
             size="icon"
             className="h-9 w-9"
-            title="Ρυθμίσεις"
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
             onClick={locateUser}
             disabled={isLocating}
             title="Εντοπισμός τοποθεσίας"
           >
             <LocateFixed className={`h-4 w-4 ${isLocating ? 'animate-pulse' : ''} ${userLocation ? 'text-blue-500' : ''}`} />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            title="Ειδοποιήσεις"
-          >
-            <Bell className="h-4 w-4" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            title="Ήχος"
-          >
-            <Volume2 className="h-4 w-4" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            title="Επίπεδα χάρτη"
-          >
-            <Layers className="h-4 w-4" />
           </Button>
 
           <Button
