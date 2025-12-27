@@ -1343,65 +1343,61 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           </Label>
         </div>
 
-        {/* Control buttons */}
-        <div className="glass-card rounded-lg p-1 flex flex-col gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`h-9 w-9 ${showRoutePlanner ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}`}
-            onClick={() => setShowRoutePlanner(!showRoutePlanner)}
-            title="Σχεδιασμός διαδρομής"
-          >
-            <Route className="h-4 w-4" />
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            onClick={locateUser}
-            disabled={isLocating}
-            title="Εντοπισμός τοποθεσίας"
-          >
-            <LocateFixed className={`h-4 w-4 ${isLocating ? 'animate-pulse' : ''} ${userLocation ? 'text-blue-500' : ''}`} />
-          </Button>
+        {/* Control buttons - circular */}
+        <Button
+          variant="secondary"
+          size="icon"
+          className={`h-10 w-10 rounded-full shadow-lg ${showRoutePlanner ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-card/90 backdrop-blur-sm hover:bg-card'}`}
+          onClick={() => setShowRoutePlanner(!showRoutePlanner)}
+          title="Σχεδιασμός διαδρομής"
+        >
+          <Route className="h-4 w-4" />
+        </Button>
+        
+        <Button
+          variant="secondary"
+          size="icon"
+          className="h-10 w-10 rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card"
+          onClick={locateUser}
+          disabled={isLocating}
+          title="Εντοπισμός τοποθεσίας"
+        >
+          <LocateFixed className={`h-4 w-4 ${isLocating ? 'animate-pulse' : ''} ${userLocation ? 'text-blue-500' : ''}`} />
+        </Button>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            title="Αρχική θέση"
-            onClick={() => {
-              if (mapRef.current) {
-                mapRef.current.setView([35.0, 33.0], 9, { animate: true });
-              }
-            }}
-          >
-            <Home className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button
+          variant="secondary"
+          size="icon"
+          className="h-10 w-10 rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card"
+          title="Αρχική θέση"
+          onClick={() => {
+            if (mapRef.current) {
+              mapRef.current.setView([35.0, 33.0], 9, { animate: true });
+            }
+          }}
+        >
+          <Home className="h-4 w-4" />
+        </Button>
 
-        {/* Zoom controls */}
-        <div className="glass-card rounded-lg p-1 flex flex-col gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            title="Μεγέθυνση"
-            onClick={() => mapRef.current?.zoomIn()}
-          >
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            title="Σμίκρυνση"
-            onClick={() => mapRef.current?.zoomOut()}
-          >
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button
+          variant="secondary"
+          size="icon"
+          className="h-10 w-10 rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card"
+          title="Μεγέθυνση"
+          onClick={() => mapRef.current?.zoomIn()}
+        >
+          <ZoomIn className="h-4 w-4" />
+        </Button>
+        
+        <Button
+          variant="secondary"
+          size="icon"
+          className="h-10 w-10 rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card"
+          title="Σμίκρυνση"
+          onClick={() => mapRef.current?.zoomOut()}
+        >
+          <ZoomOut className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Nearest stop info */}
