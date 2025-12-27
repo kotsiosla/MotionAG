@@ -259,6 +259,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
     mapRef.current = L.map(containerRef.current, {
       center: [35.0, 33.0], // Center of Cyprus
       zoom: 9,
+      maxZoom: 19,
+      minZoom: 3,
       zoomControl: true,
     });
 
