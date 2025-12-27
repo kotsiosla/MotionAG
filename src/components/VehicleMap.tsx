@@ -111,6 +111,59 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
   const userLocationMarkerRef = useRef<L.Marker | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapboxError, setMapboxError] = useState<string | null>(null);
+  const [runtimeMapboxToken, setRuntimeMapboxToken] = useState<string | null>(null);
+  const [runtimeTokenSource, setRuntimeTokenSource] = useState<string | null>(null);
+  const mapboxLayerRef = useRef<L.TileLayer | null>(null);
+  const fallbackLayerRef = useRef<L.TileLayer | null>(null);
+  const envMapboxToken = (import.meta.env.VITE_MAPBOX_TOKEN as string | undefined)?.trim();
+  const mapboxToken = runtimeMapboxToken || envMapboxToken;
+  const mapboxTokenSource = runtimeMapboxToken
+    ? runtimeTokenSource
+    : envMapboxToken
+      ? 'env'
+      : null;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get('mapbox_token')?.trim();
+
+    if (urlToken) {
+      window.localStorage.setItem('mapboxToken', urlToken);
+      setRuntimeMapboxToken(urlToken);
+      setRuntimeTokenSource('url');
+      return;
+    }
+
+    const storedToken = window.localStorage.getItem('mapboxToken')?.trim();
+    if (storedToken) {
+      setRuntimeMapboxToken(storedToken);
+      setRuntimeTokenSource('localStorage');
+    }
+  }, []);
+
+  const ensureFallbackLayer = () => {
+    if (!mapRef.current) return;
+    if (!fallbackLayerRef.current) {
+      fallbackLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19,
+      });
+    }
+
+    if (!mapRef.current.hasLayer(fallbackLayerRef.current)) {
+      fallbackLayerRef.current.addTo(mapRef.current);
+    }
+  };
+
+  const removeFallbackLayer = () => {
+    if (!mapRef.current || !fallbackLayerRef.current) return;
+    if (mapRef.current.hasLayer(fallbackLayerRef.current)) {
+      mapRef.current.removeLayer(fallbackLayerRef.current);
+    }
+  };
 
   // Create a map of tripId -> Trip for quick lookup
   const tripMap = useMemo(() => {
@@ -252,6 +305,68 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
       mapRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    if (mapboxLayerRef.current) {
+      mapboxLayerRef.current.off();
+      mapRef.current.removeLayer(mapboxLayerRef.current);
+      mapboxLayerRef.current = null;
+    }
+
+    if (!mapboxToken) {
+      const message = 'Λείπει το Mapbox token. Βάλε VITE_MAPBOX_TOKEN στο .env ή πέρασε ?mapbox_token=pk... στο URL και κάνε refresh.';
+      console.warn(message);
+      setMapboxError(message);
+      ensureFallbackLayer();
+      return;
+    }
+
+    if (!mapboxToken.startsWith('pk.')) {
+      const message = 'Το Mapbox token πρέπει να είναι public (να ξεκινά με "pk.").';
+      console.warn(message);
+      setMapboxError(message);
+      ensureFallbackLayer();
+      return;
+    }
+
+    setMapboxError(null);
+    removeFallbackLayer();
+
+    const mapboxLayer = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
+      attribution:
+        '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      id: 'mapbox/satellite-streets-v12',
+      tileSize: 512,
+      zoomOffset: -1,
+      accessToken: mapboxToken,
+    });
+
+    mapboxLayer.on('tileerror', (event) => {
+      const sourceLabel = mapboxTokenSource ? ` (πηγή: ${mapboxTokenSource})` : '';
+      const message = `Mapbox tiles δεν φορτώνουν${sourceLabel}. Έλεγξε token/δικαιώματα ή δίκτυο.`;
+      console.error(message, event);
+      setMapboxError(message);
+      ensureFallbackLayer();
+    });
+
+    mapboxLayer.on('load', () => {
+      removeFallbackLayer();
+      setMapboxError(null);
+    });
+
+    mapboxLayer.addTo(mapRef.current);
+    mapboxLayerRef.current = mapboxLayer;
+
+    return () => {
+      mapboxLayer.off();
+      mapRef.current?.removeLayer(mapboxLayer);
+      if (mapboxLayerRef.current === mapboxLayer) {
+        mapboxLayerRef.current = null;
+      }
+    };
+  }, [mapboxToken, mapboxTokenSource]);
 
   // Update vehicle markers when vehicles change
   useEffect(() => {
@@ -543,6 +658,13 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
           <div className="flex items-center gap-2 text-muted-foreground">
             <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             <span>Φόρτωση...</span>
+          </div>
+        </div>
+      )}
+      {mapboxError && (
+        <div className="absolute top-4 left-4 right-4 z-[1000]">
+          <div className="glass-card rounded-lg px-4 py-2 text-xs text-destructive border border-destructive/30">
+            {mapboxError}
           </div>
         </div>
       )}
