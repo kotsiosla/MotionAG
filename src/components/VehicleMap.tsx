@@ -6,6 +6,7 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
 import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Home, ZoomIn, ZoomOut, Route, GripVertical } from "lucide-react";
 import { DraggablePanel } from "@/components/DraggablePanel";
+import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -1124,95 +1125,87 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         />
       )}
       
-      {/* Live vehicles on route panel - positioned smartly */}
+      {/* Live vehicles on route panel - positioned to the right of route panel */}
       {selectedRoute !== 'all' && vehiclesOnSelectedRoute.length > 0 && showLiveVehiclesPanel && !showRoutePlanner && (
-        <DraggablePanel
-          initialPosition={{ x: showRoutePanel ? 400 : 16, y: 16 }}
-          className="rounded-lg overflow-hidden border border-border"
+        <ResizableDraggablePanel
+          initialPosition={{ x: showRoutePanel ? 410 : 16, y: 60 }}
+          initialSize={{ width: 280, height: 280 }}
+          minSize={{ width: 220, height: 150 }}
+          maxSize={{ width: 400, height: 500 }}
+          className="rounded-lg overflow-hidden border border-border bg-card/95 backdrop-blur-sm"
           zIndex={1000}
+          title={`${vehiclesOnSelectedRoute.length} λεωφορεί${vehiclesOnSelectedRoute.length === 1 ? 'ο' : 'α'} ενεργ${vehiclesOnSelectedRoute.length === 1 ? 'ό' : 'ά'}`}
         >
-          <div className="w-[280px] max-w-[280px]">
-            {/* Header with route color - draggable */}
+          <div className="h-full">
+            {/* Header with route color */}
             <div 
-              className="p-3 flex items-center gap-2 cursor-grab active:cursor-grabbing"
+              className="p-2 flex items-center gap-2"
               style={{ backgroundColor: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
             >
-              <GripVertical className="h-4 w-4 text-white/60" />
-              <div className="w-3 h-3 rounded-full animate-pulse bg-white/80" />
-              <span className="text-sm font-semibold text-white flex-1">
-                {vehiclesOnSelectedRoute.length} λεωφορεί{vehiclesOnSelectedRoute.length === 1 ? 'ο' : 'α'} ενεργ{vehiclesOnSelectedRoute.length === 1 ? 'ό' : 'ά'}
+              <div className="w-2.5 h-2.5 rounded-full animate-pulse bg-white/80" />
+              <span className="text-xs font-semibold text-white flex-1">
+                Ενεργά Λεωφορεία
               </span>
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="h-6 w-6 text-white hover:bg-white/20 transition-all duration-150 active:scale-90"
+                className="h-5 w-5 text-white hover:bg-white/20"
                 onClick={() => setShowLiveVehiclesPanel(false)}
               >
-                <X className="h-4 w-4" />
+                <X className="h-3 w-3" />
               </Button>
             </div>
             {/* Content */}
-            <div className="bg-card/95 backdrop-blur-sm p-3">
-              <div className="space-y-2 max-h-[180px] overflow-y-auto">
-                {vehiclesOnSelectedRoute.slice(0, 5).map((vehicle) => {
-                  const vehicleId = vehicle.vehicleId || vehicle.id;
-                  const nextStop = getNextStopInfo(vehicle);
-                  return (
-                    <button
-                      key={vehicleId}
-                      onClick={() => {
-                        setFollowedVehicleId(vehicleId);
-                        if (vehicle.latitude && vehicle.longitude && mapRef.current) {
-                          mapRef.current.setView([vehicle.latitude, vehicle.longitude], 16, { animate: true });
-                        }
-                      }}
-                      className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-secondary/50 transition-all duration-150 text-left active:scale-95"
-                    >
-                      <div className="relative">
-                        <div 
-                          className="w-8 h-8 rounded-full flex items-center justify-center"
-                          style={{ background: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}20` : 'hsl(var(--primary) / 0.2)' }}
-                        >
-                          <Navigation 
-                            className="h-4 w-4 animate-pulse" 
-                            style={{ 
-                              color: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))',
-                              transform: `rotate(${vehicle.bearing || 0}deg)` 
-                            }}
-                          />
-                        </div>
-                        <div 
-                          className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card animate-ping"
-                          style={{ background: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
+            <div className="p-2 space-y-1.5 overflow-y-auto h-[calc(100%-36px)]">
+              {vehiclesOnSelectedRoute.map((vehicle) => {
+                const vehicleId = vehicle.vehicleId || vehicle.id;
+                const nextStop = getNextStopInfo(vehicle);
+                return (
+                  <button
+                    key={vehicleId}
+                    onClick={() => {
+                      setFollowedVehicleId(vehicleId);
+                      if (vehicle.latitude && vehicle.longitude && mapRef.current) {
+                        mapRef.current.setView([vehicle.latitude, vehicle.longitude], 16, { animate: true });
+                      }
+                    }}
+                    className="w-full flex items-center gap-2 p-1.5 rounded-md hover:bg-secondary/50 transition-all text-left"
+                  >
+                    <div className="relative">
+                      <div 
+                        className="w-7 h-7 rounded-full flex items-center justify-center"
+                        style={{ background: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}20` : 'hsl(var(--primary) / 0.2)' }}
+                      >
+                        <Navigation 
+                          className="h-3.5 w-3.5 animate-pulse" 
+                          style={{ 
+                            color: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))',
+                            transform: `rotate(${vehicle.bearing || 0}deg)` 
+                          }}
                         />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium truncate">
-                          {vehicle.label || vehicleId}
-                        </div>
-                        {nextStop && (
-                          <div className="text-[10px] text-muted-foreground truncate">
-                            → {nextStop.stopName}
-                          </div>
-                        )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium truncate">
+                        {vehicle.label || vehicleId}
                       </div>
-                      {vehicle.speed !== undefined && (
-                        <div className="text-xs font-mono text-primary">
-                          {(vehicle.speed * 3.6).toFixed(0)}km/h
+                      {nextStop && (
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          → {nextStop.stopName}
                         </div>
                       )}
-                    </button>
-                  );
-                })}
-                {vehiclesOnSelectedRoute.length > 5 && (
-                  <div className="text-xs text-muted-foreground text-center pt-1">
-                    +{vehiclesOnSelectedRoute.length - 5} ακόμα
-                  </div>
-                )}
-              </div>
+                    </div>
+                    {vehicle.speed !== undefined && (
+                      <div className="text-[10px] font-mono text-primary">
+                        {(vehicle.speed * 3.6).toFixed(0)}km/h
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
-        </DraggablePanel>
+        </ResizableDraggablePanel>
       )}
       
       {isLoading && (
@@ -1224,38 +1217,42 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </div>
       )}
       
-      {/* Vehicle tracking panel - draggable */}
+      {/* Vehicle tracking panel - positioned next to other panels */}
       {followedVehicle && (
-        <DraggablePanel
-          initialPosition={{ x: 16, y: 400 }}
-          className="rounded-lg overflow-hidden border border-border"
+        <ResizableDraggablePanel
+          initialPosition={{ x: showRoutePanel && showLiveVehiclesPanel ? 700 : showRoutePanel || showLiveVehiclesPanel ? 410 : 16, y: 60 }}
+          initialSize={{ width: 300, height: 200 }}
+          minSize={{ width: 250, height: 150 }}
+          maxSize={{ width: 450, height: 400 }}
+          className="rounded-lg overflow-hidden border border-border bg-card/95 backdrop-blur-sm"
           zIndex={1001}
+          title="Παρακολούθηση"
         >
-          <div className="w-[300px] max-w-[300px]">
-            {/* Header with route color - draggable */}
+          <div className="h-full">
+            {/* Header with route color */}
             <div 
-              className="flex items-center gap-2 p-3 cursor-grab active:cursor-grabbing"
+              className="flex items-center gap-2 p-2"
               style={{ backgroundColor: followedRouteInfo?.route_color ? `#${followedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
             >
-              <GripVertical className="h-4 w-4 text-white/60" />
-              <Navigation className="h-4 w-4 animate-pulse text-white" />
-              <span className="text-sm font-semibold flex-1 text-white">Παρακολούθηση</span>
+              <Navigation className="h-3.5 w-3.5 animate-pulse text-white" />
+              <span className="text-xs font-semibold flex-1 text-white">
+                {followedVehicle.label || followedVehicle.vehicleId || followedVehicle.id}
+              </span>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 text-white hover:bg-white/20 transition-all duration-150 active:scale-90"
+                className="h-5 w-5 text-white hover:bg-white/20"
                 onClick={() => setFollowedVehicleId(null)}
               >
-                <X className="h-4 w-4" />
+                <X className="h-3 w-3" />
               </Button>
             </div>
             
             {/* Content */}
-            <div className="bg-card/95 backdrop-blur-sm p-3 space-y-2">
+            <div className="p-2 space-y-2 overflow-y-auto h-[calc(100%-36px)]">
               {/* Vehicle info */}
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Όχημα:</span>
-                <span className="font-bold">{followedVehicle.label || followedVehicle.vehicleId || followedVehicle.id}</span>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-muted-foreground">Ταχύτητα:</span>
                 {followedVehicle.speed !== undefined && (
                   <span className="text-primary font-medium">{formatSpeed(followedVehicle.speed)}</span>
                 )}
@@ -1264,7 +1261,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
               {/* Route info */}
               {followedRouteInfo && (
                 <div 
-                  className="text-sm font-medium"
+                  className="text-xs font-medium"
                   style={{ color: followedRouteInfo.route_color ? `#${followedRouteInfo.route_color}` : 'inherit' }}
                 >
                   {followedRouteInfo.route_short_name} - {followedRouteInfo.route_long_name}
@@ -1273,7 +1270,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
               
               {/* Next stop */}
               {followedNextStop && (
-                <div className="flex items-center gap-2 pt-2 border-t border-border text-sm">
+                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border text-xs">
                   <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                   <span className="text-muted-foreground">Επόμενη:</span>
                   <span className="font-medium">{followedNextStop.stopName}</span>
@@ -1281,7 +1278,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
                     <span className="font-mono text-primary">{formatETA(followedNextStop.arrivalTime)}</span>
                   )}
                   {followedNextStop.arrivalDelay !== undefined && (
-                    <span className={`text-xs ${
+                    <span className={`text-[10px] ${
                       followedNextStop.arrivalDelay > 0 ? 'text-destructive' : 
                       followedNextStop.arrivalDelay < 0 ? 'text-green-500' : 
                       'text-muted-foreground'
@@ -1293,7 +1290,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
               )}
             </div>
           </div>
-        </DraggablePanel>
+        </ResizableDraggablePanel>
       )}
 
       {/* Left side: Search box and Stops toggle */}
