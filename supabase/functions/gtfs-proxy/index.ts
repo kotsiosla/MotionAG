@@ -712,9 +712,12 @@ const GTFS_STATIC_URLS: Record<string, string> = {
   '11': 'https://www.motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C11_google_transit.zip&rel=True', // PAME EXPRESS
 };
 
-// Simple in-memory cache for routes and stops
+// Simple in-memory cache for routes, stops, shapes, and stop_times
 const routesCache: Map<string, { data: RouteInfo[]; timestamp: number }> = new Map();
 const stopsCache: Map<string, { data: StopInfo[]; timestamp: number }> = new Map();
+const shapesCache: Map<string, { data: ShapePoint[]; timestamp: number }> = new Map();
+const stopTimesCache: Map<string, { data: StopTimeInfo[]; timestamp: number }> = new Map();
+const tripsStaticCache: Map<string, { data: TripStaticInfo[]; timestamp: number }> = new Map();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 interface RouteInfo {
@@ -734,6 +737,30 @@ interface StopInfo {
   stop_code?: string;
   location_type?: number;
   parent_station?: string;
+}
+
+interface ShapePoint {
+  shape_id: string;
+  shape_pt_lat: number;
+  shape_pt_lon: number;
+  shape_pt_sequence: number;
+}
+
+interface StopTimeInfo {
+  trip_id: string;
+  stop_id: string;
+  stop_sequence: number;
+  arrival_time?: string;
+  departure_time?: string;
+}
+
+interface TripStaticInfo {
+  trip_id: string;
+  route_id: string;
+  service_id: string;
+  shape_id?: string;
+  direction_id?: number;
+  trip_headsign?: string;
 }
 
 async function unzipAndParseRoutes(zipData: Uint8Array): Promise<RouteInfo[]> {
@@ -1066,6 +1093,322 @@ async function fetchStaticStops(operatorId?: string): Promise<StopInfo[]> {
   return allStops;
 }
 
+// Helper function to parse any file from ZIP
+async function unzipAndParseFile(zipData: Uint8Array, targetFileName: string): Promise<string | null> {
+  let offset = 0;
+  
+  while (offset < zipData.length - 4) {
+    if (zipData[offset] === 0x50 && zipData[offset + 1] === 0x4b && 
+        zipData[offset + 2] === 0x03 && zipData[offset + 3] === 0x04) {
+      
+      const view = new DataView(zipData.buffer, zipData.byteOffset + offset);
+      const compressionMethod = view.getUint16(8, true);
+      const compressedSize = view.getUint32(18, true);
+      const uncompressedSize = view.getUint32(22, true);
+      const fileNameLength = view.getUint16(26, true);
+      const extraFieldLength = view.getUint16(28, true);
+      
+      const fileNameStart = offset + 30;
+      const fileName = new TextDecoder().decode(zipData.slice(fileNameStart, fileNameStart + fileNameLength));
+      
+      const dataStart = fileNameStart + fileNameLength + extraFieldLength;
+      
+      if (fileName === targetFileName) {
+        if (compressionMethod === 0) {
+          return new TextDecoder().decode(zipData.slice(dataStart, dataStart + uncompressedSize));
+        } else if (compressionMethod === 8) {
+          try {
+            const compressedData = zipData.slice(dataStart, dataStart + compressedSize);
+            const ds = new DecompressionStream('deflate-raw');
+            const writer = ds.writable.getWriter();
+            const reader = ds.readable.getReader();
+            
+            writer.write(compressedData);
+            writer.close();
+            
+            const chunks: Uint8Array[] = [];
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              chunks.push(value);
+            }
+            
+            const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+            const decompressed = new Uint8Array(totalLength);
+            let position = 0;
+            for (const chunk of chunks) {
+              decompressed.set(chunk, position);
+              position += chunk.length;
+            }
+            
+            return new TextDecoder().decode(decompressed);
+          } catch (e) {
+            console.error(`Failed to decompress ${targetFileName}:`, e);
+            return null;
+          }
+        }
+      }
+      
+      offset = dataStart + compressedSize;
+    } else {
+      offset++;
+    }
+  }
+  
+  return null;
+}
+
+// Parse CSV line properly handling quoted values
+function parseCSVLine(line: string): string[] {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (const char of line) {
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  values.push(current.trim());
+  return values;
+}
+
+async function fetchStaticShapes(operatorId?: string): Promise<ShapePoint[]> {
+  const operators = operatorId && operatorId !== 'all' ? [operatorId] : Object.keys(GTFS_STATIC_URLS);
+  const allShapes: ShapePoint[] = [];
+  
+  for (const opId of operators) {
+    const cacheKey = `shapes_${opId}`;
+    const cached = shapesCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      allShapes.push(...cached.data);
+      continue;
+    }
+    
+    const url = GTFS_STATIC_URLS[opId];
+    if (!url) continue;
+    
+    try {
+      console.log(`Fetching static GTFS shapes for operator ${opId}`);
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        console.error(`Failed to fetch GTFS for operator ${opId}: ${response.status}`);
+        continue;
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const zipData = new Uint8Array(arrayBuffer);
+      
+      const fileContent = await unzipAndParseFile(zipData, 'shapes.txt');
+      if (!fileContent) {
+        console.log(`No shapes.txt found for operator ${opId}`);
+        continue;
+      }
+      
+      const lines = fileContent.split('\n');
+      const shapes: ShapePoint[] = [];
+      
+      if (lines.length > 0) {
+        const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        const shapeIdIdx = header.indexOf('shape_id');
+        const latIdx = header.indexOf('shape_pt_lat');
+        const lonIdx = header.indexOf('shape_pt_lon');
+        const seqIdx = header.indexOf('shape_pt_sequence');
+        
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          const values = parseCSVLine(line);
+          
+          if (shapeIdIdx >= 0 && latIdx >= 0 && lonIdx >= 0 && seqIdx >= 0) {
+            const lat = parseFloat(values[latIdx]);
+            const lon = parseFloat(values[lonIdx]);
+            const seq = parseInt(values[seqIdx]);
+            
+            if (!isNaN(lat) && !isNaN(lon) && !isNaN(seq)) {
+              shapes.push({
+                shape_id: values[shapeIdIdx],
+                shape_pt_lat: lat,
+                shape_pt_lon: lon,
+                shape_pt_sequence: seq,
+              });
+            }
+          }
+        }
+      }
+      
+      console.log(`Parsed ${shapes.length} shape points for operator ${opId}`);
+      shapesCache.set(cacheKey, { data: shapes, timestamp: Date.now() });
+      allShapes.push(...shapes);
+    } catch (error) {
+      console.error(`Error fetching static GTFS shapes for operator ${opId}:`, error);
+    }
+  }
+  
+  return allShapes;
+}
+
+async function fetchStaticStopTimes(operatorId?: string): Promise<StopTimeInfo[]> {
+  const operators = operatorId && operatorId !== 'all' ? [operatorId] : Object.keys(GTFS_STATIC_URLS);
+  const allStopTimes: StopTimeInfo[] = [];
+  
+  for (const opId of operators) {
+    const cacheKey = `stop_times_${opId}`;
+    const cached = stopTimesCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      allStopTimes.push(...cached.data);
+      continue;
+    }
+    
+    const url = GTFS_STATIC_URLS[opId];
+    if (!url) continue;
+    
+    try {
+      console.log(`Fetching static GTFS stop_times for operator ${opId}`);
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        console.error(`Failed to fetch GTFS for operator ${opId}: ${response.status}`);
+        continue;
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const zipData = new Uint8Array(arrayBuffer);
+      
+      const fileContent = await unzipAndParseFile(zipData, 'stop_times.txt');
+      if (!fileContent) {
+        console.log(`No stop_times.txt found for operator ${opId}`);
+        continue;
+      }
+      
+      const lines = fileContent.split('\n');
+      const stopTimes: StopTimeInfo[] = [];
+      
+      if (lines.length > 0) {
+        const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        const tripIdIdx = header.indexOf('trip_id');
+        const stopIdIdx = header.indexOf('stop_id');
+        const seqIdx = header.indexOf('stop_sequence');
+        const arrivalIdx = header.indexOf('arrival_time');
+        const departureIdx = header.indexOf('departure_time');
+        
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          const values = parseCSVLine(line);
+          
+          if (tripIdIdx >= 0 && stopIdIdx >= 0 && seqIdx >= 0) {
+            const seq = parseInt(values[seqIdx]);
+            
+            if (!isNaN(seq)) {
+              stopTimes.push({
+                trip_id: values[tripIdIdx],
+                stop_id: values[stopIdIdx],
+                stop_sequence: seq,
+                arrival_time: arrivalIdx >= 0 ? values[arrivalIdx] || undefined : undefined,
+                departure_time: departureIdx >= 0 ? values[departureIdx] || undefined : undefined,
+              });
+            }
+          }
+        }
+      }
+      
+      console.log(`Parsed ${stopTimes.length} stop_times for operator ${opId}`);
+      stopTimesCache.set(cacheKey, { data: stopTimes, timestamp: Date.now() });
+      allStopTimes.push(...stopTimes);
+    } catch (error) {
+      console.error(`Error fetching static GTFS stop_times for operator ${opId}:`, error);
+    }
+  }
+  
+  return allStopTimes;
+}
+
+async function fetchStaticTrips(operatorId?: string): Promise<TripStaticInfo[]> {
+  const operators = operatorId && operatorId !== 'all' ? [operatorId] : Object.keys(GTFS_STATIC_URLS);
+  const allTrips: TripStaticInfo[] = [];
+  
+  for (const opId of operators) {
+    const cacheKey = `trips_static_${opId}`;
+    const cached = tripsStaticCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      allTrips.push(...cached.data);
+      continue;
+    }
+    
+    const url = GTFS_STATIC_URLS[opId];
+    if (!url) continue;
+    
+    try {
+      console.log(`Fetching static GTFS trips for operator ${opId}`);
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        console.error(`Failed to fetch GTFS for operator ${opId}: ${response.status}`);
+        continue;
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const zipData = new Uint8Array(arrayBuffer);
+      
+      const fileContent = await unzipAndParseFile(zipData, 'trips.txt');
+      if (!fileContent) {
+        console.log(`No trips.txt found for operator ${opId}`);
+        continue;
+      }
+      
+      const lines = fileContent.split('\n');
+      const trips: TripStaticInfo[] = [];
+      
+      if (lines.length > 0) {
+        const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        const tripIdIdx = header.indexOf('trip_id');
+        const routeIdIdx = header.indexOf('route_id');
+        const serviceIdIdx = header.indexOf('service_id');
+        const shapeIdIdx = header.indexOf('shape_id');
+        const directionIdIdx = header.indexOf('direction_id');
+        const headsignIdx = header.indexOf('trip_headsign');
+        
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          const values = parseCSVLine(line);
+          
+          if (tripIdIdx >= 0 && routeIdIdx >= 0) {
+            trips.push({
+              trip_id: values[tripIdIdx],
+              route_id: values[routeIdIdx],
+              service_id: serviceIdIdx >= 0 ? values[serviceIdIdx] : '',
+              shape_id: shapeIdIdx >= 0 ? values[shapeIdIdx] || undefined : undefined,
+              direction_id: directionIdIdx >= 0 && values[directionIdIdx] ? parseInt(values[directionIdIdx]) : undefined,
+              trip_headsign: headsignIdx >= 0 ? values[headsignIdx] || undefined : undefined,
+            });
+          }
+        }
+      }
+      
+      console.log(`Parsed ${trips.length} static trips for operator ${opId}`);
+      tripsStaticCache.set(cacheKey, { data: trips, timestamp: Date.now() });
+      allTrips.push(...trips);
+    } catch (error) {
+      console.error(`Error fetching static GTFS trips for operator ${opId}:`, error);
+    }
+  }
+  
+  return allTrips;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -1075,8 +1418,9 @@ serve(async (req) => {
   const url = new URL(req.url);
   const path = url.pathname.replace('/gtfs-proxy', '');
   const operatorId = url.searchParams.get('operator') || undefined;
+  const routeId = url.searchParams.get('route') || undefined;
 
-  console.log(`Request path: ${path}, operator: ${operatorId || 'all'}`);
+  console.log(`Request path: ${path}, operator: ${operatorId || 'all'}, route: ${routeId || 'none'}`);
 
   try {
     // Handle static routes endpoint separately
@@ -1114,6 +1458,149 @@ serve(async (req) => {
         }
       );
     }
+    
+    // Handle shapes endpoint
+    if (path === '/shapes') {
+      const shapes = await fetchStaticShapes(operatorId);
+      return new Response(
+        JSON.stringify({
+          data: shapes,
+          timestamp: Date.now(),
+        }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=3600',
+          } 
+        }
+      );
+    }
+    
+    // Handle stop_times endpoint
+    if (path === '/stop-times') {
+      const stopTimes = await fetchStaticStopTimes(operatorId);
+      return new Response(
+        JSON.stringify({
+          data: stopTimes,
+          timestamp: Date.now(),
+        }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=3600',
+          } 
+        }
+      );
+    }
+    
+    // Handle static trips endpoint
+    if (path === '/trips-static') {
+      const tripsStatic = await fetchStaticTrips(operatorId);
+      return new Response(
+        JSON.stringify({
+          data: tripsStatic,
+          timestamp: Date.now(),
+        }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=3600',
+          } 
+        }
+      );
+    }
+    
+    // Handle route-shape endpoint - returns shape and stop sequence for a specific route
+    if (path === '/route-shape' && routeId) {
+      const [tripsStatic, shapes, stopTimes, stops] = await Promise.all([
+        fetchStaticTrips(operatorId),
+        fetchStaticShapes(operatorId),
+        fetchStaticStopTimes(operatorId),
+        fetchStaticStops(operatorId),
+      ]);
+      
+      // Find trips for this route
+      const routeTrips = tripsStatic.filter(t => t.route_id === routeId);
+      if (routeTrips.length === 0) {
+        return new Response(
+          JSON.stringify({ data: null, error: 'Route not found' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Group trips by direction
+      const tripsByDirection: Map<number, TripStaticInfo[]> = new Map();
+      routeTrips.forEach(trip => {
+        const dir = trip.direction_id ?? 0;
+        if (!tripsByDirection.has(dir)) {
+          tripsByDirection.set(dir, []);
+        }
+        tripsByDirection.get(dir)!.push(trip);
+      });
+      
+      // Build response for each direction
+      const directions: Array<{
+        direction_id: number;
+        shape: Array<{ lat: number; lng: number }>;
+        stops: Array<{ stop_id: string; stop_name: string; stop_sequence: number; lat?: number; lng?: number }>;
+      }> = [];
+      
+      for (const [directionId, dirTrips] of tripsByDirection) {
+        // Use first trip with shape_id
+        const tripWithShape = dirTrips.find(t => t.shape_id);
+        
+        let shapePoints: Array<{ lat: number; lng: number }> = [];
+        if (tripWithShape?.shape_id) {
+          shapePoints = shapes
+            .filter(s => s.shape_id === tripWithShape.shape_id)
+            .sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence)
+            .map(s => ({ lat: s.shape_pt_lat, lng: s.shape_pt_lon }));
+        }
+        
+        // Get stop sequence from first trip
+        const firstTrip = dirTrips[0];
+        const tripStopTimes = stopTimes
+          .filter(st => st.trip_id === firstTrip.trip_id)
+          .sort((a, b) => a.stop_sequence - b.stop_sequence);
+        
+        const stopSequence = tripStopTimes.map(st => {
+          const stopInfo = stops.find(s => s.stop_id === st.stop_id);
+          return {
+            stop_id: st.stop_id,
+            stop_name: stopInfo?.stop_name || st.stop_id,
+            stop_sequence: st.stop_sequence,
+            lat: stopInfo?.stop_lat,
+            lng: stopInfo?.stop_lon,
+          };
+        });
+        
+        directions.push({
+          direction_id: directionId,
+          shape: shapePoints,
+          stops: stopSequence,
+        });
+      }
+      
+      return new Response(
+        JSON.stringify({
+          data: {
+            route_id: routeId,
+            directions,
+          },
+          timestamp: Date.now(),
+        }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=3600',
+          } 
+        }
+      );
+    }
 
     const feed = await fetchGtfsData(operatorId);
     let data: unknown;
@@ -1134,7 +1621,7 @@ serve(async (req) => {
         break;
       default:
         return new Response(
-          JSON.stringify({ error: 'Not found', availableEndpoints: ['/feed', '/vehicles', '/trips', '/alerts', '/routes'] }),
+          JSON.stringify({ error: 'Not found', availableEndpoints: ['/feed', '/vehicles', '/trips', '/alerts', '/routes', '/stops', '/shapes', '/stop-times', '/trips-static', '/route-shape'] }),
           { 
             status: 404, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

@@ -19,6 +19,7 @@ interface VehicleMapProps {
   stops?: StaticStop[];
   routeNamesMap?: Map<string, RouteInfo>;
   selectedRoute?: string;
+  selectedOperator?: string;
   onRouteClose?: () => void;
   isLoading: boolean;
 }
@@ -105,7 +106,7 @@ const formatDelay = (delay?: number) => {
   return `(${minutes} λεπτά)`;
 };
 
-export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, selectedRoute = 'all', onRouteClose, isLoading }: VehicleMapProps) {
+export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, selectedRoute = 'all', selectedOperator, onRouteClose, isLoading }: VehicleMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const vehicleMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
   const stopMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
