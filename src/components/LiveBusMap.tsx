@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { transit_realtime } from "gtfs-realtime-bindings";
+import type { Vehicle } from "@/types/gtfs";
 
 type VehiclePosition = {
   id: string;
@@ -77,30 +78,69 @@ export const LiveBusMap = () => {
   useEffect(() => {
     let isMounted = true;
 
+    const fetchFromSupabase = async () => {
+      if (!SUPABASE_URL || !SUPABASE_KEY) {
+        throw new Error("Supabase env not configured");
+      }
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/vehicles`, {
+        headers: {
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`GTFS proxy error: ${response.status}`);
+      }
+
+      const payload = (await response.json()) as { data: Vehicle[] };
+      return payload.data
+        .filter((vehicle) => vehicle.latitude != null && vehicle.longitude != null)
+        .map((vehicle) => ({
+          id: vehicle.vehicleId || vehicle.id,
+          label: vehicle.label || vehicle.routeId || undefined,
+          latitude: vehicle.latitude as number,
+          longitude: vehicle.longitude as number,
+          bearing: vehicle.bearing ?? null,
+        }));
+    };
+
+    const fetchFromProxy = async () => {
+      const response = await fetch(GTFS_RT_PROXY_URL);
+      if (!response.ok) {
+        throw new Error(`Proxy error: ${response.status}`);
+      }
+
+      const buffer = await response.arrayBuffer();
+      const feed = transit_realtime.FeedMessage.decode(new Uint8Array(buffer));
+      const nextVehicles: VehiclePosition[] = [];
+
+      for (const entity of feed.entity) {
+        const vehicle = entity.vehicle;
+        const position = vehicle?.position;
+        if (!position) continue;
+        if (position.latitude == null || position.longitude == null) continue;
+
+        nextVehicles.push({
+          id: vehicle.vehicle?.id || entity.id || `${position.latitude}-${position.longitude}`,
+          label: vehicle.vehicle?.label || vehicle.trip?.routeId || undefined,
+          latitude: position.latitude,
+          longitude: position.longitude,
+          bearing: position.bearing ?? null,
+        });
+      }
+
+      return nextVehicles;
+    };
+
     const fetchVehicles = async () => {
       try {
-        const response = await fetch(GTFS_RT_PROXY_URL);
-        if (!response.ok) {
-          throw new Error(`Proxy error: ${response.status}`);
-        }
-
-        const buffer = await response.arrayBuffer();
-        const feed = transit_realtime.FeedMessage.decode(new Uint8Array(buffer));
-        const nextVehicles: VehiclePosition[] = [];
-
-        for (const entity of feed.entity) {
-          const vehicle = entity.vehicle;
-          const position = vehicle?.position;
-          if (!position) continue;
-          if (position.latitude == null || position.longitude == null) continue;
-
-          nextVehicles.push({
-            id: vehicle.vehicle?.id || entity.id || `${position.latitude}-${position.longitude}`,
-            label: vehicle.vehicle?.label || vehicle.trip?.routeId || undefined,
-            latitude: position.latitude,
-            longitude: position.longitude,
-            bearing: position.bearing ?? null,
-          });
+        let nextVehicles: VehiclePosition[] = [];
+        try {
+          nextVehicles = await fetchFromSupabase();
+        } catch (supabaseError) {
+          console.warn("Supabase GTFS fetch failed, falling back to proxy.", supabaseError);
+          nextVehicles = await fetchFromProxy();
         }
 
         if (isMounted) {
