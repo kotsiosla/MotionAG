@@ -99,3 +99,48 @@ export function useRouteShape(routeId: string | null, operatorId?: string) {
     gcTime: 24 * 60 * 60 * 1000,
   });
 }
+
+export interface ScheduleEntry {
+  trip_id: string;
+  direction_id?: number;
+  trip_headsign?: string;
+  departure_time: string;
+  departure_minutes: number;
+  first_stop_id: string;
+  first_stop_name: string;
+  last_stop_id: string;
+  last_stop_name: string;
+  stop_count: number;
+}
+
+export interface RouteScheduleData {
+  route_id: string;
+  schedule: ScheduleEntry[];
+  by_direction: Record<number, ScheduleEntry[]>;
+  total_trips: number;
+}
+
+export function useRouteSchedule(routeId: string | null, operatorId?: string) {
+  return useQuery({
+    queryKey: ['route-schedule', routeId, operatorId],
+    queryFn: async () => {
+      if (!routeId || routeId === 'all') return null;
+      const params = new URLSearchParams();
+      params.set('route', routeId);
+      if (operatorId && operatorId !== 'all') params.set('operator', operatorId);
+      
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/schedule?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch route schedule');
+      const result = await response.json();
+      return result.data as RouteScheduleData;
+    },
+    enabled: !!routeId && routeId !== 'all',
+    staleTime: 60 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+  });
+}

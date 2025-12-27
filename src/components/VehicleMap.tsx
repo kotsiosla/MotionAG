@@ -1134,6 +1134,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           vehicles={vehicles}
           stops={stops}
           routeInfo={selectedRouteInfo}
+          selectedOperator={selectedOperator}
           initialPosition={{ x: showRoutePanel ? 410 : 16, y: 60 }}
           onClose={() => setShowLiveVehiclesPanel(false)}
           onVehicleFollow={(vehicleId) => setFollowedVehicleId(vehicleId)}
