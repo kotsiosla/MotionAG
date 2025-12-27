@@ -143,10 +143,14 @@ export function useRouteSchedule(routeId: string | null, operatorId?: string) {
       }
       const result = await response.json();
       console.log(`Schedule data received:`, result.data?.total_trips || 0, 'trips');
+      // Log debug info if available
+      if (result.debug) {
+        console.log('Schedule debug info:', result.debug);
+      }
       return result.data as RouteScheduleData;
     },
     enabled: !!routeId && routeId !== 'all',
-    staleTime: 60 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
+    staleTime: 30 * 1000, // 30 seconds for testing
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
