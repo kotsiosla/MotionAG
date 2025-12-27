@@ -210,14 +210,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
       zoomControl: true,
     });
 
-    // Satellite imagery layer (ESRI World Imagery)
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-    }).addTo(mapRef.current);
-
-    // Labels overlay for street/place names
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-      attribution: '',
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
     }).addTo(mapRef.current);
 
     vehicleMarkersRef.current = L.markerClusterGroup({
@@ -441,29 +435,6 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
     const stop = stops.find(s => s.stop_id === nearestStopData.stopId);
     return stop ? { stop, distance: nearestStopData.distance } : null;
   }, [nearestStopData?.stopId, nearestStopData?.distance, stops]);
-
-  // Find all stops within 500m radius
-  const nearbyStops = useMemo(() => {
-    if (!userLocation) return [];
-    
-    const stopsWithDistance: Array<{ stop: StaticStop; distance: number }> = [];
-    
-    stops.forEach(stop => {
-      if (stop.stop_lat === undefined || stop.stop_lon === undefined) return;
-      
-      const distance = calculateDistance(
-        userLocation.lat, userLocation.lng,
-        stop.stop_lat, stop.stop_lon
-      );
-      
-      if (distance <= 500) {
-        stopsWithDistance.push({ stop, distance });
-      }
-    });
-    
-    // Sort by distance
-    return stopsWithDistance.sort((a, b) => a.distance - b.distance);
-  }, [userLocation, stops]);
 
   // Calculate walking time (average walking speed ~5 km/h = 83.3 m/min)
   const walkingTimeMinutes = useMemo(() => {
@@ -700,67 +671,69 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
         <LocateFixed className={`h-4 w-4 ${isLocating ? 'animate-pulse' : ''} ${userLocation ? 'text-blue-500' : ''}`} />
       </Button>
 
-      {/* Nearby stops panel */}
-      {userLocation && nearbyStops.length > 0 && (
-        <div className="absolute bottom-4 right-4 glass-card rounded-lg p-3 z-[1000] max-w-[300px] max-h-[60vh] overflow-hidden flex flex-col">
+      {/* Nearest stop info */}
+      {nearestStop && userLocation && (
+        <div className="absolute bottom-4 right-4 glass-card rounded-lg p-3 z-[1000] max-w-[280px]">
           <div className="flex items-center gap-2 mb-2">
             <MapPin className="h-4 w-4 text-blue-500 flex-shrink-0" />
-            <span className="text-xs font-medium text-muted-foreground">
-              Στάσεις σε ακτίνα 500μ ({nearbyStops.length})
+            <span className="text-xs font-medium text-muted-foreground">Κοντινότερη στάση</span>
+          </div>
+          <div className="font-medium text-sm mb-1">{nearestStop.stop.stop_name || nearestStop.stop.stop_id}</div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
+            <span>
+              {nearestStop.distance < 1000 
+                ? `${Math.round(nearestStop.distance)} μ.` 
+                : `${(nearestStop.distance / 1000).toFixed(1)} χλμ`}
             </span>
+            {walkingTimeMinutes !== null && (
+              <span className="flex items-center gap-1 text-blue-500 font-medium">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="5" r="2"/>
+                  <path d="M12 7v6"/>
+                  <path d="M9 20l3-7 3 7"/>
+                  <path d="M6 12h12"/>
+                </svg>
+                ~{walkingTimeMinutes} λεπτά περπάτημα
+              </span>
+            )}
           </div>
-          
-          <div className="overflow-auto flex-1 space-y-2 scrollbar-thin">
-            {nearbyStops.map((item, index) => {
-              const arrivals = getArrivalsForStop(item.stop.stop_id);
-              const walkTime = Math.ceil(item.distance / 83.3);
-              const isNearest = index === 0;
-              
-              return (
-                <div 
-                  key={item.stop.stop_id}
-                  className={`p-2 rounded-lg border transition-colors cursor-pointer hover:bg-muted/50 ${
-                    isNearest ? 'border-blue-500 bg-blue-500/10' : 'border-border'
-                  }`}
-                  onClick={() => {
-                    if (item.stop.stop_lat && item.stop.stop_lon) {
-                      mapRef.current?.setView([item.stop.stop_lat, item.stop.stop_lon], 17, { animate: true });
-                    }
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <div className="font-medium text-sm flex-1 min-w-0">
-                      {isNearest && <span className="text-blue-500 mr-1">★</span>}
-                      {item.stop.stop_name || item.stop.stop_id}
-                    </div>
+          {(() => {
+            const arrivals = getArrivalsForStop(nearestStop.stop.stop_id);
+            if (arrivals.length === 0) return <div className="text-xs text-muted-foreground">Δεν υπάρχουν αφίξεις</div>;
+            return (
+              <div className="space-y-1 border-t border-border pt-2">
+                {arrivals.slice(0, 3).map((arr, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-xs">
+                    <span 
+                      className="font-bold px-1.5 py-0.5 rounded text-white"
+                      style={{ backgroundColor: arr.routeColor ? `#${arr.routeColor}` : '#0ea5e9' }}
+                    >
+                      {arr.routeShortName || arr.routeId || '?'}
+                    </span>
+                    <span className="font-mono text-primary">{formatETA(arr.arrivalTime)}</span>
+                    {arr.arrivalDelay !== undefined && arr.arrivalDelay !== 0 && (
+                      <span className={arr.arrivalDelay > 0 ? 'text-destructive' : 'text-green-500'}>
+                        {formatDelay(arr.arrivalDelay)}
+                      </span>
+                    )}
                   </div>
-                  
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                    <span>{Math.round(item.distance)} μ.</span>
-                    <span className="text-blue-500">~{walkTime} λεπ.</span>
-                  </div>
-                  
-                  {arrivals.length > 0 ? (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {arrivals.slice(0, 3).map((arr, idx) => (
-                        <div key={idx} className="flex items-center gap-1 text-xs">
-                          <span 
-                            className="font-bold px-1 py-0.5 rounded text-white text-[10px]"
-                            style={{ backgroundColor: arr.routeColor ? `#${arr.routeColor}` : '#0ea5e9' }}
-                          >
-                            {arr.routeShortName || '?'}
-                          </span>
-                          <span className="font-mono text-primary text-[10px]">{formatETA(arr.arrivalTime)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-[10px] text-muted-foreground">Δεν υπάρχουν αφίξεις</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                ))}
+              </div>
+            );
+          })()}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full mt-2 text-xs h-7"
+            onClick={() => {
+              if (nearestStop.stop.stop_lat && nearestStop.stop.stop_lon) {
+                mapRef.current?.setView([nearestStop.stop.stop_lat, nearestStop.stop.stop_lon], 17, { animate: true });
+              }
+            }}
+          >
+            <Navigation className="h-3 w-3 mr-1" />
+            Πήγαινε στη στάση
+          </Button>
         </div>
       )}
       
