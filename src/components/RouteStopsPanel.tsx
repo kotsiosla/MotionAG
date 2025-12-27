@@ -128,26 +128,26 @@ export function RouteStopsPanel({
 
   return (
     <div className="absolute top-4 left-4 z-[1000] w-[380px] max-w-[calc(100vw-2rem)] bg-card/95 backdrop-blur-sm rounded-lg shadow-xl border border-border overflow-hidden">
-      {/* Header */}
+      {/* Header with route color */}
       <div 
-        className="flex items-center gap-2 p-3 border-b border-border cursor-pointer hover:bg-muted/50 transition-colors"
+        className="flex items-center gap-2 p-3 cursor-pointer transition-colors"
+        style={{ backgroundColor: routeColor }}
         onClick={() => setIsCollapsed(!isCollapsed)}
       >
         {/* Drag handle */}
-        <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab" />
+        <GripVertical className="h-5 w-5 text-white/70 cursor-grab" />
         
         <div 
-          className="flex items-center justify-center w-10 h-10 rounded-lg text-white font-bold text-lg"
-          style={{ backgroundColor: routeColor }}
+          className="flex items-center justify-center w-10 h-10 rounded-lg bg-white/20 text-white font-bold text-lg"
         >
           {routeInfo?.route_short_name || selectedRoute}
         </div>
         
         <div className="flex-1 min-w-0">
-          <div className="font-medium text-sm truncate">
+          <div className="font-medium text-sm truncate text-white">
             {routeInfo?.route_long_name || 'Γραμμή ' + selectedRoute}
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-white/80">
             {tripDuration && (
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
@@ -161,11 +161,11 @@ export function RouteStopsPanel({
           </div>
         </div>
 
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setIsCollapsed(!isCollapsed); }}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); setIsCollapsed(!isCollapsed); }}>
           {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
         </Button>
         
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); onClose(); }}>
           <X className="h-4 w-4" />
         </Button>
       </div>
