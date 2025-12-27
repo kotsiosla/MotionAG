@@ -921,7 +921,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
   }, [selectedRoute, routeShapeData, selectedRouteInfo, stopsWithVehicles, trips, vehicles]);
 
-  // Follow the selected vehicle in realtime
+  // Follow the selected vehicle in realtime with street-level view
   useEffect(() => {
     if (!followedVehicleId || !mapRef.current) return;
 
@@ -930,10 +930,11 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     );
 
     if (followedVehicle?.latitude && followedVehicle?.longitude) {
-      mapRef.current.setView(
+      // Smooth pan to vehicle position at street level
+      mapRef.current.flyTo(
         [followedVehicle.latitude, followedVehicle.longitude],
-        16,
-        { animate: true, duration: 0.5 }
+        18,
+        { animate: true, duration: 0.8, easeLinearity: 0.5 }
       );
     }
   }, [vehicles, followedVehicleId]);
@@ -1127,7 +1128,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       )}
       
       {/* Schedule Panel - Live & Scheduled trips - positioned to the right of route panel */}
-      {selectedRoute !== 'all' && showLiveVehiclesPanel && !showRoutePlanner && (
+      {selectedRoute !== 'all' && showLiveVehiclesPanel && !showRoutePlanner && !followedVehicleId && (
         <SchedulePanel
           selectedRoute={selectedRoute}
           trips={trips}
@@ -1137,10 +1138,18 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           selectedOperator={selectedOperator}
           initialPosition={{ x: showRoutePanel ? 410 : 16, y: 60 }}
           onClose={() => setShowLiveVehiclesPanel(false)}
-          onVehicleFollow={(vehicleId) => setFollowedVehicleId(vehicleId)}
+          onVehicleFollow={(vehicleId) => {
+            setFollowedVehicleId(vehicleId);
+            setShowLiveVehiclesPanel(false);
+          }}
           onVehicleFocus={(vehicle) => {
             if (vehicle.latitude && vehicle.longitude && mapRef.current) {
-              mapRef.current.setView([vehicle.latitude, vehicle.longitude], 16, { animate: true });
+              // Smooth zoom to street level
+              mapRef.current.flyTo([vehicle.latitude, vehicle.longitude], 18, { 
+                animate: true, 
+                duration: 1.5,
+                easeLinearity: 0.25
+              });
             }
           }}
         />
