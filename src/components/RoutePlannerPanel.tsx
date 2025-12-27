@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { X, MapPin, Navigation, Clock, Footprints, Bus, ChevronDown, ChevronUp, Search, Loader2, LocateFixed, ArrowRight } from "lucide-react";
+import { X, MapPin, Navigation, Clock, Footprints, Bus, ChevronDown, ChevronUp, Search, Loader2, LocateFixed, ArrowRight, MousePointer2, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { StaticStop, Trip, Vehicle, RouteInfo } from "@/types/gtfs";
@@ -59,7 +59,8 @@ interface RoutePlannerPanelProps {
   userLocation?: { lat: number; lng: number } | null;
   onRouteSelect?: (route: PlannedRoute) => void;
   onLocationSelect?: (type: 'origin' | 'destination', location: Location) => void;
-  onMapClick?: (callback: (lat: number, lng: number) => void) => void;
+  onRequestMapClick?: (type: 'origin' | 'destination') => void;
+  mapClickLocation?: { type: 'origin' | 'destination'; lat: number; lng: number } | null;
 }
 
 // Haversine distance calculation
@@ -109,6 +110,8 @@ export function RoutePlannerPanel({
   userLocation,
   onRouteSelect,
   onLocationSelect,
+  onRequestMapClick,
+  mapClickLocation,
 }: RoutePlannerPanelProps) {
   const [origin, setOrigin] = useState<Location | null>(null);
   const [destination, setDestination] = useState<Location | null>(null);
@@ -120,10 +123,111 @@ export function RoutePlannerPanel({
   const [isSearchingDestination, setIsSearchingDestination] = useState(false);
   const [showOriginResults, setShowOriginResults] = useState(false);
   const [showDestinationResults, setShowDestinationResults] = useState(false);
+  const [showOriginStops, setShowOriginStops] = useState(false);
+  const [showDestinationStops, setShowDestinationStops] = useState(false);
   const [plannedRoute, setPlannedRoute] = useState<PlannedRoute | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [expandedStep, setExpandedStep] = useState<number | null>(null);
   const [selectingOnMap, setSelectingOnMap] = useState<'origin' | 'destination' | null>(null);
+  const [alternativeRoutes, setAlternativeRoutes] = useState<PlannedRoute[]>([]);
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
+
+  // Handle map click location
+  useEffect(() => {
+    if (mapClickLocation) {
+      const location: Location = {
+        lat: mapClickLocation.lat,
+        lng: mapClickLocation.lng,
+        name: `${mapClickLocation.lat.toFixed(5)}, ${mapClickLocation.lng.toFixed(5)}`,
+        type: 'search',
+      };
+      
+      // Reverse geocode to get actual name
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${mapClickLocation.lat}&lon=${mapClickLocation.lng}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.display_name) {
+            location.name = data.display_name.split(',')[0];
+          }
+          if (mapClickLocation.type === 'origin') {
+            setOrigin(location);
+            setOriginQuery(location.name);
+            onLocationSelect?.('origin', location);
+          } else {
+            setDestination(location);
+            setDestinationQuery(location.name);
+            onLocationSelect?.('destination', location);
+          }
+        })
+        .catch(() => {
+          if (mapClickLocation.type === 'origin') {
+            setOrigin(location);
+            setOriginQuery(location.name);
+          } else {
+            setDestination(location);
+            setDestinationQuery(location.name);
+          }
+        });
+      
+      setSelectingOnMap(null);
+    }
+  }, [mapClickLocation, onLocationSelect]);
+
+  // Filter stops for dropdown
+  const filteredOriginStops = useMemo(() => {
+    if (!originQuery.trim()) return stops.slice(0, 10);
+    const query = originQuery.toLowerCase();
+    return stops.filter(s => 
+      s.stop_name?.toLowerCase().includes(query) || 
+      s.stop_id.toLowerCase().includes(query)
+    ).slice(0, 10);
+  }, [stops, originQuery]);
+
+  const filteredDestinationStops = useMemo(() => {
+    if (!destinationQuery.trim()) return stops.slice(0, 10);
+    const query = destinationQuery.toLowerCase();
+    return stops.filter(s => 
+      s.stop_name?.toLowerCase().includes(query) || 
+      s.stop_id.toLowerCase().includes(query)
+    ).slice(0, 10);
+  }, [stops, destinationQuery]);
+
+  // Select a bus stop
+  const selectStop = useCallback((stop: StaticStop, type: 'origin' | 'destination') => {
+    if (!stop.stop_lat || !stop.stop_lon) return;
+    
+    const location: Location = {
+      lat: stop.stop_lat,
+      lng: stop.stop_lon,
+      name: stop.stop_name || stop.stop_id,
+      type: 'stop',
+      stopId: stop.stop_id,
+    };
+    
+    if (type === 'origin') {
+      setOrigin(location);
+      setOriginQuery(location.name);
+      setShowOriginStops(false);
+      setShowOriginResults(false);
+    } else {
+      setDestination(location);
+      setDestinationQuery(location.name);
+      setShowDestinationStops(false);
+      setShowDestinationResults(false);
+    }
+    
+    onLocationSelect?.(type, location);
+  }, [onLocationSelect]);
+
+  // Request map click
+  const requestMapClick = useCallback((type: 'origin' | 'destination') => {
+    setSelectingOnMap(type);
+    onRequestMapClick?.(type);
+    setShowOriginResults(false);
+    setShowDestinationResults(false);
+    setShowOriginStops(false);
+    setShowDestinationStops(false);
+  }, [onRequestMapClick]);
 
   // Create stop map for quick lookup
   const stopMap = useMemo(() => {
@@ -431,6 +535,17 @@ export function RoutePlannerPanel({
         </Button>
       </div>
 
+      {/* Selecting on map indicator */}
+      {selectingOnMap && (
+        <div className="p-3 bg-primary/10 border-b border-border flex items-center gap-2 animate-pulse">
+          <Target className="h-4 w-4 text-primary" />
+          <span className="text-sm">Πατήστε στον χάρτη για να επιλέξετε {selectingOnMap === 'origin' ? 'αφετηρία' : 'προορισμό'}</span>
+          <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs" onClick={() => setSelectingOnMap(null)}>
+            Ακύρωση
+          </Button>
+        </div>
+      )}
+
       {/* Location inputs */}
       <div className="p-3 space-y-3 border-b border-border">
         {/* Origin input */}
@@ -442,9 +557,13 @@ export function RoutePlannerPanel({
                 type="text"
                 placeholder="Από πού ξεκινάς;"
                 value={originQuery}
-                onChange={(e) => setOriginQuery(e.target.value)}
+                onChange={(e) => {
+                  setOriginQuery(e.target.value);
+                  setShowOriginStops(true);
+                  setShowOriginResults(false);
+                }}
                 onKeyDown={(e) => e.key === 'Enter' && searchAddress(originQuery, 'origin')}
-                onFocus={() => originResults.length > 0 && setShowOriginResults(true)}
+                onFocus={() => setShowOriginStops(true)}
                 className="border-0 bg-transparent h-8 focus-visible:ring-0 p-0"
               />
             </div>
@@ -457,24 +576,57 @@ export function RoutePlannerPanel({
                     <LocateFixed className="h-3.5 w-3.5 text-blue-500" />
                   </Button>
                 )}
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => searchAddress(originQuery, 'origin')} title="Αναζήτηση">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => requestMapClick('origin')} title="Επιλογή από χάρτη">
+                  <MousePointer2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => searchAddress(originQuery, 'origin')} title="Αναζήτηση διεύθυνσης">
                   <Search className="h-3.5 w-3.5" />
                 </Button>
               </div>
             )}
           </div>
-          {showOriginResults && originResults.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 glass-card rounded-lg max-h-48 overflow-y-auto z-10">
-              {originResults.map((result, idx) => (
+          
+          {/* Origin dropdown - shows stops and search results */}
+          {(showOriginStops || showOriginResults) && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg max-h-64 overflow-y-auto z-20 shadow-xl">
+              {/* Geocoding results */}
+              {showOriginResults && originResults.length > 0 && (
+                <div className="border-b border-border">
+                  <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50">Διευθύνσεις</div>
+                  {originResults.map((result, idx) => (
+                    <button
+                      key={`addr-${idx}`}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors flex items-start gap-2"
+                      onClick={() => {
+                        selectSearchResult(result, 'origin');
+                        setShowOriginStops(false);
+                      }}
+                    >
+                      <MapPin className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <span className="line-clamp-2">{result.display_name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {/* Bus stops */}
+              <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50">Στάσεις λεωφορείων</div>
+              {filteredOriginStops.map((stop) => (
                 <button
-                  key={idx}
+                  key={stop.stop_id}
                   className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors flex items-start gap-2"
-                  onClick={() => selectSearchResult(result, 'origin')}
+                  onClick={() => selectStop(stop, 'origin')}
                 >
-                  <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                  <span className="line-clamp-2">{result.display_name}</span>
+                  <Bus className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-medium">{stop.stop_name || stop.stop_id}</div>
+                    {stop.stop_code && <div className="text-xs text-muted-foreground">Κωδ: {stop.stop_code}</div>}
+                  </div>
                 </button>
               ))}
+              {filteredOriginStops.length === 0 && (
+                <div className="px-3 py-2 text-sm text-muted-foreground">Δεν βρέθηκαν στάσεις</div>
+              )}
             </div>
           )}
         </div>
@@ -498,32 +650,71 @@ export function RoutePlannerPanel({
                 type="text"
                 placeholder="Πού θέλεις να πας;"
                 value={destinationQuery}
-                onChange={(e) => setDestinationQuery(e.target.value)}
+                onChange={(e) => {
+                  setDestinationQuery(e.target.value);
+                  setShowDestinationStops(true);
+                  setShowDestinationResults(false);
+                }}
                 onKeyDown={(e) => e.key === 'Enter' && searchAddress(destinationQuery, 'destination')}
-                onFocus={() => destinationResults.length > 0 && setShowDestinationResults(true)}
+                onFocus={() => setShowDestinationStops(true)}
                 className="border-0 bg-transparent h-8 focus-visible:ring-0 p-0"
               />
             </div>
             {isSearchingDestination ? (
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             ) : (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => searchAddress(destinationQuery, 'destination')} title="Αναζήτηση">
-                <Search className="h-3.5 w-3.5" />
-              </Button>
+              <div className="flex gap-1">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => requestMapClick('destination')} title="Επιλογή από χάρτη">
+                  <MousePointer2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => searchAddress(destinationQuery, 'destination')} title="Αναζήτηση διεύθυνσης">
+                  <Search className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             )}
           </div>
-          {showDestinationResults && destinationResults.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 glass-card rounded-lg max-h-48 overflow-y-auto z-10">
-              {destinationResults.map((result, idx) => (
+          
+          {/* Destination dropdown - shows stops and search results */}
+          {(showDestinationStops || showDestinationResults) && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg max-h-64 overflow-y-auto z-20 shadow-xl">
+              {/* Geocoding results */}
+              {showDestinationResults && destinationResults.length > 0 && (
+                <div className="border-b border-border">
+                  <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50">Διευθύνσεις</div>
+                  {destinationResults.map((result, idx) => (
+                    <button
+                      key={`addr-${idx}`}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors flex items-start gap-2"
+                      onClick={() => {
+                        selectSearchResult(result, 'destination');
+                        setShowDestinationStops(false);
+                      }}
+                    >
+                      <MapPin className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                      <span className="line-clamp-2">{result.display_name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {/* Bus stops */}
+              <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50">Στάσεις λεωφορείων</div>
+              {filteredDestinationStops.map((stop) => (
                 <button
-                  key={idx}
+                  key={stop.stop_id}
                   className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors flex items-start gap-2"
-                  onClick={() => selectSearchResult(result, 'destination')}
+                  onClick={() => selectStop(stop, 'destination')}
                 >
-                  <MapPin className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
-                  <span className="line-clamp-2">{result.display_name}</span>
+                  <Bus className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-medium">{stop.stop_name || stop.stop_id}</div>
+                    {stop.stop_code && <div className="text-xs text-muted-foreground">Κωδ: {stop.stop_code}</div>}
+                  </div>
                 </button>
               ))}
+              {filteredDestinationStops.length === 0 && (
+                <div className="px-3 py-2 text-sm text-muted-foreground">Δεν βρέθηκαν στάσεις</div>
+              )}
             </div>
           )}
         </div>
