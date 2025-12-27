@@ -66,21 +66,13 @@ export function Header({
     <header className="glass-card border-b sticky top-0 z-50">
       <div className="container mx-auto px-4 py-2.5">
         <div className="flex items-center justify-between">
-          {/* Left: Logo, Title and Designer */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <img src={motionLogo} alt="Motion Logo" className="h-6" />
-              <div>
-                <h1 className="text-base font-bold tracking-tight leading-none">GTFS Realtime</h1>
-                <span className="text-[10px] text-muted-foreground">Live Tracking</span>
-              </div>
+          {/* Left: Logo and Title */}
+          <div className="flex items-center gap-2">
+            <img src={motionLogo} alt="Motion Logo" className="h-6" />
+            <div>
+              <h1 className="text-base font-bold tracking-tight leading-none">GTFS Realtime</h1>
+              <span className="text-[10px] text-muted-foreground">Live Tracking</span>
             </div>
-            <div className="h-6 w-px bg-border" />
-            <img 
-              src={designerPhoto} 
-              alt="Designer" 
-              className="h-6 w-6 rounded-full object-cover ring-1 ring-border"
-            />
           </div>
 
           {/* Center: Selectors */}
@@ -153,6 +145,13 @@ export function Header({
                 </div>
               </>
             )}
+
+            <div className="h-5 w-px bg-border" />
+            <img 
+              src={designerPhoto} 
+              alt="Designer" 
+              className="h-6 w-6 rounded-full object-cover ring-1 ring-border"
+            />
           </div>
         </div>
       </div>
