@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { X, Navigation, Calendar, Radio, Eye } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { X, Navigation, Calendar, Radio, Eye, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
@@ -28,6 +28,12 @@ const formatTime = (timestamp?: number) => {
   });
 };
 
+// Format start time from "HH:MM:SS" string
+const formatStartTime = (startTime?: string) => {
+  if (!startTime) return '--:--';
+  return startTime.substring(0, 5); // Get HH:MM
+};
+
 const formatDelay = (delay?: number) => {
   if (delay === undefined || delay === null) return null;
   const minutes = Math.round(delay / 60);
@@ -52,6 +58,33 @@ const getNextStopInfo = (trip: Trip, stops: StaticStop[]) => {
     arrivalTime: nextUpdate.arrivalTime,
     delay: delayInfo,
   };
+};
+
+// Parse start time and date to get timestamp
+const parseStartTimeToTimestamp = (startTime?: string, startDate?: string): number | null => {
+  if (!startTime || !startDate) return null;
+  
+  try {
+    // startDate is YYYYMMDD format, startTime is HH:MM:SS
+    const year = parseInt(startDate.substring(0, 4));
+    const month = parseInt(startDate.substring(4, 6)) - 1; // 0-indexed
+    const day = parseInt(startDate.substring(6, 8));
+    
+    const [hours, minutes, seconds] = startTime.split(':').map(Number);
+    
+    // Handle times past midnight (e.g., 25:00:00 means 01:00:00 next day)
+    let adjustedHours = hours;
+    let adjustedDay = day;
+    if (hours >= 24) {
+      adjustedHours = hours - 24;
+      adjustedDay = day + 1;
+    }
+    
+    const date = new Date(year, month, adjustedDay, adjustedHours, minutes, seconds || 0);
+    return Math.floor(date.getTime() / 1000);
+  } catch {
+    return null;
+  }
 };
 
 export function SchedulePanel({
@@ -100,36 +133,54 @@ export function SchedulePanel({
       });
   }, [routeTrips, routeVehicles, stops]);
 
-  // Get scheduled trips (future departures)
+  // Get scheduled trips (all trips for this route, sorted by start time)
   const scheduledTrips = useMemo(() => {
     const now = Math.floor(Date.now() / 1000);
     
     return routeTrips
       .map(trip => {
+        // Get the first stop arrival time from stop time updates if available
         const firstStop = trip.stopTimeUpdates?.[0];
-        if (!firstStop?.arrivalTime) return null;
+        const firstStopTime = firstStop?.arrivalTime;
         
-        // Only show future trips
-        if (firstStop.arrivalTime < now) return null;
+        // Parse start time as fallback
+        const startTimestamp = parseStartTimeToTimestamp(trip.startTime, trip.startDate);
         
-        const stopInfo = stops.find(s => s.stop_id === firstStop.stopId);
+        // Use stop time update if available, otherwise use start time
+        const departureTime = firstStopTime || startTimestamp;
+        
+        if (!departureTime) return null;
+        
+        const stopInfo = firstStop?.stopId ? stops.find(s => s.stop_id === firstStop.stopId) : null;
         const vehicle = routeVehicles.find(v => v.tripId === trip.tripId);
         
         return {
           trip,
           vehicle,
-          departureTime: firstStop.arrivalTime,
-          firstStopName: stopInfo?.stop_name || firstStop.stopId || 'Άγνωστη στάση',
-          delay: formatDelay(firstStop.arrivalDelay),
+          departureTime,
+          displayTime: firstStopTime ? formatTime(firstStopTime) : formatStartTime(trip.startTime),
+          firstStopName: stopInfo?.stop_name || firstStop?.stopId || 'Αφετηρία',
+          delay: firstStop ? formatDelay(firstStop.arrivalDelay) : null,
+          hasRealtime: !!firstStopTime,
         };
       })
       .filter(Boolean)
       .sort((a, b) => (a?.departureTime || 0) - (b?.departureTime || 0))
-      .slice(0, 10);
+      .slice(0, 15); // Show more scheduled trips
   }, [routeTrips, stops, routeVehicles]);
+
+  // Auto-switch to schedule tab when no live vehicles
+  useEffect(() => {
+    if (liveTripsWithVehicles.length === 0 && scheduledTrips.length > 0) {
+      setActiveTab("schedule");
+    } else if (liveTripsWithVehicles.length > 0) {
+      setActiveTab("live");
+    }
+  }, [liveTripsWithVehicles.length, scheduledTrips.length]);
 
   const bgColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : 'hsl(var(--primary))';
   const liveCount = liveTripsWithVehicles.length;
+  const scheduleCount = scheduledTrips.length;
 
   return (
     <ResizableDraggablePanel
@@ -181,6 +232,11 @@ export function SchedulePanel({
             <TabsTrigger value="schedule" className="text-xs gap-1.5 data-[state=active]:bg-background">
               <Calendar className="h-3 w-3" />
               Πρόγραμμα
+              {scheduleCount > 0 && (
+                <span className="bg-blue-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {scheduleCount}
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -261,7 +317,7 @@ export function SchedulePanel({
               ) : (
                 scheduledTrips.map((item) => {
                   if (!item) return null;
-                  const { trip, vehicle, departureTime, firstStopName, delay } = item;
+                  const { trip, vehicle, displayTime, firstStopName, delay, hasRealtime } = item;
                   const vehicleId = vehicle?.vehicleId || vehicle?.id;
                   
                   return (
@@ -271,8 +327,15 @@ export function SchedulePanel({
                     >
                       {/* Time row */}
                       <div className="flex items-center gap-2">
+                        {hasRealtime ? (
+                          <span className="bg-green-500/20 text-green-600 dark:text-green-400 text-[10px] font-bold px-1 py-0.5 rounded">
+                            RT
+                          </span>
+                        ) : (
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                        )}
                         <span className="font-mono text-sm font-bold" style={{ color: bgColor }}>
-                          {formatTime(departureTime)}
+                          {displayTime}
                         </span>
                         {delay && (
                           <span className={`text-[10px] ${delay.color}`}>
