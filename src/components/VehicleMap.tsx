@@ -149,6 +149,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [showStops, setShowStops] = useState(true);
   const [showRoutePanel, setShowRoutePanel] = useState(true);
   const [showRoutePlanner, setShowRoutePlanner] = useState(false);
+  const [showLiveVehiclesPanel, setShowLiveVehiclesPanel] = useState(true);
   const markerMapRef = useRef<Map<string, L.Marker>>(new Map());
   const userLocationMarkerRef = useRef<L.Marker | null>(null);
   const [isLocating, setIsLocating] = useState(false);
@@ -176,10 +177,11 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     ? routeNamesMap.get(selectedRoute) 
     : undefined;
 
-  // Show route panel when route changes
+  // Show panels when route changes
   useEffect(() => {
     if (selectedRoute !== 'all') {
       setShowRoutePanel(true);
+      setShowLiveVehiclesPanel(true);
     }
   }, [selectedRoute]);
 
@@ -1018,22 +1020,30 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       )}
       
       {/* Live vehicles on route panel */}
-      {selectedRoute !== 'all' && vehiclesOnSelectedRoute.length > 0 && !showRoutePlanner && (
-        <div className="absolute top-4 left-4 rounded-lg z-[1000] max-w-[280px] animate-fade-in overflow-hidden shadow-xl border border-border">
+      {selectedRoute !== 'all' && vehiclesOnSelectedRoute.length > 0 && showLiveVehiclesPanel && !showRoutePlanner && (
+        <div className="absolute top-4 left-4 rounded-lg z-[1000] w-[280px] max-w-[calc(100vw-2rem)] animate-fade-in overflow-hidden shadow-xl border border-border">
           {/* Header with route color */}
           <div 
             className="p-3 flex items-center gap-2"
             style={{ backgroundColor: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
           >
             <div className="w-3 h-3 rounded-full animate-pulse bg-white/80" />
-            <span className="text-sm font-semibold text-white">
+            <span className="text-sm font-semibold text-white flex-1">
               {vehiclesOnSelectedRoute.length} λεωφορεί{vehiclesOnSelectedRoute.length === 1 ? 'ο' : 'α'} ενεργ{vehiclesOnSelectedRoute.length === 1 ? 'ό' : 'ά'}
             </span>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-6 w-6 text-white hover:bg-white/20"
+              onClick={() => setShowLiveVehiclesPanel(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
           {/* Content */}
           <div className="bg-card/95 backdrop-blur-sm p-3">
             <div className="space-y-2 max-h-[200px] overflow-y-auto">
-              {vehiclesOnSelectedRoute.slice(0, 5).map((vehicle, idx) => {
+              {vehiclesOnSelectedRoute.slice(0, 5).map((vehicle) => {
                 const vehicleId = vehicle.vehicleId || vehicle.id;
                 const nextStop = getNextStopInfo(vehicle);
                 return (
@@ -1104,19 +1114,18 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       
       {/* Vehicle tracking panel - bottom right */}
       {followedVehicle && (
-        <div className="absolute bottom-20 right-4 glass-card rounded-lg z-[1000] w-[320px] max-w-[calc(100vw-2rem)]">
-          {/* Header */}
-          <div className="flex items-center gap-2 p-2 border-b border-border">
-            <GripVertical className="h-4 w-4 text-muted-foreground" />
-            <Navigation 
-              className="h-4 w-4 animate-pulse" 
-              style={{ color: followedRouteInfo?.route_color ? `#${followedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
-            />
-            <span className="text-sm font-medium flex-1">Παρακολούθηση</span>
+        <div className="absolute bottom-20 right-4 rounded-lg z-[1000] w-[320px] max-w-[calc(100vw-2rem)] overflow-hidden shadow-xl border border-border">
+          {/* Header with route color */}
+          <div 
+            className="flex items-center gap-2 p-3"
+            style={{ backgroundColor: followedRouteInfo?.route_color ? `#${followedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
+          >
+            <Navigation className="h-4 w-4 animate-pulse text-white" />
+            <span className="text-sm font-semibold flex-1 text-white">Παρακολούθηση</span>
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6"
+              className="h-6 w-6 text-white hover:bg-white/20"
               onClick={() => setFollowedVehicleId(null)}
             >
               <X className="h-4 w-4" />
@@ -1124,7 +1133,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           </div>
           
           {/* Content */}
-          <div className="p-3 space-y-2">
+          <div className="bg-card/95 backdrop-blur-sm p-3 space-y-2">
             {/* Vehicle info */}
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Όχημα:</span>
