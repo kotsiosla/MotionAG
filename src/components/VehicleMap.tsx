@@ -1296,8 +1296,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </DraggablePanel>
       )}
 
-      {/* Search box - top right corner outside map area */}
-      <div className="absolute top-2 right-[70px] z-[999] w-44">
+      {/* Search box - top left corner */}
+      <div className="absolute top-2 left-2 z-[999] w-40">
         <div className="glass-card rounded-full shadow-md">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
@@ -1353,7 +1353,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       </div>
 
       {/* Right side controls toolbar - far right edge */}
-      <div className="absolute top-12 right-2 z-[1000] flex flex-col gap-1.5">
+      <div className="absolute top-2 right-1 z-[1000] flex flex-col gap-1">
         {/* Stops toggle */}
         <div className="glass-card rounded-lg px-2 py-1.5 flex items-center gap-1.5">
           <Switch
