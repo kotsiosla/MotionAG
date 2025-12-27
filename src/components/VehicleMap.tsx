@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RouteStopsPanel } from "@/components/RouteStopsPanel";
 import { RoutePlannerPanel } from "@/components/RoutePlannerPanel";
+import { useRouteShape } from "@/hooks/useGtfsData";
 import type { Vehicle, StaticStop, Trip, RouteInfo } from "@/types/gtfs";
 
 interface VehicleMapProps {
@@ -53,21 +54,27 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
   });
 };
 
-const createStopIcon = (hasVehicleStopped?: boolean) => {
-  const bgColor = hasVehicleStopped ? '#22c55e' : '#f97316'; // green-500 or orange-500
+const createStopIcon = (hasVehicleStopped?: boolean, sequenceNumber?: number, routeColor?: string) => {
+  const bgColor = hasVehicleStopped ? '#22c55e' : (sequenceNumber !== undefined ? (routeColor ? `#${routeColor}` : '#0ea5e9') : '#f97316');
+  const size = sequenceNumber !== undefined ? 'w-6 h-6' : 'w-5 h-5';
+  const fontSize = sequenceNumber !== undefined ? 'text-[10px]' : '';
+  
   return L.divIcon({
     className: 'stop-marker',
     html: `
-      <div class="w-5 h-5 rounded-full flex items-center justify-center shadow-md border-2 border-white ${hasVehicleStopped ? 'animate-pulse' : ''}" style="background: ${bgColor}">
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          ${hasVehicleStopped 
-            ? '<rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="7" cy="18" r="1.5" fill="white"/><circle cx="17" cy="18" r="1.5" fill="white"/>' 
-            : '<circle cx="12" cy="12" r="3"/>'}
-        </svg>
+      <div class="${size} rounded-full flex items-center justify-center shadow-md border-2 border-white ${hasVehicleStopped ? 'animate-pulse' : ''}" style="background: ${bgColor}">
+        ${sequenceNumber !== undefined 
+          ? `<span class="${fontSize} font-bold text-white">${sequenceNumber}</span>`
+          : `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              ${hasVehicleStopped 
+                ? '<rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="7" cy="18" r="1.5" fill="white"/><circle cx="17" cy="18" r="1.5" fill="white"/>' 
+                : '<circle cx="12" cy="12" r="3"/>'}
+            </svg>`
+        }
       </div>
     `,
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
+    iconSize: sequenceNumber !== undefined ? [24, 24] : [20, 20],
+    iconAnchor: sequenceNumber !== undefined ? [12, 12] : [10, 10],
   });
 };
 
@@ -127,6 +134,19 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [showSearchResults, setShowSearchResults] = useState(false);
   const routeMarkersRef = useRef<L.Marker[]>([]);
   const routeLineRef = useRef<L.Polyline | null>(null);
+  const routeShapeLineRef = useRef<L.Polyline | null>(null);
+  const routeStopMarkersRef = useRef<L.Marker[]>([]);
+
+  // Fetch route shape data when a route is selected
+  const { data: routeShapeData } = useRouteShape(
+    selectedRoute !== 'all' ? selectedRoute : null,
+    selectedOperator
+  );
+
+  // Get route info for coloring
+  const selectedRouteInfo = selectedRoute !== 'all' && routeNamesMap 
+    ? routeNamesMap.get(selectedRoute) 
+    : undefined;
 
   // Show route panel when route changes
   useEffect(() => {
@@ -617,6 +637,75 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     });
   }, [stops, showStops, stopsWithVehicles, trips, vehicles, routeNamesMap]);
 
+  // Draw route shape and numbered stops when a route is selected
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // Clear previous route shape elements
+    routeStopMarkersRef.current.forEach(marker => mapRef.current?.removeLayer(marker));
+    routeStopMarkersRef.current = [];
+    if (routeShapeLineRef.current) {
+      mapRef.current.removeLayer(routeShapeLineRef.current);
+      routeShapeLineRef.current = null;
+    }
+
+    // If no route selected or no data, exit
+    if (selectedRoute === 'all' || !routeShapeData) return;
+
+    const routeColor = selectedRouteInfo?.route_color || '0ea5e9';
+    
+    // Use first direction for now (could add direction toggle later)
+    const direction = routeShapeData.directions[0];
+    if (!direction) return;
+
+    // Draw the route polyline if we have shape data
+    if (direction.shape.length > 0) {
+      const shapePoints: L.LatLngExpression[] = direction.shape.map(p => [p.lat, p.lng]);
+      routeShapeLineRef.current = L.polyline(shapePoints, {
+        color: `#${routeColor}`,
+        weight: 5,
+        opacity: 0.8,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(mapRef.current);
+
+      // Fit bounds to show the route
+      const bounds = L.latLngBounds(shapePoints);
+      mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+    }
+
+    // Add numbered stop markers
+    direction.stops.forEach((stop, index) => {
+      if (!stop.lat || !stop.lng) return;
+
+      const hasVehicleStopped = stopsWithVehicles.has(stop.stop_id);
+      const sequenceNumber = index + 1;
+      
+      const marker = L.marker([stop.lat, stop.lng], {
+        icon: createStopIcon(hasVehicleStopped, sequenceNumber, routeColor),
+        zIndexOffset: 1000 - index, // First stop on top
+      });
+
+      marker.bindPopup(`
+        <div class="p-3 min-w-[180px]">
+          <div class="font-semibold text-base mb-2 flex items-center gap-2">
+            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-sm font-bold" style="background: #${routeColor}">${sequenceNumber}</span>
+            ${stop.stop_name}
+          </div>
+          <div class="text-sm text-muted-foreground">
+            Στάση ${sequenceNumber} από ${direction.stops.length}
+          </div>
+        </div>
+      `, {
+        className: 'stop-popup',
+      });
+
+      marker.addTo(mapRef.current!);
+      routeStopMarkersRef.current.push(marker);
+    });
+
+  }, [selectedRoute, routeShapeData, selectedRouteInfo, stopsWithVehicles]);
+
   // Follow the selected vehicle in realtime
   useEffect(() => {
     if (!followedVehicleId || !mapRef.current) return;
@@ -645,10 +734,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
   const followedNextStop = followedVehicle ? getNextStopInfo(followedVehicle) : null;
 
-  // Get route info for the selected route
-  const selectedRouteInfo = selectedRoute !== 'all' && routeNamesMap 
-    ? routeNamesMap.get(selectedRoute) 
-    : undefined;
+  // selectedRouteInfo is already defined at the top of the component
 
   // Handle clicking a stop in the panel - pan to it on the map
   const handleStopClick = useCallback((stopId: string) => {
