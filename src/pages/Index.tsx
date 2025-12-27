@@ -161,6 +161,7 @@ const Index = () => {
                 stops={staticStopsQuery.data?.data || []}
                 routeNamesMap={routeNamesMap}
                 selectedRoute={selectedRoute}
+                selectedOperator={selectedOperator}
                 onRouteClose={() => setSelectedRoute('all')}
                 isLoading={vehiclesQuery.isLoading}
               />
