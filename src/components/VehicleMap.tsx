@@ -1114,9 +1114,17 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         />
       )}
       
-      {/* Live vehicles on route panel */}
+      {/* Live vehicles on route panel - positioned smartly */}
       {selectedRoute !== 'all' && vehiclesOnSelectedRoute.length > 0 && showLiveVehiclesPanel && !showRoutePlanner && (
-        <div className="absolute top-4 left-4 rounded-lg z-[1000] w-[280px] max-w-[calc(100vw-2rem)] animate-fade-in overflow-hidden shadow-xl border border-border">
+        <div 
+          className={`absolute rounded-lg z-[1000] max-w-[280px] overflow-hidden shadow-xl border border-border
+            transition-all duration-300 ease-out transform
+            ${showRoutePanel ? 'top-4 left-[400px]' : 'top-4 left-4'}
+          `}
+          style={{
+            animation: 'slideInFromLeft 0.3s ease-out',
+          }}
+        >
           {/* Header with route color */}
           <div 
             className="p-3 flex items-center gap-2"
@@ -1129,7 +1137,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-6 w-6 text-white hover:bg-white/20"
+              className="h-6 w-6 text-white hover:bg-white/20 transition-all duration-150 active:scale-90"
               onClick={() => setShowLiveVehiclesPanel(false)}
             >
               <X className="h-4 w-4" />
@@ -1137,7 +1145,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           </div>
           {/* Content */}
           <div className="bg-card/95 backdrop-blur-sm p-3">
-            <div className="space-y-2 max-h-[200px] overflow-y-auto">
+            <div className="space-y-2 max-h-[180px] overflow-y-auto">
               {vehiclesOnSelectedRoute.slice(0, 5).map((vehicle) => {
                 const vehicleId = vehicle.vehicleId || vehicle.id;
                 const nextStop = getNextStopInfo(vehicle);
@@ -1150,7 +1158,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
                         mapRef.current.setView([vehicle.latitude, vehicle.longitude], 16, { animate: true });
                       }
                     }}
-                    className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-secondary/50 transition-colors text-left"
+                    className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-secondary/50 transition-all duration-150 text-left active:scale-95"
                   >
                     <div className="relative">
                       <div 
@@ -1207,9 +1215,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </div>
       )}
       
-      {/* Vehicle tracking panel - bottom right */}
+      {/* Vehicle tracking panel - bottom left, doesn't overlap with controls */}
       {followedVehicle && (
-        <div className="absolute bottom-20 right-4 rounded-lg z-[1000] w-[320px] max-w-[calc(100vw-2rem)] overflow-hidden shadow-xl border border-border">
+        <div className="absolute bottom-4 left-4 rounded-lg z-[1000] w-[300px] max-w-[calc(100vw-8rem)] overflow-hidden shadow-xl border border-border animate-slide-in-bottom">
           {/* Header with route color */}
           <div 
             className="flex items-center gap-2 p-3"
@@ -1220,7 +1228,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-white hover:bg-white/20"
+              className="h-6 w-6 text-white hover:bg-white/20 transition-all duration-150 active:scale-90"
               onClick={() => setFollowedVehicleId(null)}
             >
               <X className="h-4 w-4" />
@@ -1272,8 +1280,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </div>
       )}
 
-      {/* Search box - positioned to not overlap with RouteStopsPanel */}
-      <div className={`absolute top-4 z-[999] w-72 transition-all ${selectedRoute !== 'all' && showRoutePanel ? 'left-[400px]' : 'left-4'}`}>
+      {/* Search box - smart positioning to avoid overlaps */}
+      <div className={`absolute top-4 z-[999] w-72 transition-all duration-300 ease-out ${showRoutePlanner ? 'left-[360px]' : (selectedRoute !== 'all' && showRoutePanel ? 'left-[400px]' : 'left-4')}`}>
         <div className="glass-card rounded-lg">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
