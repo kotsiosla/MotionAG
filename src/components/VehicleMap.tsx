@@ -363,8 +363,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
       setMapboxError(null);
     });
 
-    mapboxLayer.addTo(mapRef.current);
     mapboxLayerRef.current = mapboxLayer;
+    mapboxLayer.addTo(mapRef.current);
 
     return () => {
       mapboxLayer.off();
