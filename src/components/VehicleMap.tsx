@@ -438,7 +438,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
   // Update vehicle markers when vehicles change - with smooth animation
   useEffect(() => {
+    // Ensure map and cluster group are initialized and the cluster is added to the map
     if (!vehicleMarkersRef.current || !mapRef.current) return;
+    
+    // Check if the cluster group has a map reference (is added to a map)
+    const clusterGroup = vehicleMarkersRef.current as any;
+    if (!clusterGroup._map) return;
 
     const validVehicles = vehicles.filter(
       (v) => v.latitude !== undefined && v.longitude !== undefined
@@ -687,6 +692,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
   useEffect(() => {
     if (!stopMarkersRef.current || !mapRef.current) return;
+    
+    // Check if the cluster group has a map reference (is added to a map)
+    const clusterGroup = stopMarkersRef.current as any;
+    if (!clusterGroup._map) return;
 
     stopMarkersRef.current.clearLayers();
 
