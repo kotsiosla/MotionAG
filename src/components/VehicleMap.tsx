@@ -163,6 +163,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const routeLineRef = useRef<L.Polyline | null>(null);
   const routeShapeLineRef = useRef<L.Polyline | null>(null);
   const routeStopMarkersRef = useRef<L.Marker[]>([]);
+  const lastDrawnRouteRef = useRef<string | null>(null);
 
   // Fetch route shape data when a route is selected
   const { data: routeShapeData } = useRouteShape(
@@ -666,24 +667,25 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     });
   }, [stops, showStops, stopsWithVehicles, trips, vehicles, routeNamesMap]);
 
-  // Draw route shape and numbered stops when a route is selected
+  // Draw route shape when route changes (only fit bounds on route change)
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Clear previous route shape elements
-    routeStopMarkersRef.current.forEach(marker => mapRef.current?.removeLayer(marker));
-    routeStopMarkersRef.current = [];
+    // Clear previous route shape line
     if (routeShapeLineRef.current) {
       mapRef.current.removeLayer(routeShapeLineRef.current);
       routeShapeLineRef.current = null;
     }
 
-    // If no route selected or no data, exit
-    if (selectedRoute === 'all' || !routeShapeData) return;
+    // If no route selected or no data, reset ref and exit
+    if (selectedRoute === 'all' || !routeShapeData) {
+      lastDrawnRouteRef.current = null;
+      return;
+    }
 
     const routeColor = selectedRouteInfo?.route_color || '0ea5e9';
     
-    // Use first direction for now (could add direction toggle later)
+    // Use first direction for now
     const direction = routeShapeData.directions[0];
     if (!direction) return;
 
@@ -698,10 +700,29 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         lineJoin: 'round',
       }).addTo(mapRef.current);
 
-      // Fit bounds to show the route
-      const bounds = L.latLngBounds(shapePoints);
-      mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+      // Only fit bounds when route changes, not on every update
+      if (lastDrawnRouteRef.current !== selectedRoute) {
+        const bounds = L.latLngBounds(shapePoints);
+        mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+        lastDrawnRouteRef.current = selectedRoute;
+      }
     }
+  }, [selectedRoute, routeShapeData, selectedRouteInfo]);
+
+  // Update route stop markers with ETA info (separate from shape drawing)
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // Clear previous stop markers
+    routeStopMarkersRef.current.forEach(marker => mapRef.current?.removeLayer(marker));
+    routeStopMarkersRef.current = [];
+
+    // If no route selected or no data, exit
+    if (selectedRoute === 'all' || !routeShapeData) return;
+
+    const routeColor = selectedRouteInfo?.route_color || '0ea5e9';
+    const direction = routeShapeData.directions[0];
+    if (!direction) return;
 
     // Add numbered stop markers with ETA info
     direction.stops.forEach((stop, index) => {
@@ -730,7 +751,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
       const marker = L.marker([stop.lat, stop.lng], {
         icon: createStopIcon(hasVehicleStopped, sequenceNumber, routeColor),
-        zIndexOffset: 1000 - index, // First stop on top
+        zIndexOffset: 1000 - index,
       });
 
       // Build ETA HTML for popup
@@ -795,7 +816,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       routeStopMarkersRef.current.push(marker);
     });
 
-  }, [selectedRoute, routeShapeData, selectedRouteInfo, stopsWithVehicles]);
+  }, [selectedRoute, routeShapeData, selectedRouteInfo, stopsWithVehicles, trips, vehicles]);
 
   // Follow the selected vehicle in realtime
   useEffect(() => {
@@ -998,17 +1019,19 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       
       {/* Live vehicles on route panel */}
       {selectedRoute !== 'all' && vehiclesOnSelectedRoute.length > 0 && !showRoutePlanner && (
-        <div className="absolute top-4 left-4 glass-card rounded-lg z-[1000] max-w-[280px] animate-fade-in">
-          <div className="p-3">
-            <div className="flex items-center gap-2 mb-3">
-              <div 
-                className="w-3 h-3 rounded-full animate-pulse"
-                style={{ background: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
-              />
-              <span className="text-sm font-semibold">
-                {vehiclesOnSelectedRoute.length} λεωφορεί{vehiclesOnSelectedRoute.length === 1 ? 'ο' : 'α'} ενεργ{vehiclesOnSelectedRoute.length === 1 ? 'ό' : 'ά'}
-              </span>
-            </div>
+        <div className="absolute top-4 left-4 rounded-lg z-[1000] max-w-[280px] animate-fade-in overflow-hidden shadow-xl border border-border">
+          {/* Header with route color */}
+          <div 
+            className="p-3 flex items-center gap-2"
+            style={{ backgroundColor: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
+          >
+            <div className="w-3 h-3 rounded-full animate-pulse bg-white/80" />
+            <span className="text-sm font-semibold text-white">
+              {vehiclesOnSelectedRoute.length} λεωφορεί{vehiclesOnSelectedRoute.length === 1 ? 'ο' : 'α'} ενεργ{vehiclesOnSelectedRoute.length === 1 ? 'ό' : 'ά'}
+            </span>
+          </div>
+          {/* Content */}
+          <div className="bg-card/95 backdrop-blur-sm p-3">
             <div className="space-y-2 max-h-[200px] overflow-y-auto">
               {vehiclesOnSelectedRoute.slice(0, 5).map((vehicle, idx) => {
                 const vehicleId = vehicle.vehicleId || vehicle.id;
