@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback, useEffect, ReactNode } from 'react';
-import { GripVertical } from 'lucide-react';
 
 interface DraggablePanelProps {
   children: ReactNode;
@@ -7,7 +6,6 @@ interface DraggablePanelProps {
   className?: string;
   onPositionChange?: (position: { x: number; y: number }) => void;
   zIndex?: number;
-  showDragHandle?: boolean;
 }
 
 export function DraggablePanel({
@@ -16,7 +14,6 @@ export function DraggablePanel({
   className = '',
   onPositionChange,
   zIndex = 1000,
-  showDragHandle = true,
 }: DraggablePanelProps) {
   const [position, setPosition] = useState(initialPosition);
   const [isDragging, setIsDragging] = useState(false);
@@ -24,8 +21,15 @@ export function DraggablePanel({
   const dragStartRef = useRef({ x: 0, y: 0 });
   const positionStartRef = useRef({ x: 0, y: 0 });
 
-  const handleMouseDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+  const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    // Don't start drag if clicking on a button or interactive element
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('[data-no-drag]')) {
+      return;
+    }
+    
     e.preventDefault();
+    e.stopPropagation();
     setIsDragging(true);
     
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -72,8 +76,9 @@ export function DraggablePanel({
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
-      document.addEventListener('touchmove', handleMouseMove);
+      document.addEventListener('touchmove', handleMouseMove, { passive: false });
       document.addEventListener('touchend', handleMouseUp);
+      document.body.style.userSelect = 'none';
     }
     
     return () => {
@@ -81,43 +86,23 @@ export function DraggablePanel({
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('touchmove', handleMouseMove);
       document.removeEventListener('touchend', handleMouseUp);
+      document.body.style.userSelect = '';
     };
   }, [isDragging, handleMouseMove, handleMouseUp]);
-
-  // Update position when initialPosition changes (for smart repositioning)
-  useEffect(() => {
-    setPosition(initialPosition);
-  }, [initialPosition.x, initialPosition.y]);
 
   return (
     <div
       ref={panelRef}
-      className={`absolute transition-shadow duration-200 ${isDragging ? 'shadow-2xl cursor-grabbing' : 'shadow-xl cursor-grab'} ${className}`}
+      className={`absolute transition-shadow duration-200 ${isDragging ? 'shadow-2xl' : 'shadow-xl'} ${className}`}
       style={{
         left: position.x,
         top: position.y,
         zIndex: isDragging ? zIndex + 100 : zIndex,
-        userSelect: isDragging ? 'none' : 'auto',
       }}
+      onMouseDown={handleDragStart}
+      onTouchStart={handleDragStart}
     >
-      {showDragHandle && (
-        <div
-          className="absolute -left-0 top-0 bottom-0 w-6 flex items-center justify-center cursor-grab active:cursor-grabbing opacity-0 hover:opacity-100 transition-opacity z-10"
-          onMouseDown={handleMouseDown}
-          onTouchStart={handleMouseDown}
-        >
-          <div className="bg-card/80 backdrop-blur-sm rounded-l-lg h-12 flex items-center px-1 border border-r-0 border-border">
-            <GripVertical className="h-4 w-4 text-muted-foreground" />
-          </div>
-        </div>
-      )}
-      <div
-        className={`${showDragHandle ? '' : 'cursor-grab active:cursor-grabbing'}`}
-        onMouseDown={showDragHandle ? undefined : handleMouseDown}
-        onTouchStart={showDragHandle ? undefined : handleMouseDown}
-      >
-        {children}
-      </div>
+      {children}
     </div>
   );
 }

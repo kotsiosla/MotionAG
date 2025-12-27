@@ -3,6 +3,7 @@ import { ChevronUp, ChevronDown, X, Clock, Bus, ChevronLeft, ChevronRight, GripV
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { DraggablePanel } from "@/components/DraggablePanel";
 import type { Trip, Vehicle, StaticStop, RouteInfo, StopTimeUpdate } from "@/types/gtfs";
 
 interface RouteStopsPanelProps {
@@ -132,7 +133,12 @@ export function RouteStopsPanel({
   if (selectedRoute === 'all') return null;
 
   return (
-    <div className="absolute top-4 left-4 z-[1000] w-[380px] max-w-[calc(100vw-2rem)] bg-card/95 backdrop-blur-sm rounded-lg shadow-xl border border-border overflow-hidden">
+    <DraggablePanel
+      initialPosition={{ x: 16, y: 16 }}
+      className="rounded-lg overflow-hidden border border-border"
+      zIndex={1000}
+    >
+      <div className="w-[380px] max-w-[380px] bg-card/95 backdrop-blur-sm">
       {/* Header with route color */}
       <div 
         className="flex items-center gap-2 p-3 cursor-pointer transition-colors"
@@ -324,6 +330,7 @@ export function RouteStopsPanel({
           )}
         </>
       )}
-    </div>
+      </div>
+    </DraggablePanel>
   );
 }
