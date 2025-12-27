@@ -71,8 +71,20 @@ export function SchedulePanel({
   const [activeTab, setActiveTab] = useState<string>("live");
   const [selectedDirection, setSelectedDirection] = useState<number>(0);
 
+  // Debug log
+  console.log('SchedulePanel rendering with:', { selectedRoute, selectedOperator });
+
   // Fetch static schedule data
-  const { data: scheduleData, isLoading: isLoadingSchedule } = useRouteSchedule(selectedRoute, selectedOperator);
+  const { data: scheduleData, isLoading: isLoadingSchedule, error: scheduleError } = useRouteSchedule(selectedRoute, selectedOperator);
+
+  // Debug schedule data
+  console.log('Schedule data:', { 
+    scheduleData, 
+    isLoadingSchedule, 
+    scheduleError,
+    totalTrips: scheduleData?.total_trips,
+    scheduleLength: scheduleData?.schedule?.length
+  });
 
   // Get trips for this route
   const routeTrips = useMemo(() => {
