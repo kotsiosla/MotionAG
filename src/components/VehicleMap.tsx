@@ -4,7 +4,8 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
-import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Home, ZoomIn, ZoomOut, Route } from "lucide-react";
+import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Home, ZoomIn, ZoomOut, Route, GripVertical } from "lucide-react";
+import { DraggablePanel } from "@/components/DraggablePanel";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -1116,94 +1117,93 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       
       {/* Live vehicles on route panel - positioned smartly */}
       {selectedRoute !== 'all' && vehiclesOnSelectedRoute.length > 0 && showLiveVehiclesPanel && !showRoutePlanner && (
-        <div 
-          className={`absolute rounded-lg z-[1000] max-w-[280px] overflow-hidden shadow-xl border border-border
-            transition-all duration-300 ease-out transform
-            ${showRoutePanel ? 'top-4 left-[400px]' : 'top-4 left-4'}
-          `}
-          style={{
-            animation: 'slideInFromLeft 0.3s ease-out',
-          }}
+        <DraggablePanel
+          initialPosition={{ x: showRoutePanel ? 400 : 16, y: 16 }}
+          className="rounded-lg overflow-hidden border border-border"
+          zIndex={1000}
         >
-          {/* Header with route color */}
-          <div 
-            className="p-3 flex items-center gap-2"
-            style={{ backgroundColor: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
-          >
-            <div className="w-3 h-3 rounded-full animate-pulse bg-white/80" />
-            <span className="text-sm font-semibold text-white flex-1">
-              {vehiclesOnSelectedRoute.length} λεωφορεί{vehiclesOnSelectedRoute.length === 1 ? 'ο' : 'α'} ενεργ{vehiclesOnSelectedRoute.length === 1 ? 'ό' : 'ά'}
-            </span>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-6 w-6 text-white hover:bg-white/20 transition-all duration-150 active:scale-90"
-              onClick={() => setShowLiveVehiclesPanel(false)}
+          <div className="w-[280px] max-w-[280px]">
+            {/* Header with route color - draggable */}
+            <div 
+              className="p-3 flex items-center gap-2 cursor-grab active:cursor-grabbing"
+              style={{ backgroundColor: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
             >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          {/* Content */}
-          <div className="bg-card/95 backdrop-blur-sm p-3">
-            <div className="space-y-2 max-h-[180px] overflow-y-auto">
-              {vehiclesOnSelectedRoute.slice(0, 5).map((vehicle) => {
-                const vehicleId = vehicle.vehicleId || vehicle.id;
-                const nextStop = getNextStopInfo(vehicle);
-                return (
-                  <button
-                    key={vehicleId}
-                    onClick={() => {
-                      setFollowedVehicleId(vehicleId);
-                      if (vehicle.latitude && vehicle.longitude && mapRef.current) {
-                        mapRef.current.setView([vehicle.latitude, vehicle.longitude], 16, { animate: true });
-                      }
-                    }}
-                    className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-secondary/50 transition-all duration-150 text-left active:scale-95"
-                  >
-                    <div className="relative">
-                      <div 
-                        className="w-8 h-8 rounded-full flex items-center justify-center"
-                        style={{ background: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}20` : 'hsl(var(--primary) / 0.2)' }}
-                      >
-                        <Navigation 
-                          className="h-4 w-4 animate-pulse" 
-                          style={{ 
-                            color: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))',
-                            transform: `rotate(${vehicle.bearing || 0}deg)` 
-                          }}
+              <GripVertical className="h-4 w-4 text-white/60" />
+              <div className="w-3 h-3 rounded-full animate-pulse bg-white/80" />
+              <span className="text-sm font-semibold text-white flex-1">
+                {vehiclesOnSelectedRoute.length} λεωφορεί{vehiclesOnSelectedRoute.length === 1 ? 'ο' : 'α'} ενεργ{vehiclesOnSelectedRoute.length === 1 ? 'ό' : 'ά'}
+              </span>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 text-white hover:bg-white/20 transition-all duration-150 active:scale-90"
+                onClick={() => setShowLiveVehiclesPanel(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {/* Content */}
+            <div className="bg-card/95 backdrop-blur-sm p-3">
+              <div className="space-y-2 max-h-[180px] overflow-y-auto">
+                {vehiclesOnSelectedRoute.slice(0, 5).map((vehicle) => {
+                  const vehicleId = vehicle.vehicleId || vehicle.id;
+                  const nextStop = getNextStopInfo(vehicle);
+                  return (
+                    <button
+                      key={vehicleId}
+                      onClick={() => {
+                        setFollowedVehicleId(vehicleId);
+                        if (vehicle.latitude && vehicle.longitude && mapRef.current) {
+                          mapRef.current.setView([vehicle.latitude, vehicle.longitude], 16, { animate: true });
+                        }
+                      }}
+                      className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-secondary/50 transition-all duration-150 text-left active:scale-95"
+                    >
+                      <div className="relative">
+                        <div 
+                          className="w-8 h-8 rounded-full flex items-center justify-center"
+                          style={{ background: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}20` : 'hsl(var(--primary) / 0.2)' }}
+                        >
+                          <Navigation 
+                            className="h-4 w-4 animate-pulse" 
+                            style={{ 
+                              color: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))',
+                              transform: `rotate(${vehicle.bearing || 0}deg)` 
+                            }}
+                          />
+                        </div>
+                        <div 
+                          className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card animate-ping"
+                          style={{ background: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
                         />
                       </div>
-                      <div 
-                        className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card animate-ping"
-                        style={{ background: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium truncate">
-                        {vehicle.label || vehicleId}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium truncate">
+                          {vehicle.label || vehicleId}
+                        </div>
+                        {nextStop && (
+                          <div className="text-[10px] text-muted-foreground truncate">
+                            → {nextStop.stopName}
+                          </div>
+                        )}
                       </div>
-                      {nextStop && (
-                        <div className="text-[10px] text-muted-foreground truncate">
-                          → {nextStop.stopName}
+                      {vehicle.speed !== undefined && (
+                        <div className="text-xs font-mono text-primary">
+                          {(vehicle.speed * 3.6).toFixed(0)}km/h
                         </div>
                       )}
-                    </div>
-                    {vehicle.speed !== undefined && (
-                      <div className="text-xs font-mono text-primary">
-                        {(vehicle.speed * 3.6).toFixed(0)}km/h
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-              {vehiclesOnSelectedRoute.length > 5 && (
-                <div className="text-xs text-muted-foreground text-center pt-1">
-                  +{vehiclesOnSelectedRoute.length - 5} ακόμα
-                </div>
-              )}
+                    </button>
+                  );
+                })}
+                {vehiclesOnSelectedRoute.length > 5 && (
+                  <div className="text-xs text-muted-foreground text-center pt-1">
+                    +{vehiclesOnSelectedRoute.length - 5} ακόμα
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        </DraggablePanel>
       )}
       
       {isLoading && (
@@ -1215,69 +1215,76 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </div>
       )}
       
-      {/* Vehicle tracking panel - bottom left, doesn't overlap with controls */}
+      {/* Vehicle tracking panel - draggable */}
       {followedVehicle && (
-        <div className="absolute bottom-4 left-4 rounded-lg z-[1000] w-[300px] max-w-[calc(100vw-8rem)] overflow-hidden shadow-xl border border-border animate-slide-in-bottom">
-          {/* Header with route color */}
-          <div 
-            className="flex items-center gap-2 p-3"
-            style={{ backgroundColor: followedRouteInfo?.route_color ? `#${followedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
-          >
-            <Navigation className="h-4 w-4 animate-pulse text-white" />
-            <span className="text-sm font-semibold flex-1 text-white">Παρακολούθηση</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-white hover:bg-white/20 transition-all duration-150 active:scale-90"
-              onClick={() => setFollowedVehicleId(null)}
+        <DraggablePanel
+          initialPosition={{ x: 16, y: 400 }}
+          className="rounded-lg overflow-hidden border border-border"
+          zIndex={1001}
+        >
+          <div className="w-[300px] max-w-[300px]">
+            {/* Header with route color - draggable */}
+            <div 
+              className="flex items-center gap-2 p-3 cursor-grab active:cursor-grabbing"
+              style={{ backgroundColor: followedRouteInfo?.route_color ? `#${followedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
             >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          
-          {/* Content */}
-          <div className="bg-card/95 backdrop-blur-sm p-3 space-y-2">
-            {/* Vehicle info */}
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Όχημα:</span>
-              <span className="font-bold">{followedVehicle.label || followedVehicle.vehicleId || followedVehicle.id}</span>
-              {followedVehicle.speed !== undefined && (
-                <span className="text-primary font-medium">{formatSpeed(followedVehicle.speed)}</span>
-              )}
+              <GripVertical className="h-4 w-4 text-white/60" />
+              <Navigation className="h-4 w-4 animate-pulse text-white" />
+              <span className="text-sm font-semibold flex-1 text-white">Παρακολούθηση</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-white hover:bg-white/20 transition-all duration-150 active:scale-90"
+                onClick={() => setFollowedVehicleId(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
             
-            {/* Route info */}
-            {followedRouteInfo && (
-              <div 
-                className="text-sm font-medium"
-                style={{ color: followedRouteInfo.route_color ? `#${followedRouteInfo.route_color}` : 'inherit' }}
-              >
-                {followedRouteInfo.route_short_name} - {followedRouteInfo.route_long_name}
-              </div>
-            )}
-            
-            {/* Next stop */}
-            {followedNextStop && (
-              <div className="flex items-center gap-2 pt-2 border-t border-border text-sm">
-                <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                <span className="text-muted-foreground">Επόμενη:</span>
-                <span className="font-medium">{followedNextStop.stopName}</span>
-                {followedNextStop.arrivalTime && (
-                  <span className="font-mono text-primary">{formatETA(followedNextStop.arrivalTime)}</span>
-                )}
-                {followedNextStop.arrivalDelay !== undefined && (
-                  <span className={`text-xs ${
-                    followedNextStop.arrivalDelay > 0 ? 'text-destructive' : 
-                    followedNextStop.arrivalDelay < 0 ? 'text-green-500' : 
-                    'text-muted-foreground'
-                  }`}>
-                    {followedNextStop.arrivalDelay === 0 ? '(στην ώρα)' : formatDelay(followedNextStop.arrivalDelay)}
-                  </span>
+            {/* Content */}
+            <div className="bg-card/95 backdrop-blur-sm p-3 space-y-2">
+              {/* Vehicle info */}
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Όχημα:</span>
+                <span className="font-bold">{followedVehicle.label || followedVehicle.vehicleId || followedVehicle.id}</span>
+                {followedVehicle.speed !== undefined && (
+                  <span className="text-primary font-medium">{formatSpeed(followedVehicle.speed)}</span>
                 )}
               </div>
-            )}
+              
+              {/* Route info */}
+              {followedRouteInfo && (
+                <div 
+                  className="text-sm font-medium"
+                  style={{ color: followedRouteInfo.route_color ? `#${followedRouteInfo.route_color}` : 'inherit' }}
+                >
+                  {followedRouteInfo.route_short_name} - {followedRouteInfo.route_long_name}
+                </div>
+              )}
+              
+              {/* Next stop */}
+              {followedNextStop && (
+                <div className="flex items-center gap-2 pt-2 border-t border-border text-sm">
+                  <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                  <span className="text-muted-foreground">Επόμενη:</span>
+                  <span className="font-medium">{followedNextStop.stopName}</span>
+                  {followedNextStop.arrivalTime && (
+                    <span className="font-mono text-primary">{formatETA(followedNextStop.arrivalTime)}</span>
+                  )}
+                  {followedNextStop.arrivalDelay !== undefined && (
+                    <span className={`text-xs ${
+                      followedNextStop.arrivalDelay > 0 ? 'text-destructive' : 
+                      followedNextStop.arrivalDelay < 0 ? 'text-green-500' : 
+                      'text-muted-foreground'
+                    }`}>
+                      {followedNextStop.arrivalDelay === 0 ? '(στην ώρα)' : formatDelay(followedNextStop.arrivalDelay)}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </DraggablePanel>
       )}
 
       {/* Search box - smart positioning to avoid overlaps */}
