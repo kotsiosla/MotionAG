@@ -626,6 +626,13 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
           </div>
         </div>
       )}
+      {mapboxError && (
+        <div className="absolute top-4 left-4 right-4 z-[1000]">
+          <div className="glass-card rounded-lg px-4 py-2 text-xs text-destructive border border-destructive/30">
+            {mapboxError}
+          </div>
+        </div>
+      )}
       
       {/* Following indicator */}
       {followedVehicle && (
