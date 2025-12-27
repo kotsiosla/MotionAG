@@ -106,24 +106,21 @@ export function SchedulePanel({
       });
   }, [routeTrips, routeVehicles, stops]);
 
-  // Get scheduled trips from static data
+  // Get scheduled trips from static data - only upcoming trips
   const scheduledTrips = useMemo(() => {
     if (!scheduleData?.schedule) return [];
     
-    // Get current time in minutes
+    // Get current time in minutes from midnight
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     
-    // Filter by direction and future trips
+    // Filter by direction
     const directionSchedule = scheduleData.by_direction[selectedDirection] || scheduleData.schedule;
     
-    // Get trips from current time onwards, plus some past ones for context
+    // Only show upcoming trips (from now onwards)
     return directionSchedule
-      .filter(entry => {
-        // Show trips from 30 minutes ago to end of day
-        return entry.departure_minutes >= currentMinutes - 30;
-      })
-      .slice(0, 20); // Limit to 20 entries
+      .filter(entry => entry.departure_minutes >= currentMinutes)
+      .slice(0, 25); // Limit to 25 upcoming entries
   }, [scheduleData, selectedDirection]);
 
   // Get available directions
