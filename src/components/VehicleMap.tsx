@@ -165,6 +165,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const routeShapeLineRef = useRef<L.Polyline | null>(null);
   const routeStopMarkersRef = useRef<L.Marker[]>([]);
   const lastDrawnRouteRef = useRef<string | null>(null);
+  const [mapClickMode, setMapClickMode] = useState<'origin' | 'destination' | null>(null);
+  const [mapClickLocation, setMapClickLocation] = useState<{ type: 'origin' | 'destination'; lat: number; lng: number } | null>(null);
 
   // Fetch route shape data when a route is selected
   const { data: routeShapeData } = useRouteShape(
@@ -390,6 +392,28 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       mapRef.current = null;
     };
   }, []);
+
+  // Handle map clicks for route planner
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const handleMapClick = (e: L.LeafletMouseEvent) => {
+      if (mapClickMode) {
+        setMapClickLocation({
+          type: mapClickMode,
+          lat: e.latlng.lat,
+          lng: e.latlng.lng,
+        });
+        setMapClickMode(null);
+      }
+    };
+
+    mapRef.current.on('click', handleMapClick);
+
+    return () => {
+      mapRef.current?.off('click', handleMapClick);
+    };
+  }, [mapClickMode]);
 
   // Add Esri satellite layer
   useEffect(() => {
@@ -996,7 +1020,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       {/* Route Planner Panel */}
       <RoutePlannerPanel
         isOpen={showRoutePlanner}
-        onClose={() => setShowRoutePlanner(false)}
+        onClose={() => {
+          setShowRoutePlanner(false);
+          setMapClickMode(null);
+        }}
         stops={stops}
         trips={trips}
         vehicles={vehicles}
@@ -1004,6 +1031,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         userLocation={userLocation}
         onRouteSelect={handleRouteSelect}
         onLocationSelect={handleLocationSelect}
+        onRequestMapClick={(type) => setMapClickMode(type)}
+        mapClickLocation={mapClickLocation}
       />
       
       {/* Route Stops Panel */}
