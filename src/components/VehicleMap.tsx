@@ -112,6 +112,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
   const walkingRouteRef = useRef<L.Polyline | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapboxError, setMapboxError] = useState<string | null>(null);
+  const mapboxToken = (import.meta.env.VITE_MAPBOX_TOKEN as string | undefined)?.trim();
 
   // Create a map of tripId -> Trip for quick lookup
   const tripMap = useMemo(() => {
@@ -210,15 +212,34 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
       zoomControl: true,
     });
 
-    // Satellite imagery layer (ESRI World Imagery)
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-    }).addTo(mapRef.current);
+    if (!mapboxToken) {
+      const message = 'Λείπει το Mapbox token. Βάλε VITE_MAPBOX_TOKEN στο .env και κάνε restart.';
+      console.warn(message);
+      setMapboxError(message);
+    } else if (!mapboxToken.startsWith('pk.')) {
+      const message = 'Το Mapbox token πρέπει να είναι public (να ξεκινά με "pk.").';
+      console.warn(message);
+      setMapboxError(message);
+    } else {
+      setMapboxError(null);
+    }
 
-    // Labels overlay for street/place names
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-      attribution: '',
-    }).addTo(mapRef.current);
+    const mapboxLayer = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
+      attribution:
+        '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      id: 'mapbox/satellite-streets-v12',
+      tileSize: 512,
+      zoomOffset: -1,
+      accessToken: mapboxToken ?? '',
+    });
+
+    mapboxLayer.on('tileerror', (event) => {
+      const message = 'Mapbox tiles δεν φορτώνουν. Έλεγξε token/δικαιώματα ή δίκτυο.';
+      console.error(message, event);
+      setMapboxError(message);
+    });
+
+    mapboxLayer.addTo(mapRef.current);
 
     vehicleMarkersRef.current = L.markerClusterGroup({
       chunkedLoading: true,
@@ -619,6 +640,13 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
           <div className="flex items-center gap-2 text-muted-foreground">
             <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             <span>Φόρτωση...</span>
+          </div>
+        </div>
+      )}
+      {mapboxError && (
+        <div className="absolute top-4 left-4 right-4 z-[1000]">
+          <div className="glass-card rounded-lg px-4 py-2 text-xs text-destructive border border-destructive/30">
+            {mapboxError}
           </div>
         </div>
       )}
