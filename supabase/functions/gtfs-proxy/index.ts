@@ -1515,17 +1515,69 @@ serve(async (req) => {
     
     // Handle schedule endpoint - returns scheduled trips for a specific route with departure times
     if (path === '/schedule' && routeId) {
+      console.log(`Schedule request for route: ${routeId}, operator: ${operatorId}`);
+      
       const [tripsStatic, stopTimes, stops] = await Promise.all([
         fetchStaticTrips(operatorId),
         fetchStaticStopTimes(operatorId),
         fetchStaticStops(operatorId),
       ]);
       
+      console.log(`Loaded ${tripsStatic.length} static trips, ${stopTimes.length} stop times, ${stops.length} stops`);
+      
+      // Get unique route IDs from trips for debugging
+      const uniqueRouteIds = [...new Set(tripsStatic.map(t => t.route_id))].slice(0, 20);
+      console.log(`Sample route IDs from trips: ${uniqueRouteIds.join(', ')}`);
+      
       // Find trips for this route
-      const routeTrips = tripsStatic.filter(t => t.route_id === routeId);
+      // Route IDs in realtime have format like "8040012" (8 + operatorId + staticRouteId)
+      // We need to try multiple matching strategies
+      let routeTrips = tripsStatic.filter(t => t.route_id === routeId);
+      let matchedRouteId = routeId;
+      
+      // Strategy 1: If route ID starts with 8, extract the static route ID (last 4 digits typically)
+      if (routeTrips.length === 0 && routeId.startsWith('8') && routeId.length >= 4) {
+        // Try extracting just the last 4 characters (e.g., "0012" from "8040012")
+        const last4 = routeId.slice(-4);
+        routeTrips = tripsStatic.filter(t => t.route_id === last4);
+        if (routeTrips.length > 0) {
+          matchedRouteId = last4;
+          console.log(`Matched using last 4 chars: ${last4}, found ${routeTrips.length} trips`);
+        }
+      }
+      
+      // Strategy 2: Try removing the "8XX" prefix (operator encoding)  
+      if (routeTrips.length === 0 && routeId.length > 3) {
+        const shortRouteId = routeId.substring(3);
+        routeTrips = tripsStatic.filter(t => t.route_id === shortRouteId);
+        if (routeTrips.length > 0) {
+          matchedRouteId = shortRouteId;
+          console.log(`Matched using substring(3): ${shortRouteId}, found ${routeTrips.length} trips`);
+        }
+      }
+      
+      // Strategy 3: Try finding any route ID that ends with the same digits
+      if (routeTrips.length === 0) {
+        const suffix = routeId.slice(-4);
+        routeTrips = tripsStatic.filter(t => t.route_id.endsWith(suffix) || t.route_id === suffix);
+        if (routeTrips.length > 0) {
+          matchedRouteId = routeTrips[0].route_id;
+          console.log(`Matched using suffix ${suffix}: found ${routeTrips.length} trips with route_id ${matchedRouteId}`);
+        }
+      }
+      
+      console.log(`Found ${routeTrips.length} trips for route ${routeId}`);
+      
       if (routeTrips.length === 0) {
         return new Response(
-          JSON.stringify({ data: [], error: 'No trips found for route' }),
+          JSON.stringify({ 
+            data: { route_id: routeId, schedule: [], by_direction: {}, total_trips: 0 },
+            debug: { 
+              requestedRouteId: routeId, 
+              availableRouteIds: uniqueRouteIds,
+              tripsLoaded: tripsStatic.length
+            }
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
