@@ -153,8 +153,8 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 min-h-0 glass-card rounded-lg overflow-visible pr-14">
-            <TabsContent value="map" className="h-[calc(100vh-180px)] m-0 overflow-visible">
+          <div className="flex-1 min-h-0 glass-card rounded-lg overflow-hidden">
+            <TabsContent value="map" className="h-[calc(100vh-180px)] m-0">
               <VehicleMap
                 vehicles={filteredVehicles}
                 trips={filteredTrips}

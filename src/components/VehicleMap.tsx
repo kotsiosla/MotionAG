@@ -1367,8 +1367,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </div>
       </div>
 
-      {/* Right side controls toolbar - outside map on the right */}
-      <div className="absolute top-0 -right-12 z-[1000] flex flex-col gap-1 py-2">
+      {/* Right side controls toolbar */}
+      <div className="absolute top-2 right-2 z-[1000] flex flex-col gap-1">
 
         {/* Control buttons - smaller circular */}
         <Button
