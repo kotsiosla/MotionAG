@@ -1513,6 +1513,119 @@ serve(async (req) => {
       );
     }
     
+    // Handle schedule endpoint - returns scheduled trips for a specific route with departure times
+    if (path === '/schedule' && routeId) {
+      const [tripsStatic, stopTimes, stops] = await Promise.all([
+        fetchStaticTrips(operatorId),
+        fetchStaticStopTimes(operatorId),
+        fetchStaticStops(operatorId),
+      ]);
+      
+      // Find trips for this route
+      const routeTrips = tripsStatic.filter(t => t.route_id === routeId);
+      if (routeTrips.length === 0) {
+        return new Response(
+          JSON.stringify({ data: [], error: 'No trips found for route' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Get current time to filter relevant trips
+      const now = new Date();
+      const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
+      
+      // Build schedule entries for each trip
+      const scheduleEntries: Array<{
+        trip_id: string;
+        direction_id?: number;
+        trip_headsign?: string;
+        departure_time: string;
+        departure_minutes: number;
+        first_stop_id: string;
+        first_stop_name: string;
+        last_stop_id: string;
+        last_stop_name: string;
+        stop_count: number;
+      }> = [];
+      
+      for (const trip of routeTrips) {
+        // Get stop times for this trip
+        const tripStopTimes = stopTimes
+          .filter(st => st.trip_id === trip.trip_id)
+          .sort((a, b) => a.stop_sequence - b.stop_sequence);
+        
+        if (tripStopTimes.length === 0) continue;
+        
+        const firstStopTime = tripStopTimes[0];
+        const lastStopTime = tripStopTimes[tripStopTimes.length - 1];
+        
+        // Parse departure time (format: HH:MM:SS)
+        const departureTime = firstStopTime.departure_time || firstStopTime.arrival_time;
+        if (!departureTime) continue;
+        
+        // Calculate minutes from midnight for sorting and filtering
+        const timeParts = departureTime.split(':');
+        let hours = parseInt(timeParts[0]) || 0;
+        const minutes = parseInt(timeParts[1]) || 0;
+        
+        // Handle times past midnight (e.g., 25:00:00)
+        if (hours >= 24) {
+          hours = hours - 24;
+        }
+        
+        const departureMinutes = hours * 60 + minutes;
+        
+        // Get stop names
+        const firstStop = stops.find(s => s.stop_id === firstStopTime.stop_id);
+        const lastStop = stops.find(s => s.stop_id === lastStopTime.stop_id);
+        
+        scheduleEntries.push({
+          trip_id: trip.trip_id,
+          direction_id: trip.direction_id,
+          trip_headsign: trip.trip_headsign,
+          departure_time: departureTime.substring(0, 5), // HH:MM
+          departure_minutes: departureMinutes,
+          first_stop_id: firstStopTime.stop_id,
+          first_stop_name: firstStop?.stop_name || firstStopTime.stop_id,
+          last_stop_id: lastStopTime.stop_id,
+          last_stop_name: lastStop?.stop_name || lastStopTime.stop_id,
+          stop_count: tripStopTimes.length,
+        });
+      }
+      
+      // Sort by departure time
+      scheduleEntries.sort((a, b) => a.departure_minutes - b.departure_minutes);
+      
+      // Group by direction
+      const byDirection: Record<number, typeof scheduleEntries> = {};
+      for (const entry of scheduleEntries) {
+        const dir = entry.direction_id ?? 0;
+        if (!byDirection[dir]) {
+          byDirection[dir] = [];
+        }
+        byDirection[dir].push(entry);
+      }
+      
+      return new Response(
+        JSON.stringify({
+          data: {
+            route_id: routeId,
+            schedule: scheduleEntries,
+            by_direction: byDirection,
+            total_trips: scheduleEntries.length,
+          },
+          timestamp: Date.now(),
+        }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=3600',
+          } 
+        }
+      );
+    }
+    
     // Handle route-shape endpoint - returns shape and stop sequence for a specific route
     if (path === '/route-shape' && routeId) {
       const [tripsStatic, shapes, stopTimes, stops] = await Promise.all([
