@@ -112,6 +112,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
   const walkingRouteRef = useRef<L.Polyline | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined;
 
   // Create a map of tripId -> Trip for quick lookup
   const tripMap = useMemo(() => {
@@ -210,14 +211,17 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
       zoomControl: true,
     });
 
-    // Satellite imagery layer (ESRI World Imagery)
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-    }).addTo(mapRef.current);
+    if (!mapboxToken) {
+      console.warn('Mapbox token is missing. Set VITE_MAPBOX_TOKEN in your .env file.');
+    }
 
-    // Labels overlay for street/place names
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-      attribution: '',
+    L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
+      attribution:
+        '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      id: 'mapbox/satellite-streets-v12',
+      tileSize: 512,
+      zoomOffset: -1,
+      accessToken: mapboxToken ?? '',
     }).addTo(mapRef.current);
 
     vehicleMarkersRef.current = L.markerClusterGroup({
