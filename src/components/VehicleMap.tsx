@@ -1296,8 +1296,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </DraggablePanel>
       )}
 
-      {/* Search box - top left corner */}
-      <div className="absolute top-2 left-2 z-[999] w-40">
+      {/* Search box - top left corner, after zoom controls */}
+      <div className="absolute top-2 left-14 z-[999] w-40">
         <div className="glass-card rounded-full shadow-md">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
