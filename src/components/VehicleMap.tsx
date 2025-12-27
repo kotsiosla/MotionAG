@@ -262,10 +262,6 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
       zoomControl: true,
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-    }).addTo(mapRef.current);
-
     vehicleMarkersRef.current = L.markerClusterGroup({
       chunkedLoading: true,
       spiderfyOnMaxZoom: true,
@@ -345,10 +341,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
 
     mapboxLayer.on('tileerror', (event) => {
       const sourceLabel = mapboxTokenSource ? ` (πηγή: ${mapboxTokenSource})` : '';
-      const message = `Mapbox tiles δεν φορτώνουν${sourceLabel}. Έλεγξε token/δικαιώματα ή δίκτυο.`;
+      const message = `Mapbox tiles δεν φορτώνουν${sourceLabel}. Έλεγξε token/δικαιώματα (π.χ. allowed URLs) ή δίκτυο.`;
       console.error(message, event);
       setMapboxError(message);
-      ensureFallbackLayer();
     });
 
     mapboxLayer.on('load', () => {
