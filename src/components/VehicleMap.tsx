@@ -4,12 +4,13 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
-import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Settings, Layers, Volume2, Bell, Home, ZoomIn, ZoomOut, GripVertical } from "lucide-react";
+import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Settings, Layers, Volume2, Bell, Home, ZoomIn, ZoomOut, GripVertical, Route } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RouteStopsPanel } from "@/components/RouteStopsPanel";
+import { RoutePlannerPanel } from "@/components/RoutePlannerPanel";
 import type { Vehicle, StaticStop, Trip, RouteInfo } from "@/types/gtfs";
 
 interface VehicleMapProps {
@@ -112,6 +113,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [followedVehicleId, setFollowedVehicleId] = useState<string | null>(null);
   const [showStops, setShowStops] = useState(true);
   const [showRoutePanel, setShowRoutePanel] = useState(true);
+  const [showRoutePlanner, setShowRoutePlanner] = useState(false);
   const markerMapRef = useRef<Map<string, L.Marker>>(new Map());
   const userLocationMarkerRef = useRef<L.Marker | null>(null);
   const [isLocating, setIsLocating] = useState(false);
@@ -122,6 +124,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [searchResults, setSearchResults] = useState<Array<{ display_name: string; lat: string; lon: string }>>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const routeMarkersRef = useRef<L.Marker[]>([]);
+  const routeLineRef = useRef<L.Polyline | null>(null);
 
   // Show route panel when route changes
   useEffect(() => {
@@ -653,12 +657,150 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     }
   }, [stops]);
 
+  // Handle route selection from planner - draw route on map
+  const handleRouteSelect = useCallback((route: { steps: Array<{ type: string; from: { lat: number; lng: number; name: string }; to: { lat: number; lng: number; name: string }; routeColor?: string }> }) => {
+    if (!mapRef.current) return;
+
+    // Clear previous route
+    routeMarkersRef.current.forEach(marker => mapRef.current?.removeLayer(marker));
+    routeMarkersRef.current = [];
+    if (routeLineRef.current) {
+      mapRef.current.removeLayer(routeLineRef.current);
+      routeLineRef.current = null;
+    }
+
+    const allPoints: L.LatLngExpression[] = [];
+    const lineSegments: Array<{ points: L.LatLngExpression[]; color: string; dashed: boolean }> = [];
+
+    route.steps.forEach((step, idx) => {
+      const fromPoint: L.LatLngExpression = [step.from.lat, step.from.lng];
+      const toPoint: L.LatLngExpression = [step.to.lat, step.to.lng];
+
+      allPoints.push(fromPoint);
+      if (idx === route.steps.length - 1) {
+        allPoints.push(toPoint);
+      }
+
+      // Create line segment
+      const color = step.type === 'walk' ? '#6b7280' : step.routeColor ? `#${step.routeColor}` : '#0ea5e9';
+      lineSegments.push({
+        points: [fromPoint, toPoint],
+        color,
+        dashed: step.type === 'walk',
+      });
+
+      // Add markers for first and last points
+      if (idx === 0) {
+        const originIcon = L.divIcon({
+          className: 'route-origin-marker',
+          html: `<div class="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="white"/>
+            </svg>
+          </div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        });
+        const marker = L.marker(fromPoint, { icon: originIcon }).addTo(mapRef.current!);
+        marker.bindPopup(`<div class="p-2 text-sm font-medium">${step.from.name}</div>`);
+        routeMarkersRef.current.push(marker);
+      }
+
+      if (idx === route.steps.length - 1) {
+        const destIcon = L.divIcon({
+          className: 'route-dest-marker',
+          html: `<div class="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+          </div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 24],
+        });
+        const marker = L.marker(toPoint, { icon: destIcon }).addTo(mapRef.current!);
+        marker.bindPopup(`<div class="p-2 text-sm font-medium">${step.to.name}</div>`);
+        routeMarkersRef.current.push(marker);
+      }
+    });
+
+    // Draw line segments
+    lineSegments.forEach(segment => {
+      const line = L.polyline(segment.points, {
+        color: segment.color,
+        weight: 5,
+        opacity: 0.8,
+        dashArray: segment.dashed ? '10, 10' : undefined,
+      }).addTo(mapRef.current!);
+      
+      if (!routeLineRef.current) {
+        routeLineRef.current = line;
+      }
+    });
+
+    // Fit bounds to show entire route
+    if (allPoints.length > 0) {
+      const bounds = L.latLngBounds(allPoints);
+      mapRef.current.fitBounds(bounds, { padding: [80, 80], maxZoom: 15 });
+    }
+  }, []);
+
+  // Handle location selection from planner - add marker
+  const handleLocationSelect = useCallback((type: 'origin' | 'destination', location: { lat: number; lng: number; name: string }) => {
+    if (!mapRef.current) return;
+    
+    const icon = L.divIcon({
+      className: `route-${type}-marker`,
+      html: `<div class="w-6 h-6 ${type === 'origin' ? 'bg-blue-500' : 'bg-red-500'} rounded-full flex items-center justify-center shadow-lg border-2 border-white animate-bounce">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          ${type === 'origin' 
+            ? '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="white"/>'
+            : '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>'
+          }
+        </svg>
+      </div>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, type === 'origin' ? 12 : 24],
+    });
+
+    const marker = L.marker([location.lat, location.lng], { icon }).addTo(mapRef.current);
+    marker.bindPopup(`<div class="p-2 text-sm font-medium">${location.name}</div>`);
+    routeMarkersRef.current.push(marker);
+
+    mapRef.current.setView([location.lat, location.lng], 15, { animate: true });
+  }, []);
+
+  // Clear route markers when planner closes
+  useEffect(() => {
+    if (!showRoutePlanner && mapRef.current) {
+      routeMarkersRef.current.forEach(marker => mapRef.current?.removeLayer(marker));
+      routeMarkersRef.current = [];
+      if (routeLineRef.current) {
+        mapRef.current.removeLayer(routeLineRef.current);
+        routeLineRef.current = null;
+      }
+    }
+  }, [showRoutePlanner]);
+
   return (
     <div className="relative h-full w-full rounded-lg overflow-hidden">
       <div ref={containerRef} className="h-full w-full" />
       
+      {/* Route Planner Panel */}
+      <RoutePlannerPanel
+        isOpen={showRoutePlanner}
+        onClose={() => setShowRoutePlanner(false)}
+        stops={stops}
+        trips={trips}
+        vehicles={vehicles}
+        routeNamesMap={routeNamesMap}
+        userLocation={userLocation}
+        onRouteSelect={handleRouteSelect}
+        onLocationSelect={handleLocationSelect}
+      />
+      
       {/* Route Stops Panel */}
-      {showRoutePanel && selectedRoute !== 'all' && (
+      {showRoutePanel && selectedRoute !== 'all' && !showRoutePlanner && (
         <RouteStopsPanel
           selectedRoute={selectedRoute}
           trips={trips}
@@ -818,6 +960,16 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
         {/* Control buttons */}
         <div className="glass-card rounded-lg p-1 flex flex-col gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-9 w-9 ${showRoutePlanner ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}`}
+            onClick={() => setShowRoutePlanner(!showRoutePlanner)}
+            title="Σχεδιασμός διαδρομής"
+          >
+            <Route className="h-4 w-4" />
+          </Button>
+          
           <Button
             variant="ghost"
             size="icon"
