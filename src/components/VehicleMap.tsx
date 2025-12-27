@@ -25,10 +25,37 @@ interface VehicleMapProps {
   isLoading: boolean;
 }
 
-const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: string) => {
+const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: string, isOnSelectedRoute?: boolean) => {
   const rotation = bearing || 0;
-  const ringClass = isFollowed ? 'animate-ping' : 'animate-pulse-ring';
   const bgColor = routeColor ? `#${routeColor}` : 'hsl(var(--primary))';
+  
+  // Special larger animated icon for vehicles on selected route
+  if (isOnSelectedRoute) {
+    return L.divIcon({
+      className: 'route-vehicle-marker',
+      html: `
+        <div class="relative bus-icon" style="transform: rotate(${rotation}deg)">
+          <div class="absolute -inset-2 rounded-full opacity-30" style="background: ${bgColor}; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+          <div class="absolute -inset-1 rounded-full opacity-50" style="background: ${bgColor}; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;"></div>
+          <div class="relative flex flex-col items-center">
+            <div style="width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 8px solid ${bgColor}; margin-bottom: -2px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></div>
+            <div class="w-8 h-6 rounded-sm flex items-center justify-center shadow-lg border-2 border-white" style="background: ${bgColor};">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="14" rx="2"/>
+                <circle cx="7" cy="18" r="1.5" fill="white"/>
+                <circle cx="17" cy="18" r="1.5" fill="white"/>
+                <path d="M3 10h18"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      `,
+      iconSize: [32, 38],
+      iconAnchor: [16, 19],
+    });
+  }
+  
+  const ringClass = isFollowed ? 'animate-ping' : 'animate-pulse-ring';
   const glowStyle = isFollowed ? 'box-shadow: 0 0 0 2px #facc15;' : '';
   
   return L.divIcon({
@@ -395,6 +422,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     validVehicles.forEach((vehicle) => {
       const vehicleId = vehicle.vehicleId || vehicle.id;
       const isFollowed = followedVehicleId === vehicleId;
+      const isOnSelectedRoute = selectedRoute !== 'all' && vehicle.routeId === selectedRoute;
       
       // Get route color
       const routeInfo = vehicle.routeId && routeNamesMap ? routeNamesMap.get(vehicle.routeId) : null;
@@ -405,7 +433,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       const nextStop = getNextStopInfo(vehicle);
       
       const marker = L.marker([vehicle.latitude!, vehicle.longitude!], {
-        icon: createVehicleIcon(vehicle.bearing, isFollowed, routeColor),
+        icon: createVehicleIcon(vehicle.bearing, isFollowed, routeColor, isOnSelectedRoute),
+        zIndexOffset: isOnSelectedRoute ? 2000 : (isFollowed ? 1000 : 0),
       });
 
       marker.on('click', () => {
@@ -456,7 +485,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       );
       mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
     }
-  }, [vehicles, followedVehicleId, routeNamesMap, tripMap, stopMap]);
+  }, [vehicles, followedVehicleId, routeNamesMap, tripMap, stopMap, selectedRoute]);
 
   // Get stops with vehicles currently stopped
   const stopsWithVehicles = useMemo(() => {
@@ -734,6 +763,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
   const followedNextStop = followedVehicle ? getNextStopInfo(followedVehicle) : null;
 
+  // Get vehicles on the selected route for the live tracking panel
+  const vehiclesOnSelectedRoute = useMemo(() => {
+    if (selectedRoute === 'all') return [];
+    return vehicles.filter(v => v.routeId === selectedRoute && v.latitude && v.longitude);
+  }, [vehicles, selectedRoute]);
+
   // selectedRouteInfo is already defined at the top of the component
 
   // Handle clicking a stop in the panel - pan to it on the map
@@ -897,6 +932,80 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           onClose={() => setShowRoutePanel(false)}
           onStopClick={handleStopClick}
         />
+      )}
+      
+      {/* Live vehicles on route panel */}
+      {selectedRoute !== 'all' && vehiclesOnSelectedRoute.length > 0 && !showRoutePlanner && (
+        <div className="absolute top-4 left-4 glass-card rounded-lg z-[1000] max-w-[280px] animate-fade-in">
+          <div className="p-3">
+            <div className="flex items-center gap-2 mb-3">
+              <div 
+                className="w-3 h-3 rounded-full animate-pulse"
+                style={{ background: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
+              />
+              <span className="text-sm font-semibold">
+                {vehiclesOnSelectedRoute.length} λεωφορεί{vehiclesOnSelectedRoute.length === 1 ? 'ο' : 'α'} ενεργ{vehiclesOnSelectedRoute.length === 1 ? 'ό' : 'ά'}
+              </span>
+            </div>
+            <div className="space-y-2 max-h-[200px] overflow-y-auto">
+              {vehiclesOnSelectedRoute.slice(0, 5).map((vehicle, idx) => {
+                const vehicleId = vehicle.vehicleId || vehicle.id;
+                const nextStop = getNextStopInfo(vehicle);
+                return (
+                  <button
+                    key={vehicleId}
+                    onClick={() => {
+                      setFollowedVehicleId(vehicleId);
+                      if (vehicle.latitude && vehicle.longitude && mapRef.current) {
+                        mapRef.current.setView([vehicle.latitude, vehicle.longitude], 16, { animate: true });
+                      }
+                    }}
+                    className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-secondary/50 transition-colors text-left"
+                  >
+                    <div className="relative">
+                      <div 
+                        className="w-8 h-8 rounded-full flex items-center justify-center"
+                        style={{ background: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}20` : 'hsl(var(--primary) / 0.2)' }}
+                      >
+                        <Navigation 
+                          className="h-4 w-4 animate-pulse" 
+                          style={{ 
+                            color: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))',
+                            transform: `rotate(${vehicle.bearing || 0}deg)` 
+                          }}
+                        />
+                      </div>
+                      <div 
+                        className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card animate-ping"
+                        style={{ background: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium truncate">
+                        {vehicle.label || vehicleId}
+                      </div>
+                      {nextStop && (
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          → {nextStop.stopName}
+                        </div>
+                      )}
+                    </div>
+                    {vehicle.speed !== undefined && (
+                      <div className="text-xs font-mono text-primary">
+                        {(vehicle.speed * 3.6).toFixed(0)}km/h
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+              {vehiclesOnSelectedRoute.length > 5 && (
+                <div className="text-xs text-muted-foreground text-center pt-1">
+                  +{vehiclesOnSelectedRoute.length - 5} ακόμα
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
       
       {isLoading && (
