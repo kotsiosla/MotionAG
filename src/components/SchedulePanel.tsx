@@ -117,10 +117,19 @@ export function SchedulePanel({
     // Filter by direction
     const directionSchedule = scheduleData.by_direction[selectedDirection] || scheduleData.schedule;
     
-    // Only show upcoming trips (from now onwards)
-    return directionSchedule
+    if (!directionSchedule || directionSchedule.length === 0) return [];
+    
+    // First try to find upcoming trips today
+    let upcomingTrips = directionSchedule
       .filter(entry => entry.departure_minutes >= currentMinutes)
-      .slice(0, 25); // Limit to 25 upcoming entries
+      .slice(0, 25);
+    
+    // If no upcoming trips today, show the first trips of the day (for late night viewing)
+    if (upcomingTrips.length === 0) {
+      upcomingTrips = directionSchedule.slice(0, 25);
+    }
+    
+    return upcomingTrips;
   }, [scheduleData, selectedDirection]);
 
   // Get available directions
