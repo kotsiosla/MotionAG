@@ -58,13 +58,18 @@ export function RouteStopsPanel({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
 
-  // Find the first trip for this route that has stop time updates
+  // Find trips for this route - prioritize ones with stop time updates
   const activeTrip = useMemo(() => {
-    return trips.find(t => 
+    // First try to find a trip with stop time updates
+    const tripWithUpdates = trips.find(t => 
       t.routeId === selectedRoute && 
       t.stopTimeUpdates && 
       t.stopTimeUpdates.length > 0
     );
+    if (tripWithUpdates) return tripWithUpdates;
+    
+    // Otherwise, just find any trip for this route
+    return trips.find(t => t.routeId === selectedRoute);
   }, [trips, selectedRoute]);
 
   // Get vehicle info for this trip
@@ -124,7 +129,7 @@ export function RouteStopsPanel({
 
   const routeColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : 'hsl(var(--primary))';
 
-  if (selectedRoute === 'all' || !activeTrip) return null;
+  if (selectedRoute === 'all') return null;
 
   return (
     <div className="absolute top-4 left-4 z-[1000] w-[380px] max-w-[calc(100vw-2rem)] bg-card/95 backdrop-blur-sm rounded-lg shadow-xl border border-border overflow-hidden">
@@ -189,7 +194,14 @@ export function RouteStopsPanel({
           {/* Stops list */}
           <ScrollArea className="h-[320px]">
             <div className="p-2">
-              {paginatedStops.map((stop, index) => {
+              {routeStops.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <Bus className="h-8 w-8 mb-2 opacity-50" />
+                  <p className="text-sm">Δεν υπάρχουν διαθέσιμες στάσεις</p>
+                  <p className="text-xs">Αναμονή για δεδομένα...</p>
+                </div>
+              ) : (
+                paginatedStops.map((stop, index) => {
                 const timeUntil = getTimeUntilArrival(stop.arrivalTime);
                 const formattedTime = formatTime(stop.arrivalTime);
                 const delay = formatDelay(stop.arrivalDelay);
@@ -266,7 +278,8 @@ export function RouteStopsPanel({
                     </div>
                   </div>
                 );
-              })}
+              })
+              )}
             </div>
           </ScrollArea>
 
