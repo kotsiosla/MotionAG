@@ -344,11 +344,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, is
     setMapboxError(null);
     removeFallbackLayer();
 
-    const mapboxLayer = L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`, {
+    const mapboxLayer = L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${mapboxToken}`, {
       attribution:
         '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       tileSize: 512,
       zoomOffset: -1,
+      maxZoom: 19,
     });
 
     mapboxLayer.on('tileerror', (event) => {
