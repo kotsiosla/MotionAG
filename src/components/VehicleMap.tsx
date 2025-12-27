@@ -4,8 +4,8 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
-import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Home, ZoomIn, ZoomOut, Route, GripVertical } from "lucide-react";
-import { DraggablePanel } from "@/components/DraggablePanel";
+import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Home, ZoomIn, ZoomOut, Route } from "lucide-react";
+import { SchedulePanel } from "@/components/SchedulePanel";
 import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -1125,87 +1125,23 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         />
       )}
       
-      {/* Live vehicles on route panel - positioned to the right of route panel */}
-      {selectedRoute !== 'all' && vehiclesOnSelectedRoute.length > 0 && showLiveVehiclesPanel && !showRoutePlanner && (
-        <ResizableDraggablePanel
+      {/* Schedule Panel - Live & Scheduled trips - positioned to the right of route panel */}
+      {selectedRoute !== 'all' && showLiveVehiclesPanel && !showRoutePlanner && (
+        <SchedulePanel
+          selectedRoute={selectedRoute}
+          trips={trips}
+          vehicles={vehicles}
+          stops={stops}
+          routeInfo={selectedRouteInfo}
           initialPosition={{ x: showRoutePanel ? 410 : 16, y: 60 }}
-          initialSize={{ width: 280, height: 280 }}
-          minSize={{ width: 220, height: 150 }}
-          maxSize={{ width: 400, height: 500 }}
-          className="rounded-lg overflow-hidden border border-border bg-card/95 backdrop-blur-sm"
-          zIndex={1000}
-          title={`${vehiclesOnSelectedRoute.length} λεωφορεί${vehiclesOnSelectedRoute.length === 1 ? 'ο' : 'α'} ενεργ${vehiclesOnSelectedRoute.length === 1 ? 'ό' : 'ά'}`}
-        >
-          <div className="h-full">
-            {/* Header with route color */}
-            <div 
-              className="p-2 flex items-center gap-2"
-              style={{ backgroundColor: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
-            >
-              <div className="w-2.5 h-2.5 rounded-full animate-pulse bg-white/80" />
-              <span className="text-xs font-semibold text-white flex-1">
-                Ενεργά Λεωφορεία
-              </span>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-5 w-5 text-white hover:bg-white/20"
-                onClick={() => setShowLiveVehiclesPanel(false)}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-            {/* Content */}
-            <div className="p-2 space-y-1.5 overflow-y-auto h-[calc(100%-36px)]">
-              {vehiclesOnSelectedRoute.map((vehicle) => {
-                const vehicleId = vehicle.vehicleId || vehicle.id;
-                const nextStop = getNextStopInfo(vehicle);
-                return (
-                  <button
-                    key={vehicleId}
-                    onClick={() => {
-                      setFollowedVehicleId(vehicleId);
-                      if (vehicle.latitude && vehicle.longitude && mapRef.current) {
-                        mapRef.current.setView([vehicle.latitude, vehicle.longitude], 16, { animate: true });
-                      }
-                    }}
-                    className="w-full flex items-center gap-2 p-1.5 rounded-md hover:bg-secondary/50 transition-all text-left"
-                  >
-                    <div className="relative">
-                      <div 
-                        className="w-7 h-7 rounded-full flex items-center justify-center"
-                        style={{ background: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}20` : 'hsl(var(--primary) / 0.2)' }}
-                      >
-                        <Navigation 
-                          className="h-3.5 w-3.5 animate-pulse" 
-                          style={{ 
-                            color: selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))',
-                            transform: `rotate(${vehicle.bearing || 0}deg)` 
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium truncate">
-                        {vehicle.label || vehicleId}
-                      </div>
-                      {nextStop && (
-                        <div className="text-[10px] text-muted-foreground truncate">
-                          → {nextStop.stopName}
-                        </div>
-                      )}
-                    </div>
-                    {vehicle.speed !== undefined && (
-                      <div className="text-[10px] font-mono text-primary">
-                        {(vehicle.speed * 3.6).toFixed(0)}km/h
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </ResizableDraggablePanel>
+          onClose={() => setShowLiveVehiclesPanel(false)}
+          onVehicleFollow={(vehicleId) => setFollowedVehicleId(vehicleId)}
+          onVehicleFocus={(vehicle) => {
+            if (vehicle.latitude && vehicle.longitude && mapRef.current) {
+              mapRef.current.setView([vehicle.latitude, vehicle.longitude], 16, { animate: true });
+            }
+          }}
+        />
       )}
       
       {isLoading && (
