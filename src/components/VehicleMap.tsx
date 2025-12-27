@@ -1296,9 +1296,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </DraggablePanel>
       )}
 
-      {/* Search box - top left corner, after zoom controls */}
-      <div className="absolute top-2 left-14 z-[999] w-40">
-        <div className="glass-card rounded-full shadow-md">
+      {/* Left side: Search box and Stops toggle */}
+      <div className="absolute top-2 left-14 z-[999] flex flex-col gap-1.5">
+        {/* Search box */}
+        <div className="glass-card rounded-full shadow-md w-40">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
             <Input
@@ -1350,12 +1351,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             </div>
           )}
         </div>
-      </div>
 
-      {/* Right side controls toolbar - outside map on the right */}
-      <div className="absolute top-0 -right-12 z-[1000] flex flex-col gap-1 py-2">
         {/* Stops toggle */}
-        <div className="glass-card rounded-lg px-2 py-1.5 flex items-center gap-1.5">
+        <div className="glass-card rounded-lg px-2 py-1.5 flex items-center gap-1.5 w-fit">
           <Switch
             id="show-stops"
             checked={showStops}
@@ -1367,6 +1365,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             Στάσεις ({stops.length})
           </Label>
         </div>
+      </div>
+
+      {/* Right side controls toolbar - outside map on the right */}
+      <div className="absolute top-0 -right-12 z-[1000] flex flex-col gap-1 py-2">
 
         {/* Control buttons - smaller circular */}
         <Button
