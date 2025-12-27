@@ -1352,8 +1352,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </div>
       </div>
 
-      {/* Right side controls toolbar - far right edge */}
-      <div className="absolute top-2 -right-1 z-[1000] flex flex-col gap-1">
+      {/* Right side controls toolbar - outside map on the right */}
+      <div className="absolute top-0 -right-12 z-[1000] flex flex-col gap-1 py-2">
         {/* Stops toggle */}
         <div className="glass-card rounded-lg px-2 py-1.5 flex items-center gap-1.5">
           <Switch
