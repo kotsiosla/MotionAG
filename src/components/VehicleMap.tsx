@@ -1296,14 +1296,14 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </DraggablePanel>
       )}
 
-      {/* Search box - smart positioning to avoid overlaps */}
-      <div className={`absolute top-4 z-[999] w-72 transition-all duration-300 ease-out ${showRoutePlanner ? 'left-[360px]' : (selectedRoute !== 'all' && showRoutePanel ? 'left-[400px]' : 'left-4')}`}>
-        <div className="glass-card rounded-lg">
+      {/* Search box - compact, positioned at top center */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[999] w-52">
+        <div className="glass-card rounded-full shadow-md">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Αναζήτηση διεύθυνσης..."
+              placeholder="Αναζήτηση..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -1312,15 +1312,15 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
                 }
               }}
               onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
-              className="pl-9 pr-10 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-8 pl-8 pr-8 text-sm bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full"
             />
             {isSearching ? (
-              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
             ) : searchQuery && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full"
                 onClick={() => {
                   setSearchQuery("");
                   setSearchResults([]);
@@ -1336,14 +1336,14 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             )}
           </div>
           {showSearchResults && searchResults.length > 0 && (
-            <div className="border-t border-border max-h-48 overflow-y-auto">
+            <div className="border-t border-border max-h-40 overflow-y-auto rounded-b-lg bg-card/95">
               {searchResults.map((result, idx) => (
                 <button
                   key={idx}
-                  className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors flex items-start gap-2"
+                  className="w-full px-3 py-1.5 text-left text-xs hover:bg-muted/50 transition-colors flex items-start gap-2"
                   onClick={() => selectSearchResult(result)}
                 >
-                  <MapPin className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <MapPin className="h-3 w-3 text-red-500 flex-shrink-0 mt-0.5" />
                   <span className="line-clamp-2">{result.display_name}</span>
                 </button>
               ))}
