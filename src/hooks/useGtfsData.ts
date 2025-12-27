@@ -129,14 +129,20 @@ export function useRouteSchedule(routeId: string | null, operatorId?: string) {
       params.set('route', routeId);
       if (operatorId && operatorId !== 'all') params.set('operator', operatorId);
       
+      console.log(`Fetching schedule for route ${routeId}, operator ${operatorId}`);
+      
       const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/schedule?${params}`, {
         headers: {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
       });
       
-      if (!response.ok) throw new Error('Failed to fetch route schedule');
+      if (!response.ok) {
+        console.error('Failed to fetch route schedule:', response.status, response.statusText);
+        throw new Error('Failed to fetch route schedule');
+      }
       const result = await response.json();
+      console.log(`Schedule data received:`, result.data?.total_trips || 0, 'trips');
       return result.data as RouteScheduleData;
     },
     enabled: !!routeId && routeId !== 'all',
