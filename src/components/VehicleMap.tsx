@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
-import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Home, ZoomIn, ZoomOut, Route } from "lucide-react";
+import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Home, ZoomIn, ZoomOut, Route, Maximize2, Focus } from "lucide-react";
 import { SchedulePanel } from "@/components/SchedulePanel";
 import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
 import { Button } from "@/components/ui/button";
@@ -169,6 +169,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const lastDrawnRouteRef = useRef<string | null>(null);
   const [mapClickMode, setMapClickMode] = useState<'origin' | 'destination' | null>(null);
   const [mapClickLocation, setMapClickLocation] = useState<{ type: 'origin' | 'destination'; lat: number; lng: number } | null>(null);
+  const [viewMode, setViewMode] = useState<'street' | 'overview'>('street');
 
   // Fetch route shape data when a route is selected
   const { data: routeShapeData } = useRouteShape(
@@ -921,7 +922,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
   }, [selectedRoute, routeShapeData, selectedRouteInfo, stopsWithVehicles, trips, vehicles]);
 
-  // Follow the selected vehicle in realtime with street-level view
+  // Follow the selected vehicle in realtime - respects view mode
   useEffect(() => {
     if (!followedVehicleId || !mapRef.current) return;
 
@@ -930,12 +931,38 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     );
 
     if (followedVehicle?.latitude && followedVehicle?.longitude) {
-      // Smooth pan to vehicle position at street level
-      mapRef.current.flyTo(
-        [followedVehicle.latitude, followedVehicle.longitude],
-        18,
-        { animate: true, duration: 0.8, easeLinearity: 0.5 }
-      );
+      if (viewMode === 'street') {
+        // Street level - close zoom following the bus
+        mapRef.current.flyTo(
+          [followedVehicle.latitude, followedVehicle.longitude],
+          18,
+          { animate: true, duration: 0.8, easeLinearity: 0.5 }
+        );
+      }
+      // In overview mode, don't auto-pan - user controls the view
+    }
+  }, [vehicles, followedVehicleId, viewMode]);
+
+  // Switch to overview mode - show entire route
+  const switchToOverview = useCallback(() => {
+    setViewMode('overview');
+    if (mapRef.current && routeShapeData?.directions[0]?.shape.length) {
+      const shapePoints: L.LatLngExpression[] = routeShapeData.directions[0].shape.map(p => [p.lat, p.lng]);
+      const bounds = L.latLngBounds(shapePoints);
+      mapRef.current.flyToBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: true, duration: 1 });
+    }
+  }, [routeShapeData]);
+
+  // Switch to street view - zoom to followed vehicle
+  const switchToStreetView = useCallback(() => {
+    setViewMode('street');
+    const followedVehicle = vehicles.find((v) => (v.vehicleId || v.id) === followedVehicleId);
+    if (followedVehicle?.latitude && followedVehicle?.longitude && mapRef.current) {
+      mapRef.current.flyTo([followedVehicle.latitude, followedVehicle.longitude], 18, { 
+        animate: true, 
+        duration: 1,
+        easeLinearity: 0.25 
+      });
     }
   }, [vehicles, followedVehicleId]);
 
@@ -1167,9 +1194,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       {/* Vehicle tracking panel - positioned next to other panels */}
       {followedVehicle && (
         <ResizableDraggablePanel
-          initialPosition={{ x: showRoutePanel && showLiveVehiclesPanel ? 700 : showRoutePanel || showLiveVehiclesPanel ? 410 : 16, y: 60 }}
-          initialSize={{ width: 300, height: 200 }}
-          minSize={{ width: 250, height: 150 }}
+          initialPosition={{ x: showRoutePanel ? 410 : 16, y: 60 }}
+          initialSize={{ width: 300, height: 220 }}
+          minSize={{ width: 250, height: 180 }}
           maxSize={{ width: 450, height: 400 }}
           className="rounded-lg overflow-hidden border border-border bg-card/95 backdrop-blur-sm"
           zIndex={1001}
@@ -1189,14 +1216,40 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 text-white hover:bg-white/20"
-                onClick={() => setFollowedVehicleId(null)}
+                onClick={() => {
+                  setFollowedVehicleId(null);
+                  setViewMode('street');
+                  setShowLiveVehiclesPanel(true);
+                }}
               >
                 <X className="h-3 w-3" />
               </Button>
             </div>
             
+            {/* View mode toggle */}
+            <div className="flex items-center gap-1 p-2 border-b border-border bg-muted/30">
+              <Button
+                variant={viewMode === 'street' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-6 text-[10px] px-2 gap-1 flex-1"
+                onClick={switchToStreetView}
+              >
+                <Focus className="h-3 w-3" />
+                Street View
+              </Button>
+              <Button
+                variant={viewMode === 'overview' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-6 text-[10px] px-2 gap-1 flex-1"
+                onClick={switchToOverview}
+              >
+                <Maximize2 className="h-3 w-3" />
+                Overview
+              </Button>
+            </div>
+            
             {/* Content */}
-            <div className="p-2 space-y-2 overflow-y-auto h-[calc(100%-36px)]">
+            <div className="p-2 space-y-2 overflow-y-auto h-[calc(100%-72px)]">
               {/* Vehicle info */}
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-muted-foreground">Ταχύτητα:</span>
