@@ -13,6 +13,7 @@ import { OperatorSelector } from "@/components/OperatorSelector";
 import { RouteSelector } from "@/components/RouteSelector";
 import { TripPlanner } from "@/components/TripPlanner";
 import type { RouteInfo, StaticStop } from "@/types/gtfs";
+import type { FavoriteRoute } from "@/hooks/useFavoriteRoutes";
 import motionLogo from "@/assets/motion-logo.svg";
 import designerPhoto from "@/assets/designer-photo.jpeg";
 
@@ -36,6 +37,8 @@ interface HeaderProps {
   stops?: StaticStop[];
   stopsLoading?: boolean;
   onTripSearch?: (origin: StaticStop | null, destination: StaticStop | null, departureTime: string) => void;
+  favorites?: FavoriteRoute[];
+  onRemoveFavorite?: (id: string) => void;
 }
 
 export function Header({
@@ -58,6 +61,8 @@ export function Header({
   stops = [],
   stopsLoading,
   onTripSearch,
+  favorites = [],
+  onRemoveFavorite,
 }: HeaderProps) {
   const formatLastUpdate = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -160,6 +165,8 @@ export function Header({
             stops={stops}
             isLoading={stopsLoading}
             onSearch={onTripSearch}
+            favorites={favorites}
+            onRemoveFavorite={onRemoveFavorite}
           />
         </div>
       </div>

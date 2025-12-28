@@ -1,4 +1,4 @@
-import { X, Bus, Clock, MapPin, ArrowRight, Loader2, ChevronRight } from "lucide-react";
+import { X, Bus, Clock, MapPin, ArrowRight, Loader2, ChevronRight, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { TripPlanResult } from "@/hooks/useTripPlan";
@@ -12,6 +12,8 @@ interface TripPlanResultsProps {
   isLoading: boolean;
   error: Error | null;
   onClose: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
 export function TripPlanResults({
@@ -22,6 +24,8 @@ export function TripPlanResults({
   isLoading,
   error,
   onClose,
+  isFavorite,
+  onToggleFavorite,
 }: TripPlanResultsProps) {
   if (!origin || !destination) return null;
 
@@ -32,9 +36,22 @@ export function TripPlanResults({
         <div className="p-4 border-b border-border bg-muted/50 flex-shrink-0">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold">Αποτελέσματα Αναζήτησης</h2>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={onToggleFavorite}
+                title={isFavorite ? "Αφαίρεση από αγαπημένα" : "Προσθήκη στα αγαπημένα"}
+              >
+                <Star className={cn(
+                  "h-5 w-5",
+                  isFavorite ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground"
+                )} />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={onClose}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
           
           <div className="flex items-center flex-wrap gap-3 text-sm">
