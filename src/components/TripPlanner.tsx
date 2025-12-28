@@ -198,32 +198,34 @@ export function TripPlanner({ stops, isLoading, onSearch, favorites = [], onRemo
   };
 
   return (
-    <div className="bg-card/80 backdrop-blur-sm rounded-lg border border-border p-3">
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2">
-        {/* Origin */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1 mb-1">
-            <span className="text-xs text-muted-foreground">Αφετηρία</span>
-            <button
-              onClick={handleUseMyLocation}
-              disabled={isLocating}
-              className="text-xs text-primary hover:underline flex items-center gap-1 ml-2"
-            >
-              <Navigation className="h-3 w-3" />
-              {isLocating ? "Εντοπισμός..." : "Χρήση τοποθεσίας μου"}
-            </button>
-          </div>
-          <Popover open={originOpen} onOpenChange={setOriginOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={originOpen}
-                className="w-full justify-start h-9 text-left font-normal bg-background"
+    <div className="bg-card/80 backdrop-blur-sm rounded-lg border border-border p-2 sm:p-3">
+      <div className="flex flex-col gap-2">
+        {/* Row 1: Origin and Destination */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2">
+          {/* Origin */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1 mb-1">
+              <span className="text-xs text-muted-foreground">Αφετηρία</span>
+              <button
+                onClick={handleUseMyLocation}
+                disabled={isLocating}
+                className="text-xs text-primary hover:underline flex items-center gap-1 ml-auto sm:ml-2"
               >
-                <MapPin className="h-4 w-4 mr-2 flex-shrink-0 text-primary" />
-                <span className="truncate">
-                  {originPOI ? `${getCategoryIcon(originPOI.category)} ${originPOI.name}` : origin ? origin.stop_name : "Επιλέξτε αφετηρία..."}
+                <Navigation className="h-3 w-3" />
+                <span className="hidden xs:inline">{isLocating ? "Εντοπισμός..." : "Τοποθεσία μου"}</span>
+              </button>
+            </div>
+            <Popover open={originOpen} onOpenChange={setOriginOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={originOpen}
+                  className="w-full justify-start h-10 sm:h-9 text-left font-normal bg-background"
+                >
+                  <MapPin className="h-4 w-4 mr-2 flex-shrink-0 text-primary" />
+                  <span className="truncate text-sm">
+                    {originPOI ? `${getCategoryIcon(originPOI.category)} ${originPOI.name}` : origin ? origin.stop_name : "Επιλέξτε αφετηρία..."}
                 </span>
               </Button>
             </PopoverTrigger>
@@ -409,118 +411,122 @@ export function TripPlanner({ stops, isLoading, onSearch, favorites = [], onRemo
             </PopoverContent>
           </Popover>
         </div>
-
-        {/* Date Picker */}
-        <div className="w-[120px] flex-shrink-0">
-          <div className="flex items-center gap-1 mb-1">
-            <span className="text-xs text-muted-foreground">Ημερομηνία</span>
-          </div>
-          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="w-full h-9 justify-start text-left font-normal bg-background"
-              >
-                <CalendarIcon className="h-3 w-3 mr-1 text-muted-foreground" />
-                <span className="text-sm">
-                  {isToday ? "Σήμερα" : format(departureDate, "dd/MM", { locale: el })}
-                </span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 z-[100]" align="start">
-              <Calendar
-                mode="single"
-                selected={departureDate}
-                onSelect={(date) => {
-                  if (date) {
-                    setDepartureDate(date);
-                    setDatePickerOpen(false);
-                  }
-                }}
-                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-              />
-            </PopoverContent>
-          </Popover>
         </div>
 
-        {/* Time Picker */}
-        <div className="w-[100px] flex-shrink-0">
-          <div className="flex items-center gap-1 mb-1">
-            <span className="text-xs text-muted-foreground">Ώρα</span>
-          </div>
-          <Select value={departureTime} onValueChange={setDepartureTime}>
-            <SelectTrigger className="h-9 bg-background">
-              <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="max-h-[300px] z-[100]">
-              {TIME_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Favorites Dropdown */}
-        {favorites.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="h-9 flex-shrink-0 gap-1">
-                <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[280px] z-[100]">
-              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                Αγαπημένες Διαδρομές
-              </div>
-              <DropdownMenuSeparator />
-              {favorites.map((fav) => (
-                <DropdownMenuItem
-                  key={fav.id}
-                  className="flex items-center justify-between cursor-pointer"
-                  onClick={() => handleSelectFavorite(fav)}
+        {/* Row 2: Date, Time, Favorites, Search */}
+        <div className="flex flex-wrap items-end gap-2">
+          {/* Date Picker */}
+          <div className="w-[calc(50%-4px)] sm:w-[120px] flex-shrink-0">
+            <div className="flex items-center gap-1 mb-1">
+              <span className="text-xs text-muted-foreground">Ημερομηνία</span>
+            </div>
+            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full h-10 sm:h-9 justify-start text-left font-normal bg-background"
                 >
-                  <div className="flex-1 min-w-0 mr-2">
-                    <div className="flex items-center gap-1 text-xs">
-                      <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
-                      <span className="truncate">{fav.origin.stop_name}</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs">
-                      <MapPin className="h-3 w-3 text-destructive flex-shrink-0" />
-                      <span className="truncate">{fav.destination.stop_name}</span>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 flex-shrink-0 text-muted-foreground hover:text-destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemoveFavorite?.(fav.id);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+                  <CalendarIcon className="h-3 w-3 mr-1 text-muted-foreground" />
+                  <span className="text-sm">
+                    {isToday ? "Σήμερα" : format(departureDate, "dd/MM", { locale: el })}
+                  </span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 z-[100]" align="start">
+                <Calendar
+                  mode="single"
+                  selected={departureDate}
+                  onSelect={(date) => {
+                    if (date) {
+                      setDepartureDate(date);
+                      setDatePickerOpen(false);
+                    }
+                  }}
+                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
 
-        {/* Search Button */}
-        <Button 
-          className="h-9 px-6 flex-shrink-0"
-          onClick={handleSearch}
-          disabled={!origin || !destination}
-        >
-          <Search className="h-4 w-4 mr-2" />
-          Αναζήτηση
-        </Button>
+          {/* Time Picker */}
+          <div className="w-[calc(50%-4px)] sm:w-[100px] flex-shrink-0">
+            <div className="flex items-center gap-1 mb-1">
+              <span className="text-xs text-muted-foreground">Ώρα</span>
+            </div>
+            <Select value={departureTime} onValueChange={setDepartureTime}>
+              <SelectTrigger className="h-10 sm:h-9 bg-background">
+                <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px] z-[100]">
+                {TIME_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Favorites Dropdown */}
+          {favorites.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-10 sm:h-9 flex-shrink-0 gap-1">
+                  <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[280px] z-[100]">
+                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                  Αγαπημένες Διαδρομές
+                </div>
+                <DropdownMenuSeparator />
+                {favorites.map((fav) => (
+                  <DropdownMenuItem
+                    key={fav.id}
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={() => handleSelectFavorite(fav)}
+                  >
+                    <div className="flex-1 min-w-0 mr-2">
+                      <div className="flex items-center gap-1 text-xs">
+                        <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
+                        <span className="truncate">{fav.origin.stop_name}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs">
+                        <MapPin className="h-3 w-3 text-destructive flex-shrink-0" />
+                        <span className="truncate">{fav.destination.stop_name}</span>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 flex-shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveFavorite?.(fav.id);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {/* Search Button */}
+          <Button 
+            className="h-10 sm:h-9 px-4 sm:px-6 flex-1 sm:flex-none"
+            onClick={handleSearch}
+            disabled={!origin || !destination}
+          >
+            <Search className="h-4 w-4 mr-2" />
+            <span className="sm:inline">Αναζήτηση</span>
+          </Button>
+        </div>
       </div>
     </div>
   );
