@@ -102,6 +102,7 @@ export function useRouteShape(routeId: string | null, operatorId?: string) {
 
 export interface ScheduleEntry {
   trip_id: string;
+  service_id: string;
   direction_id?: number;
   trip_headsign?: string;
   departure_time: string;
@@ -113,11 +114,25 @@ export interface ScheduleEntry {
   stop_count: number;
 }
 
+export interface CalendarEntry {
+  service_id: string;
+  monday: boolean;
+  tuesday: boolean;
+  wednesday: boolean;
+  thursday: boolean;
+  friday: boolean;
+  saturday: boolean;
+  sunday: boolean;
+  start_date: string;
+  end_date: string;
+}
+
 export interface RouteScheduleData {
   route_id: string;
   schedule: ScheduleEntry[];
   by_direction: Record<number, ScheduleEntry[]>;
   total_trips: number;
+  calendar: CalendarEntry[];
 }
 
 export function useRouteSchedule(routeId: string | null, operatorId?: string) {
