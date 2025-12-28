@@ -85,11 +85,11 @@ export function Header({
             <div>
               <h1 className="text-base font-bold tracking-tight leading-none">GTFS Realtime</h1>
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-muted-foreground">Live Tracking by</span>
+                <span className="text-[10px] text-muted-foreground">Live Tracking designed by</span>
                 <img 
                   src={designerPhoto} 
                   alt="Designer" 
-                  className="h-4 w-4 rounded-full object-cover ring-1 ring-border"
+                  className="h-5 w-5 rounded-full object-cover ring-1 ring-border"
                 />
               </div>
             </div>
