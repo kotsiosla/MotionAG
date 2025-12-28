@@ -36,7 +36,7 @@ interface HeaderProps {
   liveRoutesCount?: number;
   stops?: StaticStop[];
   stopsLoading?: boolean;
-  onTripSearch?: (origin: StaticStop | null, destination: StaticStop | null, departureTime: string) => void;
+  onTripSearch?: (origin: StaticStop | null, destination: StaticStop | null, departureTime: string, departureDate: Date) => void;
   favorites?: FavoriteRoute[];
   onRemoveFavorite?: (id: string) => void;
 }

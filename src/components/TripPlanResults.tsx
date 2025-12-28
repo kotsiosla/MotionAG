@@ -1,4 +1,6 @@
-import { X, Bus, Clock, MapPin, ArrowRight, Loader2, ChevronRight, Star } from "lucide-react";
+import { X, Bus, Clock, MapPin, ArrowRight, Loader2, ChevronRight, Star, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { el } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { TripPlanResult } from "@/hooks/useTripPlan";
@@ -8,6 +10,7 @@ interface TripPlanResultsProps {
   origin: StaticStop | null;
   destination: StaticStop | null;
   departureTime?: string;
+  departureDate?: Date;
   results: TripPlanResult[];
   isLoading: boolean;
   error: Error | null;
@@ -20,6 +23,7 @@ export function TripPlanResults({
   origin,
   destination,
   departureTime,
+  departureDate,
   results,
   isLoading,
   error,
@@ -28,6 +32,8 @@ export function TripPlanResults({
   onToggleFavorite,
 }: TripPlanResultsProps) {
   if (!origin || !destination) return null;
+
+  const isToday = departureDate ? departureDate.toDateString() === new Date().toDateString() : true;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -64,9 +70,15 @@ export function TripPlanResults({
               <MapPin className="h-4 w-4 text-destructive" />
               <span className="font-medium truncate max-w-[180px]">{destination.stop_name}</span>
             </div>
-            <div className="flex items-center gap-1 ml-auto bg-secondary/50 px-2 py-1 rounded text-xs">
-              <Clock className="h-3 w-3" />
-              <span>Αναχώρηση: {departureTime === 'now' ? 'Τώρα' : departureTime}</span>
+            <div className="flex items-center gap-2 ml-auto">
+              <div className="flex items-center gap-1 bg-secondary/50 px-2 py-1 rounded text-xs">
+                <CalendarIcon className="h-3 w-3" />
+                <span>{isToday ? "Σήμερα" : format(departureDate || new Date(), "dd/MM", { locale: el })}</span>
+              </div>
+              <div className="flex items-center gap-1 bg-secondary/50 px-2 py-1 rounded text-xs">
+                <Clock className="h-3 w-3" />
+                <span>{departureTime === 'now' ? 'Τώρα' : departureTime}</span>
+              </div>
             </div>
           </div>
         </div>

@@ -72,10 +72,11 @@ export function useTripPlan(
   originStopId: string | null,
   destinationStopId: string | null,
   operatorId?: string,
-  departureTime?: string // 'now' or 'HH:MM' format
+  departureTime?: string, // 'now' or 'HH:MM' format
+  departureDate?: Date
 ) {
   return useQuery({
-    queryKey: ['trip-plan', originStopId, destinationStopId, operatorId, departureTime],
+    queryKey: ['trip-plan', originStopId, destinationStopId, operatorId, departureTime, departureDate?.toDateString()],
     queryFn: async (): Promise<TripPlanResult[]> => {
       if (!originStopId || !destinationStopId) return [];
 
@@ -164,10 +165,18 @@ export function useTripPlan(
           });
 
         // Get filter time - either 'now' or specific time
+        // Only filter by current time if it's today
+        const today = new Date();
+        const isToday = departureDate ? departureDate.toDateString() === today.toDateString() : true;
+        
         let filterTimeStr: string;
         if (!departureTime || departureTime === 'now') {
-          const now = new Date();
-          filterTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:00`;
+          if (isToday) {
+            filterTimeStr = `${today.getHours().toString().padStart(2, '0')}:${today.getMinutes().toString().padStart(2, '0')}:00`;
+          } else {
+            // For future dates, show from start of day
+            filterTimeStr = '00:00:00';
+          }
         } else {
           filterTimeStr = `${departureTime}:00`;
         }
