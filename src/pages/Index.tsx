@@ -12,6 +12,7 @@ import { TripPlanResults } from "@/components/TripPlanResults";
 import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } from "@/hooks/useGtfsData";
 import { useTripPlan } from "@/hooks/useTripPlan";
 import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
+import { useDelayNotifications } from "@/hooks/useDelayNotifications";
 import type { RouteInfo, StaticStop } from "@/types/gtfs";
 import { toast } from "sonner";
 
@@ -56,6 +57,13 @@ const Index = () => {
     });
     return routeMap;
   }, [staticRoutesQuery.data]);
+  
+  // Delay notifications - monitors trips for delays and shows browser notifications
+  useDelayNotifications(
+    tripsQuery.data?.data || [],
+    routeNamesMap,
+    true // enabled
+  );
 
   // Get routes with active vehicles/trips
   const liveRoutes = useMemo(() => {
