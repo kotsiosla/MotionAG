@@ -776,8 +776,15 @@ interface CalendarEntry {
   end_date: string;
 }
 
+interface CalendarDateEntry {
+  service_id: string;
+  date: string;
+  exception_type: number; // 1 = added, 2 = removed
+}
+
 // Cache for calendar data
 const calendarCache = new Map<string, { data: CalendarEntry[]; timestamp: number }>();
+const calendarDatesCache = new Map<string, { data: CalendarDateEntry[]; timestamp: number }>();
 
 async function unzipAndParseRoutes(zipData: Uint8Array): Promise<RouteInfo[]> {
   // Parse ZIP file manually (simplified approach for GTFS files)
@@ -1271,24 +1278,17 @@ async function fetchStaticShapes(operatorId?: string): Promise<ShapePoint[]> {
   return allShapes;
 }
 
-async function fetchStaticStopTimes(operatorId?: string): Promise<StopTimeInfo[]> {
+// Fetch stop times filtered by trip IDs to avoid memory issues with large files
+async function fetchStaticStopTimesForTrips(operatorId: string | undefined, tripIds: Set<string>): Promise<StopTimeInfo[]> {
   const operators = operatorId && operatorId !== 'all' ? [operatorId] : Object.keys(GTFS_STATIC_URLS);
   const allStopTimes: StopTimeInfo[] = [];
   
   for (const opId of operators) {
-    const cacheKey = `stop_times_${opId}`;
-    const cached = stopTimesCache.get(cacheKey);
-    
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      allStopTimes.push(...cached.data);
-      continue;
-    }
-    
     const url = GTFS_STATIC_URLS[opId];
     if (!url) continue;
     
     try {
-      console.log(`Fetching static GTFS stop_times for operator ${opId}`);
+      console.log(`Fetching static GTFS stop_times for operator ${opId} (filtering ${tripIds.size} trips)`);
       const response = await fetch(url);
       
       if (!response.ok) {
@@ -1306,7 +1306,6 @@ async function fetchStaticStopTimes(operatorId?: string): Promise<StopTimeInfo[]
       }
       
       const lines = fileContent.split('\n');
-      const stopTimes: StopTimeInfo[] = [];
       
       if (lines.length > 0) {
         const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
@@ -1316,37 +1315,117 @@ async function fetchStaticStopTimes(operatorId?: string): Promise<StopTimeInfo[]
         const arrivalIdx = header.indexOf('arrival_time');
         const departureIdx = header.indexOf('departure_time');
         
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
+        // Parse in batches to avoid stack overflow
+        const BATCH_SIZE = 50000;
+        for (let start = 1; start < lines.length; start += BATCH_SIZE) {
+          const end = Math.min(start + BATCH_SIZE, lines.length);
           
-          const values = parseCSVLine(line);
-          
-          if (tripIdIdx >= 0 && stopIdIdx >= 0 && seqIdx >= 0) {
-            const seq = parseInt(values[seqIdx]);
+          for (let i = start; i < end; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
             
-            if (!isNaN(seq)) {
-              stopTimes.push({
-                trip_id: values[tripIdIdx],
-                stop_id: values[stopIdIdx],
-                stop_sequence: seq,
-                arrival_time: arrivalIdx >= 0 ? values[arrivalIdx] || undefined : undefined,
-                departure_time: departureIdx >= 0 ? values[departureIdx] || undefined : undefined,
-              });
+            const values = parseCSVLine(line);
+            
+            if (tripIdIdx >= 0 && stopIdIdx >= 0 && seqIdx >= 0) {
+              const tripId = values[tripIdIdx];
+              
+              // Only include stop times for the trips we care about
+              if (!tripIds.has(tripId)) continue;
+              
+              const seq = parseInt(values[seqIdx]);
+              
+              if (!isNaN(seq)) {
+                allStopTimes.push({
+                  trip_id: tripId,
+                  stop_id: values[stopIdIdx],
+                  stop_sequence: seq,
+                  arrival_time: arrivalIdx >= 0 ? values[arrivalIdx] || undefined : undefined,
+                  departure_time: departureIdx >= 0 ? values[departureIdx] || undefined : undefined,
+                });
+              }
             }
           }
         }
       }
       
-      console.log(`Parsed ${stopTimes.length} stop_times for operator ${opId}`);
-      stopTimesCache.set(cacheKey, { data: stopTimes, timestamp: Date.now() });
-      allStopTimes.push(...stopTimes);
+      console.log(`Parsed ${allStopTimes.length} stop_times for ${tripIds.size} trips (operator ${opId})`);
     } catch (error) {
       console.error(`Error fetching static GTFS stop_times for operator ${opId}:`, error);
     }
   }
   
   return allStopTimes;
+}
+
+// Fetch calendar_dates.txt as fallback when calendar.txt doesn't exist
+async function fetchStaticCalendarDates(operatorId?: string): Promise<CalendarDateEntry[]> {
+  const operators = operatorId && operatorId !== 'all' ? [operatorId] : Object.keys(GTFS_STATIC_URLS);
+  const allCalendarDates: CalendarDateEntry[] = [];
+  
+  for (const opId of operators) {
+    const cacheKey = `calendar_dates_${opId}`;
+    const cached = calendarDatesCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      allCalendarDates.push(...cached.data);
+      continue;
+    }
+    
+    const url = GTFS_STATIC_URLS[opId];
+    if (!url) continue;
+    
+    try {
+      console.log(`Fetching static GTFS calendar_dates for operator ${opId}`);
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        console.error(`Failed to fetch GTFS for operator ${opId}: ${response.status}`);
+        continue;
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const zipData = new Uint8Array(arrayBuffer);
+      
+      const fileContent = await unzipAndParseFile(zipData, 'calendar_dates.txt');
+      if (!fileContent) {
+        console.log(`No calendar_dates.txt found for operator ${opId}`);
+        continue;
+      }
+      
+      const lines = fileContent.split('\n');
+      const calendarDates: CalendarDateEntry[] = [];
+      
+      if (lines.length > 0) {
+        const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        const serviceIdIdx = header.indexOf('service_id');
+        const dateIdx = header.indexOf('date');
+        const exceptionTypeIdx = header.indexOf('exception_type');
+        
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          const values = parseCSVLine(line);
+          
+          if (serviceIdIdx >= 0 && dateIdx >= 0) {
+            calendarDates.push({
+              service_id: values[serviceIdIdx],
+              date: values[dateIdx],
+              exception_type: exceptionTypeIdx >= 0 ? parseInt(values[exceptionTypeIdx]) || 1 : 1,
+            });
+          }
+        }
+      }
+      
+      console.log(`Parsed ${calendarDates.length} calendar_dates entries for operator ${opId}`);
+      calendarDatesCache.set(cacheKey, { data: calendarDates, timestamp: Date.now() });
+      allCalendarDates.push(...calendarDates);
+    } catch (error) {
+      console.error(`Error fetching static GTFS calendar_dates for operator ${opId}:`, error);
+    }
+  }
+  
+  return allCalendarDates;
 }
 
 async function fetchStaticTrips(operatorId?: string): Promise<TripStaticInfo[]> {
@@ -1577,19 +1656,19 @@ serve(async (req) => {
       );
     }
     
-    // Handle stop_times endpoint
+    // Handle stop_times endpoint - DEPRECATED due to memory issues, returns empty
     if (path === '/stop-times') {
-      const stopTimes = await fetchStaticStopTimes(operatorId);
+      console.log('stop-times endpoint is deprecated due to large file sizes');
       return new Response(
         JSON.stringify({
-          data: stopTimes,
+          data: [],
           timestamp: Date.now(),
+          error: 'This endpoint is deprecated. Use /schedule with a route parameter instead.',
         }),
         { 
           headers: { 
             ...corsHeaders, 
             'Content-Type': 'application/json',
-            'Cache-Control': 'public, max-age=3600',
           } 
         }
       );
@@ -1617,29 +1696,29 @@ serve(async (req) => {
     if (path === '/schedule' && routeId) {
       console.log(`Schedule request for route: ${routeId}, operator: ${operatorId}`);
       
-      const [tripsStatic, stopTimes, stops] = await Promise.all([
+      // First, load trips and stops (not stop_times yet - it's too large)
+      const [tripsStatic, stops] = await Promise.all([
         fetchStaticTrips(operatorId),
-        fetchStaticStopTimes(operatorId),
         fetchStaticStops(operatorId),
       ]);
       
-      console.log(`Loaded ${tripsStatic.length} static trips, ${stopTimes.length} stop times, ${stops.length} stops`);
+      console.log(`Loaded ${tripsStatic.length} static trips, ${stops.length} stops`);
       
       // Get unique route IDs from trips for debugging
-      const uniqueRouteIds = [...new Set(tripsStatic.map(t => t.route_id))].slice(0, 20);
+      const uniqueRouteIds = [...new Set(tripsStatic.map((t: TripStaticInfo) => t.route_id))].slice(0, 20);
       console.log(`Sample route IDs from trips: ${uniqueRouteIds.join(', ')}`);
       
       // Find trips for this route
       // Route IDs in realtime have format like "8040012" (8 + operatorId + staticRouteId)
       // We need to try multiple matching strategies
-      let routeTrips = tripsStatic.filter(t => t.route_id === routeId);
+      let routeTrips: TripStaticInfo[] = tripsStatic.filter((t: TripStaticInfo) => t.route_id === routeId);
       let matchedRouteId = routeId;
       
       // Strategy 1: If route ID starts with 8, extract the static route ID (last 4 digits typically)
       if (routeTrips.length === 0 && routeId.startsWith('8') && routeId.length >= 4) {
         // Try extracting just the last 4 characters (e.g., "0012" from "8040012")
         const last4 = routeId.slice(-4);
-        routeTrips = tripsStatic.filter(t => t.route_id === last4);
+        routeTrips = tripsStatic.filter((t: TripStaticInfo) => t.route_id === last4);
         if (routeTrips.length > 0) {
           matchedRouteId = last4;
           console.log(`Matched using last 4 chars: ${last4}, found ${routeTrips.length} trips`);
@@ -1649,7 +1728,7 @@ serve(async (req) => {
       // Strategy 2: Try removing the "8XX" prefix (operator encoding)  
       if (routeTrips.length === 0 && routeId.length > 3) {
         const shortRouteId = routeId.substring(3);
-        routeTrips = tripsStatic.filter(t => t.route_id === shortRouteId);
+        routeTrips = tripsStatic.filter((t: TripStaticInfo) => t.route_id === shortRouteId);
         if (routeTrips.length > 0) {
           matchedRouteId = shortRouteId;
           console.log(`Matched using substring(3): ${shortRouteId}, found ${routeTrips.length} trips`);
@@ -1659,7 +1738,7 @@ serve(async (req) => {
       // Strategy 3: Try finding any route ID that ends with the same digits
       if (routeTrips.length === 0) {
         const suffix = routeId.slice(-4);
-        routeTrips = tripsStatic.filter(t => t.route_id.endsWith(suffix) || t.route_id === suffix);
+        routeTrips = tripsStatic.filter((t: TripStaticInfo) => t.route_id.endsWith(suffix) || t.route_id === suffix);
         if (routeTrips.length > 0) {
           matchedRouteId = routeTrips[0].route_id;
           console.log(`Matched using suffix ${suffix}: found ${routeTrips.length} trips with route_id ${matchedRouteId}`);
@@ -1686,8 +1765,18 @@ serve(async (req) => {
       const now = new Date();
       const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
       
-      // Fetch calendar data
-      const calendar = await fetchStaticCalendar(operatorId);
+      // Fetch calendar data and also calendar_dates as fallback
+      const [calendar, calendarDates] = await Promise.all([
+        fetchStaticCalendar(operatorId),
+        fetchStaticCalendarDates(operatorId),
+      ]);
+      
+      // Build a Set of trip IDs for this route
+      const routeTripIds = new Set(routeTrips.map((t: TripStaticInfo) => t.trip_id));
+      
+      // Now fetch stop times only for these trips (filtered loading)
+      const stopTimes = await fetchStaticStopTimesForTrips(operatorId, routeTripIds);
+      console.log(`Loaded ${stopTimes.length} stop_times for ${routeTripIds.size} trips`);
       
       // Build schedule entries for each trip
       const scheduleEntries: Array<{
@@ -1707,8 +1796,8 @@ serve(async (req) => {
       for (const trip of routeTrips) {
         // Get stop times for this trip
         const tripStopTimes = stopTimes
-          .filter(st => st.trip_id === trip.trip_id)
-          .sort((a, b) => a.stop_sequence - b.stop_sequence);
+          .filter((st: StopTimeInfo) => st.trip_id === trip.trip_id)
+          .sort((a: StopTimeInfo, b: StopTimeInfo) => a.stop_sequence - b.stop_sequence);
         
         if (tripStopTimes.length === 0) continue;
         
@@ -1732,8 +1821,8 @@ serve(async (req) => {
         const departureMinutes = hours * 60 + minutes;
         
         // Get stop names
-        const firstStop = stops.find(s => s.stop_id === firstStopTime.stop_id);
-        const lastStop = stops.find(s => s.stop_id === lastStopTime.stop_id);
+        const firstStop = stops.find((s: StopInfo) => s.stop_id === firstStopTime.stop_id);
+        const lastStop = stops.find((s: StopInfo) => s.stop_id === lastStopTime.stop_id);
         
         scheduleEntries.push({
           trip_id: trip.trip_id,
@@ -1771,6 +1860,7 @@ serve(async (req) => {
             by_direction: byDirection,
             total_trips: scheduleEntries.length,
             calendar: calendar,
+            calendar_dates: calendarDates,
           },
           timestamp: Date.now(),
         }),
@@ -1786,15 +1876,14 @@ serve(async (req) => {
     
     // Handle route-shape endpoint - returns shape and stop sequence for a specific route
     if (path === '/route-shape' && routeId) {
-      const [tripsStatic, shapes, stopTimes, stops] = await Promise.all([
+      const [tripsStatic, shapes, stops] = await Promise.all([
         fetchStaticTrips(operatorId),
         fetchStaticShapes(operatorId),
-        fetchStaticStopTimes(operatorId),
         fetchStaticStops(operatorId),
       ]);
       
       // Find trips for this route
-      const routeTrips = tripsStatic.filter(t => t.route_id === routeId);
+      const routeTrips: TripStaticInfo[] = tripsStatic.filter((t: TripStaticInfo) => t.route_id === routeId);
       if (routeTrips.length === 0) {
         return new Response(
           JSON.stringify({ data: null, error: 'Route not found' }),
@@ -1804,13 +1893,17 @@ serve(async (req) => {
       
       // Group trips by direction
       const tripsByDirection: Map<number, TripStaticInfo[]> = new Map();
-      routeTrips.forEach(trip => {
+      routeTrips.forEach((trip: TripStaticInfo) => {
         const dir = trip.direction_id ?? 0;
         if (!tripsByDirection.has(dir)) {
           tripsByDirection.set(dir, []);
         }
         tripsByDirection.get(dir)!.push(trip);
       });
+      
+      // Collect all trip IDs for stop times fetching
+      const allRouteTripIds = new Set(routeTrips.map((t: TripStaticInfo) => t.trip_id));
+      const stopTimes = await fetchStaticStopTimesForTrips(operatorId, allRouteTripIds);
       
       // Build response for each direction
       const directions: Array<{
@@ -1821,24 +1914,24 @@ serve(async (req) => {
       
       for (const [directionId, dirTrips] of tripsByDirection) {
         // Use first trip with shape_id
-        const tripWithShape = dirTrips.find(t => t.shape_id);
+        const tripWithShape = dirTrips.find((t: TripStaticInfo) => t.shape_id);
         
         let shapePoints: Array<{ lat: number; lng: number }> = [];
         if (tripWithShape?.shape_id) {
           shapePoints = shapes
-            .filter(s => s.shape_id === tripWithShape.shape_id)
-            .sort((a, b) => a.shape_pt_sequence - b.shape_pt_sequence)
-            .map(s => ({ lat: s.shape_pt_lat, lng: s.shape_pt_lon }));
+            .filter((s: ShapePoint) => s.shape_id === tripWithShape.shape_id)
+            .sort((a: ShapePoint, b: ShapePoint) => a.shape_pt_sequence - b.shape_pt_sequence)
+            .map((s: ShapePoint) => ({ lat: s.shape_pt_lat, lng: s.shape_pt_lon }));
         }
         
         // Get stop sequence from first trip
         const firstTrip = dirTrips[0];
         const tripStopTimes = stopTimes
-          .filter(st => st.trip_id === firstTrip.trip_id)
-          .sort((a, b) => a.stop_sequence - b.stop_sequence);
+          .filter((st: StopTimeInfo) => st.trip_id === firstTrip.trip_id)
+          .sort((a: StopTimeInfo, b: StopTimeInfo) => a.stop_sequence - b.stop_sequence);
         
-        const stopSequence = tripStopTimes.map(st => {
-          const stopInfo = stops.find(s => s.stop_id === st.stop_id);
+        const stopSequence = tripStopTimes.map((st: StopTimeInfo) => {
+          const stopInfo = stops.find((s: StopInfo) => s.stop_id === st.stop_id);
           return {
             stop_id: st.stop_id,
             stop_name: stopInfo?.stop_name || st.stop_id,

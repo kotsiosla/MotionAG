@@ -127,12 +127,19 @@ export interface CalendarEntry {
   end_date: string;
 }
 
+export interface CalendarDateEntry {
+  service_id: string;
+  date: string;
+  exception_type: number; // 1 = service added, 2 = service removed
+}
+
 export interface RouteScheduleData {
   route_id: string;
   schedule: ScheduleEntry[];
   by_direction: Record<number, ScheduleEntry[]>;
   total_trips: number;
   calendar: CalendarEntry[];
+  calendar_dates: CalendarDateEntry[];
 }
 
 export function useRouteSchedule(routeId: string | null, operatorId?: string) {
