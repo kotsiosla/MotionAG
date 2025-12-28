@@ -339,3 +339,19 @@
   border-color: hsl(var(--border));
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
+
+/* Subtle pulse animation for current stop */
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.01);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
