@@ -210,9 +210,9 @@ export function SchedulePanel({
   return (
     <ResizableDraggablePanel
       initialPosition={initialPosition}
-      initialSize={{ width: 380, height: 500 }}
-      minSize={{ width: 320, height: 350 }}
-      maxSize={{ width: 500, height: 700 }}
+      initialSize={{ width: 380, height: 550 }}
+      minSize={{ width: 320, height: 400 }}
+      maxSize={{ width: 500, height: 800 }}
       className="rounded-lg overflow-hidden border border-border bg-card/95 backdrop-blur-sm"
       zIndex={1000}
       title="Πρόγραμμα"
@@ -387,7 +387,7 @@ export function SchedulePanel({
               </span>
             </div>
             
-            <div className="h-full overflow-y-auto p-2 space-y-1.5">
+            <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1.5">
               {isLoadingSchedule ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <Loader2 className="h-6 w-6 mb-2 animate-spin" />
