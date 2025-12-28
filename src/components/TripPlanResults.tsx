@@ -1,10 +1,17 @@
-import { X, Bus, Clock, MapPin, ArrowRight, Loader2, ChevronRight, Star, CalendarIcon } from "lucide-react";
+import { X, Bus, Clock, MapPin, ArrowRight, Loader2, ChevronRight, Star, CalendarIcon, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { TripPlanResult } from "@/hooks/useTripPlan";
 import type { StaticStop } from "@/types/gtfs";
+
+// Generate Google Maps directions URL
+const getGoogleMapsUrl = (origin: StaticStop, destination: StaticStop): string => {
+  const originCoords = `${origin.stop_lat},${origin.stop_lon}`;
+  const destCoords = `${destination.stop_lat},${destination.stop_lon}`;
+  return `https://www.google.com/maps/dir/?api=1&origin=${originCoords}&destination=${destCoords}&travelmode=transit`;
+};
 
 interface TripPlanResultsProps {
   origin: StaticStop | null;
@@ -174,8 +181,16 @@ export function TripPlanResults({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border bg-muted/30 flex-shrink-0">
-          <Button variant="outline" className="w-full" onClick={onClose}>
+        <div className="p-4 border-t border-border bg-muted/30 flex-shrink-0 flex gap-2">
+          <Button 
+            variant="default" 
+            className="flex-1 gap-2"
+            onClick={() => window.open(getGoogleMapsUrl(origin, destination), '_blank')}
+          >
+            <ExternalLink className="h-4 w-4" />
+            Άνοιγμα στο Google Maps
+          </Button>
+          <Button variant="outline" className="flex-1" onClick={onClose}>
             Κλείσιμο
           </Button>
         </div>
