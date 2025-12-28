@@ -61,6 +61,8 @@ interface RoutePlannerPanelProps {
   onLocationSelect?: (type: 'origin' | 'destination', location: Location) => void;
   onRequestMapClick?: (type: 'origin' | 'destination') => void;
   mapClickLocation?: { type: 'origin' | 'destination'; lat: number; lng: number } | null;
+  selectedVehicleTrip?: { vehicleId: string; tripId: string; routeId?: string } | null;
+  onClearVehicleTrip?: () => void;
 }
 
 // Haversine distance calculation
@@ -112,6 +114,8 @@ export function RoutePlannerPanel({
   onLocationSelect,
   onRequestMapClick,
   mapClickLocation,
+  selectedVehicleTrip,
+  onClearVehicleTrip,
 }: RoutePlannerPanelProps) {
   const [origin, setOrigin] = useState<Location | null>(null);
   const [destination, setDestination] = useState<Location | null>(null);
@@ -235,6 +239,45 @@ export function RoutePlannerPanel({
     stops.forEach(stop => map.set(stop.stop_id, stop));
     return map;
   }, [stops]);
+
+  // Get the selected vehicle's trip route information
+  const selectedVehicleTripInfo = useMemo(() => {
+    if (!selectedVehicleTrip) return null;
+    
+    const trip = trips.find(t => t.tripId === selectedVehicleTrip.tripId || t.id === selectedVehicleTrip.tripId);
+    if (!trip) return null;
+
+    const vehicle = vehicles.find(v => v.vehicleId === selectedVehicleTrip.vehicleId);
+    const routeInfo = trip.routeId && routeNamesMap ? routeNamesMap.get(trip.routeId) : null;
+    
+    // Get all stops on this trip
+    const tripStops = trip.stopTimeUpdates?.map((stu, index) => {
+      const stop = stu.stopId ? stopMap.get(stu.stopId) : null;
+      return {
+        stopId: stu.stopId || '',
+        stopName: stop?.stop_name || stu.stopId || `Στάση ${index + 1}`,
+        stopLat: stop?.stop_lat,
+        stopLon: stop?.stop_lon,
+        arrivalTime: stu.arrivalTime,
+        departureTime: stu.departureTime,
+        stopSequence: stu.stopSequence || index,
+        isPassed: vehicle?.currentStopSequence ? (stu.stopSequence || index) < vehicle.currentStopSequence : false,
+        isCurrent: vehicle?.stopId === stu.stopId,
+      };
+    }) || [];
+
+    return {
+      tripId: trip.tripId || trip.id,
+      routeId: trip.routeId,
+      routeShortName: routeInfo?.route_short_name,
+      routeLongName: routeInfo?.route_long_name,
+      routeColor: routeInfo?.route_color,
+      vehicleLabel: vehicle?.label || trip.vehicleLabel,
+      vehicleId: selectedVehicleTrip.vehicleId,
+      stops: tripStops,
+      vehicle,
+    };
+  }, [selectedVehicleTrip, trips, vehicles, routeNamesMap, stopMap]);
 
   // Find nearest stops to a location
   const findNearestStops = useCallback((lat: number, lng: number, maxDistance = 1000, limit = 5): Array<{ stop: StaticStop; distance: number }> => {
@@ -546,7 +589,118 @@ export function RoutePlannerPanel({
         </div>
       )}
 
-      {/* Location inputs */}
+      {/* Selected Vehicle Trip Route Display */}
+      {selectedVehicleTripInfo && (
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {/* Vehicle Route Header */}
+          <div className="p-3 border-b border-border bg-primary/5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div 
+                  className="w-4 h-4 rounded-full flex items-center justify-center"
+                  style={{ background: selectedVehicleTripInfo.routeColor ? `#${selectedVehicleTripInfo.routeColor}` : 'hsl(var(--primary))' }}
+                >
+                  <Bus className="h-2.5 w-2.5 text-white" />
+                </div>
+                <div>
+                  <span className="font-semibold" style={{ color: selectedVehicleTripInfo.routeColor ? `#${selectedVehicleTripInfo.routeColor}` : undefined }}>
+                    {selectedVehicleTripInfo.routeShortName || 'Γραμμή'}
+                  </span>
+                  {selectedVehicleTripInfo.vehicleLabel && (
+                    <span className="text-xs text-muted-foreground ml-2">({selectedVehicleTripInfo.vehicleLabel})</span>
+                  )}
+                </div>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-7 text-xs"
+                onClick={onClearVehicleTrip}
+              >
+                <X className="h-3 w-3 mr-1" />
+                Κλείσιμο
+              </Button>
+            </div>
+            {selectedVehicleTripInfo.routeLongName && (
+              <p className="text-xs text-muted-foreground">{selectedVehicleTripInfo.routeLongName}</p>
+            )}
+          </div>
+
+          {/* Stops List */}
+          <div className="flex-1 overflow-y-auto p-2">
+            <div className="space-y-1">
+              {selectedVehicleTripInfo.stops.map((stop, index) => (
+                <div 
+                  key={`${stop.stopId}-${index}`}
+                  className={`flex items-start gap-3 p-2 rounded-lg transition-colors ${
+                    stop.isCurrent 
+                      ? 'bg-primary/20 border border-primary/30' 
+                      : stop.isPassed 
+                        ? 'opacity-50' 
+                        : 'hover:bg-muted/50'
+                  }`}
+                >
+                  {/* Timeline indicator */}
+                  <div className="flex flex-col items-center pt-1">
+                    <div 
+                      className={`w-3 h-3 rounded-full border-2 ${
+                        stop.isCurrent 
+                          ? 'bg-primary border-primary animate-pulse' 
+                          : stop.isPassed 
+                            ? 'bg-muted-foreground/50 border-muted-foreground/50' 
+                            : 'bg-background border-primary'
+                      }`}
+                      style={{ 
+                        borderColor: !stop.isPassed && !stop.isCurrent && selectedVehicleTripInfo.routeColor 
+                          ? `#${selectedVehicleTripInfo.routeColor}` 
+                          : undefined 
+                      }}
+                    />
+                    {index < selectedVehicleTripInfo.stops.length - 1 && (
+                      <div 
+                        className={`w-0.5 h-6 mt-1 ${stop.isPassed ? 'bg-muted-foreground/30' : 'bg-primary/30'}`}
+                        style={{ 
+                          background: !stop.isPassed && selectedVehicleTripInfo.routeColor 
+                            ? `#${selectedVehicleTripInfo.routeColor}40` 
+                            : undefined 
+                        }}
+                      />
+                    )}
+                  </div>
+
+                  {/* Stop info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-sm truncate ${stop.isCurrent ? 'font-semibold text-primary' : ''}`}>
+                        {stop.stopName}
+                      </span>
+                      {stop.isCurrent && (
+                        <span className="flex-shrink-0 text-[10px] font-medium bg-primary text-primary-foreground px-1.5 py-0.5 rounded">
+                          ΤΩΡΑ
+                        </span>
+                      )}
+                    </div>
+                    {(stop.arrivalTime || stop.departureTime) && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                        <Clock className="h-3 w-3" />
+                        <span>
+                          {stop.arrivalTime && formatTime(stop.arrivalTime)}
+                          {stop.departureTime && stop.departureTime !== stop.arrivalTime && (
+                            <span className="text-muted-foreground/70"> → {formatTime(stop.departureTime)}</span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Location inputs - hidden when showing vehicle trip */}
+      {!selectedVehicleTripInfo && (
       <div className="p-3 space-y-3 border-b border-border">
         {/* Origin input */}
         <div className="relative">
@@ -719,8 +873,10 @@ export function RoutePlannerPanel({
           )}
         </div>
       </div>
+      )}
 
-      {/* Route results */}
+      {/* Route results - hidden when showing vehicle trip */}
+      {!selectedVehicleTripInfo && (
       <div className="flex-1 overflow-y-auto">
         {isCalculating && (
           <div className="flex items-center justify-center p-8">
@@ -868,9 +1024,10 @@ export function RoutePlannerPanel({
           </div>
         )}
       </div>
+      )}
 
-      {/* Footer with calculate button */}
-      {origin && destination && !isCalculating && (
+      {/* Footer with calculate button - hidden when showing vehicle trip */}
+      {!selectedVehicleTripInfo && origin && destination && !isCalculating && (
         <div className="p-3 border-t border-border">
           <Button className="w-full" onClick={calculateRoute} disabled={isCalculating}>
             <Navigation className="h-4 w-4 mr-2" />
