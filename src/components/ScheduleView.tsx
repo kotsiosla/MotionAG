@@ -10,17 +10,15 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useStaticRoutes, useRouteSchedule } from "@/hooks/useGtfsData";
-import type { RouteInfo } from "@/types/gtfs";
+import { OPERATORS, type RouteInfo } from "@/types/gtfs";
 
 interface ScheduleViewProps {
   selectedOperator: string;
   onOperatorChange: (operator: string) => void;
 }
 
-const operators = [
-  { id: 'npt', name: 'NPT - Thessaloniki' },
-  { id: 'oasa', name: 'ΟΑΣΑ - Athens' },
-];
+// Filter out 'all' option for schedule view - user must pick a specific operator
+const scheduleOperators = OPERATORS.filter(op => op.id !== 'all');
 
 export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleViewProps) {
   const [selectedRoute, setSelectedRoute] = useState<string>("");
@@ -135,9 +133,9 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
               <SelectValue placeholder="Επιλέξτε φορέα" />
             </SelectTrigger>
             <SelectContent className="bg-popover z-50">
-              {operators.map(op => (
+              {scheduleOperators.map(op => (
                 <SelectItem key={op.id} value={op.id}>
-                  {op.name}
+                  {op.name} {op.city && `(${op.city})`}
                 </SelectItem>
               ))}
             </SelectContent>
