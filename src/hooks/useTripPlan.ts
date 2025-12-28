@@ -71,10 +71,11 @@ async function fetchRoutes(operatorId?: string): Promise<RouteInfo[]> {
 export function useTripPlan(
   originStopId: string | null,
   destinationStopId: string | null,
-  operatorId?: string
+  operatorId?: string,
+  departureTime?: string // 'now' or 'HH:MM' format
 ) {
   return useQuery({
-    queryKey: ['trip-plan', originStopId, destinationStopId, operatorId],
+    queryKey: ['trip-plan', originStopId, destinationStopId, operatorId, departureTime],
     queryFn: async (): Promise<TripPlanResult[]> => {
       if (!originStopId || !destinationStopId) return [];
 
@@ -162,12 +163,17 @@ export function useTripPlan(
             return timeA.localeCompare(timeB);
           });
 
-        // Get current time to filter upcoming trips
-        const now = new Date();
-        const currentTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:00`;
+        // Get filter time - either 'now' or specific time
+        let filterTimeStr: string;
+        if (!departureTime || departureTime === 'now') {
+          const now = new Date();
+          filterTimeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:00`;
+        } else {
+          filterTimeStr = `${departureTime}:00`;
+        }
 
         const upcomingTrips = sortedTrips
-          .filter(t => (t.originStop.departure_time || '') >= currentTimeStr)
+          .filter(t => (t.originStop.departure_time || '') >= filterTimeStr)
           .slice(0, 5); // Max 5 trips per route
 
         if (upcomingTrips.length > 0) {

@@ -7,6 +7,7 @@ import type { StaticStop } from "@/types/gtfs";
 interface TripPlanResultsProps {
   origin: StaticStop | null;
   destination: StaticStop | null;
+  departureTime?: string;
   results: TripPlanResult[];
   isLoading: boolean;
   error: Error | null;
@@ -16,6 +17,7 @@ interface TripPlanResultsProps {
 export function TripPlanResults({
   origin,
   destination,
+  departureTime,
   results,
   isLoading,
   error,
@@ -35,15 +37,19 @@ export function TripPlanResults({
             </Button>
           </div>
           
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex items-center flex-wrap gap-3 text-sm">
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-primary" />
-              <span className="font-medium truncate max-w-[200px]">{origin.stop_name}</span>
+              <span className="font-medium truncate max-w-[180px]">{origin.stop_name}</span>
             </div>
             <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-destructive" />
-              <span className="font-medium truncate max-w-[200px]">{destination.stop_name}</span>
+              <span className="font-medium truncate max-w-[180px]">{destination.stop_name}</span>
+            </div>
+            <div className="flex items-center gap-1 ml-auto bg-secondary/50 px-2 py-1 rounded text-xs">
+              <Clock className="h-3 w-3" />
+              <span>Αναχώρηση: {departureTime === 'now' ? 'Τώρα' : departureTime}</span>
             </div>
           </div>
         </div>
