@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { X, MapPin, Navigation, Clock, Footprints, Bus, ChevronDown, ChevronUp, Search, Loader2, LocateFixed, ArrowRight, MousePointer2, Target } from "lucide-react";
+import { X, MapPin, Navigation, Clock, Footprints, Bus, ChevronDown, ChevronUp, Search, Loader2, LocateFixed, ArrowRight, MousePointer2, Target, Bell, BellOff, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { StaticStop, Trip, Vehicle, RouteInfo } from "@/types/gtfs";
@@ -140,6 +140,10 @@ export function RoutePlannerPanel({
   const stopsListRef = useRef<HTMLDivElement>(null);
   const currentStopRef = useRef<HTMLButtonElement>(null);
   const [lastCurrentStopId, setLastCurrentStopId] = useState<string | null>(null);
+  const [watchedStopId, setWatchedStopId] = useState<string | null>(null);
+  const [notifiedStops, setNotifiedStops] = useState<Set<string>>(new Set());
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const NOTIFICATION_DISTANCE = 500; // meters
 
   // Handle map click location
   useEffect(() => {
@@ -351,6 +355,71 @@ export function RoutePlannerPanel({
       }
     }
   }, [selectedVehicleTripInfo, lastCurrentStopId]);
+
+  // Play notification sound when bus approaches watched stop
+  const playNotificationSound = useCallback(() => {
+    try {
+      // Create a simple beep sound using Web Audio API
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Create oscillator for notification sound
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Configure sound - pleasant notification tone
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+      
+      // Cleanup
+      setTimeout(() => {
+        audioContext.close();
+      }, 1000);
+    } catch (error) {
+      console.error('Error playing notification sound:', error);
+    }
+  }, []);
+
+  // Check if bus is approaching watched stop
+  useEffect(() => {
+    if (!watchedStopId || !selectedVehicleTripInfo) return;
+    
+    const watchedStop = selectedVehicleTripInfo.stops.find(s => s.stopId === watchedStopId);
+    if (!watchedStop || watchedStop.isPassed) {
+      // Stop was passed, clear watch
+      if (watchedStop?.isPassed) {
+        setWatchedStopId(null);
+        setNotifiedStops(new Set());
+      }
+      return;
+    }
+    
+    // Check if bus is within notification distance
+    if (watchedStop.distanceFromVehicle !== undefined && 
+        watchedStop.distanceFromVehicle <= NOTIFICATION_DISTANCE &&
+        !notifiedStops.has(watchedStopId)) {
+      // Bus is approaching! Play notification
+      playNotificationSound();
+      setNotifiedStops(prev => new Set([...prev, watchedStopId]));
+    }
+  }, [selectedVehicleTripInfo, watchedStopId, notifiedStops, playNotificationSound, NOTIFICATION_DISTANCE]);
+
+  // Clear watched stop when vehicle trip changes
+  useEffect(() => {
+    if (!selectedVehicleTrip) {
+      setWatchedStopId(null);
+      setNotifiedStops(new Set());
+    }
+  }, [selectedVehicleTrip]);
 
   // Find nearest stops to a location
   const findNearestStops = useCallback((lat: number, lng: number, maxDistance = 1000, limit = 5): Array<{ stop: StaticStop; distance: number }> => {
@@ -711,6 +780,26 @@ export function RoutePlannerPanel({
                 )}
               </div>
             )}
+            
+            {/* Notification active indicator */}
+            {watchedStopId && (
+              <div className="flex items-center gap-2 mt-2 p-2 bg-accent/10 border border-accent/30 rounded-lg text-xs">
+                <Volume2 className="h-4 w-4 text-accent animate-pulse" />
+                <div className="flex-1">
+                  <span className="text-accent font-medium">Ειδοποίηση ενεργή</span>
+                  <p className="text-muted-foreground">
+                    {selectedVehicleTripInfo.stops.find(s => s.stopId === watchedStopId)?.stopName}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setWatchedStopId(null)}
+                  className="p-1 hover:bg-accent/20 rounded"
+                  title="Απενεργοποίηση"
+                >
+                  <BellOff className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Stops List */}
@@ -768,11 +857,39 @@ export function RoutePlannerPanel({
                       <span className={`text-sm truncate ${stop.isCurrent ? 'font-semibold text-primary' : ''}`}>
                         {stop.stopName}
                       </span>
-                      {stop.isCurrent && (
-                        <span className="flex-shrink-0 text-[10px] font-medium bg-primary text-primary-foreground px-1.5 py-0.5 rounded">
-                          ΤΩΡΑ
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {/* Notification bell for upcoming stops */}
+                        {!stop.isPassed && !stop.isCurrent && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (watchedStopId === stop.stopId) {
+                                setWatchedStopId(null);
+                              } else {
+                                setWatchedStopId(stop.stopId);
+                                setNotifiedStops(new Set());
+                              }
+                            }}
+                            className={`p-1 rounded-full transition-colors ${
+                              watchedStopId === stop.stopId 
+                                ? 'bg-primary text-primary-foreground' 
+                                : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                            }`}
+                            title={watchedStopId === stop.stopId ? 'Απενεργοποίηση ειδοποίησης' : 'Ειδοποίηση όταν πλησιάζει'}
+                          >
+                            {watchedStopId === stop.stopId ? (
+                              <Volume2 className="h-3.5 w-3.5" />
+                            ) : (
+                              <Bell className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        )}
+                        {stop.isCurrent && (
+                          <span className="text-[10px] font-medium bg-primary text-primary-foreground px-1.5 py-0.5 rounded">
+                            ΤΩΡΑ
+                          </span>
+                        )}
+                      </div>
                     </div>
                     
                     {/* ETA based on vehicle speed */}
