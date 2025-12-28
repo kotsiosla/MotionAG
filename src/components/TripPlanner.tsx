@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { MapPin, ArrowDownUp, Search, Navigation, Loader2, Clock } from "lucide-react";
+import { MapPin, ArrowDownUp, Search, Navigation, Loader2, Clock, Star, ChevronDown, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,13 +22,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { StaticStop } from "@/types/gtfs";
+import type { FavoriteRoute } from "@/hooks/useFavoriteRoutes";
 
 interface TripPlannerProps {
   stops: StaticStop[];
   isLoading?: boolean;
   onSearch?: (origin: StaticStop | null, destination: StaticStop | null, departureTime: string) => void;
+  favorites?: FavoriteRoute[];
+  onRemoveFavorite?: (id: string) => void;
 }
 
 // Generate time options (every 15 minutes)
@@ -47,7 +57,7 @@ const generateTimeOptions = () => {
 
 const TIME_OPTIONS = generateTimeOptions();
 
-export function TripPlanner({ stops, isLoading, onSearch }: TripPlannerProps) {
+export function TripPlanner({ stops, isLoading, onSearch, favorites = [], onRemoveFavorite }: TripPlannerProps) {
   const [origin, setOrigin] = useState<StaticStop | null>(null);
   const [destination, setDestination] = useState<StaticStop | null>(null);
   const [originOpen, setOriginOpen] = useState(false);
@@ -56,6 +66,11 @@ export function TripPlanner({ stops, isLoading, onSearch }: TripPlannerProps) {
   const [destinationSearch, setDestinationSearch] = useState("");
   const [isLocating, setIsLocating] = useState(false);
   const [departureTime, setDepartureTime] = useState<string>("now");
+
+  const handleSelectFavorite = (fav: FavoriteRoute) => {
+    setOrigin(fav.origin);
+    setDestination(fav.destination);
+  };
 
   // Filter stops based on search
   const filteredOriginStops = useMemo(() => {
@@ -288,6 +303,53 @@ export function TripPlanner({ stops, isLoading, onSearch }: TripPlannerProps) {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Favorites Dropdown */}
+        {favorites.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="h-9 flex-shrink-0 gap-1">
+                <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[280px] z-[100]">
+              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                Αγαπημένες Διαδρομές
+              </div>
+              <DropdownMenuSeparator />
+              {favorites.map((fav) => (
+                <DropdownMenuItem
+                  key={fav.id}
+                  className="flex items-center justify-between cursor-pointer"
+                  onClick={() => handleSelectFavorite(fav)}
+                >
+                  <div className="flex-1 min-w-0 mr-2">
+                    <div className="flex items-center gap-1 text-xs">
+                      <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
+                      <span className="truncate">{fav.origin.stop_name}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs">
+                      <MapPin className="h-3 w-3 text-destructive flex-shrink-0" />
+                      <span className="truncate">{fav.destination.stop_name}</span>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 flex-shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveFavorite?.(fav.id);
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {/* Search Button */}
         <Button 

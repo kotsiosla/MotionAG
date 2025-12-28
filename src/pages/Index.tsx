@@ -11,7 +11,9 @@ import { ScheduleView } from "@/components/ScheduleView";
 import { TripPlanResults } from "@/components/TripPlanResults";
 import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } from "@/hooks/useGtfsData";
 import { useTripPlan } from "@/hooks/useTripPlan";
+import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
 import type { RouteInfo, StaticStop } from "@/types/gtfs";
+import { toast } from "sonner";
 
 const Index = () => {
   const [isDark, setIsDark] = useState(true);
@@ -26,6 +28,9 @@ const Index = () => {
   const [tripDestination, setTripDestination] = useState<StaticStop | null>(null);
   const [tripDepartureTime, setTripDepartureTime] = useState<string>("now");
   const [showTripResults, setShowTripResults] = useState(false);
+  
+  // Favorites
+  const { favorites, addFavorite, removeFavorite, isFavorite } = useFavoriteRoutes();
 
   const vehiclesQuery = useVehicles(refreshInterval, selectedOperator);
   const tripsQuery = useTrips(refreshInterval, selectedOperator);
@@ -146,6 +151,8 @@ const Index = () => {
           setTripDepartureTime(departureTime);
           setShowTripResults(true);
         }}
+        favorites={favorites}
+        onRemoveFavorite={removeFavorite}
       />
       
       {/* Trip Plan Results Modal */}
@@ -158,6 +165,19 @@ const Index = () => {
           isLoading={tripPlanQuery.isLoading}
           error={tripPlanQuery.error}
           onClose={() => setShowTripResults(false)}
+          isFavorite={tripOrigin && tripDestination ? isFavorite(tripOrigin.stop_id, tripDestination.stop_id) : false}
+          onToggleFavorite={() => {
+            if (tripOrigin && tripDestination) {
+              const isCurrentlyFavorite = isFavorite(tripOrigin.stop_id, tripDestination.stop_id);
+              if (isCurrentlyFavorite) {
+                removeFavorite(`${tripOrigin.stop_id}-${tripDestination.stop_id}`);
+                toast.success("Αφαιρέθηκε από τα αγαπημένα");
+              } else {
+                addFavorite(tripOrigin, tripDestination);
+                toast.success("Προστέθηκε στα αγαπημένα");
+              }
+            }
+          }}
         />
       )}
 
