@@ -147,13 +147,26 @@ export function RoutePlannerPanel({
     const saved = localStorage.getItem('notificationDistance');
     return saved ? parseInt(saved, 10) : 500;
   });
+  const [notificationSound, setNotificationSound] = useState(() => {
+    return localStorage.getItem('notificationSound') || 'chime';
+  });
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const distanceOptions = [200, 300, 500, 750, 1000];
+  const soundOptions = [
+    { id: 'chime', name: 'Κουδούνι', icon: '🔔' },
+    { id: 'alert', name: 'Ειδοποίηση', icon: '🚨' },
+    { id: 'bell', name: 'Καμπάνα', icon: '🔊' },
+    { id: 'soft', name: 'Απαλός', icon: '🎵' },
+  ];
 
-  // Save notification distance to localStorage
+  // Save notification settings to localStorage
   useEffect(() => {
     localStorage.setItem('notificationDistance', notificationDistance.toString());
   }, [notificationDistance]);
+
+  useEffect(() => {
+    localStorage.setItem('notificationSound', notificationSound);
+  }, [notificationSound]);
 
   // Handle map click location
   useEffect(() => {
@@ -402,38 +415,82 @@ export function RoutePlannerPanel({
     }
   }, []);
 
-  // Play notification sound when bus approaches watched stop
-  const playNotificationSound = useCallback(() => {
+  // Play notification sound based on selected type
+  const playNotificationSound = useCallback((soundType?: string) => {
+    const sound = soundType || notificationSound;
     try {
-      // Create a simple beep sound using Web Audio API
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
-      // Create oscillator for notification sound
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
       
-      // Configure sound - pleasant notification tone
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
+      switch (sound) {
+        case 'chime':
+          // Pleasant chime - ascending tones
+          oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+          oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+          oscillator.frequency.setValueAtTime(1200, audioContext.currentTime + 0.2);
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.5);
+          break;
+          
+        case 'alert':
+          // Urgent alert - rapid beeps
+          oscillator.type = 'square';
+          oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+          gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+          gainNode.gain.setValueAtTime(0, audioContext.currentTime + 0.1);
+          gainNode.gain.setValueAtTime(0.2, audioContext.currentTime + 0.15);
+          gainNode.gain.setValueAtTime(0, audioContext.currentTime + 0.25);
+          gainNode.gain.setValueAtTime(0.2, audioContext.currentTime + 0.3);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.5);
+          break;
+          
+        case 'bell':
+          // Bell sound - single deep tone with decay
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+          oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.8);
+          gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.8);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.8);
+          break;
+          
+        case 'soft':
+          // Soft notification - gentle wave
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(523, audioContext.currentTime); // C5
+          oscillator.frequency.setValueAtTime(659, audioContext.currentTime + 0.15); // E5
+          oscillator.frequency.setValueAtTime(784, audioContext.currentTime + 0.3); // G5
+          gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
+          gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.2);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.6);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.6);
+          break;
+          
+        default:
+          oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.3);
+      }
       
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
-      
-      // Cleanup
       setTimeout(() => {
         audioContext.close();
       }, 1000);
     } catch (error) {
       console.error('Error playing notification sound:', error);
     }
-  }, []);
+  }, [notificationSound]);
 
   // Speak announcement using Text-to-Speech
   const speakAnnouncement = useCallback((text: string) => {
@@ -876,24 +933,51 @@ export function RoutePlannerPanel({
                 </span>
               </div>
               
-              {/* Distance settings panel */}
+              {/* Settings panel */}
               {showNotificationSettings && (
-                <div className="p-3 bg-muted/30 rounded-lg border border-border/50 space-y-2">
-                  <p className="text-xs text-muted-foreground">Ειδοποίηση όταν το λεωφορείο είναι σε απόσταση:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {distanceOptions.map((distance) => (
-                      <button
-                        key={distance}
-                        onClick={() => setNotificationDistance(distance)}
-                        className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
-                          notificationDistance === distance
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted hover:bg-muted/80 text-foreground'
-                        }`}
-                      >
-                        {distance >= 1000 ? `${distance / 1000}χλμ` : `${distance}μ`}
-                      </button>
-                    ))}
+                <div className="p-3 bg-muted/30 rounded-lg border border-border/50 space-y-3">
+                  {/* Distance options */}
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground font-medium">Απόσταση ειδοποίησης:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {distanceOptions.map((distance) => (
+                        <button
+                          key={distance}
+                          onClick={() => setNotificationDistance(distance)}
+                          className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
+                            notificationDistance === distance
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted hover:bg-muted/80 text-foreground'
+                          }`}
+                        >
+                          {distance >= 1000 ? `${distance / 1000}χλμ` : `${distance}μ`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Sound options */}
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground font-medium">Ήχος ειδοποίησης:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {soundOptions.map((sound) => (
+                        <button
+                          key={sound.id}
+                          onClick={() => {
+                            setNotificationSound(sound.id);
+                            playNotificationSound(sound.id);
+                          }}
+                          className={`px-3 py-1.5 text-xs rounded-full transition-colors flex items-center gap-1.5 ${
+                            notificationSound === sound.id
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted hover:bg-muted/80 text-foreground'
+                          }`}
+                        >
+                          <span>{sound.icon}</span>
+                          <span>{sound.name}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
