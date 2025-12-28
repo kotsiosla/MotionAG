@@ -95,20 +95,8 @@ export function Header({
             </div>
           </div>
 
-          {/* Center-Left: Live toggle and Selectors */}
+          {/* Center-Left: Selectors and Live toggle */}
           <div className="flex items-center gap-3">
-            {onShowLiveOnlyChange && (
-              <div className="flex items-center gap-2 border-r border-border pr-3">
-                <Switch
-                  id="live-only-header"
-                  checked={showLiveOnly}
-                  onCheckedChange={onShowLiveOnlyChange}
-                />
-                <Label htmlFor="live-only-header" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
-                  Live ({liveRoutesCount || 0})
-                </Label>
-              </div>
-            )}
             <OperatorSelector
               value={selectedOperator}
               onChange={onOperatorChange}
@@ -121,6 +109,18 @@ export function Header({
               disabled={selectedOperator === 'all'}
               isLoading={isRoutesLoading}
             />
+            {onShowLiveOnlyChange && (
+              <div className="flex items-center gap-2 border-l border-border pl-3">
+                <Switch
+                  id="live-only-header"
+                  checked={showLiveOnly}
+                  onCheckedChange={onShowLiveOnlyChange}
+                />
+                <Label htmlFor="live-only-header" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
+                  Live ({liveRoutesCount || 0})
+                </Label>
+              </div>
+            )}
           </div>
 
           {/* Right: Refresh, Theme */}
