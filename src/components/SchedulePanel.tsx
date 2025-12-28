@@ -332,7 +332,7 @@ export function SchedulePanel({
             </div>
           </TabsContent>
 
-          <TabsContent value="schedule" className="flex-1 min-h-0 m-0 flex flex-col">
+          <TabsContent value="schedule" className="flex-1 min-h-0 m-0 flex flex-col overflow-hidden">
             {/* Day selector row */}
             <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/50 overflow-x-auto">
               {dayNames.map((name, idx) => (
