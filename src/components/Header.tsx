@@ -35,7 +35,7 @@ interface HeaderProps {
   liveRoutesCount?: number;
   stops?: StaticStop[];
   stopsLoading?: boolean;
-  onTripSearch?: (origin: StaticStop | null, destination: StaticStop | null) => void;
+  onTripSearch?: (origin: StaticStop | null, destination: StaticStop | null, departureTime: string) => void;
 }
 
 export function Header({

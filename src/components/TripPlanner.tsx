@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { MapPin, ArrowDownUp, Search, Navigation, Loader2 } from "lucide-react";
+import { MapPin, ArrowDownUp, Search, Navigation, Loader2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,14 +15,37 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { StaticStop } from "@/types/gtfs";
 
 interface TripPlannerProps {
   stops: StaticStop[];
   isLoading?: boolean;
-  onSearch?: (origin: StaticStop | null, destination: StaticStop | null) => void;
+  onSearch?: (origin: StaticStop | null, destination: StaticStop | null, departureTime: string) => void;
 }
+
+// Generate time options (every 15 minutes)
+const generateTimeOptions = () => {
+  const options: { value: string; label: string }[] = [];
+  options.push({ value: 'now', label: 'Τώρα' });
+  
+  for (let h = 5; h < 24; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      options.push({ value: time, label: time });
+    }
+  }
+  return options;
+};
+
+const TIME_OPTIONS = generateTimeOptions();
 
 export function TripPlanner({ stops, isLoading, onSearch }: TripPlannerProps) {
   const [origin, setOrigin] = useState<StaticStop | null>(null);
@@ -32,6 +55,7 @@ export function TripPlanner({ stops, isLoading, onSearch }: TripPlannerProps) {
   const [originSearch, setOriginSearch] = useState("");
   const [destinationSearch, setDestinationSearch] = useState("");
   const [isLocating, setIsLocating] = useState(false);
+  const [departureTime, setDepartureTime] = useState<string>("now");
 
   // Filter stops based on search
   const filteredOriginStops = useMemo(() => {
@@ -95,7 +119,7 @@ export function TripPlanner({ stops, isLoading, onSearch }: TripPlannerProps) {
   };
 
   const handleSearch = () => {
-    onSearch?.(origin, destination);
+    onSearch?.(origin, destination, departureTime);
   };
 
   return (
@@ -243,6 +267,26 @@ export function TripPlanner({ stops, isLoading, onSearch }: TripPlannerProps) {
               </Command>
             </PopoverContent>
           </Popover>
+        </div>
+
+        {/* Time Picker */}
+        <div className="w-[100px] flex-shrink-0">
+          <div className="flex items-center gap-1 mb-1">
+            <span className="text-xs text-muted-foreground">Αναχώρηση</span>
+          </div>
+          <Select value={departureTime} onValueChange={setDepartureTime}>
+            <SelectTrigger className="h-9 bg-background">
+              <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px] z-[100]">
+              {TIME_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Search Button */}
