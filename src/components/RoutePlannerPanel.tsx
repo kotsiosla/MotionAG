@@ -255,19 +255,69 @@ export function RoutePlannerPanel({
     const vehicle = vehicles.find(v => v.vehicleId === selectedVehicleTrip.vehicleId);
     const routeInfo = trip.routeId && routeNamesMap ? routeNamesMap.get(trip.routeId) : null;
     
+    // Get vehicle current position and speed
+    const vehicleLat = vehicle?.latitude;
+    const vehicleLon = vehicle?.longitude;
+    const vehicleSpeed = vehicle?.speed; // in m/s
+    
+    // Calculate cumulative distance for ETA calculation
+    let cumulativeDistance = 0;
+    let lastLat = vehicleLat;
+    let lastLon = vehicleLon;
+    let passedCurrentStop = false;
+
     // Get all stops on this trip
     const tripStops = trip.stopTimeUpdates?.map((stu, index) => {
       const stop = stu.stopId ? stopMap.get(stu.stopId) : null;
+      const stopLat = stop?.stop_lat;
+      const stopLon = stop?.stop_lon;
+      const isPassed = vehicle?.currentStopSequence ? (stu.stopSequence || index) < vehicle.currentStopSequence : false;
+      const isCurrent = vehicle?.stopId === stu.stopId;
+      
+      // Calculate ETA based on distance and speed
+      let estimatedArrival: number | undefined;
+      let distanceFromVehicle: number | undefined;
+      
+      if (!isPassed && stopLat !== undefined && stopLon !== undefined && vehicleLat !== undefined && vehicleLon !== undefined) {
+        if (isCurrent) {
+          passedCurrentStop = true;
+          cumulativeDistance = 0;
+          lastLat = stopLat;
+          lastLon = stopLon;
+        } else if (passedCurrentStop || !vehicle?.currentStopSequence) {
+          // Calculate distance from last point (vehicle or previous stop)
+          if (lastLat !== undefined && lastLon !== undefined) {
+            const segmentDistance = calculateDistance(lastLat, lastLon, stopLat, stopLon);
+            cumulativeDistance += segmentDistance;
+            lastLat = stopLat;
+            lastLon = stopLon;
+          }
+          
+          distanceFromVehicle = cumulativeDistance;
+          
+          // Calculate ETA if we have speed
+          if (vehicleSpeed && vehicleSpeed > 0) {
+            // Speed is in m/s, distance is in meters
+            const travelTimeSeconds = cumulativeDistance / vehicleSpeed;
+            // Add buffer for stops (30 seconds per stop)
+            const stopBuffer = index * 30;
+            estimatedArrival = Math.floor(Date.now() / 1000) + travelTimeSeconds + stopBuffer;
+          }
+        }
+      }
+      
       return {
         stopId: stu.stopId || '',
         stopName: stop?.stop_name || stu.stopId || `Στάση ${index + 1}`,
-        stopLat: stop?.stop_lat,
-        stopLon: stop?.stop_lon,
+        stopLat,
+        stopLon,
         arrivalTime: stu.arrivalTime,
         departureTime: stu.departureTime,
         stopSequence: stu.stopSequence || index,
-        isPassed: vehicle?.currentStopSequence ? (stu.stopSequence || index) < vehicle.currentStopSequence : false,
-        isCurrent: vehicle?.stopId === stu.stopId,
+        isPassed,
+        isCurrent,
+        estimatedArrival,
+        distanceFromVehicle,
       };
     }) || [];
 
@@ -281,6 +331,7 @@ export function RoutePlannerPanel({
       vehicleId: selectedVehicleTrip.vehicleId,
       stops: tripStops,
       vehicle,
+      vehicleSpeed,
     };
   }, [selectedVehicleTrip, trips, vehicles, routeNamesMap, stopMap]);
 
@@ -646,6 +697,20 @@ export function RoutePlannerPanel({
             {selectedVehicleTripInfo.routeLongName && (
               <p className="text-xs text-muted-foreground">{selectedVehicleTripInfo.routeLongName}</p>
             )}
+            {/* Current speed indicator */}
+            {selectedVehicleTripInfo.vehicleSpeed !== undefined && (
+              <div className="flex items-center gap-2 mt-1.5 text-xs">
+                <div className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                  <Navigation className="h-3 w-3" />
+                  <span className="font-medium">
+                    {(selectedVehicleTripInfo.vehicleSpeed * 3.6).toFixed(0)} km/h
+                  </span>
+                </div>
+                {selectedVehicleTripInfo.vehicleSpeed < 1 && (
+                  <span className="text-muted-foreground">(Σταματημένο)</span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Stops List */}
@@ -709,11 +774,30 @@ export function RoutePlannerPanel({
                         </span>
                       )}
                     </div>
+                    
+                    {/* ETA based on vehicle speed */}
+                    {!stop.isPassed && !stop.isCurrent && stop.estimatedArrival && selectedVehicleTripInfo.vehicleSpeed && selectedVehicleTripInfo.vehicleSpeed > 0 && (
+                      <div className="flex items-center gap-2 text-xs mt-0.5">
+                        <div className="flex items-center gap-1 text-primary font-medium">
+                          <Navigation className="h-3 w-3" />
+                          <span>~{formatTime(stop.estimatedArrival)}</span>
+                        </div>
+                        {stop.distanceFromVehicle && (
+                          <span className="text-muted-foreground">
+                            ({stop.distanceFromVehicle < 1000 
+                              ? `${Math.round(stop.distanceFromVehicle)}μ` 
+                              : `${(stop.distanceFromVehicle / 1000).toFixed(1)}χλμ`})
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Scheduled time */}
                     {(stop.arrivalTime || stop.departureTime) && (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                         <Clock className="h-3 w-3" />
                         <span>
-                          {stop.arrivalTime && formatTime(stop.arrivalTime)}
+                          Πρόγραμμα: {stop.arrivalTime && formatTime(stop.arrivalTime)}
                           {stop.departureTime && stop.departureTime !== stop.arrivalTime && (
                             <span className="text-muted-foreground/70"> → {formatTime(stop.departureTime)}</span>
                           )}
