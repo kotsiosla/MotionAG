@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { X, MapPin, Navigation, Clock, Footprints, Bus, ChevronDown, ChevronUp, Search, Loader2, LocateFixed, ArrowRight, MousePointer2, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,6 +137,9 @@ export function RoutePlannerPanel({
   const [selectingOnMap, setSelectingOnMap] = useState<'origin' | 'destination' | null>(null);
   const [alternativeRoutes, setAlternativeRoutes] = useState<PlannedRoute[]>([]);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
+  const stopsListRef = useRef<HTMLDivElement>(null);
+  const currentStopRef = useRef<HTMLButtonElement>(null);
+  const [lastCurrentStopId, setLastCurrentStopId] = useState<string | null>(null);
 
   // Handle map click location
   useEffect(() => {
@@ -280,6 +283,23 @@ export function RoutePlannerPanel({
       vehicle,
     };
   }, [selectedVehicleTrip, trips, vehicles, routeNamesMap, stopMap]);
+
+  // Auto-scroll to current stop when it changes
+  useEffect(() => {
+    if (selectedVehicleTripInfo) {
+      const currentStop = selectedVehicleTripInfo.stops.find(s => s.isCurrent);
+      if (currentStop && currentStop.stopId !== lastCurrentStopId) {
+        setLastCurrentStopId(currentStop.stopId);
+        // Scroll to current stop with animation
+        setTimeout(() => {
+          currentStopRef.current?.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+        }, 100);
+      }
+    }
+  }, [selectedVehicleTripInfo, lastCurrentStopId]);
 
   // Find nearest stops to a location
   const findNearestStops = useCallback((lat: number, lng: number, maxDistance = 1000, limit = 5): Array<{ stop: StaticStop; distance: number }> => {
@@ -629,20 +649,21 @@ export function RoutePlannerPanel({
           </div>
 
           {/* Stops List */}
-          <div className="flex-1 overflow-y-auto p-2">
+          <div ref={stopsListRef} className="flex-1 overflow-y-auto p-2">
             <div className="space-y-1">
               {selectedVehicleTripInfo.stops.map((stop, index) => (
                 <button 
                   key={`${stop.stopId}-${index}`}
+                  ref={stop.isCurrent ? currentStopRef : null}
                   onClick={() => {
                     if (stop.stopLat !== undefined && stop.stopLon !== undefined) {
                       onTripStopClick?.(stop.stopId, stop.stopLat, stop.stopLon);
                     }
                   }}
                   disabled={stop.stopLat === undefined || stop.stopLon === undefined}
-                  className={`w-full text-left flex items-start gap-3 p-2 rounded-lg transition-colors cursor-pointer ${
+                  className={`w-full text-left flex items-start gap-3 p-2 rounded-lg transition-all duration-300 cursor-pointer ${
                     stop.isCurrent 
-                      ? 'bg-primary/20 border border-primary/30' 
+                      ? 'bg-primary/20 border border-primary/30 shadow-md animate-pulse-subtle' 
                       : stop.isPassed 
                         ? 'opacity-50 hover:opacity-70' 
                         : 'hover:bg-muted/50'
