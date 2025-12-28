@@ -168,9 +168,9 @@ export function SchedulePanel({
   return (
     <ResizableDraggablePanel
       initialPosition={initialPosition}
-      initialSize={{ width: 320, height: 350 }}
-      minSize={{ width: 280, height: 250 }}
-      maxSize={{ width: 450, height: 500 }}
+      initialSize={{ width: 380, height: 500 }}
+      minSize={{ width: 320, height: 350 }}
+      maxSize={{ width: 500, height: 700 }}
       className="rounded-lg overflow-hidden border border-border bg-card/95 backdrop-blur-sm"
       zIndex={1000}
       title="Πρόγραμμα"
