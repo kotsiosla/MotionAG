@@ -148,7 +148,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const stopMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [followedVehicleId, setFollowedVehicleId] = useState<string | null>(null);
-  const [showStops, setShowStops] = useState(true);
+  const [showStops, setShowStops] = useState(false);
   const [showRoutePanel, setShowRoutePanel] = useState(true);
   const [showRoutePlanner, setShowRoutePlanner] = useState(false);
   const [showLiveVehiclesPanel, setShowLiveVehiclesPanel] = useState(true);
