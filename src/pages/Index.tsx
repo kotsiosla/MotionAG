@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Map as MapIcon, Route, MapPin, Bell } from "lucide-react";
+import { Map as MapIcon, Route, MapPin, Bell, Calendar } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Header } from "@/components/Header";
 import { ErrorBanner } from "@/components/ErrorBanner";
@@ -7,6 +7,7 @@ import { VehicleMap } from "@/components/VehicleMap";
 import { TripsTable } from "@/components/TripsTable";
 import { StopsView } from "@/components/StopsView";
 import { AlertsList } from "@/components/AlertsList";
+import { ScheduleView } from "@/components/ScheduleView";
 import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } from "@/hooks/useGtfsData";
 import type { RouteInfo } from "@/types/gtfs";
 
@@ -129,7 +130,7 @@ const Index = () => {
 
       <main className="flex-1 container mx-auto px-4 py-2">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-4 mb-2">
+          <TabsList className="grid w-full grid-cols-5 mb-2">
             <TabsTrigger value="map" className="flex items-center gap-2">
               <MapIcon className="h-4 w-4" />
               <span className="hidden sm:inline">Χάρτης</span>
@@ -141,6 +142,10 @@ const Index = () => {
             <TabsTrigger value="stops" className="flex items-center gap-2">
               <MapPin className="h-4 w-4" />
               <span className="hidden sm:inline">Στάσεις</span>
+            </TabsTrigger>
+            <TabsTrigger value="schedule" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              <span className="hidden sm:inline">Πρόγραμμα</span>
             </TabsTrigger>
             <TabsTrigger value="alerts" className="flex items-center gap-2 relative">
               <Bell className="h-4 w-4" />
@@ -179,6 +184,13 @@ const Index = () => {
               <StopsView
                 trips={filteredTrips}
                 isLoading={tripsQuery.isLoading}
+              />
+            </TabsContent>
+
+            <TabsContent value="schedule" className="h-[calc(100vh-220px)] m-0">
+              <ScheduleView
+                selectedOperator={selectedOperator}
+                onOperatorChange={setSelectedOperator}
               />
             </TabsContent>
 
