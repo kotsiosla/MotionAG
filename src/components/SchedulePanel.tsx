@@ -266,8 +266,8 @@ export function SchedulePanel({
           </TabsList>
 
           {/* Live Tab */}
-          <TabsContent value="live" className="flex-1 overflow-hidden m-0 p-0">
-            <div className="h-full overflow-y-auto p-2 space-y-1.5">
+          <TabsContent value="live" className="flex-1 m-0 p-0 relative">
+            <div className="absolute inset-0 overflow-y-auto p-2 space-y-1.5">
               {liveTripsWithVehicles.length === 0 ? (
                 <div className="text-center text-muted-foreground text-xs py-8">
                   Δεν υπάρχουν ενεργά δρομολόγια
@@ -332,9 +332,10 @@ export function SchedulePanel({
             </div>
           </TabsContent>
 
-          <TabsContent value="schedule" className="flex-1 overflow-hidden m-0 p-0 flex flex-col">
-            {/* Day selector row */}
-            <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/50 overflow-x-auto">
+          <TabsContent value="schedule" className="flex-1 m-0 p-0 relative">
+            <div className="absolute inset-0 flex flex-col overflow-hidden">
+              {/* Day selector row */}
+              <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/50 overflow-x-auto">
               {dayNames.map((name, idx) => (
                 <Button
                   key={idx}
@@ -461,6 +462,7 @@ export function SchedulePanel({
                   );
                 })
               )}
+            </div>
             </div>
           </TabsContent>
         </Tabs>
