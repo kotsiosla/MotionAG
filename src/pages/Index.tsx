@@ -122,6 +122,12 @@ const Index = () => {
         showLiveOnly={showLiveOnly}
         onShowLiveOnlyChange={setShowLiveOnly}
         liveRoutesCount={liveRoutes.size}
+        stops={staticStopsQuery.data?.data || []}
+        stopsLoading={staticStopsQuery.isLoading}
+        onTripSearch={(origin, destination) => {
+          console.log('Trip search:', origin, destination);
+          // TODO: Implement trip planning logic
+        }}
       />
 
       {hasError && (
