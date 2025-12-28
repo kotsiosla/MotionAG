@@ -11,7 +11,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { OperatorSelector } from "@/components/OperatorSelector";
 import { RouteSelector } from "@/components/RouteSelector";
-import type { RouteInfo } from "@/types/gtfs";
+import { TripPlanner } from "@/components/TripPlanner";
+import type { RouteInfo, StaticStop } from "@/types/gtfs";
 import motionLogo from "@/assets/motion-logo.svg";
 import designerPhoto from "@/assets/designer-photo.jpeg";
 
@@ -32,6 +33,9 @@ interface HeaderProps {
   showLiveOnly?: boolean;
   onShowLiveOnlyChange?: (value: boolean) => void;
   liveRoutesCount?: number;
+  stops?: StaticStop[];
+  stopsLoading?: boolean;
+  onTripSearch?: (origin: StaticStop | null, destination: StaticStop | null) => void;
 }
 
 export function Header({
@@ -51,6 +55,9 @@ export function Header({
   showLiveOnly,
   onShowLiveOnlyChange,
   liveRoutesCount,
+  stops = [],
+  stopsLoading,
+  onTripSearch,
 }: HeaderProps) {
   const formatLastUpdate = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -65,7 +72,7 @@ export function Header({
   return (
     <header className="glass-card border-b sticky top-0 z-50">
       <div className="container mx-auto px-4 py-2">
-        {/* Row 1: Logo, Title, Operator, Route */}
+        {/* Row 1: Logo, Title, Controls */}
         <div className="flex items-center justify-between gap-4">
           {/* Left: Logo and Title with Designer */}
           <div className="flex items-center gap-3">
@@ -83,8 +90,20 @@ export function Header({
             </div>
           </div>
 
-          {/* Center: Selectors */}
-          <div className="flex items-center gap-3 flex-1 justify-center">
+          {/* Center-Left: Live toggle and Selectors */}
+          <div className="flex items-center gap-3">
+            {onShowLiveOnlyChange && (
+              <div className="flex items-center gap-2 border-r border-border pr-3">
+                <Switch
+                  id="live-only-header"
+                  checked={showLiveOnly}
+                  onCheckedChange={onShowLiveOnlyChange}
+                />
+                <Label htmlFor="live-only-header" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
+                  Live ({liveRoutesCount || 0})
+                </Label>
+              </div>
+            )}
             <OperatorSelector
               value={selectedOperator}
               onChange={onOperatorChange}
@@ -99,9 +118,31 @@ export function Header({
             />
           </div>
 
-          {/* Right: Theme and Refresh icon */}
+          {/* Right: Refresh, Theme */}
           <div className="flex items-center gap-2">
-            <RefreshCw className={`h-4 w-4 text-muted-foreground ${isLoading ? 'animate-spin' : ''}`} />
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <Select
+                value={refreshInterval.toString()}
+                onValueChange={(value) => onRefreshIntervalChange(parseInt(value))}
+              >
+                <SelectTrigger className="w-[60px] h-6 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5s</SelectItem>
+                  <SelectItem value="10">10s</SelectItem>
+                  <SelectItem value="20">20s</SelectItem>
+                  <SelectItem value="30">30s</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {lastUpdate && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-warning animate-pulse' : 'bg-success'}`} />
+                <span className="hidden lg:inline">{formatLastUpdate(lastUpdate)}</span>
+              </div>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -113,48 +154,13 @@ export function Header({
           </div>
         </div>
 
-        {/* Row 2: Refresh interval, Live toggle, Updated */}
-        <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
-          {/* Left: Refresh interval */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>Ανανέωση:</span>
-            <Select
-              value={refreshInterval.toString()}
-              onValueChange={(value) => onRefreshIntervalChange(parseInt(value))}
-            >
-              <SelectTrigger className="w-[70px] h-6 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="5">5 sec</SelectItem>
-                <SelectItem value="10">10 sec</SelectItem>
-                <SelectItem value="20">20 sec</SelectItem>
-                <SelectItem value="30">30 sec</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Center: Live only toggle */}
-          {onShowLiveOnlyChange && (
-            <div className="flex items-center gap-2">
-              <Switch
-                id="live-only"
-                checked={showLiveOnly}
-                onCheckedChange={onShowLiveOnlyChange}
-              />
-              <Label htmlFor="live-only" className="text-xs text-muted-foreground cursor-pointer">
-                Show live Buses only ({liveRoutesCount || 0})
-              </Label>
-            </div>
-          )}
-
-          {/* Right: Last update */}
-          {lastUpdate && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-warning animate-pulse' : 'bg-success'}`} />
-              <span>Updated: {formatLastUpdate(lastUpdate)}</span>
-            </div>
-          )}
+        {/* Row 2: Trip Planner */}
+        <div className="mt-2 pt-2 border-t border-border/50">
+          <TripPlanner 
+            stops={stops}
+            isLoading={stopsLoading}
+            onSearch={onTripSearch}
+          />
         </div>
       </div>
     </header>
