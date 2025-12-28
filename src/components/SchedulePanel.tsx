@@ -72,9 +72,11 @@ export function SchedulePanel({
   const [activeTab, setActiveTab] = useState<string>("live");
   const [selectedDirection, setSelectedDirection] = useState<number>(0);
   const [showUpcomingOnly, setShowUpcomingOnly] = useState<boolean>(true);
+  const [selectedDay, setSelectedDay] = useState<number>(new Date().getDay()); // 0 = Sunday
 
-  // Day names in Greek
+  // Day names in Greek (index 0 = Sunday to match JS getDay())
   const dayNames = ['Κυριακή', 'Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο'];
+  const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
   const today = new Date().getDay();
 
   // Fetch static schedule data
@@ -112,7 +114,19 @@ export function SchedulePanel({
       });
   }, [routeTrips, routeVehicles, stops]);
 
-  // Get scheduled trips from static data - NO deduplication, show all trips
+  // Get service IDs that run on selected day
+  const activeServiceIds = useMemo(() => {
+    if (!scheduleData?.calendar) return new Set<string>();
+    
+    const dayKey = dayKeys[selectedDay];
+    return new Set(
+      scheduleData.calendar
+        .filter(cal => cal[dayKey])
+        .map(cal => cal.service_id)
+    );
+  }, [scheduleData?.calendar, selectedDay, dayKeys]);
+
+  // Get scheduled trips from static data - filter by day
   const scheduledTrips = useMemo(() => {
     if (!scheduleData?.schedule) return [];
     
@@ -125,19 +139,26 @@ export function SchedulePanel({
     
     if (!directionSchedule || directionSchedule.length === 0) return [];
     
-    // Sort by departure time
-    const sorted = [...directionSchedule].sort((a, b) => a.departure_minutes - b.departure_minutes);
+    // Filter by selected day (using service_id and calendar)
+    let filtered = directionSchedule;
+    if (activeServiceIds.size > 0) {
+      filtered = directionSchedule.filter(entry => activeServiceIds.has(entry.service_id));
+    }
     
-    if (showUpcomingOnly) {
+    // Sort by departure time
+    const sorted = [...filtered].sort((a, b) => a.departure_minutes - b.departure_minutes);
+    
+    // If selected day is today and showing upcoming only
+    if (showUpcomingOnly && selectedDay === today) {
       // Filter to show only upcoming trips
       const upcomingTrips = sorted.filter(entry => entry.departure_minutes >= currentMinutes);
-      // If no upcoming trips today, show all trips (for late night)
+      // If no upcoming trips today, show all trips
       return upcomingTrips.length > 0 ? upcomingTrips : sorted;
     }
     
-    // Show all trips
+    // Show all trips for the selected day
     return sorted;
-  }, [scheduleData, selectedDirection, showUpcomingOnly]);
+  }, [scheduleData, selectedDirection, showUpcomingOnly, selectedDay, today, activeServiceIds]);
 
   // Count unique departure times
   const uniqueTimeCount = useMemo(() => {
@@ -290,6 +311,22 @@ export function SchedulePanel({
           </TabsContent>
 
           <TabsContent value="schedule" className="flex-1 overflow-hidden m-0 flex flex-col">
+            {/* Day selector row */}
+            <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/50 overflow-x-auto">
+              {dayNames.map((name, idx) => (
+                <Button
+                  key={idx}
+                  variant={selectedDay === idx ? "default" : "ghost"}
+                  size="sm"
+                  className={`h-6 text-[10px] px-2 flex-shrink-0 ${idx === today ? 'ring-1 ring-primary/50' : ''}`}
+                  onClick={() => setSelectedDay(idx)}
+                >
+                  {name.substring(0, 3)}
+                  {idx === today && <span className="ml-0.5 text-[8px]">•</span>}
+                </Button>
+              ))}
+            </div>
+            
             {/* Filters row */}
             <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border bg-muted/30 flex-wrap">
               {/* Direction selector */}
@@ -310,19 +347,21 @@ export function SchedulePanel({
                 </>
               )}
               
-              {/* Time filter */}
-              <Button
-                variant={showUpcomingOnly ? "default" : "outline"}
-                size="sm"
-                className="h-6 text-[10px] px-2"
-                onClick={() => setShowUpcomingOnly(!showUpcomingOnly)}
-              >
-                {showUpcomingOnly ? "Επόμενα" : "Όλα"}
-              </Button>
+              {/* Time filter - only show for today */}
+              {selectedDay === today && (
+                <Button
+                  variant={showUpcomingOnly ? "default" : "outline"}
+                  size="sm"
+                  className="h-6 text-[10px] px-2"
+                  onClick={() => setShowUpcomingOnly(!showUpcomingOnly)}
+                >
+                  {showUpcomingOnly ? "Επόμενα" : "Όλα"}
+                </Button>
+              )}
               
-              {/* Today indicator with trip count */}
+              {/* Trip count */}
               <span className="text-[10px] text-muted-foreground ml-auto">
-                {dayNames[today]} • {scheduledTrips.length} δρομολόγια ({uniqueTimeCount} ώρες)
+                {scheduledTrips.length} δρομολόγια ({uniqueTimeCount} ώρες)
               </span>
             </div>
             

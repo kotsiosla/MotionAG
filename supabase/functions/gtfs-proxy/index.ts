@@ -763,6 +763,22 @@ interface TripStaticInfo {
   trip_headsign?: string;
 }
 
+interface CalendarEntry {
+  service_id: string;
+  monday: boolean;
+  tuesday: boolean;
+  wednesday: boolean;
+  thursday: boolean;
+  friday: boolean;
+  saturday: boolean;
+  sunday: boolean;
+  start_date: string;
+  end_date: string;
+}
+
+// Cache for calendar data
+const calendarCache = new Map<string, { data: CalendarEntry[]; timestamp: number }>();
+
 async function unzipAndParseRoutes(zipData: Uint8Array): Promise<RouteInfo[]> {
   // Parse ZIP file manually (simplified approach for GTFS files)
   // GTFS ZIP files contain routes.txt which is a CSV file
@@ -1409,6 +1425,90 @@ async function fetchStaticTrips(operatorId?: string): Promise<TripStaticInfo[]> 
   return allTrips;
 }
 
+async function fetchStaticCalendar(operatorId?: string): Promise<CalendarEntry[]> {
+  const operators = operatorId && operatorId !== 'all' ? [operatorId] : Object.keys(GTFS_STATIC_URLS);
+  const allCalendar: CalendarEntry[] = [];
+  
+  for (const opId of operators) {
+    const cacheKey = `calendar_${opId}`;
+    const cached = calendarCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      allCalendar.push(...cached.data);
+      continue;
+    }
+    
+    const url = GTFS_STATIC_URLS[opId];
+    if (!url) continue;
+    
+    try {
+      console.log(`Fetching static GTFS calendar for operator ${opId}`);
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        console.error(`Failed to fetch GTFS for operator ${opId}: ${response.status}`);
+        continue;
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const zipData = new Uint8Array(arrayBuffer);
+      
+      const fileContent = await unzipAndParseFile(zipData, 'calendar.txt');
+      if (!fileContent) {
+        console.log(`No calendar.txt found for operator ${opId}`);
+        continue;
+      }
+      
+      const lines = fileContent.split('\n');
+      const calendar: CalendarEntry[] = [];
+      
+      if (lines.length > 0) {
+        const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        const serviceIdIdx = header.indexOf('service_id');
+        const mondayIdx = header.indexOf('monday');
+        const tuesdayIdx = header.indexOf('tuesday');
+        const wednesdayIdx = header.indexOf('wednesday');
+        const thursdayIdx = header.indexOf('thursday');
+        const fridayIdx = header.indexOf('friday');
+        const saturdayIdx = header.indexOf('saturday');
+        const sundayIdx = header.indexOf('sunday');
+        const startDateIdx = header.indexOf('start_date');
+        const endDateIdx = header.indexOf('end_date');
+        
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          const values = parseCSVLine(line);
+          
+          if (serviceIdIdx >= 0) {
+            calendar.push({
+              service_id: values[serviceIdIdx],
+              monday: mondayIdx >= 0 && values[mondayIdx] === '1',
+              tuesday: tuesdayIdx >= 0 && values[tuesdayIdx] === '1',
+              wednesday: wednesdayIdx >= 0 && values[wednesdayIdx] === '1',
+              thursday: thursdayIdx >= 0 && values[thursdayIdx] === '1',
+              friday: fridayIdx >= 0 && values[fridayIdx] === '1',
+              saturday: saturdayIdx >= 0 && values[saturdayIdx] === '1',
+              sunday: sundayIdx >= 0 && values[sundayIdx] === '1',
+              start_date: startDateIdx >= 0 ? values[startDateIdx] : '',
+              end_date: endDateIdx >= 0 ? values[endDateIdx] : '',
+            });
+          }
+        }
+      }
+      
+      console.log(`Parsed ${calendar.length} calendar entries for operator ${opId}`);
+      calendarCache.set(cacheKey, { data: calendar, timestamp: Date.now() });
+      allCalendar.push(...calendar);
+    } catch (error) {
+      console.error(`Error fetching static GTFS calendar for operator ${opId}:`, error);
+    }
+  }
+  
+  return allCalendar;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -1586,9 +1686,13 @@ serve(async (req) => {
       const now = new Date();
       const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
       
+      // Fetch calendar data
+      const calendar = await fetchStaticCalendar(operatorId);
+      
       // Build schedule entries for each trip
       const scheduleEntries: Array<{
         trip_id: string;
+        service_id: string;
         direction_id?: number;
         trip_headsign?: string;
         departure_time: string;
@@ -1633,6 +1737,7 @@ serve(async (req) => {
         
         scheduleEntries.push({
           trip_id: trip.trip_id,
+          service_id: trip.service_id,
           direction_id: trip.direction_id,
           trip_headsign: trip.trip_headsign,
           departure_time: departureTime.substring(0, 5), // HH:MM
@@ -1665,6 +1770,7 @@ serve(async (req) => {
             schedule: scheduleEntries,
             by_direction: byDirection,
             total_trips: scheduleEntries.length,
+            calendar: calendar,
           },
           timestamp: Date.now(),
         }),
