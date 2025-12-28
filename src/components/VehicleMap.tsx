@@ -1214,6 +1214,11 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           setSelectedVehicleTrip(null);
           setShowRoutePlanner(false);
         }}
+        onTripStopClick={(stopId, lat, lng) => {
+          if (mapRef.current) {
+            mapRef.current.setView([lat, lng], 17, { animate: true });
+          }
+        }}
       />
       
       {/* Route Stops Panel */}
