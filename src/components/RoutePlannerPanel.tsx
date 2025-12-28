@@ -853,15 +853,15 @@ export function RoutePlannerPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute top-0 left-0 bottom-0 w-[380px] glass-card z-[1001] flex flex-col overflow-hidden">
+    <div className="absolute top-0 left-0 bottom-0 w-full sm:w-[380px] glass-card z-[1001] flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border">
         <div className="flex items-center gap-2">
           <Navigation className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold">Σχεδιασμός Διαδρομής</h2>
+          <h2 className="font-semibold text-sm sm:text-base">Σχεδιασμός Διαδρομής</h2>
         </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-          <X className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8" onClick={onClose}>
+          <X className="h-5 w-5 sm:h-4 sm:w-4" />
         </Button>
       </div>
 

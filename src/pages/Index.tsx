@@ -197,30 +197,30 @@ const Index = () => {
         <ErrorBanner message={errorMessage || "Αποτυχία σύνδεσης"} onRetry={handleRetry} />
       )}
 
-      <main className="flex-1 container mx-auto px-4 py-2">
+      <main className="flex-1 container mx-auto px-2 sm:px-4 py-2">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-5 mb-2">
-            <TabsTrigger value="map" className="flex items-center gap-2">
-              <MapIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Χάρτης</span>
+          <TabsList className="grid w-full grid-cols-5 mb-2 h-auto">
+            <TabsTrigger value="map" className="flex flex-col sm:flex-row items-center gap-1 py-2 px-1 sm:px-3">
+              <MapIcon className="h-4 w-4 sm:h-4 sm:w-4" />
+              <span className="text-[10px] sm:text-sm">Χάρτης</span>
             </TabsTrigger>
-            <TabsTrigger value="trips" className="flex items-center gap-2">
-              <Route className="h-4 w-4" />
-              <span className="hidden sm:inline">Δρομολόγια</span>
+            <TabsTrigger value="trips" className="flex flex-col sm:flex-row items-center gap-1 py-2 px-1 sm:px-3">
+              <Route className="h-4 w-4 sm:h-4 sm:w-4" />
+              <span className="text-[10px] sm:text-sm">Δρομολόγια</span>
             </TabsTrigger>
-            <TabsTrigger value="stops" className="flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              <span className="hidden sm:inline">Στάσεις</span>
+            <TabsTrigger value="stops" className="flex flex-col sm:flex-row items-center gap-1 py-2 px-1 sm:px-3">
+              <MapPin className="h-4 w-4 sm:h-4 sm:w-4" />
+              <span className="text-[10px] sm:text-sm">Στάσεις</span>
             </TabsTrigger>
-            <TabsTrigger value="schedule" className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              <span className="hidden sm:inline">Πρόγραμμα</span>
+            <TabsTrigger value="schedule" className="flex flex-col sm:flex-row items-center gap-1 py-2 px-1 sm:px-3">
+              <Calendar className="h-4 w-4 sm:h-4 sm:w-4" />
+              <span className="text-[10px] sm:text-sm">Πρόγραμμα</span>
             </TabsTrigger>
-            <TabsTrigger value="alerts" className="flex items-center gap-2 relative">
-              <Bell className="h-4 w-4" />
-              <span className="hidden sm:inline">Ειδοποιήσεις</span>
+            <TabsTrigger value="alerts" className="flex flex-col sm:flex-row items-center gap-1 py-2 px-1 sm:px-3 relative">
+              <Bell className="h-4 w-4 sm:h-4 sm:w-4" />
+              <span className="text-[10px] sm:text-sm">Ειδοποιήσεις</span>
               {alertCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
+                <span className="absolute top-0.5 right-0.5 sm:-top-1 sm:-right-1 w-4 h-4 sm:w-5 sm:h-5 bg-destructive text-destructive-foreground text-[10px] sm:text-xs rounded-full flex items-center justify-center">
                   {alertCount}
                 </span>
               )}
@@ -228,7 +228,7 @@ const Index = () => {
           </TabsList>
 
           <div className="flex-1 min-h-0 glass-card rounded-lg overflow-hidden">
-            <TabsContent value="map" className="h-[calc(100vh-180px)] m-0">
+            <TabsContent value="map" className="h-[calc(100vh-200px)] sm:h-[calc(100vh-180px)] m-0">
               <VehicleMap
                 vehicles={filteredVehicles}
                 trips={filteredTrips}
@@ -241,7 +241,7 @@ const Index = () => {
               />
             </TabsContent>
 
-            <TabsContent value="trips" className="h-[calc(100vh-220px)] m-0">
+            <TabsContent value="trips" className="h-[calc(100vh-240px)] sm:h-[calc(100vh-220px)] m-0">
               <TripsTable
                 trips={filteredTrips}
                 isLoading={tripsQuery.isLoading}
@@ -249,21 +249,21 @@ const Index = () => {
               />
             </TabsContent>
 
-            <TabsContent value="stops" className="h-[calc(100vh-220px)] m-0">
+            <TabsContent value="stops" className="h-[calc(100vh-240px)] sm:h-[calc(100vh-220px)] m-0">
               <StopsView
                 trips={filteredTrips}
                 isLoading={tripsQuery.isLoading}
               />
             </TabsContent>
 
-            <TabsContent value="schedule" className="h-[calc(100vh-220px)] m-0">
+            <TabsContent value="schedule" className="h-[calc(100vh-240px)] sm:h-[calc(100vh-220px)] m-0">
               <ScheduleView
                 selectedOperator={selectedOperator}
                 onOperatorChange={setSelectedOperator}
               />
             </TabsContent>
 
-            <TabsContent value="alerts" className="h-[calc(100vh-220px)] m-0 overflow-auto">
+            <TabsContent value="alerts" className="h-[calc(100vh-240px)] sm:h-[calc(100vh-220px)] m-0 overflow-auto">
               <AlertsList
                 alerts={alertsQuery.data?.data || []}
                 trips={filteredTrips}
