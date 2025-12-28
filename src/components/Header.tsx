@@ -89,7 +89,7 @@ export function Header({
                 <img 
                   src={designerPhoto} 
                   alt="Designer" 
-                  className="h-5 w-5 rounded-full object-cover ring-1 ring-border"
+                  className="h-6 w-6 rounded-full object-cover ring-1 ring-border"
                 />
               </div>
             </div>
