@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Moon, Sun, RefreshCw, Menu, X, Download, ChevronUp, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -298,9 +299,9 @@ export function Header({
           </div>
         </div>
 
-        {/* Trip Planner - Collapsible */}
-        {tripPlannerVisible && (
-          <div className="mt-2 pt-2 border-t border-border/50">
+        {/* Trip Planner - Collapsible with animation */}
+        <Collapsible open={tripPlannerVisible} onOpenChange={setTripPlannerVisible}>
+          <CollapsibleContent className="mt-2 pt-2 border-t border-border/50">
             <TripPlanner 
               stops={stops}
               isLoading={stopsLoading}
@@ -308,8 +309,8 @@ export function Header({
               favorites={favorites}
               onRemoveFavorite={onRemoveFavorite}
             />
-          </div>
-        )}
+          </CollapsibleContent>
+        </Collapsible>
       </div>
     </header>
   );
