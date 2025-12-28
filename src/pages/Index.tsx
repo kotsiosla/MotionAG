@@ -197,6 +197,8 @@ const Index = () => {
             <TabsContent value="alerts" className="h-[calc(100vh-220px)] m-0 overflow-auto">
               <AlertsList
                 alerts={alertsQuery.data?.data || []}
+                trips={filteredTrips}
+                routeNamesMap={routeNamesMap}
                 isLoading={alertsQuery.isLoading}
               />
             </TabsContent>
