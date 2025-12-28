@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Moon, Sun, RefreshCw, Menu, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Moon, Sun, RefreshCw, Menu, X, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -101,6 +102,16 @@ export function Header({
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
+
+            <Link to="/install">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            </Link>
             
             <Button
               variant="ghost"
@@ -238,6 +249,16 @@ export function Header({
                 <span className="hidden lg:inline">{formatLastUpdate(lastUpdate)}</span>
               </div>
             )}
+            <Link to="/install">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                title="Εγκατάσταση εφαρμογής"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            </Link>
             <Button
               variant="ghost"
               size="icon"
