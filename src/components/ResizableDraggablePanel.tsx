@@ -186,7 +186,7 @@ export function ResizableDraggablePanel({
       </div>
       
       {/* Content */}
-      <div className="h-[calc(100%-32px)] overflow-auto">
+      <div className="h-[calc(100%-32px)] overflow-hidden flex flex-col">
         {children}
       </div>
       
