@@ -95,20 +95,22 @@ export function Header({
             </div>
           </div>
 
-          {/* Center-Left: Selectors and Live toggle */}
+          {/* Center-Left: Selectors stacked and Live toggle */}
           <div className="flex items-center gap-3">
-            <OperatorSelector
-              value={selectedOperator}
-              onChange={onOperatorChange}
-            />
-            <RouteSelector
-              value={selectedRoute}
-              onChange={onRouteChange}
-              routes={availableRoutes}
-              routeNames={routeNamesMap}
-              disabled={selectedOperator === 'all'}
-              isLoading={isRoutesLoading}
-            />
+            <div className="flex flex-col gap-1">
+              <OperatorSelector
+                value={selectedOperator}
+                onChange={onOperatorChange}
+              />
+              <RouteSelector
+                value={selectedRoute}
+                onChange={onRouteChange}
+                routes={availableRoutes}
+                routeNames={routeNamesMap}
+                disabled={selectedOperator === 'all'}
+                isLoading={isRoutesLoading}
+              />
+            </div>
             {onShowLiveOnlyChange && (
               <div className="flex items-center gap-2 border-l border-border pl-3">
                 <Switch
