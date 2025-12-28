@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { MapPin, ArrowDownUp, Search, Navigation, Loader2, Clock, Star, ChevronDown, Trash2, CalendarIcon } from "lucide-react";
+import { MapPin, ArrowDownUp, Search, Navigation, Loader2, Clock, Star, ChevronDown, Trash2, CalendarIcon, Building2 } from "lucide-react";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { StaticStop } from "@/types/gtfs";
 import type { FavoriteRoute } from "@/hooks/useFavoriteRoutes";
+import { CYPRUS_POI, getCategoryIcon, type PointOfInterest } from "@/data/cyprusPOI";
 
 interface TripPlannerProps {
   stops: StaticStop[];
@@ -59,6 +60,32 @@ const generateTimeOptions = () => {
 
 const TIME_OPTIONS = generateTimeOptions();
 
+// Find nearest stop to a POI
+const findNearestStop = (poi: PointOfInterest, stops: StaticStop[]): StaticStop | null => {
+  let nearestStop: StaticStop | null = null;
+  let minDistance = Infinity;
+  
+  stops.forEach(stop => {
+    if (stop.stop_lat && stop.stop_lon) {
+      const distance = Math.sqrt(
+        Math.pow(stop.stop_lat - poi.lat, 2) + 
+        Math.pow(stop.stop_lon - poi.lon, 2)
+      );
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestStop = stop;
+      }
+    }
+  });
+  
+  return nearestStop;
+};
+
+// Combined search item type
+type SearchItem = 
+  | { type: 'stop'; data: StaticStop }
+  | { type: 'poi'; data: PointOfInterest };
+
 export function TripPlanner({ stops, isLoading, onSearch, favorites = [], onRemoveFavorite }: TripPlannerProps) {
   const [origin, setOrigin] = useState<StaticStop | null>(null);
   const [destination, setDestination] = useState<StaticStop | null>(null);
@@ -70,6 +97,9 @@ export function TripPlanner({ stops, isLoading, onSearch, favorites = [], onRemo
   const [departureTime, setDepartureTime] = useState<string>("now");
   const [departureDate, setDepartureDate] = useState<Date>(new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  // Track if selection came from POI (to display POI name)
+  const [originPOI, setOriginPOI] = useState<PointOfInterest | null>(null);
+  const [destinationPOI, setDestinationPOI] = useState<PointOfInterest | null>(null);
 
   const isToday = useMemo(() => {
     const today = new Date();
@@ -79,25 +109,42 @@ export function TripPlanner({ stops, isLoading, onSearch, favorites = [], onRemo
   const handleSelectFavorite = (fav: FavoriteRoute) => {
     setOrigin(fav.origin);
     setDestination(fav.destination);
+    setOriginPOI(null);
+    setDestinationPOI(null);
+  };
+
+  // Filter POIs based on search
+  const filterPOIs = (search: string): PointOfInterest[] => {
+    if (!search) return CYPRUS_POI.slice(0, 10);
+    const searchLower = search.toLowerCase();
+    return CYPRUS_POI.filter(poi => 
+      poi.name.toLowerCase().includes(searchLower) ||
+      poi.name_en.toLowerCase().includes(searchLower)
+    ).slice(0, 15);
   };
 
   // Filter stops based on search
-  const filteredOriginStops = useMemo(() => {
-    if (!originSearch) return stops.slice(0, 50);
-    const search = originSearch.toLowerCase();
+  const filterStops = (search: string): StaticStop[] => {
+    if (!search) return stops.slice(0, 30);
+    const searchLower = search.toLowerCase();
     return stops.filter(s => 
-      s.stop_name.toLowerCase().includes(search) ||
-      s.stop_code?.toLowerCase().includes(search)
-    ).slice(0, 50);
+      s.stop_name.toLowerCase().includes(searchLower) ||
+      s.stop_code?.toLowerCase().includes(searchLower)
+    ).slice(0, 30);
+  };
+
+  // Combined filtered results for origin
+  const filteredOriginItems = useMemo((): SearchItem[] => {
+    const pois = filterPOIs(originSearch).map(poi => ({ type: 'poi' as const, data: poi }));
+    const stopsFiltered = filterStops(originSearch).map(stop => ({ type: 'stop' as const, data: stop }));
+    return [...pois, ...stopsFiltered];
   }, [stops, originSearch]);
 
-  const filteredDestinationStops = useMemo(() => {
-    if (!destinationSearch) return stops.slice(0, 50);
-    const search = destinationSearch.toLowerCase();
-    return stops.filter(s => 
-      s.stop_name.toLowerCase().includes(search) ||
-      s.stop_code?.toLowerCase().includes(search)
-    ).slice(0, 50);
+  // Combined filtered results for destination
+  const filteredDestinationItems = useMemo((): SearchItem[] => {
+    const pois = filterPOIs(destinationSearch).map(poi => ({ type: 'poi' as const, data: poi }));
+    const stopsFiltered = filterStops(destinationSearch).map(stop => ({ type: 'stop' as const, data: stop }));
+    return [...pois, ...stopsFiltered];
   }, [stops, destinationSearch]);
 
   const handleUseMyLocation = () => {
@@ -127,6 +174,7 @@ export function TripPlanner({ stops, isLoading, onSearch, favorites = [], onRemo
         
         if (nearestStop) {
           setOrigin(nearestStop);
+          setOriginPOI(null);
         }
         setIsLocating(false);
       },
@@ -138,8 +186,11 @@ export function TripPlanner({ stops, isLoading, onSearch, favorites = [], onRemo
 
   const handleSwap = () => {
     const temp = origin;
+    const tempPOI = originPOI;
     setOrigin(destination);
+    setOriginPOI(destinationPOI);
     setDestination(temp);
+    setDestinationPOI(tempPOI);
   };
 
   const handleSearch = () => {
@@ -172,14 +223,14 @@ export function TripPlanner({ stops, isLoading, onSearch, favorites = [], onRemo
               >
                 <MapPin className="h-4 w-4 mr-2 flex-shrink-0 text-primary" />
                 <span className="truncate">
-                  {origin ? origin.stop_name : "Επιλέξτε αφετηρία..."}
+                  {originPOI ? `${getCategoryIcon(originPOI.category)} ${originPOI.name}` : origin ? origin.stop_name : "Επιλέξτε αφετηρία..."}
                 </span>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[300px] p-0 z-[100]" align="start">
               <Command>
                 <CommandInput 
-                  placeholder="Αναζήτηση στάσης..." 
+                  placeholder="Αναζήτηση στάσης ή σημείου..." 
                   value={originSearch}
                   onValueChange={setOriginSearch}
                 />
@@ -190,29 +241,62 @@ export function TripPlanner({ stops, isLoading, onSearch, favorites = [], onRemo
                         <Loader2 className="h-4 w-4 animate-spin" />
                       </div>
                     ) : (
-                      "Δεν βρέθηκε στάση"
+                      "Δεν βρέθηκε"
                     )}
                   </CommandEmpty>
-                  <CommandGroup>
-                    {filteredOriginStops.map((stop) => (
-                      <CommandItem
-                        key={stop.stop_id}
-                        value={stop.stop_id}
-                        onSelect={() => {
-                          setOrigin(stop);
-                          setOriginOpen(false);
-                          setOriginSearch("");
-                        }}
-                      >
-                        <MapPin className="h-3 w-3 mr-2 text-muted-foreground" />
-                        <span className="truncate">{stop.stop_name}</span>
-                        {stop.stop_code && (
-                          <span className="ml-auto text-xs text-muted-foreground">
-                            {stop.stop_code}
-                          </span>
-                        )}
-                      </CommandItem>
-                    ))}
+                  {filteredOriginItems.filter(item => item.type === 'poi').length > 0 && (
+                    <CommandGroup heading="📍 Σημεία Ενδιαφέροντος">
+                      {filteredOriginItems
+                        .filter(item => item.type === 'poi')
+                        .map((item) => {
+                          const poi = item.data as PointOfInterest;
+                          return (
+                            <CommandItem
+                              key={poi.id}
+                              value={poi.id}
+                              onSelect={() => {
+                                const nearestStop = findNearestStop(poi, stops);
+                                if (nearestStop) {
+                                  setOrigin(nearestStop);
+                                  setOriginPOI(poi);
+                                  setOriginOpen(false);
+                                  setOriginSearch("");
+                                }
+                              }}
+                            >
+                              <span className="mr-2">{getCategoryIcon(poi.category)}</span>
+                              <span className="truncate">{poi.name}</span>
+                            </CommandItem>
+                          );
+                        })}
+                    </CommandGroup>
+                  )}
+                  <CommandGroup heading="🚏 Στάσεις">
+                    {filteredOriginItems
+                      .filter(item => item.type === 'stop')
+                      .map((item) => {
+                        const stop = item.data as StaticStop;
+                        return (
+                          <CommandItem
+                            key={stop.stop_id}
+                            value={stop.stop_id}
+                            onSelect={() => {
+                              setOrigin(stop);
+                              setOriginPOI(null);
+                              setOriginOpen(false);
+                              setOriginSearch("");
+                            }}
+                          >
+                            <MapPin className="h-3 w-3 mr-2 text-muted-foreground" />
+                            <span className="truncate">{stop.stop_name}</span>
+                            {stop.stop_code && (
+                              <span className="ml-auto text-xs text-muted-foreground">
+                                {stop.stop_code}
+                              </span>
+                            )}
+                          </CommandItem>
+                        );
+                      })}
                   </CommandGroup>
                 </CommandList>
               </Command>
@@ -245,14 +329,14 @@ export function TripPlanner({ stops, isLoading, onSearch, favorites = [], onRemo
               >
                 <MapPin className="h-4 w-4 mr-2 flex-shrink-0 text-destructive" />
                 <span className="truncate">
-                  {destination ? destination.stop_name : "Επιλέξτε προορισμό..."}
+                  {destinationPOI ? `${getCategoryIcon(destinationPOI.category)} ${destinationPOI.name}` : destination ? destination.stop_name : "Επιλέξτε προορισμό..."}
                 </span>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[300px] p-0 z-[100]" align="start">
               <Command>
                 <CommandInput 
-                  placeholder="Αναζήτηση στάσης..." 
+                  placeholder="Αναζήτηση στάσης ή σημείου..." 
                   value={destinationSearch}
                   onValueChange={setDestinationSearch}
                 />
@@ -263,29 +347,62 @@ export function TripPlanner({ stops, isLoading, onSearch, favorites = [], onRemo
                         <Loader2 className="h-4 w-4 animate-spin" />
                       </div>
                     ) : (
-                      "Δεν βρέθηκε στάση"
+                      "Δεν βρέθηκε"
                     )}
                   </CommandEmpty>
-                  <CommandGroup>
-                    {filteredDestinationStops.map((stop) => (
-                      <CommandItem
-                        key={stop.stop_id}
-                        value={stop.stop_id}
-                        onSelect={() => {
-                          setDestination(stop);
-                          setDestinationOpen(false);
-                          setDestinationSearch("");
-                        }}
-                      >
-                        <MapPin className="h-3 w-3 mr-2 text-muted-foreground" />
-                        <span className="truncate">{stop.stop_name}</span>
-                        {stop.stop_code && (
-                          <span className="ml-auto text-xs text-muted-foreground">
-                            {stop.stop_code}
-                          </span>
-                        )}
-                      </CommandItem>
-                    ))}
+                  {filteredDestinationItems.filter(item => item.type === 'poi').length > 0 && (
+                    <CommandGroup heading="📍 Σημεία Ενδιαφέροντος">
+                      {filteredDestinationItems
+                        .filter(item => item.type === 'poi')
+                        .map((item) => {
+                          const poi = item.data as PointOfInterest;
+                          return (
+                            <CommandItem
+                              key={poi.id}
+                              value={poi.id}
+                              onSelect={() => {
+                                const nearestStop = findNearestStop(poi, stops);
+                                if (nearestStop) {
+                                  setDestination(nearestStop);
+                                  setDestinationPOI(poi);
+                                  setDestinationOpen(false);
+                                  setDestinationSearch("");
+                                }
+                              }}
+                            >
+                              <span className="mr-2">{getCategoryIcon(poi.category)}</span>
+                              <span className="truncate">{poi.name}</span>
+                            </CommandItem>
+                          );
+                        })}
+                    </CommandGroup>
+                  )}
+                  <CommandGroup heading="🚏 Στάσεις">
+                    {filteredDestinationItems
+                      .filter(item => item.type === 'stop')
+                      .map((item) => {
+                        const stop = item.data as StaticStop;
+                        return (
+                          <CommandItem
+                            key={stop.stop_id}
+                            value={stop.stop_id}
+                            onSelect={() => {
+                              setDestination(stop);
+                              setDestinationPOI(null);
+                              setDestinationOpen(false);
+                              setDestinationSearch("");
+                            }}
+                          >
+                            <MapPin className="h-3 w-3 mr-2 text-muted-foreground" />
+                            <span className="truncate">{stop.stop_name}</span>
+                            {stop.stop_code && (
+                              <span className="ml-auto text-xs text-muted-foreground">
+                                {stop.stop_code}
+                              </span>
+                            )}
+                          </CommandItem>
+                        );
+                      })}
                   </CommandGroup>
                 </CommandList>
               </Command>
