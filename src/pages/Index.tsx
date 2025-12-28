@@ -8,8 +8,10 @@ import { TripsTable } from "@/components/TripsTable";
 import { StopsView } from "@/components/StopsView";
 import { AlertsList } from "@/components/AlertsList";
 import { ScheduleView } from "@/components/ScheduleView";
+import { TripPlanResults } from "@/components/TripPlanResults";
 import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } from "@/hooks/useGtfsData";
-import type { RouteInfo } from "@/types/gtfs";
+import { useTripPlan } from "@/hooks/useTripPlan";
+import type { RouteInfo, StaticStop } from "@/types/gtfs";
 
 const Index = () => {
   const [isDark, setIsDark] = useState(true);
@@ -18,12 +20,24 @@ const Index = () => {
   const [selectedOperator, setSelectedOperator] = useState("all");
   const [selectedRoute, setSelectedRoute] = useState("all");
   const [showLiveOnly, setShowLiveOnly] = useState(false);
+  
+  // Trip planning state
+  const [tripOrigin, setTripOrigin] = useState<StaticStop | null>(null);
+  const [tripDestination, setTripDestination] = useState<StaticStop | null>(null);
+  const [showTripResults, setShowTripResults] = useState(false);
 
   const vehiclesQuery = useVehicles(refreshInterval, selectedOperator);
   const tripsQuery = useTrips(refreshInterval, selectedOperator);
   const alertsQuery = useAlerts(refreshInterval, selectedOperator);
   const staticRoutesQuery = useStaticRoutes(selectedOperator);
   const staticStopsQuery = useStaticStops(selectedOperator);
+  
+  // Trip planning query
+  const tripPlanQuery = useTripPlan(
+    tripOrigin?.stop_id || null,
+    tripDestination?.stop_id || null,
+    selectedOperator !== 'all' ? selectedOperator : undefined
+  );
 
   // Create a map of route_id -> RouteInfo for quick lookup
   const routeNamesMap = useMemo(() => {
@@ -125,10 +139,23 @@ const Index = () => {
         stops={staticStopsQuery.data?.data || []}
         stopsLoading={staticStopsQuery.isLoading}
         onTripSearch={(origin, destination) => {
-          console.log('Trip search:', origin, destination);
-          // TODO: Implement trip planning logic
+          setTripOrigin(origin);
+          setTripDestination(destination);
+          setShowTripResults(true);
         }}
       />
+      
+      {/* Trip Plan Results Modal */}
+      {showTripResults && (
+        <TripPlanResults
+          origin={tripOrigin}
+          destination={tripDestination}
+          results={tripPlanQuery.data || []}
+          isLoading={tripPlanQuery.isLoading}
+          error={tripPlanQuery.error}
+          onClose={() => setShowTripResults(false)}
+        />
+      )}
 
       {hasError && (
         <ErrorBanner message={errorMessage || "Αποτυχία σύνδεσης"} onRetry={handleRetry} />
