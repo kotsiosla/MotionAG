@@ -217,10 +217,10 @@ export function SchedulePanel({
       zIndex={1000}
       title="Πρόγραμμα"
     >
-      <div className="h-full flex flex-col overflow-hidden">
+      <div className="h-full grid" style={{ gridTemplateRows: 'auto auto 1fr' }}>
         {/* Header with route info */}
         <div 
-          className="flex-shrink-0 p-2 flex items-center gap-2"
+          className="p-2 flex items-center gap-2"
           style={{ backgroundColor: bgColor }}
         >
           <Calendar className="h-4 w-4 text-white" />
@@ -242,8 +242,8 @@ export function SchedulePanel({
           </Button>
         </div>
 
-        {/* Custom Tabs - no Radix overhead */}
-        <div className="flex-shrink-0 grid grid-cols-2 h-8 bg-muted/50">
+        {/* Custom Tabs */}
+        <div className="grid grid-cols-2 h-8 bg-muted/50">
           <button
             onClick={() => setActiveTab("live")}
             className={cn(
@@ -276,11 +276,11 @@ export function SchedulePanel({
           </button>
         </div>
 
-        {/* Content area - takes remaining space */}
-        <div className="flex-1 overflow-hidden">
+        {/* Content area - 1fr takes remaining space */}
+        <div className="overflow-y-auto">
           {/* Live Tab */}
           {activeTab === "live" && (
-            <div className="h-full overflow-y-auto p-2 space-y-1.5">
+            <div className="p-2 space-y-1.5">
               {liveTripsWithVehicles.length === 0 ? (
                 <div className="text-center text-muted-foreground text-xs py-8">
                   Δεν υπάρχουν ενεργά δρομολόγια
@@ -347,67 +347,67 @@ export function SchedulePanel({
 
           {/* Schedule Tab */}
           {activeTab === "schedule" && (
-            <div className="h-full flex flex-col overflow-hidden">
-            {/* Day selector row */}
-            <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/50 overflow-x-auto">
-              {dayNames.map((name, idx) => (
-                <Button
-                  key={idx}
-                  variant={selectedDay === idx ? "default" : "ghost"}
-                  size="sm"
-                  className={`h-6 text-[10px] px-2 flex-shrink-0 ${idx === today ? 'ring-1 ring-primary/50' : ''}`}
-                  onClick={() => setSelectedDay(idx)}
-                >
-                  {name.substring(0, 3)}
-                  {idx === today && <span className="ml-0.5 text-[8px]">•</span>}
-                </Button>
-              ))}
-            </div>
-            
-            {/* Filters row */}
-            <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border bg-muted/30 flex-wrap">
-              {/* Direction selector */}
-              {availableDirections.length > 1 && (
-                <>
-                  {availableDirections.map((dir) => (
-                    <Button
-                      key={dir}
-                      variant={selectedDirection === dir ? "default" : "ghost"}
-                      size="sm"
-                      className="h-6 text-[10px] px-2"
-                      onClick={() => setSelectedDirection(dir)}
-                    >
-                      Κατ. {dir + 1}
-                    </Button>
-                  ))}
-                  <div className="w-px h-4 bg-border" />
-                </>
-              )}
+            <>
+              {/* Day selector row - sticky */}
+              <div className="sticky top-0 z-10 flex items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/50 overflow-x-auto">
+                {dayNames.map((name, idx) => (
+                  <Button
+                    key={idx}
+                    variant={selectedDay === idx ? "default" : "ghost"}
+                    size="sm"
+                    className={`h-6 text-[10px] px-2 flex-shrink-0 ${idx === today ? 'ring-1 ring-primary/50' : ''}`}
+                    onClick={() => setSelectedDay(idx)}
+                  >
+                    {name.substring(0, 3)}
+                    {idx === today && <span className="ml-0.5 text-[8px]">•</span>}
+                  </Button>
+                ))}
+              </div>
               
-              {/* Time filter - only show for today */}
-              {selectedDay === today && (
-                <Button
-                  variant={showUpcomingOnly ? "default" : "outline"}
-                  size="sm"
-                  className="h-6 text-[10px] px-2"
-                  onClick={() => setShowUpcomingOnly(!showUpcomingOnly)}
-                >
-                  {showUpcomingOnly ? "Επόμενα" : "Όλα"}
-                </Button>
-              )}
+              {/* Filters row - sticky */}
+              <div className="sticky top-[34px] z-10 flex items-center gap-2 px-2 py-1.5 border-b border-border bg-muted/30 flex-wrap">
+                {/* Direction selector */}
+                {availableDirections.length > 1 && (
+                  <>
+                    {availableDirections.map((dir) => (
+                      <Button
+                        key={dir}
+                        variant={selectedDirection === dir ? "default" : "ghost"}
+                        size="sm"
+                        className="h-6 text-[10px] px-2"
+                        onClick={() => setSelectedDirection(dir)}
+                      >
+                        Κατ. {dir + 1}
+                      </Button>
+                    ))}
+                    <div className="w-px h-4 bg-border" />
+                  </>
+                )}
+                
+                {/* Time filter - only show for today */}
+                {selectedDay === today && (
+                  <Button
+                    variant={showUpcomingOnly ? "default" : "outline"}
+                    size="sm"
+                    className="h-6 text-[10px] px-2"
+                    onClick={() => setShowUpcomingOnly(!showUpcomingOnly)}
+                  >
+                    {showUpcomingOnly ? "Επόμενα" : "Όλα"}
+                  </Button>
+                )}
+                
+                {/* Trip count */}
+                <span className="text-[10px] text-muted-foreground ml-auto">
+                  {scheduledTrips.length} δρομολόγια ({uniqueTimeCount} ώρες)
+                </span>
+              </div>
               
-              {/* Trip count */}
-              <span className="text-[10px] text-muted-foreground ml-auto">
-                {scheduledTrips.length} δρομολόγια ({uniqueTimeCount} ώρες)
-              </span>
-            </div>
-            
-            {/* Scrollable trips list */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-              {isLoadingSchedule ? (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                  <Loader2 className="h-6 w-6 mb-2 animate-spin" />
-                  <p className="text-xs">Φόρτωση προγράμματος...</p>
+              {/* Trips list */}
+              <div className="p-2 space-y-1.5">
+                {isLoadingSchedule ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                    <Loader2 className="h-6 w-6 mb-2 animate-spin" />
+                    <p className="text-xs">Φόρτωση προγράμματος...</p>
                 </div>
               ) : scheduledTrips.length === 0 ? (
                 <div className="text-center text-muted-foreground text-xs py-8">
@@ -477,8 +477,8 @@ export function SchedulePanel({
                   );
                 })
               )}
-            </div>
-            </div>
+              </div>
+            </>
           )}
         </div>
       </div>
