@@ -217,10 +217,10 @@ export function SchedulePanel({
       zIndex={1000}
       title="Πρόγραμμα"
     >
-      <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col overflow-hidden">
         {/* Header with route info */}
         <div 
-          className="p-2 flex items-center gap-2"
+          className="flex-shrink-0 p-2 flex items-center gap-2"
           style={{ backgroundColor: bgColor }}
         >
           <Calendar className="h-4 w-4 text-white" />
@@ -243,8 +243,8 @@ export function SchedulePanel({
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-2 h-8 rounded-none bg-muted/50 flex-shrink-0">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="flex-shrink-0 grid w-full grid-cols-2 h-8 rounded-none bg-muted/50">
             <TabsTrigger value="live" className="text-xs gap-1.5 data-[state=active]:bg-background">
               <Radio className="h-3 w-3" />
               Live
@@ -266,7 +266,7 @@ export function SchedulePanel({
           </TabsList>
 
           {/* Live Tab */}
-          <TabsContent value="live" className="flex-1 min-h-0 m-0">
+          <TabsContent value="live" className="flex-1 overflow-hidden m-0 p-0">
             <div className="h-full overflow-y-auto p-2 space-y-1.5">
               {liveTripsWithVehicles.length === 0 ? (
                 <div className="text-center text-muted-foreground text-xs py-8">
@@ -332,9 +332,9 @@ export function SchedulePanel({
             </div>
           </TabsContent>
 
-          <TabsContent value="schedule" className="flex-1 min-h-0 m-0 flex flex-col overflow-hidden">
+          <TabsContent value="schedule" className="flex-1 overflow-hidden m-0 p-0 flex flex-col">
             {/* Day selector row */}
-            <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/50 overflow-x-auto">
+            <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/50 overflow-x-auto">
               {dayNames.map((name, idx) => (
                 <Button
                   key={idx}
@@ -350,7 +350,7 @@ export function SchedulePanel({
             </div>
             
             {/* Filters row */}
-            <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border bg-muted/30 flex-wrap">
+            <div className="flex-shrink-0 flex items-center gap-2 px-2 py-1.5 border-b border-border bg-muted/30 flex-wrap">
               {/* Direction selector */}
               {availableDirections.length > 1 && (
                 <>
@@ -387,7 +387,7 @@ export function SchedulePanel({
               </span>
             </div>
             
-            <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-1.5">
+            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
               {isLoadingSchedule ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <Loader2 className="h-6 w-6 mb-2 animate-spin" />
