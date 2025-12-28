@@ -401,9 +401,9 @@ export function SchedulePanel({
             </div>
           )}
 
-          {/* Schedule Tab - only trips list inside scroll */}
+          {/* Schedule Tab - compact comma-separated times */}
           {activeTab === "schedule" && (
-            <div className="p-2 space-y-1.5">
+            <div className="p-3">
               {isLoadingSchedule ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <Loader2 className="h-6 w-6 mb-2 animate-spin" />
@@ -414,64 +414,35 @@ export function SchedulePanel({
                   Δεν υπάρχουν προγραμματισμένα δρομολόγια
                 </div>
               ) : (
-                scheduledTrips.map((entry) => {
-                  const liveVehicle = routeVehicles.find(v => v.tripId === entry.trip_id);
-                  const isNowOrPast = entry.departure_minutes <= (new Date().getHours() * 60 + new Date().getMinutes());
-                  
-                  return (
-                    <div
-                      key={entry.trip_id}
-                      className={`p-2 rounded-lg border border-border/50 space-y-1 ${
-                        liveVehicle ? 'bg-green-500/10 border-green-500/30' : 'bg-secondary/30'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {liveVehicle ? (
-                          <span className="bg-green-500/20 text-green-600 dark:text-green-400 text-[10px] font-bold px-1.5 py-0.5 rounded">
-                            LIVE
-                          </span>
-                        ) : (
-                          <Clock className={`h-3 w-3 ${isNowOrPast ? 'text-orange-500' : 'text-muted-foreground'}`} />
-                        )}
+                <div className="text-sm leading-relaxed">
+                  {scheduledTrips.map((entry, idx) => {
+                    const liveVehicle = routeVehicles.find(v => v.tripId === entry.trip_id);
+                    const now = new Date();
+                    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                    const isPast = selectedDay === today && entry.departure_minutes < currentMinutes;
+                    const isNext = selectedDay === today && !isPast && 
+                      (idx === 0 || scheduledTrips[idx - 1].departure_minutes < currentMinutes);
+                    
+                    return (
+                      <span key={entry.trip_id}>
                         <span 
-                          className={`font-mono text-sm font-bold ${isNowOrPast && !liveVehicle ? 'text-muted-foreground line-through' : ''}`} 
-                          style={{ color: isNowOrPast && !liveVehicle ? undefined : bgColor }}
+                          className={cn(
+                            "font-mono",
+                            liveVehicle && "text-green-500 font-bold",
+                            isPast && !liveVehicle && "text-muted-foreground/50",
+                            isNext && !liveVehicle && "bg-primary/20 px-1 py-0.5 rounded font-bold"
+                          )}
+                          style={!isPast && !liveVehicle ? { color: bgColor } : undefined}
                         >
                           {entry.departure_time}
                         </span>
-                        <span className="flex-1" />
-                        {liveVehicle && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-[10px] gap-1"
-                            style={{ color: bgColor }}
-                            onClick={() => {
-                              const vehicleId = liveVehicle.vehicleId || liveVehicle.id;
-                              onVehicleFollow(vehicleId);
-                              onVehicleFocus(liveVehicle);
-                            }}
-                          >
-                            <Eye className="h-3 w-3" />
-                            Παρακολούθηση
-                          </Button>
+                        {idx < scheduledTrips.length - 1 && (
+                          <span className="text-muted-foreground">, </span>
                         )}
-                      </div>
-                      
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <span className="truncate">{entry.first_stop_name}</span>
-                        <ArrowRight className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{entry.last_stop_name}</span>
-                      </div>
-                      
-                      {entry.trip_headsign && (
-                        <div className="text-[10px] text-muted-foreground">
-                          → {entry.trip_headsign}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
+                      </span>
+                    );
+                  })}
+                </div>
               )}
             </div>
           )}
