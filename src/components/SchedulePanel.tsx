@@ -243,8 +243,8 @@ export function SchedulePanel({
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <TabsList className="grid w-full grid-cols-2 h-8 rounded-none bg-muted/50">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+          <TabsList className="grid w-full grid-cols-2 h-8 rounded-none bg-muted/50 flex-shrink-0">
             <TabsTrigger value="live" className="text-xs gap-1.5 data-[state=active]:bg-background">
               <Radio className="h-3 w-3" />
               Live
@@ -266,7 +266,7 @@ export function SchedulePanel({
           </TabsList>
 
           {/* Live Tab */}
-          <TabsContent value="live" className="flex-1 overflow-hidden m-0">
+          <TabsContent value="live" className="flex-1 min-h-0 m-0">
             <div className="h-full overflow-y-auto p-2 space-y-1.5">
               {liveTripsWithVehicles.length === 0 ? (
                 <div className="text-center text-muted-foreground text-xs py-8">
@@ -332,7 +332,7 @@ export function SchedulePanel({
             </div>
           </TabsContent>
 
-          <TabsContent value="schedule" className="flex-1 overflow-hidden m-0 flex flex-col">
+          <TabsContent value="schedule" className="flex-1 min-h-0 m-0 flex flex-col">
             {/* Day selector row */}
             <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/50 overflow-x-auto">
               {dayNames.map((name, idx) => (
