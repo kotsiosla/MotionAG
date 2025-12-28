@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Moon, Sun, RefreshCw, Menu, X, Download } from "lucide-react";
+import { Moon, Sun, RefreshCw, Menu, X, Download, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -66,7 +66,16 @@ export function Header({
   onRemoveFavorite,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [tripPlannerVisible, setTripPlannerVisible] = useState(() => {
+    const saved = localStorage.getItem('tripPlannerVisible');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
 
+  const toggleTripPlanner = () => {
+    const newValue = !tripPlannerVisible;
+    setTripPlannerVisible(newValue);
+    localStorage.setItem('tripPlannerVisible', JSON.stringify(newValue));
+  };
   const formatLastUpdate = (timestamp: number) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString('en-GB', {
@@ -94,6 +103,16 @@ export function Header({
               <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${isLoading ? 'animate-spin' : ''}`} />
             </div>
             
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTripPlanner}
+              className="h-8 w-8"
+              title={tripPlannerVisible ? "Απόκρυψη αναζήτησης" : "Εμφάνιση αναζήτησης"}
+            >
+              {tripPlannerVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+
             <Button
               variant="ghost"
               size="icon"
@@ -249,6 +268,15 @@ export function Header({
                 <span className="hidden lg:inline">{formatLastUpdate(lastUpdate)}</span>
               </div>
             )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTripPlanner}
+              className="h-7 w-7"
+              title={tripPlannerVisible ? "Απόκρυψη αναζήτησης" : "Εμφάνιση αναζήτησης"}
+            >
+              {tripPlannerVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
             <Link to="/install">
               <Button
                 variant="ghost"
@@ -270,16 +298,18 @@ export function Header({
           </div>
         </div>
 
-        {/* Trip Planner - Always visible but responsive */}
-        <div className="mt-2 pt-2 border-t border-border/50">
-          <TripPlanner 
-            stops={stops}
-            isLoading={stopsLoading}
-            onSearch={onTripSearch}
-            favorites={favorites}
-            onRemoveFavorite={onRemoveFavorite}
-          />
-        </div>
+        {/* Trip Planner - Collapsible */}
+        {tripPlannerVisible && (
+          <div className="mt-2 pt-2 border-t border-border/50">
+            <TripPlanner 
+              stops={stops}
+              isLoading={stopsLoading}
+              onSearch={onTripSearch}
+              favorites={favorites}
+              onRemoveFavorite={onRemoveFavorite}
+            />
+          </div>
+        )}
       </div>
     </header>
   );
