@@ -27,6 +27,7 @@ const Index = () => {
   const [tripOrigin, setTripOrigin] = useState<StaticStop | null>(null);
   const [tripDestination, setTripDestination] = useState<StaticStop | null>(null);
   const [tripDepartureTime, setTripDepartureTime] = useState<string>("now");
+  const [tripDepartureDate, setTripDepartureDate] = useState<Date>(new Date());
   const [showTripResults, setShowTripResults] = useState(false);
   
   // Favorites
@@ -43,7 +44,8 @@ const Index = () => {
     tripOrigin?.stop_id || null,
     tripDestination?.stop_id || null,
     selectedOperator !== 'all' ? selectedOperator : undefined,
-    tripDepartureTime
+    tripDepartureTime,
+    tripDepartureDate
   );
 
   // Create a map of route_id -> RouteInfo for quick lookup
@@ -145,10 +147,11 @@ const Index = () => {
         liveRoutesCount={liveRoutes.size}
         stops={staticStopsQuery.data?.data || []}
         stopsLoading={staticStopsQuery.isLoading}
-        onTripSearch={(origin, destination, departureTime) => {
+        onTripSearch={(origin, destination, departureTime, departureDate) => {
           setTripOrigin(origin);
           setTripDestination(destination);
           setTripDepartureTime(departureTime);
+          setTripDepartureDate(departureDate);
           setShowTripResults(true);
         }}
         favorites={favorites}
@@ -161,6 +164,7 @@ const Index = () => {
           origin={tripOrigin}
           destination={tripDestination}
           departureTime={tripDepartureTime}
+          departureDate={tripDepartureDate}
           results={tripPlanQuery.data || []}
           isLoading={tripPlanQuery.isLoading}
           error={tripPlanQuery.error}

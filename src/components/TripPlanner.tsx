@@ -1,7 +1,9 @@
 import { useState, useMemo } from "react";
-import { MapPin, ArrowDownUp, Search, Navigation, Loader2, Clock, Star, ChevronDown, Trash2 } from "lucide-react";
+import { MapPin, ArrowDownUp, Search, Navigation, Loader2, Clock, Star, ChevronDown, Trash2, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { el } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Command,
   CommandEmpty,
@@ -36,7 +38,7 @@ import type { FavoriteRoute } from "@/hooks/useFavoriteRoutes";
 interface TripPlannerProps {
   stops: StaticStop[];
   isLoading?: boolean;
-  onSearch?: (origin: StaticStop | null, destination: StaticStop | null, departureTime: string) => void;
+  onSearch?: (origin: StaticStop | null, destination: StaticStop | null, departureTime: string, departureDate: Date) => void;
   favorites?: FavoriteRoute[];
   onRemoveFavorite?: (id: string) => void;
 }
@@ -66,6 +68,13 @@ export function TripPlanner({ stops, isLoading, onSearch, favorites = [], onRemo
   const [destinationSearch, setDestinationSearch] = useState("");
   const [isLocating, setIsLocating] = useState(false);
   const [departureTime, setDepartureTime] = useState<string>("now");
+  const [departureDate, setDepartureDate] = useState<Date>(new Date());
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+
+  const isToday = useMemo(() => {
+    const today = new Date();
+    return departureDate.toDateString() === today.toDateString();
+  }, [departureDate]);
 
   const handleSelectFavorite = (fav: FavoriteRoute) => {
     setOrigin(fav.origin);
@@ -134,7 +143,7 @@ export function TripPlanner({ stops, isLoading, onSearch, favorites = [], onRemo
   };
 
   const handleSearch = () => {
-    onSearch?.(origin, destination, departureTime);
+    onSearch?.(origin, destination, departureTime, departureDate);
   };
 
   return (
@@ -284,10 +293,45 @@ export function TripPlanner({ stops, isLoading, onSearch, favorites = [], onRemo
           </Popover>
         </div>
 
+        {/* Date Picker */}
+        <div className="w-[120px] flex-shrink-0">
+          <div className="flex items-center gap-1 mb-1">
+            <span className="text-xs text-muted-foreground">Ημερομηνία</span>
+          </div>
+          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full h-9 justify-start text-left font-normal bg-background"
+              >
+                <CalendarIcon className="h-3 w-3 mr-1 text-muted-foreground" />
+                <span className="text-sm">
+                  {isToday ? "Σήμερα" : format(departureDate, "dd/MM", { locale: el })}
+                </span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 z-[100]" align="start">
+              <Calendar
+                mode="single"
+                selected={departureDate}
+                onSelect={(date) => {
+                  if (date) {
+                    setDepartureDate(date);
+                    setDatePickerOpen(false);
+                  }
+                }}
+                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
         {/* Time Picker */}
         <div className="w-[100px] flex-shrink-0">
           <div className="flex items-center gap-1 mb-1">
-            <span className="text-xs text-muted-foreground">Αναχώρηση</span>
+            <span className="text-xs text-muted-foreground">Ώρα</span>
           </div>
           <Select value={departureTime} onValueChange={setDepartureTime}>
             <SelectTrigger className="h-9 bg-background">
