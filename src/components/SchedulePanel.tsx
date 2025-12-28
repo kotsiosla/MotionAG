@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { X, Navigation, Calendar, Radio, Eye, Clock, Loader2, ArrowRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
 import { useRouteSchedule } from "@/hooks/useGtfsData";
@@ -242,32 +242,45 @@ export function SchedulePanel({
           </Button>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="flex-shrink-0 grid w-full grid-cols-2 h-8 rounded-none bg-muted/50">
-            <TabsTrigger value="live" className="text-xs gap-1.5 data-[state=active]:bg-background">
-              <Radio className="h-3 w-3" />
-              Live
-              {liveCount > 0 && (
-                <span className="bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  {liveCount}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="schedule" className="text-xs gap-1.5 data-[state=active]:bg-background">
-              <Calendar className="h-3 w-3" />
-              Πρόγραμμα
-              {scheduleCount > 0 && (
-                <span className="bg-blue-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  {scheduleCount}
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
+        {/* Custom Tabs - no Radix overhead */}
+        <div className="flex-shrink-0 grid grid-cols-2 h-8 bg-muted/50">
+          <button
+            onClick={() => setActiveTab("live")}
+            className={cn(
+              "flex items-center justify-center gap-1.5 text-xs transition-colors",
+              activeTab === "live" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"
+            )}
+          >
+            <Radio className="h-3 w-3" />
+            Live
+            {liveCount > 0 && (
+              <span className="bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {liveCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("schedule")}
+            className={cn(
+              "flex items-center justify-center gap-1.5 text-xs transition-colors",
+              activeTab === "schedule" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"
+            )}
+          >
+            <Calendar className="h-3 w-3" />
+            Πρόγραμμα
+            {scheduleCount > 0 && (
+              <span className="bg-blue-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {scheduleCount}
+              </span>
+            )}
+          </button>
+        </div>
 
+        {/* Content area - takes remaining space */}
+        <div className="flex-1 overflow-hidden">
           {/* Live Tab */}
-          <TabsContent value="live" className="flex-1 m-0 p-0 relative">
-            <div className="absolute inset-0 overflow-y-auto p-2 space-y-1.5">
+          {activeTab === "live" && (
+            <div className="h-full overflow-y-auto p-2 space-y-1.5">
               {liveTripsWithVehicles.length === 0 ? (
                 <div className="text-center text-muted-foreground text-xs py-8">
                   Δεν υπάρχουν ενεργά δρομολόγια
@@ -330,9 +343,11 @@ export function SchedulePanel({
                 })
               )}
             </div>
-          </TabsContent>
+          )}
 
-          <TabsContent value="schedule" className="flex-1 m-0 p-0 overflow-hidden">
+          {/* Schedule Tab */}
+          {activeTab === "schedule" && (
+            <div className="h-full flex flex-col overflow-hidden">
             {/* Day selector row */}
             <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/50 overflow-x-auto">
               {dayNames.map((name, idx) => (
@@ -387,8 +402,8 @@ export function SchedulePanel({
               </span>
             </div>
             
-            {/* Scrollable trips list - use calc to subtract header heights */}
-            <div className="overflow-y-auto p-2 space-y-1.5" style={{ maxHeight: 'calc(100% - 70px)' }}>
+            {/* Scrollable trips list */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
               {isLoadingSchedule ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <Loader2 className="h-6 w-6 mb-2 animate-spin" />
@@ -463,8 +478,9 @@ export function SchedulePanel({
                 })
               )}
             </div>
-          </TabsContent>
-        </Tabs>
+            </div>
+          )}
+        </div>
       </div>
     </ResizableDraggablePanel>
   );
