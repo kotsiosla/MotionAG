@@ -356,6 +356,42 @@ export function RoutePlannerPanel({
     }
   }, [selectedVehicleTripInfo, lastCurrentStopId]);
 
+  // Request notification permission
+  const requestNotificationPermission = useCallback(async () => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+  }, []);
+
+  // Trigger vibration
+  const triggerVibration = useCallback(() => {
+    if ('vibrate' in navigator) {
+      // Vibrate pattern: vibrate 200ms, pause 100ms, vibrate 200ms
+      navigator.vibrate([200, 100, 200, 100, 200]);
+    }
+  }, []);
+
+  // Send push notification
+  const sendPushNotification = useCallback((stopName: string) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const notification = new Notification('🚌 Πλησιάζει η στάση σας!', {
+        body: `Το λεωφορείο πλησιάζει στη στάση: ${stopName}`,
+        icon: '/favicon.ico',
+        tag: 'bus-approaching',
+        requireInteraction: true,
+      });
+      
+      // Auto close after 10 seconds
+      setTimeout(() => notification.close(), 10000);
+      
+      // Focus window when notification is clicked
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+    }
+  }, []);
+
   // Play notification sound when bus approaches watched stop
   const playNotificationSound = useCallback(() => {
     try {
@@ -389,6 +425,13 @@ export function RoutePlannerPanel({
     }
   }, []);
 
+  // Full notification with sound, vibration and push
+  const triggerFullNotification = useCallback((stopName: string) => {
+    playNotificationSound();
+    triggerVibration();
+    sendPushNotification(stopName);
+  }, [playNotificationSound, triggerVibration, sendPushNotification]);
+
   // Check if bus is approaching watched stop
   useEffect(() => {
     if (!watchedStopId || !selectedVehicleTripInfo) return;
@@ -407,11 +450,11 @@ export function RoutePlannerPanel({
     if (watchedStop.distanceFromVehicle !== undefined && 
         watchedStop.distanceFromVehicle <= NOTIFICATION_DISTANCE &&
         !notifiedStops.has(watchedStopId)) {
-      // Bus is approaching! Play notification
-      playNotificationSound();
+      // Bus is approaching! Trigger full notification
+      triggerFullNotification(watchedStop.stopName);
       setNotifiedStops(prev => new Set([...prev, watchedStopId]));
     }
-  }, [selectedVehicleTripInfo, watchedStopId, notifiedStops, playNotificationSound, NOTIFICATION_DISTANCE]);
+  }, [selectedVehicleTripInfo, watchedStopId, notifiedStops, triggerFullNotification, NOTIFICATION_DISTANCE]);
 
   // Clear watched stop when vehicle trip changes
   useEffect(() => {
@@ -861,11 +904,13 @@ export function RoutePlannerPanel({
                         {/* Notification bell for upcoming stops */}
                         {!stop.isPassed && !stop.isCurrent && (
                           <button
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation();
                               if (watchedStopId === stop.stopId) {
                                 setWatchedStopId(null);
                               } else {
+                                // Request notification permission when enabling watch
+                                await requestNotificationPermission();
                                 setWatchedStopId(stop.stopId);
                                 setNotifiedStops(new Set());
                               }
