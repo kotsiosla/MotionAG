@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
-import { X, Navigation, Calendar, Radio, Eye, Clock, Loader2, ArrowRight } from "lucide-react";
+import { X, Navigation, Calendar, Radio, Eye, Clock, Loader2, ArrowRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
 import { useRouteSchedule } from "@/hooks/useGtfsData";
 import type { Vehicle, Trip, StaticStop, RouteInfo } from "@/types/gtfs";
@@ -70,21 +71,14 @@ export function SchedulePanel({
 }: SchedulePanelProps) {
   const [activeTab, setActiveTab] = useState<string>("live");
   const [selectedDirection, setSelectedDirection] = useState<number>(0);
+  const [showUpcomingOnly, setShowUpcomingOnly] = useState<boolean>(true);
 
-  // Debug log
-  console.log('SchedulePanel rendering with:', { selectedRoute, selectedOperator });
+  // Day names in Greek
+  const dayNames = ['Κυριακή', 'Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο'];
+  const today = new Date().getDay();
 
   // Fetch static schedule data
   const { data: scheduleData, isLoading: isLoadingSchedule, error: scheduleError } = useRouteSchedule(selectedRoute, selectedOperator);
-
-  // Debug schedule data
-  console.log('Schedule data:', { 
-    scheduleData, 
-    isLoadingSchedule, 
-    scheduleError,
-    totalTrips: scheduleData?.total_trips,
-    scheduleLength: scheduleData?.schedule?.length
-  });
 
   // Get trips for this route
   const routeTrips = useMemo(() => {
@@ -118,7 +112,7 @@ export function SchedulePanel({
       });
   }, [routeTrips, routeVehicles, stops]);
 
-  // Get scheduled trips from static data - only upcoming trips
+  // Get scheduled trips from static data
   const scheduledTrips = useMemo(() => {
     if (!scheduleData?.schedule) return [];
     
@@ -131,18 +125,26 @@ export function SchedulePanel({
     
     if (!directionSchedule || directionSchedule.length === 0) return [];
     
-    // First try to find upcoming trips today
-    let upcomingTrips = directionSchedule
-      .filter(entry => entry.departure_minutes >= currentMinutes)
-      .slice(0, 25);
+    // Deduplicate by departure time (keep only one trip per time slot)
+    const uniqueByTime = new Map<string, typeof directionSchedule[0]>();
+    for (const entry of directionSchedule) {
+      const key = `${entry.departure_time}-${entry.first_stop_name}-${entry.last_stop_name}`;
+      if (!uniqueByTime.has(key)) {
+        uniqueByTime.set(key, entry);
+      }
+    }
+    const deduplicated = Array.from(uniqueByTime.values());
     
-    // If no upcoming trips today, show the first trips of the day (for late night viewing)
-    if (upcomingTrips.length === 0) {
-      upcomingTrips = directionSchedule.slice(0, 25);
+    if (showUpcomingOnly) {
+      // Filter to show only upcoming trips
+      const upcomingTrips = deduplicated.filter(entry => entry.departure_minutes >= currentMinutes);
+      // If no upcoming trips today, show all trips (for late night)
+      return upcomingTrips.length > 0 ? upcomingTrips : deduplicated;
     }
     
-    return upcomingTrips;
-  }, [scheduleData, selectedDirection]);
+    // Show all trips for the day
+    return deduplicated;
+  }, [scheduleData, selectedDirection, showUpcomingOnly]);
 
   // Get available directions
   const availableDirections = useMemo(() => {
@@ -288,24 +290,42 @@ export function SchedulePanel({
             </div>
           </TabsContent>
 
-          {/* Schedule Tab */}
-          <TabsContent value="schedule" className="flex-1 overflow-hidden m-0">
-            {/* Direction selector */}
-            {availableDirections.length > 1 && (
-              <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border bg-muted/30">
-                {availableDirections.map((dir) => (
-                  <Button
-                    key={dir}
-                    variant={selectedDirection === dir ? "default" : "ghost"}
-                    size="sm"
-                    className="h-6 text-[10px] px-2"
-                    onClick={() => setSelectedDirection(dir)}
-                  >
-                    Κατεύθυνση {dir + 1}
-                  </Button>
-                ))}
-              </div>
-            )}
+          <TabsContent value="schedule" className="flex-1 overflow-hidden m-0 flex flex-col">
+            {/* Filters row */}
+            <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border bg-muted/30 flex-wrap">
+              {/* Direction selector */}
+              {availableDirections.length > 1 && (
+                <>
+                  {availableDirections.map((dir) => (
+                    <Button
+                      key={dir}
+                      variant={selectedDirection === dir ? "default" : "ghost"}
+                      size="sm"
+                      className="h-6 text-[10px] px-2"
+                      onClick={() => setSelectedDirection(dir)}
+                    >
+                      Κατ. {dir + 1}
+                    </Button>
+                  ))}
+                  <div className="w-px h-4 bg-border" />
+                </>
+              )}
+              
+              {/* Time filter */}
+              <Button
+                variant={showUpcomingOnly ? "default" : "outline"}
+                size="sm"
+                className="h-6 text-[10px] px-2"
+                onClick={() => setShowUpcomingOnly(!showUpcomingOnly)}
+              >
+                {showUpcomingOnly ? "Επόμενα" : "Όλα"}
+              </Button>
+              
+              {/* Today indicator */}
+              <span className="text-[10px] text-muted-foreground ml-auto">
+                {dayNames[today]}
+              </span>
+            </div>
             
             <div className="h-full overflow-y-auto p-2 space-y-1.5">
               {isLoadingSchedule ? (
