@@ -448,7 +448,14 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     
     // Check if the cluster group has a map reference (is added to a map)
     const clusterGroup = vehicleMarkersRef.current as any;
-    if (!clusterGroup._map) return;
+    if (!clusterGroup._map || !mapRef.current.getZoom) return;
+    
+    // Additional safety check - ensure map has zoom level
+    try {
+      mapRef.current.getZoom();
+    } catch {
+      return;
+    }
 
     const validVehicles = vehicles.filter(
       (v) => v.latitude !== undefined && v.longitude !== undefined
