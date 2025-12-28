@@ -114,17 +114,38 @@ export function SchedulePanel({
       });
   }, [routeTrips, routeVehicles, stops]);
 
-  // Get service IDs that run on selected day
+  // Get service IDs that run on selected day - use calendar or calendar_dates as fallback
   const activeServiceIds = useMemo(() => {
-    if (!scheduleData?.calendar) return new Set<string>();
+    // If we have calendar.txt data, use it
+    if (scheduleData?.calendar && scheduleData.calendar.length > 0) {
+      const dayKey = dayKeys[selectedDay];
+      return new Set(
+        scheduleData.calendar
+          .filter(cal => cal[dayKey])
+          .map(cal => cal.service_id)
+      );
+    }
     
-    const dayKey = dayKeys[selectedDay];
-    return new Set(
-      scheduleData.calendar
-        .filter(cal => cal[dayKey])
-        .map(cal => cal.service_id)
-    );
-  }, [scheduleData?.calendar, selectedDay, dayKeys]);
+    // Fallback: use calendar_dates.txt - check for today's date
+    if (scheduleData?.calendar_dates && scheduleData.calendar_dates.length > 0) {
+      // Build date string in YYYYMMDD format for the selected day
+      const today = new Date();
+      const targetDate = new Date(today);
+      const dayDiff = selectedDay - today.getDay();
+      targetDate.setDate(today.getDate() + dayDiff);
+      const dateStr = targetDate.toISOString().slice(0, 10).replace(/-/g, '');
+      
+      // Get service IDs that have exception_type 1 (added) for this date
+      return new Set(
+        scheduleData.calendar_dates
+          .filter(cd => cd.date === dateStr && cd.exception_type === 1)
+          .map(cd => cd.service_id)
+      );
+    }
+    
+    // If no calendar data at all, return empty set (show all trips)
+    return new Set<string>();
+  }, [scheduleData?.calendar, scheduleData?.calendar_dates, selectedDay, dayKeys]);
 
   // Get scheduled trips from static data - filter by day
   const scheduledTrips = useMemo(() => {
@@ -140,6 +161,7 @@ export function SchedulePanel({
     if (!directionSchedule || directionSchedule.length === 0) return [];
     
     // Filter by selected day (using service_id and calendar)
+    // Only filter if we have calendar data
     let filtered = directionSchedule;
     if (activeServiceIds.size > 0) {
       filtered = directionSchedule.filter(entry => activeServiceIds.has(entry.service_id));
