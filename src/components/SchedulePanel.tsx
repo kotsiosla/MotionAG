@@ -332,10 +332,9 @@ export function SchedulePanel({
             </div>
           </TabsContent>
 
-          <TabsContent value="schedule" className="flex-1 m-0 p-0 relative">
-            <div className="absolute inset-0 flex flex-col overflow-hidden">
-              {/* Day selector row */}
-              <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/50 overflow-x-auto">
+          <TabsContent value="schedule" className="flex-1 m-0 p-0 overflow-hidden">
+            {/* Day selector row */}
+            <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-muted/50 overflow-x-auto">
               {dayNames.map((name, idx) => (
                 <Button
                   key={idx}
@@ -351,7 +350,7 @@ export function SchedulePanel({
             </div>
             
             {/* Filters row */}
-            <div className="flex-shrink-0 flex items-center gap-2 px-2 py-1.5 border-b border-border bg-muted/30 flex-wrap">
+            <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border bg-muted/30 flex-wrap">
               {/* Direction selector */}
               {availableDirections.length > 1 && (
                 <>
@@ -388,7 +387,8 @@ export function SchedulePanel({
               </span>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+            {/* Scrollable trips list - use calc to subtract header heights */}
+            <div className="overflow-y-auto p-2 space-y-1.5" style={{ maxHeight: 'calc(100% - 70px)' }}>
               {isLoadingSchedule ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <Loader2 className="h-6 w-6 mb-2 animate-spin" />
@@ -462,7 +462,6 @@ export function SchedulePanel({
                   );
                 })
               )}
-            </div>
             </div>
           </TabsContent>
         </Tabs>
