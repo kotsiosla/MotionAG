@@ -318,3 +318,24 @@
 .animate-slide-in-bottom {
   animation: slideInFromBottom 0.3s ease-out;
 }
+
+/* Vehicle tooltip styles */
+.leaflet-tooltip.vehicle-tooltip {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 0;
+  color: hsl(var(--card-foreground));
+  font-size: 12px;
+}
+
+.leaflet-tooltip.vehicle-tooltip::before {
+  border-top-color: hsl(var(--border));
+}
+
+.dark .leaflet-tooltip.vehicle-tooltip {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}

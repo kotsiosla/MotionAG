@@ -27,9 +27,10 @@ interface VehicleMapProps {
   isLoading: boolean;
 }
 
-const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: string, isOnSelectedRoute?: boolean) => {
+const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: string, isOnSelectedRoute?: boolean, routeShortName?: string) => {
   const rotation = bearing || 0;
   const bgColor = routeColor ? `#${routeColor}` : 'hsl(var(--primary))';
+  const routeLabel = routeShortName || '';
   
   // Special larger animated icon for vehicles on selected route
   if (isOnSelectedRoute) {
@@ -40,6 +41,7 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
           <div class="absolute -inset-2 rounded-full opacity-30" style="background: ${bgColor}; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
           <div class="absolute -inset-1 rounded-full opacity-50" style="background: ${bgColor}; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;"></div>
           <div class="relative flex flex-col items-center">
+            ${routeLabel ? `<div class="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold text-white shadow-md" style="background: ${bgColor}; transform: rotate(-${rotation}deg);">${routeLabel}</div>` : ''}
             <div style="width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 8px solid ${bgColor}; margin-bottom: -2px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></div>
             <div class="w-8 h-6 rounded-sm flex items-center justify-center shadow-lg border-2 border-white" style="background: ${bgColor};">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -52,8 +54,8 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
           </div>
         </div>
       `,
-      iconSize: [32, 38],
-      iconAnchor: [16, 19],
+      iconSize: [32, 50],
+      iconAnchor: [16, 30],
     });
   }
   
@@ -66,6 +68,7 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
       <div class="relative" style="transform: rotate(${rotation}deg)">
         <div class="absolute inset-0 rounded ${ringClass} opacity-50" style="background: ${bgColor}"></div>
         <div class="relative flex flex-col items-center">
+          ${routeLabel ? `<div class="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap px-1 py-0.5 rounded text-[9px] font-bold text-white shadow-sm" style="background: ${bgColor}; transform: rotate(-${rotation}deg);">${routeLabel}</div>` : ''}
           <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 5px solid ${bgColor}; margin-bottom: -1px;"></div>
           <div class="w-5 h-4 rounded-sm flex items-center justify-center shadow-md" style="background: ${bgColor}; ${glowStyle}">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
@@ -78,8 +81,8 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
         </div>
       </div>
     `,
-    iconSize: [20, 26],
-    iconAnchor: [10, 13],
+    iconSize: [20, 36],
+    iconAnchor: [10, 20],
   });
 };
 
@@ -487,8 +490,36 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         }
         
         // Update icon if needed (for rotation/bearing changes)
-        existingMarker.setIcon(createVehicleIcon(vehicle.bearing, isFollowed, routeColor, isOnSelectedRoute));
+        existingMarker.setIcon(createVehicleIcon(vehicle.bearing, isFollowed, routeColor, isOnSelectedRoute, routeInfo?.route_short_name));
         existingMarker.setZIndexOffset(isOnSelectedRoute ? 2000 : (isFollowed ? 1000 : 0));
+        
+        // Update tooltip content for hover
+        const tooltipContent = `
+          <div class="p-2 min-w-[180px]">
+            <div class="font-semibold text-sm mb-1 flex items-center gap-2">
+              <span class="inline-block w-2 h-2 rounded-full" style="background: ${routeColor ? `#${routeColor}` : 'hsl(var(--primary))'}"></span>
+              ${routeName || `Όχημα ${vehicleId}`}
+            </div>
+            <div class="space-y-1 text-xs">
+              ${vehicle.label ? `<div><span class="text-muted-foreground">Ετικέτα:</span> ${vehicle.label}</div>` : ''}
+              <div><span class="text-muted-foreground">Ταχύτητα:</span> ${formatSpeed(vehicle.speed)}</div>
+              ${vehicle.currentStatus ? `<div><span class="text-muted-foreground">Κατάσταση:</span> ${vehicle.currentStatus}</div>` : ''}
+              ${nextStop ? `<div class="pt-1 border-t border-border mt-1"><span class="text-muted-foreground">Επόμενη:</span> ${nextStop.stopName}${nextStop.arrivalTime ? ` (${formatETA(nextStop.arrivalTime)})` : ''}</div>` : ''}
+            </div>
+          </div>
+        `;
+        
+        // Update or set tooltip
+        if (existingMarker.getTooltip()) {
+          existingMarker.setTooltipContent(tooltipContent);
+        } else {
+          existingMarker.bindTooltip(tooltipContent, {
+            direction: 'top',
+            offset: [0, -15],
+            className: 'vehicle-tooltip',
+            permanent: false,
+          });
+        }
         
         // Update popup content
         const etaHtml = nextStop ? `
@@ -524,8 +555,31 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       } else {
         // Create new marker for new vehicles
         const marker = L.marker([vehicle.latitude!, vehicle.longitude!], {
-          icon: createVehicleIcon(vehicle.bearing, isFollowed, routeColor, isOnSelectedRoute),
+          icon: createVehicleIcon(vehicle.bearing, isFollowed, routeColor, isOnSelectedRoute, routeInfo?.route_short_name),
           zIndexOffset: isOnSelectedRoute ? 2000 : (isFollowed ? 1000 : 0),
+        });
+
+        // Bind tooltip for hover (all details)
+        const tooltipContent = `
+          <div class="p-2 min-w-[180px]">
+            <div class="font-semibold text-sm mb-1 flex items-center gap-2">
+              <span class="inline-block w-2 h-2 rounded-full" style="background: ${routeColor ? `#${routeColor}` : 'hsl(var(--primary))'}"></span>
+              ${routeName || `Όχημα ${vehicleId}`}
+            </div>
+            <div class="space-y-1 text-xs">
+              ${vehicle.label ? `<div><span class="text-muted-foreground">Ετικέτα:</span> ${vehicle.label}</div>` : ''}
+              <div><span class="text-muted-foreground">Ταχύτητα:</span> ${formatSpeed(vehicle.speed)}</div>
+              ${vehicle.currentStatus ? `<div><span class="text-muted-foreground">Κατάσταση:</span> ${vehicle.currentStatus}</div>` : ''}
+              ${nextStop ? `<div class="pt-1 border-t border-border mt-1"><span class="text-muted-foreground">Επόμενη:</span> ${nextStop.stopName}${nextStop.arrivalTime ? ` (${formatETA(nextStop.arrivalTime)})` : ''}</div>` : ''}
+            </div>
+          </div>
+        `;
+        
+        marker.bindTooltip(tooltipContent, {
+          direction: 'top',
+          offset: [0, -15],
+          className: 'vehicle-tooltip',
+          permanent: false,
         });
 
         marker.on('click', () => {
