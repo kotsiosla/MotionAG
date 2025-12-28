@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { X, MapPin, Navigation, Clock, Footprints, Bus, ChevronDown, ChevronUp, Search, Loader2, LocateFixed, ArrowRight, MousePointer2, Target, Bell, BellOff, Volume2 } from "lucide-react";
+import { X, MapPin, Navigation, Clock, Footprints, Bus, ChevronDown, ChevronUp, Search, Loader2, LocateFixed, ArrowRight, MousePointer2, Target, Bell, BellOff, Volume2, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { StaticStop, Trip, Vehicle, RouteInfo } from "@/types/gtfs";
@@ -143,7 +143,9 @@ export function RoutePlannerPanel({
   const [watchedStopId, setWatchedStopId] = useState<string | null>(null);
   const [notifiedStops, setNotifiedStops] = useState<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const NOTIFICATION_DISTANCE = 500; // meters
+  const [notificationDistance, setNotificationDistance] = useState(500); // meters
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const distanceOptions = [200, 300, 500, 750, 1000];
 
   // Handle map click location
   useEffect(() => {
@@ -425,12 +427,37 @@ export function RoutePlannerPanel({
     }
   }, []);
 
-  // Full notification with sound, vibration and push
+  // Speak announcement using Text-to-Speech
+  const speakAnnouncement = useCallback((text: string) => {
+    if ('speechSynthesis' in window) {
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'el-GR'; // Greek language
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      
+      // Try to find a Greek voice
+      const voices = window.speechSynthesis.getVoices();
+      const greekVoice = voices.find(v => v.lang.startsWith('el'));
+      if (greekVoice) {
+        utterance.voice = greekVoice;
+      }
+      
+      window.speechSynthesis.speak(utterance);
+    }
+  }, []);
+
+  // Full notification with sound, vibration, push and voice
   const triggerFullNotification = useCallback((stopName: string) => {
     playNotificationSound();
     triggerVibration();
     sendPushNotification(stopName);
-  }, [playNotificationSound, triggerVibration, sendPushNotification]);
+    // Voice announcement
+    speakAnnouncement(`Προσοχή! Το λεωφορείο πλησιάζει στη στάση ${stopName}`);
+  }, [playNotificationSound, triggerVibration, sendPushNotification, speakAnnouncement]);
 
   // Check if bus is approaching watched stop
   useEffect(() => {
@@ -448,13 +475,13 @@ export function RoutePlannerPanel({
     
     // Check if bus is within notification distance
     if (watchedStop.distanceFromVehicle !== undefined && 
-        watchedStop.distanceFromVehicle <= NOTIFICATION_DISTANCE &&
+        watchedStop.distanceFromVehicle <= notificationDistance &&
         !notifiedStops.has(watchedStopId)) {
       // Bus is approaching! Trigger full notification
       triggerFullNotification(watchedStop.stopName);
       setNotifiedStops(prev => new Set([...prev, watchedStopId]));
     }
-  }, [selectedVehicleTripInfo, watchedStopId, notifiedStops, triggerFullNotification, NOTIFICATION_DISTANCE]);
+  }, [selectedVehicleTripInfo, watchedStopId, notifiedStops, triggerFullNotification, notificationDistance]);
 
   // Clear watched stop when vehicle trip changes
   useEffect(() => {
@@ -824,25 +851,65 @@ export function RoutePlannerPanel({
               </div>
             )}
             
-            {/* Notification active indicator */}
-            {watchedStopId && (
-              <div className="flex items-center gap-2 mt-2 p-2 bg-accent/10 border border-accent/30 rounded-lg text-xs">
-                <Volume2 className="h-4 w-4 text-accent animate-pulse" />
-                <div className="flex-1">
-                  <span className="text-accent font-medium">Ειδοποίηση ενεργή</span>
-                  <p className="text-muted-foreground">
-                    {selectedVehicleTripInfo.stops.find(s => s.stopId === watchedStopId)?.stopName}
-                  </p>
-                </div>
+            {/* Notification settings and indicator */}
+            <div className="mt-2 space-y-2">
+              {/* Settings toggle */}
+              <div className="flex items-center justify-between">
                 <button
-                  onClick={() => setWatchedStopId(null)}
-                  className="p-1 hover:bg-accent/20 rounded"
-                  title="Απενεργοποίηση"
+                  onClick={() => setShowNotificationSettings(!showNotificationSettings)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <BellOff className="h-4 w-4 text-muted-foreground" />
+                  <Settings className="h-3.5 w-3.5" />
+                  <span>Ρυθμίσεις ειδοποίησης</span>
+                  <ChevronDown className={`h-3 w-3 transition-transform ${showNotificationSettings ? 'rotate-180' : ''}`} />
                 </button>
+                <span className="text-xs text-muted-foreground">
+                  Απόσταση: {notificationDistance >= 1000 ? `${notificationDistance / 1000}χλμ` : `${notificationDistance}μ`}
+                </span>
               </div>
-            )}
+              
+              {/* Distance settings panel */}
+              {showNotificationSettings && (
+                <div className="p-3 bg-muted/30 rounded-lg border border-border/50 space-y-2">
+                  <p className="text-xs text-muted-foreground">Ειδοποίηση όταν το λεωφορείο είναι σε απόσταση:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {distanceOptions.map((distance) => (
+                      <button
+                        key={distance}
+                        onClick={() => setNotificationDistance(distance)}
+                        className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
+                          notificationDistance === distance
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted hover:bg-muted/80 text-foreground'
+                        }`}
+                      >
+                        {distance >= 1000 ? `${distance / 1000}χλμ` : `${distance}μ`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Notification active indicator */}
+              {watchedStopId && (
+                <div className="flex items-center gap-2 p-2 bg-accent/10 border border-accent/30 rounded-lg text-xs">
+                  <Volume2 className="h-4 w-4 text-accent animate-pulse" />
+                  <div className="flex-1">
+                    <span className="text-accent font-medium">Ειδοποίηση ενεργή</span>
+                    <p className="text-muted-foreground">
+                      {selectedVehicleTripInfo.stops.find(s => s.stopId === watchedStopId)?.stopName}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setWatchedStopId(null)}
+                    className="p-1 hover:bg-accent/20 rounded"
+                    title="Απενεργοποίηση"
+                  >
+                    <BellOff className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Stops List */}
