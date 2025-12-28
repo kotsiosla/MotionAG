@@ -154,6 +154,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [showStops, setShowStops] = useState(false);
   const [showRoutePanel, setShowRoutePanel] = useState(true);
   const [showRoutePlanner, setShowRoutePlanner] = useState(false);
+  const [selectedVehicleTrip, setSelectedVehicleTrip] = useState<{ vehicleId: string; tripId: string; routeId?: string } | null>(null);
   const [showLiveVehiclesPanel, setShowLiveVehiclesPanel] = useState(true);
   const markerMapRef = useRef<Map<string, L.Marker>>(new Map());
   const userLocationMarkerRef = useRef<L.Marker | null>(null);
@@ -591,6 +592,15 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
         marker.on('click', () => {
           setFollowedVehicleId(vehicleId);
+          // Open route planner with this vehicle's trip info
+          if (vehicle.tripId) {
+            setSelectedVehicleTrip({
+              vehicleId,
+              tripId: vehicle.tripId,
+              routeId: vehicle.routeId,
+            });
+            setShowRoutePlanner(true);
+          }
         });
 
         const etaHtml = nextStop ? `
@@ -1199,6 +1209,11 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         onLocationSelect={handleLocationSelect}
         onRequestMapClick={(type) => setMapClickMode(type)}
         mapClickLocation={mapClickLocation}
+        selectedVehicleTrip={selectedVehicleTrip}
+        onClearVehicleTrip={() => {
+          setSelectedVehicleTrip(null);
+          setShowRoutePlanner(false);
+        }}
       />
       
       {/* Route Stops Panel */}
