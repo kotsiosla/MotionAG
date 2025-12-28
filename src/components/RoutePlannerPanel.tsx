@@ -143,9 +143,17 @@ export function RoutePlannerPanel({
   const [watchedStopId, setWatchedStopId] = useState<string | null>(null);
   const [notifiedStops, setNotifiedStops] = useState<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [notificationDistance, setNotificationDistance] = useState(500); // meters
+  const [notificationDistance, setNotificationDistance] = useState(() => {
+    const saved = localStorage.getItem('notificationDistance');
+    return saved ? parseInt(saved, 10) : 500;
+  });
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const distanceOptions = [200, 300, 500, 750, 1000];
+
+  // Save notification distance to localStorage
+  useEffect(() => {
+    localStorage.setItem('notificationDistance', notificationDistance.toString());
+  }, [notificationDistance]);
 
   // Handle map click location
   useEffect(() => {
