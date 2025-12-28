@@ -9,6 +9,7 @@ import { StopsView } from "@/components/StopsView";
 import { AlertsList } from "@/components/AlertsList";
 import { ScheduleView } from "@/components/ScheduleView";
 import { TripPlanResults } from "@/components/TripPlanResults";
+import { NearbyStopsPanel } from "@/components/NearbyStopsPanel";
 import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } from "@/hooks/useGtfsData";
 import { useTripPlan } from "@/hooks/useTripPlan";
 import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
@@ -274,6 +275,21 @@ const Index = () => {
           </div>
         </Tabs>
       </main>
+
+      {/* Nearby Stops Panel - Mobile only */}
+      <NearbyStopsPanel
+        stops={staticStopsQuery.data?.data || []}
+        trips={tripsQuery.data?.data || []}
+        vehicles={vehiclesQuery.data?.data || []}
+        routeNamesMap={routeNamesMap}
+        onSelectVehicle={(vehicleId, tripId, routeId) => {
+          if (routeId) setSelectedRoute(routeId);
+          setActiveTab("map");
+        }}
+        onStopSelect={(stop) => {
+          setActiveTab("map");
+        }}
+      />
     </div>
   );
 };
