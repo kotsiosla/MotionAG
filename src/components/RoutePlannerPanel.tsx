@@ -516,12 +516,18 @@ export function RoutePlannerPanel({
   }, []);
 
   // Full notification with sound, vibration, push and voice
-  const triggerFullNotification = useCallback((stopName: string) => {
+  const triggerFullNotification = useCallback((stopName: string, routeShortName?: string, routeLongName?: string) => {
     playNotificationSound();
     triggerVibration();
+    
+    // Build announcement with route info for accessibility
+    const routeInfo = routeShortName 
+      ? `Γραμμή ${routeShortName}${routeLongName ? `, ${routeLongName}` : ''}`
+      : 'Το λεωφορείο';
+    
     sendPushNotification(stopName);
-    // Voice announcement
-    speakAnnouncement(`Προσοχή! Το λεωφορείο πλησιάζει στη στάση ${stopName}`);
+    // Voice announcement with route info for blind passengers
+    speakAnnouncement(`Προσοχή! ${routeInfo} πλησιάζει στη στάση ${stopName}`);
   }, [playNotificationSound, triggerVibration, sendPushNotification, speakAnnouncement]);
 
   // Check if bus is approaching watched stop
@@ -542,8 +548,12 @@ export function RoutePlannerPanel({
     if (watchedStop.distanceFromVehicle !== undefined && 
         watchedStop.distanceFromVehicle <= notificationDistance &&
         !notifiedStops.has(watchedStopId)) {
-      // Bus is approaching! Trigger full notification
-      triggerFullNotification(watchedStop.stopName);
+      // Bus is approaching! Trigger full notification with route info
+      triggerFullNotification(
+        watchedStop.stopName,
+        selectedVehicleTripInfo.routeShortName,
+        selectedVehicleTripInfo.routeLongName
+      );
       setNotifiedStops(prev => new Set([...prev, watchedStopId]));
     }
   }, [selectedVehicleTripInfo, watchedStopId, notifiedStops, triggerFullNotification, notificationDistance]);
