@@ -112,7 +112,7 @@ export function SchedulePanel({
       });
   }, [routeTrips, routeVehicles, stops]);
 
-  // Get scheduled trips from static data
+  // Get scheduled trips from static data - NO deduplication, show all trips
   const scheduledTrips = useMemo(() => {
     if (!scheduleData?.schedule) return [];
     
@@ -125,26 +125,25 @@ export function SchedulePanel({
     
     if (!directionSchedule || directionSchedule.length === 0) return [];
     
-    // Deduplicate by departure time (keep only one trip per time slot)
-    const uniqueByTime = new Map<string, typeof directionSchedule[0]>();
-    for (const entry of directionSchedule) {
-      const key = `${entry.departure_time}-${entry.first_stop_name}-${entry.last_stop_name}`;
-      if (!uniqueByTime.has(key)) {
-        uniqueByTime.set(key, entry);
-      }
-    }
-    const deduplicated = Array.from(uniqueByTime.values());
+    // Sort by departure time
+    const sorted = [...directionSchedule].sort((a, b) => a.departure_minutes - b.departure_minutes);
     
     if (showUpcomingOnly) {
       // Filter to show only upcoming trips
-      const upcomingTrips = deduplicated.filter(entry => entry.departure_minutes >= currentMinutes);
+      const upcomingTrips = sorted.filter(entry => entry.departure_minutes >= currentMinutes);
       // If no upcoming trips today, show all trips (for late night)
-      return upcomingTrips.length > 0 ? upcomingTrips : deduplicated;
+      return upcomingTrips.length > 0 ? upcomingTrips : sorted;
     }
     
-    // Show all trips for the day
-    return deduplicated;
+    // Show all trips
+    return sorted;
   }, [scheduleData, selectedDirection, showUpcomingOnly]);
+
+  // Count unique departure times
+  const uniqueTimeCount = useMemo(() => {
+    const times = new Set(scheduledTrips.map(t => t.departure_time));
+    return times.size;
+  }, [scheduledTrips]);
 
   // Get available directions
   const availableDirections = useMemo(() => {
@@ -321,9 +320,9 @@ export function SchedulePanel({
                 {showUpcomingOnly ? "Επόμενα" : "Όλα"}
               </Button>
               
-              {/* Today indicator */}
+              {/* Today indicator with trip count */}
               <span className="text-[10px] text-muted-foreground ml-auto">
-                {dayNames[today]}
+                {dayNames[today]} • {scheduledTrips.length} δρομολόγια ({uniqueTimeCount} ώρες)
               </span>
             </div>
             
