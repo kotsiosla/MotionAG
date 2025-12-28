@@ -63,6 +63,7 @@ interface RoutePlannerPanelProps {
   mapClickLocation?: { type: 'origin' | 'destination'; lat: number; lng: number } | null;
   selectedVehicleTrip?: { vehicleId: string; tripId: string; routeId?: string } | null;
   onClearVehicleTrip?: () => void;
+  onTripStopClick?: (stopId: string, lat: number, lng: number) => void;
 }
 
 // Haversine distance calculation
@@ -116,6 +117,7 @@ export function RoutePlannerPanel({
   mapClickLocation,
   selectedVehicleTrip,
   onClearVehicleTrip,
+  onTripStopClick,
 }: RoutePlannerPanelProps) {
   const [origin, setOrigin] = useState<Location | null>(null);
   const [destination, setDestination] = useState<Location | null>(null);
@@ -630,15 +632,21 @@ export function RoutePlannerPanel({
           <div className="flex-1 overflow-y-auto p-2">
             <div className="space-y-1">
               {selectedVehicleTripInfo.stops.map((stop, index) => (
-                <div 
+                <button 
                   key={`${stop.stopId}-${index}`}
-                  className={`flex items-start gap-3 p-2 rounded-lg transition-colors ${
+                  onClick={() => {
+                    if (stop.stopLat !== undefined && stop.stopLon !== undefined) {
+                      onTripStopClick?.(stop.stopId, stop.stopLat, stop.stopLon);
+                    }
+                  }}
+                  disabled={stop.stopLat === undefined || stop.stopLon === undefined}
+                  className={`w-full text-left flex items-start gap-3 p-2 rounded-lg transition-colors cursor-pointer ${
                     stop.isCurrent 
                       ? 'bg-primary/20 border border-primary/30' 
                       : stop.isPassed 
-                        ? 'opacity-50' 
+                        ? 'opacity-50 hover:opacity-70' 
                         : 'hover:bg-muted/50'
-                  }`}
+                  } ${stop.stopLat === undefined ? 'cursor-not-allowed' : ''}`}
                 >
                   {/* Timeline indicator */}
                   <div className="flex flex-col items-center pt-1">
@@ -692,7 +700,7 @@ export function RoutePlannerPanel({
                       </div>
                     )}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
