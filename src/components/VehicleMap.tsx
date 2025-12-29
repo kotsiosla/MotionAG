@@ -25,6 +25,7 @@ interface VehicleMapProps {
   selectedOperator?: string;
   onRouteClose?: () => void;
   isLoading: boolean;
+  highlightedStop?: StaticStop | null;
 }
 
 const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: string, isOnSelectedRoute?: boolean, routeShortName?: string) => {
@@ -145,7 +146,7 @@ const formatDelay = (delay?: number) => {
   return `(${minutes} λεπτά)`;
 };
 
-export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, selectedRoute = 'all', selectedOperator, onRouteClose, isLoading }: VehicleMapProps) {
+export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, selectedRoute = 'all', selectedOperator, onRouteClose, isLoading, highlightedStop }: VehicleMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const vehicleMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
   const stopMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
@@ -174,6 +175,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [mapClickMode, setMapClickMode] = useState<'origin' | 'destination' | null>(null);
   const [mapClickLocation, setMapClickLocation] = useState<{ type: 'origin' | 'destination'; lat: number; lng: number } | null>(null);
   const [viewMode, setViewMode] = useState<'street' | 'overview'>('street');
+  const highlightedStopMarkerRef = useRef<L.Marker | null>(null);
 
   // Fetch route shape data when a route is selected
   const { data: routeShapeData } = useRouteShape(
@@ -441,6 +443,60 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       }
     };
   }, []);
+
+  // Handle highlighted stop (temporary green marker)
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // Remove existing highlighted marker
+    if (highlightedStopMarkerRef.current) {
+      mapRef.current.removeLayer(highlightedStopMarkerRef.current);
+      highlightedStopMarkerRef.current = null;
+    }
+
+    // Add new highlighted marker if stop is provided
+    if (highlightedStop && highlightedStop.stop_lat && highlightedStop.stop_lon) {
+      const highlightIcon = L.divIcon({
+        className: 'highlighted-stop-marker',
+        html: `
+          <div class="relative">
+            <div class="absolute -inset-3 rounded-full bg-green-500 opacity-30 animate-ping"></div>
+            <div class="absolute -inset-2 rounded-full bg-green-500 opacity-50 animate-pulse"></div>
+            <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center shadow-lg border-3 border-white">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+            </div>
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+
+      highlightedStopMarkerRef.current = L.marker(
+        [highlightedStop.stop_lat, highlightedStop.stop_lon],
+        { icon: highlightIcon, zIndexOffset: 2000 }
+      )
+        .addTo(mapRef.current)
+        .bindPopup(`
+          <div class="p-2">
+            <div class="font-bold text-green-600">📍 Κοντινότερη Στάση</div>
+            <div class="text-sm font-medium">${highlightedStop.stop_name || highlightedStop.stop_id}</div>
+          </div>
+        `);
+
+      // Pan to the highlighted stop
+      mapRef.current.setView([highlightedStop.stop_lat, highlightedStop.stop_lon], 16, { animate: true });
+    }
+
+    return () => {
+      if (mapRef.current && highlightedStopMarkerRef.current) {
+        mapRef.current.removeLayer(highlightedStopMarkerRef.current);
+        highlightedStopMarkerRef.current = null;
+      }
+    };
+  }, [highlightedStop]);
 
   // Update vehicle markers when vehicles change - with smooth animation
   useEffect(() => {
