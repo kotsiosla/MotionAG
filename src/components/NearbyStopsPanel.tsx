@@ -317,14 +317,15 @@ export function NearbyStopsPanel({
     }
   }, [onHighlightStop]);
 
-  // Floating button (shown on mobile when panel is closed)
+  // Floating button (shown when panel is closed)
   if (!isPanelOpen) {
     return (
       <Button
         variant="default"
         size="lg"
-        className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg md:hidden"
+        className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg"
         onClick={handleOpenPanel}
+        title="Κοντινότερη Στάση"
       >
         <LocateFixed className="h-6 w-6" />
       </Button>
