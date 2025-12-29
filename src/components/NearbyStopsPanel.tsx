@@ -12,14 +12,15 @@ import {
   LocateFixed,
   X,
   AlertCircle,
-  Settings
+  Settings,
+  Minimize2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
 import type { StaticStop, Trip, Vehicle, RouteInfo } from "@/types/gtfs";
 import { useNearbyArrivals, useStopArrivals, type StopArrival, type NearbyStop } from "@/hooks/useNearbyArrivals";
 
@@ -30,6 +31,7 @@ interface NearbyStopsPanelProps {
   routeNamesMap: Map<string, RouteInfo>;
   onSelectVehicle?: (vehicleId: string, tripId: string, routeId?: string) => void;
   onStopSelect?: (stop: StaticStop) => void;
+  onHighlightStop?: (stop: StaticStop | null) => void;
 }
 
 const formatDistance = (meters: number) => {
@@ -54,18 +56,21 @@ export function NearbyStopsPanel({
   routeNamesMap,
   onSelectVehicle,
   onStopSelect,
+  onHighlightStop,
 }: NearbyStopsPanelProps) {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [selectedStop, setSelectedStop] = useState<StaticStop | null>(null);
-  const [watchedArrival, setWatchedArrival] = useState<StopArrival | null>(null);
+  const [watchedArrivals, setWatchedArrivals] = useState<Set<string>>(new Set());
   const [notifiedArrivals, setNotifiedArrivals] = useState<Set<string>>(new Set());
   const [notificationDistance, setNotificationDistance] = useState(() => {
     const saved = localStorage.getItem('nearbyNotificationDistance');
     return saved ? parseInt(saved, 10) : 500;
   });
   const [showSettings, setShowSettings] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const watchIdRef = useRef<number | null>(null);
 
   // Get nearby stops with arrivals
@@ -87,6 +92,21 @@ export function NearbyStopsPanel({
     vehicles,
     routeNamesMap
   );
+
+  // Get nearest stop for highlighting
+  const nearestStop = nearbyStops.length > 0 ? nearbyStops[0].stop : null;
+
+  // Highlight nearest stop when panel opens
+  useEffect(() => {
+    if (isPanelOpen && nearestStop && onHighlightStop) {
+      onHighlightStop(nearestStop);
+    }
+    return () => {
+      if (onHighlightStop) {
+        onHighlightStop(null);
+      }
+    };
+  }, [isPanelOpen, nearestStop, onHighlightStop]);
 
   // Save notification distance
   useEffect(() => {
@@ -234,31 +254,38 @@ export function NearbyStopsPanel({
     }
   }, [playNotificationSound, triggerVibration, speakAnnouncement]);
 
-  // Monitor watched arrival
+  // Monitor watched arrivals
   useEffect(() => {
-    if (!watchedArrival || !selectedStop) return;
+    if (!selectedStop || watchedArrivals.size === 0) return;
 
-    const arrivalKey = `${watchedArrival.tripId}-${selectedStop.stop_id}`;
-    
-    // Check if arrival is approaching
-    if (watchedArrival.estimatedMinutes !== undefined && 
-        watchedArrival.estimatedMinutes <= 2 && 
-        !notifiedArrivals.has(arrivalKey)) {
-      triggerFullNotification(watchedArrival, selectedStop.stop_name || selectedStop.stop_id);
-      setNotifiedArrivals(prev => new Set([...prev, arrivalKey]));
-    }
-  }, [watchedArrival, selectedStop, notifiedArrivals, triggerFullNotification]);
+    selectedStopArrivals.forEach(arrival => {
+      const arrivalKey = `${arrival.tripId}-${selectedStop.stop_id}`;
+      
+      // Check if this arrival is being watched and is approaching
+      if (watchedArrivals.has(arrival.tripId) &&
+          arrival.estimatedMinutes !== undefined && 
+          arrival.estimatedMinutes <= 2 && 
+          !notifiedArrivals.has(arrivalKey)) {
+        triggerFullNotification(arrival, selectedStop.stop_name || selectedStop.stop_id);
+        setNotifiedArrivals(prev => new Set([...prev, arrivalKey]));
+      }
+    });
+  }, [selectedStopArrivals, selectedStop, watchedArrivals, notifiedArrivals, triggerFullNotification]);
 
   // Toggle watch for an arrival
   const toggleWatchArrival = useCallback((arrival: StopArrival) => {
     requestNotificationPermission();
     
-    if (watchedArrival?.tripId === arrival.tripId) {
-      setWatchedArrival(null);
-    } else {
-      setWatchedArrival(arrival);
-    }
-  }, [watchedArrival, requestNotificationPermission]);
+    setWatchedArrivals(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(arrival.tripId)) {
+        newSet.delete(arrival.tripId);
+      } else {
+        newSet.add(arrival.tripId);
+      }
+      return newSet;
+    });
+  }, [requestNotificationPermission]);
 
   // Select stop and view arrivals
   const handleStopSelect = useCallback((stop: StaticStop) => {
@@ -274,87 +301,145 @@ export function NearbyStopsPanel({
     }
   }, [onSelectVehicle]);
 
-  return (
-    <Sheet>
-      <SheetTrigger asChild>
+  // Handle panel open
+  const handleOpenPanel = useCallback(() => {
+    setIsPanelOpen(true);
+    setIsMinimized(false);
+    getLocation();
+  }, [getLocation]);
+
+  // Handle panel close
+  const handleClosePanel = useCallback(() => {
+    setIsPanelOpen(false);
+    setSelectedStop(null);
+    if (onHighlightStop) {
+      onHighlightStop(null);
+    }
+  }, [onHighlightStop]);
+
+  // Floating button (shown on mobile when panel is closed)
+  if (!isPanelOpen) {
+    return (
+      <Button
+        variant="default"
+        size="lg"
+        className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg md:hidden"
+        onClick={handleOpenPanel}
+      >
+        <LocateFixed className="h-6 w-6" />
+      </Button>
+    );
+  }
+
+  // Minimized view
+  if (isMinimized) {
+    return (
+      <div className="fixed bottom-20 right-4 z-50 md:hidden">
         <Button
           variant="default"
           size="lg"
-          className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg md:hidden"
-          onClick={getLocation}
+          className="h-14 px-4 rounded-full shadow-lg flex items-center gap-2"
+          onClick={() => setIsMinimized(false)}
         >
-          <LocateFixed className="h-6 w-6" />
+          <MapPin className="h-5 w-5" />
+          {nearestStop && (
+            <span className="text-sm max-w-[120px] truncate">
+              {nearestStop.stop_name}
+            </span>
+          )}
         </Button>
-      </SheetTrigger>
-      <SheetContent side="bottom" className="h-[85vh] rounded-t-xl">
-        <SheetHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <SheetTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-primary" />
-              Κοντινές Στάσεις
-            </SheetTitle>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowSettings(!showSettings)}
-                className="h-8 w-8"
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={getLocation}
-                disabled={isLocating}
-              >
-                {isLocating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Navigation className="h-4 w-4" />
-                )}
-                <span className="ml-2">Ανανέωση</span>
-              </Button>
+      </div>
+    );
+  }
+
+  // Panel content
+  const panelContent = (
+    <div className="flex flex-col h-full bg-card rounded-lg border border-border overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between p-3 border-b border-border bg-card/80">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-5 w-5 text-primary" />
+          <span className="font-semibold text-sm">Κοντινότερη Στάση</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowSettings(!showSettings)}
+            className="h-7 w-7"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={getLocation}
+            disabled={isLocating}
+            className="h-7 w-7"
+          >
+            {isLocating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Navigation className="h-4 w-4" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMinimized(true)}
+            className="h-7 w-7"
+          >
+            <Minimize2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleClosePanel}
+            className="h-7 w-7"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Settings */}
+      <Collapsible open={showSettings} onOpenChange={setShowSettings}>
+        <CollapsibleContent className="p-3 border-b border-border bg-muted/50">
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Ειδοποίηση όταν το λεωφορείο είναι σε:</p>
+            <div className="flex flex-wrap gap-1">
+              {[200, 300, 500, 750, 1000].map(dist => (
+                <Button
+                  key={dist}
+                  variant={notificationDistance === dist ? "default" : "outline"}
+                  size="sm"
+                  className="h-7 text-xs px-2"
+                  onClick={() => setNotificationDistance(dist)}
+                >
+                  {dist < 1000 ? `${dist}μ` : `${dist/1000}χλμ`}
+                </Button>
+              ))}
             </div>
           </div>
-        </SheetHeader>
+        </CollapsibleContent>
+      </Collapsible>
 
-        {/* Settings */}
-        <Collapsible open={showSettings} onOpenChange={setShowSettings}>
-          <CollapsibleContent className="pb-3 border-b mb-3">
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Ειδοποίηση όταν το λεωφορείο είναι σε:</p>
-              <div className="flex flex-wrap gap-2">
-                {[200, 300, 500, 750, 1000].map(dist => (
-                  <Button
-                    key={dist}
-                    variant={notificationDistance === dist ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setNotificationDistance(dist)}
-                  >
-                    {dist < 1000 ? `${dist}μ` : `${dist/1000}χλμ`}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+      {locationError && (
+        <div className="flex items-center gap-2 text-destructive text-xs p-2 bg-destructive/10">
+          <AlertCircle className="h-3 w-3" />
+          {locationError}
+        </div>
+      )}
 
-        {locationError && (
-          <div className="flex items-center gap-2 text-destructive text-sm mb-4 p-3 bg-destructive/10 rounded-lg">
-            <AlertCircle className="h-4 w-4" />
-            {locationError}
-          </div>
-        )}
-
-        <ScrollArea className="h-[calc(100%-80px)]">
+      <ScrollArea className="flex-1">
+        <div className="p-2 space-y-2">
           {/* Show selected stop arrivals */}
           {selectedStop ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold">{selectedStop.stop_name}</h3>
-                  <p className="text-sm text-muted-foreground">{selectedStop.stop_id}</p>
+                  <h3 className="font-semibold text-sm">{selectedStop.stop_name}</h3>
+                  <p className="text-xs text-muted-foreground">{selectedStop.stop_id}</p>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => setSelectedStop(null)}>
                   <X className="h-4 w-4" />
@@ -362,23 +447,23 @@ export function NearbyStopsPanel({
               </div>
 
               {selectedStopArrivals.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Bus className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>Δεν υπάρχουν επερχόμενες αφίξεις</p>
+                <div className="text-center py-6 text-muted-foreground">
+                  <Bus className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Δεν υπάρχουν επερχόμενες αφίξεις</p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {selectedStopArrivals.map((arrival) => (
                     <Card 
                       key={arrival.tripId}
-                      className={`${watchedArrival?.tripId === arrival.tripId ? 'ring-2 ring-primary' : ''}`}
+                      className={`${watchedArrivals.has(arrival.tripId) ? 'ring-2 ring-primary bg-primary/5' : ''}`}
                     >
-                      <CardContent className="p-3">
+                      <CardContent className="p-2">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
                             <Badge 
                               variant="secondary"
-                              className="shrink-0"
+                              className="shrink-0 text-xs"
                               style={{
                                 backgroundColor: arrival.routeColor ? `#${arrival.routeColor}` : undefined,
                                 color: arrival.routeColor ? '#fff' : undefined,
@@ -387,50 +472,43 @@ export function NearbyStopsPanel({
                               {arrival.routeShortName || arrival.routeId}
                             </Badge>
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium truncate">
+                              <p className="text-xs font-medium truncate">
                                 {arrival.routeLongName || arrival.routeId}
                               </p>
                               {arrival.vehicleLabel && (
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-[10px] text-muted-foreground">
                                   Όχημα: {arrival.vehicleLabel}
                                 </p>
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <div className="text-right">
-                              <p className={`text-lg font-bold ${
-                                arrival.estimatedMinutes !== undefined && arrival.estimatedMinutes <= 2 
-                                  ? 'text-success' 
-                                  : arrival.estimatedMinutes !== undefined && arrival.estimatedMinutes <= 5
-                                  ? 'text-warning'
-                                  : ''
-                              }`}>
-                                {formatArrivalTime(arrival.estimatedMinutes)}
-                              </p>
-                              {arrival.delay && arrival.delay > 60 && (
-                                <p className="text-xs text-warning">
-                                  +{Math.round(arrival.delay / 60)} λ.
-                                </p>
-                              )}
-                            </div>
+                          <div className="text-right shrink-0 ml-2">
+                            <p className={`text-sm font-bold ${
+                              arrival.estimatedMinutes !== undefined && arrival.estimatedMinutes <= 2 
+                                ? 'text-green-500' 
+                                : arrival.estimatedMinutes !== undefined && arrival.estimatedMinutes <= 5
+                                ? 'text-yellow-500'
+                                : ''
+                            }`}>
+                              {formatArrivalTime(arrival.estimatedMinutes)}
+                            </p>
                           </div>
                         </div>
-                        <div className="flex gap-2 mt-3">
+                        <div className="flex gap-1 mt-2">
                           <Button
-                            variant={watchedArrival?.tripId === arrival.tripId ? "default" : "outline"}
+                            variant={watchedArrivals.has(arrival.tripId) ? "default" : "outline"}
                             size="sm"
-                            className="flex-1"
+                            className="flex-1 h-7 text-xs"
                             onClick={() => toggleWatchArrival(arrival)}
                           >
-                            {watchedArrival?.tripId === arrival.tripId ? (
+                            {watchedArrivals.has(arrival.tripId) ? (
                               <>
-                                <BellOff className="h-4 w-4 mr-1" />
+                                <BellOff className="h-3 w-3 mr-1" />
                                 Ακύρωση
                               </>
                             ) : (
                               <>
-                                <Bell className="h-4 w-4 mr-1" />
+                                <Bell className="h-3 w-3 mr-1" />
                                 Ειδοποίηση
                               </>
                             )}
@@ -439,11 +517,11 @@ export function NearbyStopsPanel({
                             <Button
                               variant="outline"
                               size="sm"
-                              className="flex-1"
+                              className="flex-1 h-7 text-xs"
                               onClick={() => handleTrackVehicle(arrival)}
                             >
-                              <Bus className="h-4 w-4 mr-1" />
-                              Παρακολούθηση
+                              <Bus className="h-3 w-3 mr-1" />
+                              Παρακολ.
                             </Button>
                           )}
                         </div>
@@ -455,69 +533,71 @@ export function NearbyStopsPanel({
             </div>
           ) : (
             /* Show nearby stops list */
-            <div className="space-y-3">
+            <>
               {!userLocation && !isLocating && !locationError && (
-                <div className="text-center py-12">
-                  <Navigation className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground mb-4">
-                    Πάτα το κουμπί για να βρεις τις κοντινές στάσεις
+                <div className="text-center py-8">
+                  <Navigation className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Πάτα για τοποθεσία
                   </p>
-                  <Button onClick={getLocation}>
-                    <LocateFixed className="h-4 w-4 mr-2" />
-                    Εύρεση τοποθεσίας
+                  <Button size="sm" onClick={getLocation}>
+                    <LocateFixed className="h-4 w-4 mr-1" />
+                    Εύρεση
                   </Button>
                 </div>
               )}
 
               {isLocating && (
-                <div className="text-center py-12">
-                  <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-primary" />
-                  <p className="text-muted-foreground">Αναζήτηση τοποθεσίας...</p>
+                <div className="text-center py-8">
+                  <Loader2 className="h-10 w-10 mx-auto mb-3 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Αναζήτηση...</p>
                 </div>
               )}
 
               {userLocation && nearbyStops.length === 0 && (
-                <div className="text-center py-12">
-                  <MapPin className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground">
-                    Δεν βρέθηκαν στάσεις κοντά σου
+                <div className="text-center py-8">
+                  <MapPin className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                  <p className="text-sm text-muted-foreground">
+                    Δεν βρέθηκαν στάσεις
                   </p>
                 </div>
               )}
 
-              {nearbyStops.map((nearbyStop) => (
+              {nearbyStops.map((nearbyStop, index) => (
                 <Card 
                   key={nearbyStop.stop.stop_id}
-                  className="cursor-pointer hover:bg-accent/50 transition-colors"
+                  className={`cursor-pointer hover:bg-accent/50 transition-colors ${
+                    index === 0 ? 'ring-2 ring-green-500 bg-green-500/10' : ''
+                  }`}
                   onClick={() => handleStopSelect(nearbyStop.stop)}
                 >
-                  <CardContent className="p-3">
+                  <CardContent className="p-2">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-primary shrink-0" />
-                          <p className="font-medium truncate">{nearbyStop.stop.stop_name}</p>
+                          <MapPin className={`h-4 w-4 shrink-0 ${index === 0 ? 'text-green-500' : 'text-primary'}`} />
+                          <p className="font-medium text-sm truncate">{nearbyStop.stop.stop_name}</p>
                         </div>
-                        <p className="text-sm text-muted-foreground ml-6">
+                        <p className="text-xs text-muted-foreground ml-6">
                           {formatDistance(nearbyStop.distance)}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         {nearbyStop.arrivals.length > 0 && (
-                          <Badge variant="secondary">
-                            {nearbyStop.arrivals.length} αφίξεις
+                          <Badge variant="secondary" className="text-xs">
+                            {nearbyStop.arrivals.length}
                           </Badge>
                         )}
-                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </div>
                     </div>
                     {nearbyStop.arrivals.length > 0 && (
-                      <div className="mt-2 ml-6 flex flex-wrap gap-1">
+                      <div className="mt-1 ml-6 flex flex-wrap gap-1">
                         {nearbyStop.arrivals.slice(0, 3).map((arrival) => (
                           <Badge 
                             key={arrival.tripId}
                             variant="outline"
-                            className="text-xs"
+                            className="text-[10px] py-0"
                             style={{
                               borderColor: arrival.routeColor ? `#${arrival.routeColor}` : undefined,
                             }}
@@ -531,7 +611,7 @@ export function NearbyStopsPanel({
                           </Badge>
                         ))}
                         {nearbyStop.arrivals.length > 3 && (
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-[10px] py-0">
                             +{nearbyStop.arrivals.length - 3}
                           </Badge>
                         )}
@@ -540,10 +620,38 @@ export function NearbyStopsPanel({
                   </CardContent>
                 </Card>
               ))}
-            </div>
+            </>
           )}
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
+        </div>
+      </ScrollArea>
+    </div>
+  );
+
+  // Desktop: Draggable/Resizable panel
+  // Mobile: Fixed position panel
+  return (
+    <>
+      {/* Mobile: Sheet-like panel */}
+      <div className="fixed inset-x-0 bottom-0 z-50 md:hidden" style={{ height: '70vh' }}>
+        {panelContent}
+      </div>
+
+      {/* Desktop: Draggable/Resizable panel */}
+      <div className="hidden md:block fixed inset-0 pointer-events-none z-50">
+        <div className="relative w-full h-full pointer-events-none">
+          <ResizableDraggablePanel
+            initialPosition={{ x: window.innerWidth - 360, y: 100 }}
+            initialSize={{ width: 340, height: 450 }}
+            minSize={{ width: 280, height: 300 }}
+            maxSize={{ width: 500, height: 700 }}
+            className="pointer-events-auto"
+            title="Κοντινότερη Στάση"
+            zIndex={1100}
+          >
+            {panelContent}
+          </ResizableDraggablePanel>
+        </div>
+      </div>
+    </>
   );
 }

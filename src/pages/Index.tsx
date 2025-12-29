@@ -32,6 +32,9 @@ const Index = () => {
   const [tripDepartureDate, setTripDepartureDate] = useState<Date>(new Date());
   const [showTripResults, setShowTripResults] = useState(false);
   
+  // Highlighted stop (for nearby stops panel)
+  const [highlightedStop, setHighlightedStop] = useState<StaticStop | null>(null);
+  
   // Favorites
   const { favorites, addFavorite, removeFavorite, isFavorite } = useFavoriteRoutes();
 
@@ -239,6 +242,7 @@ const Index = () => {
                 selectedOperator={selectedOperator}
                 onRouteClose={() => setSelectedRoute('all')}
                 isLoading={vehiclesQuery.isLoading}
+                highlightedStop={highlightedStop}
               />
             </TabsContent>
 
@@ -276,7 +280,7 @@ const Index = () => {
         </Tabs>
       </main>
 
-      {/* Nearby Stops Panel - Mobile only */}
+      {/* Nearby Stops Panel */}
       <NearbyStopsPanel
         stops={staticStopsQuery.data?.data || []}
         trips={tripsQuery.data?.data || []}
@@ -288,6 +292,10 @@ const Index = () => {
         }}
         onStopSelect={(stop) => {
           setActiveTab("map");
+        }}
+        onHighlightStop={(stop) => {
+          // Pass highlighted stop to VehicleMap - will be implemented via state
+          setHighlightedStop(stop);
         }}
       />
     </div>
