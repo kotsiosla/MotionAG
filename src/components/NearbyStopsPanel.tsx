@@ -353,56 +353,9 @@ export function NearbyStopsPanel({
     );
   }
 
-  // Panel content
-  const panelContent = (
-    <div className="flex flex-col h-full bg-card rounded-lg border border-border overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-border bg-card/80">
-        <div className="flex items-center gap-2">
-          <MapPin className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-sm">Κοντινότερη Στάση</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowSettings(!showSettings)}
-            className="h-7 w-7"
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={getLocation}
-            disabled={isLocating}
-            className="h-7 w-7"
-          >
-            {isLocating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Navigation className="h-4 w-4" />
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsMinimized(true)}
-            className="h-7 w-7"
-          >
-            <Minimize2 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleClosePanel}
-            className="h-7 w-7"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
+  // Panel inner content (shared between mobile and desktop)
+  const panelInnerContent = (
+    <>
       {/* Settings */}
       <Collapsible open={showSettings} onOpenChange={setShowSettings}>
         <CollapsibleContent className="p-3 border-b border-border bg-muted/50">
@@ -625,6 +578,95 @@ export function NearbyStopsPanel({
           )}
         </div>
       </ScrollArea>
+    </>
+  );
+
+  // Panel content for mobile (with full header)
+  const mobilePanelContent = (
+    <div className="flex flex-col h-full bg-card rounded-lg border border-border overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between p-3 border-b border-border bg-card/80">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-5 w-5 text-primary" />
+          <span className="font-semibold text-sm">Κοντινότερη Στάση</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowSettings(!showSettings)}
+            className="h-7 w-7"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={getLocation}
+            disabled={isLocating}
+            className="h-7 w-7"
+          >
+            {isLocating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Navigation className="h-4 w-4" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMinimized(true)}
+            className="h-7 w-7"
+          >
+            <Minimize2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleClosePanel}
+            className="h-7 w-7"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      {panelInnerContent}
+    </div>
+  );
+
+  // Panel content for desktop (minimal - ResizableDraggablePanel provides header with X)
+  const desktopPanelContent = (
+    <div className="flex flex-col h-full bg-card overflow-hidden">
+      {/* Actions bar */}
+      <div className="flex items-center justify-between p-2 border-b border-border bg-card/80">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-primary" />
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowSettings(!showSettings)}
+            className="h-7 w-7"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={getLocation}
+            disabled={isLocating}
+            className="h-7 w-7"
+          >
+            {isLocating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Navigation className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      </div>
+      {panelInnerContent}
     </div>
   );
 
@@ -634,7 +676,7 @@ export function NearbyStopsPanel({
     <>
       {/* Mobile: Sheet-like panel */}
       <div className="fixed inset-x-0 bottom-0 z-50 md:hidden" style={{ height: '70vh' }}>
-        {panelContent}
+        {mobilePanelContent}
       </div>
 
       {/* Desktop: Draggable/Resizable panel */}
@@ -648,8 +690,9 @@ export function NearbyStopsPanel({
             className="pointer-events-auto"
             title="Κοντινότερη Στάση"
             zIndex={1100}
+            onClose={handleClosePanel}
           >
-            {panelContent}
+            {desktopPanelContent}
           </ResizableDraggablePanel>
         </div>
       </div>
