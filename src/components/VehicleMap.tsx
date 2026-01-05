@@ -206,6 +206,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [mapClickLocation, setMapClickLocation] = useState<{ type: 'origin' | 'destination'; lat: number; lng: number } | null>(null);
   const [viewMode, setViewMode] = useState<'street' | 'overview'>('street');
   const highlightedStopMarkerRef = useRef<L.Marker | null>(null);
+  
+  // Trail effect: store position history for each vehicle
+  const vehicleTrailsRef = useRef<Map<string, Array<{ lat: number; lng: number; timestamp: number }>>>(new Map());
+  const trailPolylinesRef = useRef<Map<string, L.Polyline[]>>(new Map());
 
   // Fetch route shape data when a route is selected
   const { data: routeShapeData } = useRouteShape(
@@ -218,12 +222,19 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     ? routeNamesMap.get(selectedRoute) 
     : undefined;
 
-  // Show panels when route changes
+  // Show panels when route changes and clear trails
   useEffect(() => {
     if (selectedRoute !== 'all') {
       setShowRoutePanel(true);
       setShowLiveVehiclesPanel(true);
     }
+    
+    // Clear all trails when route changes
+    trailPolylinesRef.current.forEach((polylines) => {
+      polylines.forEach(p => mapRef.current?.removeLayer(p));
+    });
+    trailPolylinesRef.current.clear();
+    vehicleTrailsRef.current.clear();
   }, [selectedRoute]);
 
   // Sync external follow vehicle request with internal state
@@ -615,6 +626,51 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         
         // Only animate if position actually changed
         if (currentLatLng.lat !== newLatLng.lat || currentLatLng.lng !== newLatLng.lng) {
+          // Update trail history for followed/selected vehicles
+          if (isFollowed || isOnSelectedRoute) {
+            const trail = vehicleTrailsRef.current.get(vehicleId) || [];
+            const now = Date.now();
+            
+            // Add new position
+            trail.push({ lat: vehicle.latitude!, lng: vehicle.longitude!, timestamp: now });
+            
+            // Keep only last 30 seconds of trail (or max 50 points)
+            const cutoffTime = now - 30000;
+            const filteredTrail = trail.filter(p => p.timestamp > cutoffTime).slice(-50);
+            vehicleTrailsRef.current.set(vehicleId, filteredTrail);
+            
+            // Draw trail polylines with fading effect
+            if (mapRef.current && filteredTrail.length > 1) {
+              // Remove old trail polylines for this vehicle
+              const oldPolylines = trailPolylinesRef.current.get(vehicleId) || [];
+              oldPolylines.forEach(p => mapRef.current?.removeLayer(p));
+              
+              const newPolylines: L.Polyline[] = [];
+              const trailColor = routeColor ? `#${routeColor}` : '#0ea5e9';
+              
+              // Create gradient trail segments
+              for (let i = 1; i < filteredTrail.length; i++) {
+                const opacity = (i / filteredTrail.length) * 0.6; // Fade from 0 to 0.6
+                const weight = 2 + (i / filteredTrail.length) * 4; // Width grows from 2 to 6
+                
+                const segment = L.polyline(
+                  [[filteredTrail[i-1].lat, filteredTrail[i-1].lng], [filteredTrail[i].lat, filteredTrail[i].lng]],
+                  {
+                    color: trailColor,
+                    weight: weight,
+                    opacity: opacity,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }
+                ).addTo(mapRef.current);
+                
+                newPolylines.push(segment);
+              }
+              
+              trailPolylinesRef.current.set(vehicleId, newPolylines);
+            }
+          }
+          
           // Get the marker's DOM element and add transition class
           const markerElement = existingMarker.getElement();
           if (markerElement) {
