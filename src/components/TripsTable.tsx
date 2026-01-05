@@ -1,12 +1,21 @@
 import { useState, useMemo } from "react";
-import { Search, ChevronDown, ChevronUp, Clock } from "lucide-react";
+import { Search, ChevronDown, ChevronUp, Clock, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { Trip, RouteInfo, StaticStop } from "@/types/gtfs";
+
+type SortOption = 'none' | 'delay-desc' | 'delay-asc' | 'time-desc' | 'time-asc' | 'route-asc';
 
 interface TripsTableProps {
   trips: Trip[];
@@ -37,6 +46,7 @@ const formatTimestamp = (timestamp?: number) => {
 export function TripsTable({ trips, isLoading, routeNames, stops = [] }: TripsTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedTrips, setExpandedTrips] = useState<Set<string>>(new Set());
+  const [sortOption, setSortOption] = useState<SortOption>('delay-desc');
 
   // Create a map for quick stop name lookup
   const stopsMap = useMemo(() => {
@@ -100,6 +110,57 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [] }: TripsTa
     });
   }, [trips, searchTerm, routeNames]);
 
+  const getMaxDelay = (trip: Trip) => {
+    if (!trip.stopTimeUpdates.length) return 0;
+    const delays = trip.stopTimeUpdates
+      .map((stu) => stu.arrivalDelay || stu.departureDelay || 0)
+      .filter((d) => d !== undefined);
+    return delays.length ? Math.max(...delays) : 0;
+  };
+
+  const parseStartTime = (startTime?: string): number => {
+    if (!startTime) return 0;
+    const parts = startTime.split(':');
+    if (parts.length >= 2) {
+      return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    }
+    return 0;
+  };
+
+  const sortedTrips = useMemo(() => {
+    const tripsToSort = [...filteredTrips];
+    
+    switch (sortOption) {
+      case 'delay-desc':
+        return tripsToSort.sort((a, b) => getMaxDelay(b) - getMaxDelay(a));
+      case 'delay-asc':
+        return tripsToSort.sort((a, b) => getMaxDelay(a) - getMaxDelay(b));
+      case 'time-desc':
+        return tripsToSort.sort((a, b) => parseStartTime(b.startTime) - parseStartTime(a.startTime));
+      case 'time-asc':
+        return tripsToSort.sort((a, b) => parseStartTime(a.startTime) - parseStartTime(b.startTime));
+      case 'route-asc':
+        return tripsToSort.sort((a, b) => {
+          const routeA = getRouteDisplay(a.routeId).shortName;
+          const routeB = getRouteDisplay(b.routeId).shortName;
+          return routeA.localeCompare(routeB, 'el', { numeric: true });
+        });
+      default:
+        return tripsToSort;
+    }
+  }, [filteredTrips, sortOption]);
+
+  const getSortLabel = () => {
+    switch (sortOption) {
+      case 'delay-desc': return 'Καθυστέρηση ↓';
+      case 'delay-asc': return 'Καθυστέρηση ↑';
+      case 'time-desc': return 'Ώρα ↓';
+      case 'time-asc': return 'Ώρα ↑';
+      case 'route-asc': return 'Γραμμή';
+      default: return 'Ταξινόμηση';
+    }
+  };
+
   const toggleExpanded = (id: string) => {
     const newSet = new Set(expandedTrips);
     if (newSet.has(id)) {
@@ -108,14 +169,6 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [] }: TripsTa
       newSet.add(id);
     }
     setExpandedTrips(newSet);
-  };
-
-  const getMaxDelay = (trip: Trip) => {
-    if (!trip.stopTimeUpdates.length) return undefined;
-    const delays = trip.stopTimeUpdates
-      .map((stu) => stu.arrivalDelay || stu.departureDelay || 0)
-      .filter((d) => d !== undefined);
-    return delays.length ? Math.max(...delays) : undefined;
   };
 
   return (
@@ -130,8 +183,38 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [] }: TripsTa
             className="pl-10"
           />
         </div>
-        <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
-          <span>{filteredTrips.length} δρομολόγια</span>
+        <div className="mt-2 flex items-center justify-between gap-4 text-sm text-muted-foreground">
+          <span>{sortedTrips.length} δρομολόγια</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 gap-1.5">
+                <ArrowUpDown className="h-3.5 w-3.5" />
+                <span className="text-xs">{getSortLabel()}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setSortOption('delay-desc')} className={sortOption === 'delay-desc' ? 'bg-accent' : ''}>
+                <ArrowDown className="h-3.5 w-3.5 mr-2" />
+                Καθυστέρηση (μεγ. → μικ.)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortOption('delay-asc')} className={sortOption === 'delay-asc' ? 'bg-accent' : ''}>
+                <ArrowUp className="h-3.5 w-3.5 mr-2" />
+                Καθυστέρηση (μικ. → μεγ.)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortOption('time-asc')} className={sortOption === 'time-asc' ? 'bg-accent' : ''}>
+                <ArrowUp className="h-3.5 w-3.5 mr-2" />
+                Ώρα αναχώρησης (πρώτα)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortOption('time-desc')} className={sortOption === 'time-desc' ? 'bg-accent' : ''}>
+                <ArrowDown className="h-3.5 w-3.5 mr-2" />
+                Ώρα αναχώρησης (τελευταία)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortOption('route-asc')} className={sortOption === 'route-asc' ? 'bg-accent' : ''}>
+                <ArrowUpDown className="h-3.5 w-3.5 mr-2" />
+                Αριθμός γραμμής
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -140,16 +223,16 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [] }: TripsTa
           <div className="flex items-center justify-center h-48">
             <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : filteredTrips.length === 0 ? (
+        ) : sortedTrips.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
             <Clock className="h-12 w-12 mb-2 opacity-50" />
             <p>Δεν βρέθηκαν δρομολόγια</p>
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {filteredTrips.map((trip) => {
+            {sortedTrips.map((trip) => {
               const maxDelay = getMaxDelay(trip);
-              const delayInfo = formatDelay(maxDelay);
+              const delayInfo = formatDelay(maxDelay || undefined);
               const isExpanded = expandedTrips.has(trip.id);
 
               return (
