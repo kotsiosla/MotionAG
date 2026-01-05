@@ -300,38 +300,25 @@
   height: 40px !important;
 }
 
-/* Animated bus on route */
-@keyframes bus-pulse {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7);
-  }
-  50% {
-    transform: scale(1.1);
-    box-shadow: 0 0 0 10px rgba(14, 165, 233, 0);
-  }
+/* Smooth vehicle movement on map */
+.leaflet-marker-icon.vehicle-marker,
+.leaflet-marker-icon.route-vehicle-marker {
+  transition: transform 8s linear !important;
+  will-change: transform;
 }
 
-@keyframes bus-glow {
-  0%, 100% {
-    filter: drop-shadow(0 0 4px rgba(14, 165, 233, 0.8));
-  }
-  50% {
-    filter: drop-shadow(0 0 12px rgba(14, 165, 233, 1));
-  }
-}
-
+/* Subtle pulse for followed/selected vehicle */
 .route-vehicle-marker {
-  animation: bus-pulse 2s ease-in-out infinite;
+  animation: subtle-pulse 2s ease-in-out infinite;
 }
 
-.route-vehicle-marker .bus-icon {
-  animation: bus-glow 2s ease-in-out infinite;
-}
-
-/* Smooth transition for vehicle position updates */
-.vehicle-marker-animated {
-  transition: transform 0.5s ease-out;
+@keyframes subtle-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0);
+  }
 }
 
 /* Panel slide animations */
