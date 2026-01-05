@@ -482,6 +482,7 @@ const Index = () => {
           transferRoutes={tripPlanQuery.data?.transferRoutes}
           originStopRoutes={tripPlanQuery.data?.originStopRoutes}
           destinationStopRoutes={tripPlanQuery.data?.destinationStopRoutes}
+          interCityJourney={tripPlanQuery.data?.interCityJourney}
         />
       )}
 

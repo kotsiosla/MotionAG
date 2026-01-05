@@ -1,9 +1,9 @@
-import { X, Bus, Clock, MapPin, ArrowRight, Loader2, ChevronRight, Star, CalendarIcon, ExternalLink, Printer, Footprints, Navigation, Map, RefreshCw, Info, AlertCircle } from "lucide-react";
+import { X, Bus, Clock, MapPin, ArrowRight, Loader2, ChevronRight, Star, CalendarIcon, ExternalLink, Printer, Footprints, Navigation, Map, RefreshCw, Info, AlertCircle, ArrowDown, Building2 } from "lucide-react";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { TripPlanResult, TransferRoute, StopRouteInfo } from "@/hooks/useTripPlan";
+import type { TripPlanResult, TransferRoute, StopRouteInfo, InterCityJourney } from "@/hooks/useTripPlan";
 import type { StaticStop } from "@/types/gtfs";
 import { formatDistance } from "@/hooks/useGeocode";
 
@@ -179,6 +179,7 @@ interface TripPlanResultsProps {
   transferRoutes?: TransferRoute[];
   originStopRoutes?: StopRouteInfo[];
   destinationStopRoutes?: StopRouteInfo[];
+  interCityJourney?: InterCityJourney;
 }
 
 export function TripPlanResults({
@@ -198,6 +199,7 @@ export function TripPlanResults({
   transferRoutes = [],
   originStopRoutes = [],
   destinationStopRoutes = [],
+  interCityJourney,
 }: TripPlanResultsProps) {
   if (!origin || !destination) return null;
 
@@ -329,6 +331,150 @@ export function TripPlanResults({
                   </div>
                 </div>
               </div>
+
+              {/* Inter-city journey section - NEW */}
+              {interCityJourney && (
+                <div className="space-y-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <h3 className="font-bold text-blue-800 dark:text-blue-300">Διαπεριφερειακή Διαδρομή</h3>
+                  </div>
+                  
+                  <p className="text-sm text-blue-700 dark:text-blue-400">
+                    {interCityJourney.description}
+                  </p>
+
+                  {/* Step 1: Local to Intercity Station */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 bg-white/60 dark:bg-white/10 rounded-lg px-3 py-2">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold">1</div>
+                      <span className="font-medium text-sm">Τοπικά λεωφορεία προς υπεραστικό σταθμό</span>
+                    </div>
+                    {interCityJourney.localToIntercityStation.stationStop && (
+                      <div className="text-xs text-muted-foreground pl-8">
+                        Κατευθυνθείτε στη στάση: <strong>{interCityJourney.localToIntercityStation.stationStop.stop_name}</strong>
+                      </div>
+                    )}
+                    <div className="grid gap-2 sm:grid-cols-2 pl-8">
+                      {interCityJourney.localToIntercityStation.routes.map((routeInfo, idx) => {
+                        const bgColor = routeInfo.route.route_color ? `#${routeInfo.route.route_color}` : 'hsl(var(--primary))';
+                        return (
+                          <div key={idx} className="rounded-lg border border-border bg-card/80 p-2 flex items-center gap-2">
+                            <span 
+                              className="text-white text-xs font-bold px-2 py-0.5 rounded flex-shrink-0"
+                              style={{ backgroundColor: bgColor }}
+                            >
+                              {routeInfo.route.route_short_name}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs truncate">{routeInfo.route.route_long_name || routeInfo.direction}</div>
+                              {routeInfo.nextDepartures.length > 0 && (
+                                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {routeInfo.nextDepartures.join(', ')}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <ArrowDown className="h-5 w-5 text-blue-400" />
+                  </div>
+
+                  {/* Step 2: Intercity Bus */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 bg-white/60 dark:bg-white/10 rounded-lg px-3 py-2">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-xs font-bold">2</div>
+                      <span className="font-medium text-sm">Υπεραστικό λεωφορείο</span>
+                    </div>
+                    {(interCityJourney.intercityFromStation || interCityJourney.intercityToStation) && (
+                      <div className="text-xs text-muted-foreground pl-8 flex items-center gap-2">
+                        {interCityJourney.intercityFromStation && (
+                          <span>{interCityJourney.intercityFromStation.stop_name}</span>
+                        )}
+                        <ArrowRight className="h-3 w-3" />
+                        {interCityJourney.intercityToStation && (
+                          <span>{interCityJourney.intercityToStation.stop_name}</span>
+                        )}
+                      </div>
+                    )}
+                    <div className="grid gap-2 sm:grid-cols-2 pl-8">
+                      {interCityJourney.intercityRoutes.map((routeInfo, idx) => {
+                        const bgColor = routeInfo.route.route_color ? `#${routeInfo.route.route_color}` : '#059669';
+                        return (
+                          <div key={idx} className="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/30 p-2 flex items-center gap-2">
+                            <span 
+                              className="text-white text-xs font-bold px-2 py-0.5 rounded flex-shrink-0"
+                              style={{ backgroundColor: bgColor }}
+                            >
+                              {routeInfo.route.route_short_name}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs truncate font-medium">{routeInfo.route.route_long_name || routeInfo.direction}</div>
+                              {routeInfo.nextDepartures.length > 0 && (
+                                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {routeInfo.nextDepartures.join(', ')}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {interCityJourney.intercityRoutes.length === 0 && (
+                      <div className="text-xs text-muted-foreground pl-8 italic">
+                        Ψάξτε στο motionbuscard.org.cy ή στο Google Maps για ακριβή ωράρια υπεραστικών
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-center">
+                    <ArrowDown className="h-5 w-5 text-blue-400" />
+                  </div>
+
+                  {/* Step 3: Local from Intercity Station */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 bg-white/60 dark:bg-white/10 rounded-lg px-3 py-2">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-500 text-white text-xs font-bold">3</div>
+                      <span className="font-medium text-sm">Τοπικά λεωφορεία στον προορισμό</span>
+                    </div>
+                    {interCityJourney.localFromIntercityStation.stationStop && (
+                      <div className="text-xs text-muted-foreground pl-8">
+                        Από τη στάση: <strong>{interCityJourney.localFromIntercityStation.stationStop.stop_name}</strong>
+                      </div>
+                    )}
+                    <div className="grid gap-2 sm:grid-cols-2 pl-8">
+                      {interCityJourney.localFromIntercityStation.routes.map((routeInfo, idx) => {
+                        const bgColor = routeInfo.route.route_color ? `#${routeInfo.route.route_color}` : 'hsl(var(--primary))';
+                        return (
+                          <div key={idx} className="rounded-lg border border-border bg-card/80 p-2 flex items-center gap-2">
+                            <span 
+                              className="text-white text-xs font-bold px-2 py-0.5 rounded flex-shrink-0"
+                              style={{ backgroundColor: bgColor }}
+                            >
+                              {routeInfo.route.route_short_name}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs truncate">{routeInfo.route.route_long_name || routeInfo.direction}</div>
+                              {routeInfo.nextDepartures.length > 0 && (
+                                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {routeInfo.nextDepartures.join(', ')}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Transfer routes section */}
               {transferRoutes.length > 0 && (

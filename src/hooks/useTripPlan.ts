@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { StaticStop, RouteInfo } from "@/types/gtfs";
+import { OPERATORS, REGION_KEYWORDS, INTERCITY_STATIONS } from "@/types/gtfs";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -52,12 +53,31 @@ export interface StopRouteInfo {
   direction?: string;
 }
 
+// Multi-city journey suggestion (local + intercity + local)
+export interface InterCityJourney {
+  originRegion: string;
+  destinationRegion: string;
+  localToIntercityStation: {
+    routes: StopRouteInfo[];
+    stationStop?: StaticStop;
+  };
+  intercityRoutes: StopRouteInfo[];
+  intercityFromStation?: StaticStop;
+  intercityToStation?: StaticStop;
+  localFromIntercityStation: {
+    routes: StopRouteInfo[];
+    stationStop?: StaticStop;
+  };
+  description: string;
+}
+
 export interface TripPlanData {
   directRoutes: TripPlanResult[];
   transferRoutes: TransferRoute[];
   originStopRoutes: StopRouteInfo[];
   destinationStopRoutes: StopRouteInfo[];
   noDirectConnection: boolean;
+  interCityJourney?: InterCityJourney;
 }
 
 async function fetchStopTimes(operatorId?: string): Promise<StopTimeInfo[]> {
@@ -167,12 +187,13 @@ async function fetchTripPlanData(
 ): Promise<TripPlanData> {
   console.log(`Planning trip from ${originStopId} to ${destinationStopId}`);
 
-  // Fetch all required data in parallel
+  // For trip planning, always fetch ALL operators' data to support inter-city journeys
+  // This ensures we can suggest intercity buses even when a specific operator is selected
   const [stopTimes, tripsStatic, routes, stops] = await Promise.all([
-    fetchStopTimes(operatorId),
-    fetchTripsStatic(operatorId),
-    fetchRoutes(operatorId),
-    fetchStops(operatorId),
+    fetchStopTimes(), // All operators
+    fetchTripsStatic(), // All operators
+    fetchRoutes(), // All operators
+    fetchStops(), // All operators
   ]);
 
   console.log(`Loaded ${stopTimes.length} stop times, ${tripsStatic.length} trips, ${routes.length} routes`);
@@ -332,7 +353,36 @@ async function fetchTripPlanData(
     );
   }
 
-  console.log(`Found ${directRoutes.length} direct routes, ${transferRoutes.length} transfer routes`);
+  // Detect if origin and destination are in different regions (inter-city journey)
+  const originStop = stopMap.get(originStopId);
+  const destStop = stopMap.get(destinationStopId);
+  
+  let interCityJourney: InterCityJourney | undefined;
+  
+  if (originStop && destStop) {
+    const originRegion = detectRegion(originStop.stop_name);
+    const destRegion = detectRegion(destStop.stop_name);
+    
+    console.log(`Origin region: ${originRegion}, Destination region: ${destRegion}`);
+    
+    // If different regions, suggest inter-city journey
+    if (originRegion && destRegion && originRegion !== destRegion) {
+      interCityJourney = buildInterCityJourney(
+        originStop,
+        destStop,
+        originRegion,
+        destRegion,
+        stops,
+        stopTimesByStop,
+        tripRouteMap,
+        routeMap,
+        tripHeadsignMap,
+        filterTimeStr
+      );
+    }
+  }
+
+  console.log(`Found ${directRoutes.length} direct routes, ${transferRoutes.length} transfer routes${interCityJourney ? ', inter-city journey available' : ''}`);
 
   return {
     directRoutes,
@@ -340,6 +390,7 @@ async function fetchTripPlanData(
     originStopRoutes,
     destinationStopRoutes,
     noDirectConnection: directRoutes.length === 0,
+    interCityJourney,
   };
 }
 
@@ -512,4 +563,204 @@ function findTransferRoutes(
 
   // Limit to top 5 transfer options
   return transferRoutes.slice(0, 5);
+}
+
+// Detect which region a stop belongs to based on its name
+function detectRegion(stopName: string): string | null {
+  const lowerName = stopName.toLowerCase();
+  
+  for (const [region, keywords] of Object.entries(REGION_KEYWORDS)) {
+    for (const keyword of keywords) {
+      if (lowerName.includes(keyword.toLowerCase())) {
+        return region;
+      }
+    }
+  }
+  
+  return null;
+}
+
+// Find intercity stations in a region
+function findIntercityStations(
+  region: string,
+  stops: StaticStop[]
+): StaticStop[] {
+  const stationKeywords = INTERCITY_STATIONS[region] || [];
+  const found: StaticStop[] = [];
+  
+  for (const stop of stops) {
+    const lowerName = stop.stop_name.toLowerCase();
+    for (const keyword of stationKeywords) {
+      if (lowerName.includes(keyword.toLowerCase())) {
+        found.push(stop);
+        break;
+      }
+    }
+  }
+  
+  return found;
+}
+
+// Get local operator for a region
+function getLocalOperator(region: string): string | null {
+  const op = OPERATORS.find(o => o.region === region);
+  return op?.id || null;
+}
+
+// Get intercity operator
+function getIntercityOperators(): string[] {
+  return OPERATORS.filter(o => o.isIntercity).map(o => o.id);
+}
+
+// Build inter-city journey suggestion
+function buildInterCityJourney(
+  originStop: StaticStop,
+  destStop: StaticStop,
+  originRegion: string,
+  destRegion: string,
+  stops: StaticStop[],
+  stopTimesByStop: Map<string, StopTimeInfo[]>,
+  tripRouteMap: Map<string, string>,
+  routeMap: Map<string, RouteInfo>,
+  tripHeadsignMap: Map<string, string>,
+  filterTimeStr: string
+): InterCityJourney {
+  // Find intercity stations in both regions
+  const originIntercityStations = findIntercityStations(originRegion, stops);
+  const destIntercityStations = findIntercityStations(destRegion, stops);
+  
+  // Get operators
+  const originLocalOp = getLocalOperator(originRegion);
+  const destLocalOp = getLocalOperator(destRegion);
+  const intercityOps = getIntercityOperators();
+  
+  // Find routes from origin stop (local buses in origin city)
+  const localToIntercityRoutes: StopRouteInfo[] = [];
+  const stopTimes = stopTimesByStop.get(originStop.stop_id) || [];
+  const routeDepartures = new Map<string, { times: string[]; headsign?: string }>();
+  
+  stopTimes.forEach(st => {
+    const routeId = tripRouteMap.get(st.trip_id);
+    if (!routeId) return;
+    
+    const depTime = st.departure_time || st.arrival_time;
+    if (!depTime || depTime < filterTimeStr) return;
+    
+    if (!routeDepartures.has(routeId)) {
+      routeDepartures.set(routeId, { times: [], headsign: tripHeadsignMap.get(st.trip_id) });
+    }
+    routeDepartures.get(routeId)!.times.push(depTime);
+  });
+  
+  routeDepartures.forEach((data, routeId) => {
+    const route = routeMap.get(routeId);
+    if (!route) return;
+    
+    const sortedTimes = [...new Set(data.times)].sort().slice(0, 3);
+    localToIntercityRoutes.push({
+      route,
+      nextDepartures: sortedTimes.map(t => t.substring(0, 5)),
+      direction: data.headsign,
+    });
+  });
+  
+  // Find intercity routes (routes from operator 5 or 11)
+  const intercityRoutes: StopRouteInfo[] = [];
+  const intercityStops = [...originIntercityStations, ...destIntercityStations];
+  const seenRoutes = new Set<string>();
+  
+  for (const station of intercityStops) {
+    const stationStopTimes = stopTimesByStop.get(station.stop_id) || [];
+    
+    stationStopTimes.forEach(st => {
+      const routeId = tripRouteMap.get(st.trip_id);
+      if (!routeId || seenRoutes.has(routeId)) return;
+      
+      const route = routeMap.get(routeId);
+      if (!route) return;
+      
+      // Check if this is an intercity route (route name often contains city names)
+      const routeName = (route.route_long_name || '').toLowerCase();
+      const isIntercity = 
+        routeName.includes('λευκωσ') || 
+        routeName.includes('λεμεσ') || 
+        routeName.includes('λάρνακ') || 
+        routeName.includes('πάφο') ||
+        routeName.includes('αμμόχωστ') ||
+        routeName.includes('nicosia') ||
+        routeName.includes('limassol') ||
+        routeName.includes('larnaca') ||
+        routeName.includes('paphos');
+      
+      if (isIntercity) {
+        seenRoutes.add(routeId);
+        const depTime = st.departure_time || st.arrival_time;
+        
+        intercityRoutes.push({
+          route,
+          nextDepartures: depTime ? [depTime.substring(0, 5)] : [],
+          direction: tripHeadsignMap.get(st.trip_id),
+        });
+      }
+    });
+  }
+  
+  // Find routes at destination stop (local buses in destination city)
+  const localFromIntercityRoutes: StopRouteInfo[] = [];
+  const destStopTimes = stopTimesByStop.get(destStop.stop_id) || [];
+  const destRouteDepartures = new Map<string, { times: string[]; headsign?: string }>();
+  
+  destStopTimes.forEach(st => {
+    const routeId = tripRouteMap.get(st.trip_id);
+    if (!routeId) return;
+    
+    const depTime = st.departure_time || st.arrival_time;
+    if (!depTime) return;
+    
+    if (!destRouteDepartures.has(routeId)) {
+      destRouteDepartures.set(routeId, { times: [], headsign: tripHeadsignMap.get(st.trip_id) });
+    }
+    destRouteDepartures.get(routeId)!.times.push(depTime);
+  });
+  
+  destRouteDepartures.forEach((data, routeId) => {
+    const route = routeMap.get(routeId);
+    if (!route) return;
+    
+    const sortedTimes = [...new Set(data.times)].sort().slice(0, 3);
+    localFromIntercityRoutes.push({
+      route,
+      nextDepartures: sortedTimes.map(t => t.substring(0, 5)),
+      direction: data.headsign,
+    });
+  });
+  
+  // Build region names for display
+  const regionNames: Record<string, string> = {
+    nicosia: 'Λευκωσία',
+    limassol: 'Λεμεσός',
+    larnaca: 'Λάρνακα',
+    paphos: 'Πάφος',
+    famagusta: 'Αμμόχωστος',
+  };
+  
+  const originRegionName = regionNames[originRegion] || originRegion;
+  const destRegionName = regionNames[destRegion] || destRegion;
+  
+  return {
+    originRegion,
+    destinationRegion: destRegion,
+    localToIntercityStation: {
+      routes: localToIntercityRoutes.slice(0, 4),
+      stationStop: originIntercityStations[0],
+    },
+    intercityRoutes: intercityRoutes.slice(0, 4),
+    intercityFromStation: originIntercityStations[0],
+    intercityToStation: destIntercityStations[0],
+    localFromIntercityStation: {
+      routes: localFromIntercityRoutes.slice(0, 4),
+      stationStop: destIntercityStations[0],
+    },
+    description: `Για να φτάσετε από ${originRegionName} στη ${destRegionName}, μπορείτε να χρησιμοποιήσετε τοπικά λεωφορεία για να φτάσετε στον υπεραστικό σταθμό, υπεραστικό λεωφορείο για τη μεταφορά μεταξύ πόλεων, και τοπικά λεωφορεία στον προορισμό σας.`,
+  };
 }
