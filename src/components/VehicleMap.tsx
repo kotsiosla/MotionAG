@@ -35,10 +35,9 @@ interface VehicleMapProps {
 const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: string, isOnSelectedRoute?: boolean, routeShortName?: string) => {
   const bgColor = routeColor ? `#${routeColor}` : '#f97316'; // Orange default
   
-  // Simple clean circle icon like busonmap.com
+  // Bus icon for followed/selected vehicles - more visible
   if (isOnSelectedRoute || isFollowed) {
-    // Slightly larger for followed/selected vehicles
-    const size = 24;
+    const size = 32;
     return L.divIcon({
       className: 'route-vehicle-marker',
       html: `
@@ -48,17 +47,15 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
           background: ${bgColor}; 
           border: 3px solid white; 
           border-radius: 50%; 
-          box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+          box-shadow: 0 3px 10px rgba(0,0,0,0.5);
           display: flex;
           align-items: center;
           justify-content: center;
+          transform: rotate(${bearing || 0}deg);
         ">
-          <div style="
-            width: 6px; 
-            height: 6px; 
-            background: white; 
-            border-radius: 50%;
-          "></div>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="0">
+            <path d="M12 2L4 12l8 10 8-10L12 2z"/>
+          </svg>
         </div>
       `,
       iconSize: [size, size],
@@ -67,7 +64,7 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
   }
   
   // Standard small circle for all vehicles
-  const size = 18;
+  const size = 20;
   return L.divIcon({
     className: 'vehicle-marker',
     html: `
@@ -77,14 +74,14 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
         background: ${bgColor}; 
         border: 2px solid white; 
         border-radius: 50%; 
-        box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
         display: flex;
         align-items: center;
         justify-content: center;
       ">
         <div style="
-          width: 4px; 
-          height: 4px; 
+          width: 5px; 
+          height: 5px; 
           background: white; 
           border-radius: 50%;
         "></div>
