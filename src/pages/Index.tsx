@@ -12,7 +12,7 @@ import { ScheduleView } from "@/components/ScheduleView";
 import { TripPlanResults, type WalkingInfo, type LocationInfo } from "@/components/TripPlanResults";
 import { NearbyStopsPanel } from "@/components/NearbyStopsPanel";
 import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } from "@/hooks/useGtfsData";
-import { useTripPlan } from "@/hooks/useTripPlan";
+import { useEnhancedTripPlan } from "@/hooks/useTripPlan";
 import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
 import { useDelayNotifications } from "@/hooks/useDelayNotifications";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
@@ -187,8 +187,8 @@ const Index = () => {
     return alertsQuery.data;
   }, [alertsQuery.data, alertsQuery.isError, cachedAlerts]);
   
-  // Trip planning query
-  const tripPlanQuery = useTripPlan(
+  // Enhanced trip planning query with transfer routes
+  const tripPlanQuery = useEnhancedTripPlan(
     tripOrigin?.stop_id || null,
     tripDestination?.stop_id || null,
     selectedOperator !== 'all' ? selectedOperator : undefined,
@@ -459,7 +459,7 @@ const Index = () => {
           destination={tripDestination}
           departureTime={tripDepartureTime}
           departureDate={tripDepartureDate}
-          results={tripPlanQuery.data || []}
+          results={tripPlanQuery.data?.directRoutes || []}
           isLoading={tripPlanQuery.isLoading}
           error={tripPlanQuery.error}
           onClose={() => setShowTripResults(false)}
@@ -479,6 +479,9 @@ const Index = () => {
           originLocation={tripOriginLocation}
           destLocation={tripDestLocation}
           walkingInfo={tripWalkingInfo}
+          transferRoutes={tripPlanQuery.data?.transferRoutes}
+          originStopRoutes={tripPlanQuery.data?.originStopRoutes}
+          destinationStopRoutes={tripPlanQuery.data?.destinationStopRoutes}
         />
       )}
 
