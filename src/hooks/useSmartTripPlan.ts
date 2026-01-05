@@ -588,7 +588,240 @@ function findJourneys(
       });
     });
     
-    console.log(`Found ${transfersFound} transfer journeys, total: ${journeys.length}`);
+    console.log(`Found ${transfersFound} one-transfer journeys, total: ${journeys.length}`);
+  }
+  
+  // STEP 3: Find TWO-TRANSFER routes (3 buses) if enabled and not enough routes
+  if (maxTransfers >= 2 && journeys.length < 10) {
+    console.log('Searching for 2-transfer routes...');
+    
+    // Build route trips map if not already built
+    const routeTrips = new Map<string, Array<{ tripId: string; stops: StopTimeInfo[] }>>();
+    stopTimesByTrip.forEach((tripStops, tripId) => {
+      const routeId = tripRouteMap.get(tripId);
+      if (!routeId) return;
+      if (!routeTrips.has(routeId)) {
+        routeTrips.set(routeId, []);
+      }
+      routeTrips.get(routeId)!.push({ tripId, stops: tripStops });
+    });
+    
+    // Build stop -> routes map
+    const stopRoutes = new Map<string, Set<string>>();
+    stopTimes.forEach(st => {
+      const routeId = tripRouteMap.get(st.trip_id);
+      if (!routeId) return;
+      if (!stopRoutes.has(st.stop_id)) {
+        stopRoutes.set(st.stop_id, new Set());
+      }
+      stopRoutes.get(st.stop_id)!.add(routeId);
+    });
+    
+    let twoTransfersFound = 0;
+    const maxTwoTransfers = 30;
+    
+    // For each origin nearby stop
+    for (const originNearby of originNearbyStops.slice(0, 10)) {
+      if (twoTransfersFound >= maxTwoTransfers) break;
+      
+      const originStopRoutes = stopRoutes.get(originNearby.stop.stop_id);
+      if (!originStopRoutes) continue;
+      
+      // For each route from origin
+      for (const route1Id of originStopRoutes) {
+        if (twoTransfersFound >= maxTwoTransfers) break;
+        
+        const route1Trips = routeTrips.get(route1Id);
+        if (!route1Trips) continue;
+        
+        // Take first few trips of route 1
+        for (const trip1 of route1Trips.slice(0, 3)) {
+          if (twoTransfersFound >= maxTwoTransfers) break;
+          
+          const origin1Idx = trip1.stops.findIndex(s => s.stop_id === originNearby.stop.stop_id);
+          if (origin1Idx === -1) continue;
+          
+          const dep1 = trip1.stops[origin1Idx].departure_time || '';
+          if (!dep1 || dep1 < filterTimeStr) continue;
+          
+          // For each possible first transfer stop (after origin on route 1)
+          for (let t1Idx = origin1Idx + 2; t1Idx < trip1.stops.length && t1Idx < origin1Idx + 15; t1Idx++) {
+            if (twoTransfersFound >= maxTwoTransfers) break;
+            
+            const transfer1StopId = trip1.stops[t1Idx].stop_id;
+            const arr1 = trip1.stops[t1Idx].arrival_time || '';
+            if (!arr1) continue;
+            
+            const transfer1Stop = stopMap.get(transfer1StopId);
+            if (!transfer1Stop) continue;
+            
+            // Find routes at transfer1 stop (excluding route1)
+            const transfer1Routes = stopRoutes.get(transfer1StopId);
+            if (!transfer1Routes) continue;
+            
+            for (const route2Id of transfer1Routes) {
+              if (route2Id === route1Id) continue;
+              if (twoTransfersFound >= maxTwoTransfers) break;
+              
+              const route2Trips = routeTrips.get(route2Id);
+              if (!route2Trips) continue;
+              
+              for (const trip2 of route2Trips.slice(0, 2)) {
+                if (twoTransfersFound >= maxTwoTransfers) break;
+                
+                const t1OnTrip2Idx = trip2.stops.findIndex(s => s.stop_id === transfer1StopId);
+                if (t1OnTrip2Idx === -1) continue;
+                
+                const dep2 = trip2.stops[t1OnTrip2Idx].departure_time || '';
+                if (!dep2) continue;
+                
+                // Check timing: need at least 2 mins to transfer
+                const arr1Min = parseTimeToMinutes(arr1);
+                const dep2Min = parseTimeToMinutes(dep2);
+                if (dep2Min < arr1Min + 2 || dep2Min > arr1Min + 45) continue;
+                
+                // For each possible second transfer stop
+                for (let t2Idx = t1OnTrip2Idx + 2; t2Idx < trip2.stops.length && t2Idx < t1OnTrip2Idx + 15; t2Idx++) {
+                  if (twoTransfersFound >= maxTwoTransfers) break;
+                  
+                  const transfer2StopId = trip2.stops[t2Idx].stop_id;
+                  const arr2 = trip2.stops[t2Idx].arrival_time || '';
+                  if (!arr2) continue;
+                  
+                  const transfer2Stop = stopMap.get(transfer2StopId);
+                  if (!transfer2Stop) continue;
+                  
+                  // Find routes at transfer2 that can reach destination
+                  const transfer2Routes = stopRoutes.get(transfer2StopId);
+                  if (!transfer2Routes) continue;
+                  
+                  for (const route3Id of transfer2Routes) {
+                    if (route3Id === route2Id) continue;
+                    if (twoTransfersFound >= maxTwoTransfers) break;
+                    
+                    const route3Trips = routeTrips.get(route3Id);
+                    if (!route3Trips) continue;
+                    
+                    for (const trip3 of route3Trips.slice(0, 2)) {
+                      if (twoTransfersFound >= maxTwoTransfers) break;
+                      
+                      const t2OnTrip3Idx = trip3.stops.findIndex(s => s.stop_id === transfer2StopId);
+                      if (t2OnTrip3Idx === -1) continue;
+                      
+                      const dep3 = trip3.stops[t2OnTrip3Idx].departure_time || '';
+                      if (!dep3) continue;
+                      
+                      // Check timing
+                      const arr2Min = parseTimeToMinutes(arr2);
+                      const dep3Min = parseTimeToMinutes(dep3);
+                      if (dep3Min < arr2Min + 2 || dep3Min > arr2Min + 45) continue;
+                      
+                      // Check if this trip reaches any destination nearby stop
+                      for (const destNearby of destNearbyStops.slice(0, 10)) {
+                        const destIdx = trip3.stops.findIndex(s => s.stop_id === destNearby.stop.stop_id);
+                        if (destIdx === -1 || destIdx <= t2OnTrip3Idx) continue;
+                        
+                        const arr3 = trip3.stops[destIdx].arrival_time || '';
+                        if (!arr3) continue;
+                        
+                        const route1 = routeMap.get(route1Id);
+                        const route2 = routeMap.get(route2Id);
+                        const route3 = routeMap.get(route3Id);
+                        if (!route1 || !route2 || !route3) continue;
+                        
+                        // Build the 3-bus journey
+                        const legs: JourneyLeg[] = [];
+                        
+                        // Walk to first stop if needed
+                        if (originNearby.distance > 50) {
+                          legs.push({
+                            type: 'walk',
+                            walkingMeters: originNearby.distance,
+                            walkingMinutes: calculateWalkingMinutes(originNearby.distance),
+                            fromLocation: {
+                              lat: originStop.stop_lat || 0,
+                              lon: originStop.stop_lon || 0,
+                              name: originStop.stop_name,
+                            },
+                            toLocation: {
+                              lat: originNearby.stop.stop_lat || 0,
+                              lon: originNearby.stop.stop_lon || 0,
+                              name: originNearby.stop.stop_name,
+                            },
+                          });
+                        }
+                        
+                        // Bus 1
+                        legs.push({
+                          type: 'bus',
+                          route: route1,
+                          fromStop: originNearby.stop,
+                          toStop: transfer1Stop,
+                          departureTime: dep1,
+                          arrivalTime: arr1,
+                          stopCount: t1Idx - origin1Idx,
+                          tripId: trip1.tripId,
+                        });
+                        
+                        // Bus 2
+                        legs.push({
+                          type: 'bus',
+                          route: route2,
+                          fromStop: transfer1Stop,
+                          toStop: transfer2Stop,
+                          departureTime: dep2,
+                          arrivalTime: arr2,
+                          stopCount: t2Idx - t1OnTrip2Idx,
+                          tripId: trip2.tripId,
+                        });
+                        
+                        // Bus 3
+                        legs.push({
+                          type: 'bus',
+                          route: route3,
+                          fromStop: transfer2Stop,
+                          toStop: destNearby.stop,
+                          departureTime: dep3,
+                          arrivalTime: arr3,
+                          stopCount: destIdx - t2OnTrip3Idx,
+                          tripId: trip3.tripId,
+                        });
+                        
+                        // Walk from last stop if needed
+                        if (destNearby.distance > 50) {
+                          legs.push({
+                            type: 'walk',
+                            walkingMeters: destNearby.distance,
+                            walkingMinutes: calculateWalkingMinutes(destNearby.distance),
+                            fromLocation: {
+                              lat: destNearby.stop.stop_lat || 0,
+                              lon: destNearby.stop.stop_lon || 0,
+                              name: destNearby.stop.stop_name,
+                            },
+                            toLocation: {
+                              lat: destStop.stop_lat || 0,
+                              lon: destStop.stop_lon || 0,
+                              name: destStop.stop_name,
+                            },
+                          });
+                        }
+                        
+                        addJourneyFromLegs(legs, journeys);
+                        twoTransfersFound++;
+                        
+                        if (twoTransfersFound >= maxTwoTransfers) break;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    console.log(`Found ${twoTransfersFound} two-transfer journeys, total: ${journeys.length}`);
   }
   
   // Score and sort journeys
