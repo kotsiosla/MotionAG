@@ -16,9 +16,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { OperatorSelector } from "@/components/OperatorSelector";
 import { RouteSelector } from "@/components/RouteSelector";
-import { TripPlanner } from "@/components/TripPlanner";
+import { SmartTripPlanner } from "@/components/SmartTripPlanner";
 import type { RouteInfo, StaticStop } from "@/types/gtfs";
 import type { FavoriteRoute } from "@/hooks/useFavoriteRoutes";
+import type { WalkingInfo, LocationInfo } from "@/components/TripPlanResults";
 import motionLogo from "@/assets/motion-logo.svg";
 
 interface HeaderProps {
@@ -40,7 +41,15 @@ interface HeaderProps {
   liveRoutesCount?: number;
   stops?: StaticStop[];
   stopsLoading?: boolean;
-  onTripSearch?: (origin: StaticStop | null, destination: StaticStop | null, departureTime: string, departureDate: Date) => void;
+  onTripSearch?: (
+    origin: StaticStop | null, 
+    destination: StaticStop | null, 
+    departureTime: string, 
+    departureDate: Date,
+    originLocation?: LocationInfo,
+    destLocation?: LocationInfo,
+    walkingInfo?: WalkingInfo
+  ) => void;
   favorites?: FavoriteRoute[];
   onRemoveFavorite?: (id: string) => void;
   delayNotificationsEnabled?: boolean;
@@ -349,7 +358,7 @@ export function Header({
         {/* Trip Planner - Collapsible with animation */}
         <Collapsible open={tripPlannerVisible} onOpenChange={setTripPlannerVisible}>
           <CollapsibleContent className="mt-2 pt-2 border-t border-border/50">
-            <TripPlanner 
+            <SmartTripPlanner 
               stops={stops}
               isLoading={stopsLoading}
               onSearch={onTripSearch}
