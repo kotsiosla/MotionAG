@@ -346,6 +346,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [showRoutePanel, setShowRoutePanel] = useState(true);
   const [showRoutePlanner, setShowRoutePlanner] = useState(false);
   const [selectedVehicleTrip, setSelectedVehicleTrip] = useState<{ vehicleId: string; tripId: string; routeId?: string } | null>(null);
+  const [initialOriginStop, setInitialOriginStop] = useState<{ stopId: string; stopName: string; lat: number; lng: number } | null>(null);
   const [showLiveVehiclesPanel, setShowLiveVehiclesPanel] = useState(true);
   const markerMapRef = useRef<Map<string, L.Marker>>(new Map());
   const userLocationMarkerRef = useRef<L.Marker | null>(null);
@@ -1071,6 +1072,20 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
               tripId: vehicle.tripId,
               routeId: vehicle.routeId,
             });
+            
+            // Find the current stop of the vehicle to set as origin
+            if (vehicle.stopId) {
+              const currentStop = stops.find(s => s.stop_id === vehicle.stopId);
+              if (currentStop && currentStop.stop_lat && currentStop.stop_lon) {
+                setInitialOriginStop({
+                  stopId: currentStop.stop_id,
+                  stopName: currentStop.stop_name || currentStop.stop_id,
+                  lat: currentStop.stop_lat,
+                  lng: currentStop.stop_lon,
+                });
+              }
+            }
+            
             setShowRoutePlanner(true);
           }
         });
@@ -1736,6 +1751,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         onClose={() => {
           setShowRoutePlanner(false);
           setMapClickMode(null);
+          setInitialOriginStop(null);
         }}
         stops={stops}
         trips={trips}
@@ -1747,8 +1763,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         onRequestMapClick={(type) => setMapClickMode(type)}
         mapClickLocation={mapClickLocation}
         selectedVehicleTrip={selectedVehicleTrip}
+        initialOriginStop={initialOriginStop}
         onClearVehicleTrip={() => {
           setSelectedVehicleTrip(null);
+          setInitialOriginStop(null);
           setShowRoutePlanner(false);
         }}
         onTripStopClick={(stopId, lat, lng) => {

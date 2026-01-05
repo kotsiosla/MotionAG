@@ -64,6 +64,7 @@ interface RoutePlannerPanelProps {
   onRequestMapClick?: (type: 'origin' | 'destination') => void;
   mapClickLocation?: { type: 'origin' | 'destination'; lat: number; lng: number } | null;
   selectedVehicleTrip?: { vehicleId: string; tripId: string; routeId?: string } | null;
+  initialOriginStop?: { stopId: string; stopName: string; lat: number; lng: number } | null;
   onClearVehicleTrip?: () => void;
   onTripStopClick?: (stopId: string, lat: number, lng: number) => void;
 }
@@ -118,6 +119,7 @@ export function RoutePlannerPanel({
   onRequestMapClick,
   mapClickLocation,
   selectedVehicleTrip,
+  initialOriginStop,
   onClearVehicleTrip,
   onTripStopClick,
 }: RoutePlannerPanelProps) {
@@ -154,6 +156,7 @@ export function RoutePlannerPanel({
     return localStorage.getItem('notificationSound') || 'chime';
   });
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [showVehicleLabel, setShowVehicleLabel] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(70);
   const [isDraggingMobile, setIsDraggingMobile] = useState(false);
   const dragStartRef = useRef({ y: 0 });
@@ -225,6 +228,22 @@ export function RoutePlannerPanel({
   useEffect(() => {
     localStorage.setItem('notificationSound', notificationSound);
   }, [notificationSound]);
+
+  // Set initial origin from bus current stop
+  useEffect(() => {
+    if (initialOriginStop && !origin) {
+      const location: Location = {
+        lat: initialOriginStop.lat,
+        lng: initialOriginStop.lng,
+        name: initialOriginStop.stopName,
+        type: 'stop',
+        stopId: initialOriginStop.stopId,
+      };
+      setOrigin(location);
+      setOriginQuery(initialOriginStop.stopName);
+      onLocationSelect?.('origin', location);
+    }
+  }, [initialOriginStop, origin, onLocationSelect]);
 
   // Handle map click location
   useEffect(() => {
@@ -948,12 +967,18 @@ export function RoutePlannerPanel({
                 >
                   <Bus className="h-2.5 w-2.5 text-white" />
                 </div>
-                <div>
+                <div className="flex items-center gap-1">
                   <span className="font-semibold" style={{ color: selectedVehicleTripInfo.routeColor ? `#${selectedVehicleTripInfo.routeColor}` : undefined }}>
                     {selectedVehicleTripInfo.routeShortName || 'Γραμμή'}
                   </span>
                   {selectedVehicleTripInfo.vehicleLabel && (
-                    <span className="text-xs text-muted-foreground ml-2">({selectedVehicleTripInfo.vehicleLabel})</span>
+                    <button 
+                      onClick={() => setShowVehicleLabel(!showVehicleLabel)}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1"
+                      title={showVehicleLabel ? 'Απόκρυψη ετικέτας' : 'Εμφάνιση ετικέτας'}
+                    >
+                      {showVehicleLabel ? `(${selectedVehicleTripInfo.vehicleLabel})` : '(...)'}
+                    </button>
                   )}
                 </div>
               </div>
