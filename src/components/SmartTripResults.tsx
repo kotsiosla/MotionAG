@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { X, Bus, Clock, MapPin, ArrowDown, Loader2, Star, CalendarIcon, Printer, Footprints, Map, AlertCircle, Navigation, ChevronRight, Settings2, ArrowUpDown, Filter, Share2, Copy, Check } from "lucide-react";
+import { X, Bus, Clock, MapPin, ArrowDown, Loader2, Star, CalendarIcon, Printer, Footprints, Map, AlertCircle, Navigation, ChevronRight, Settings2, ArrowUpDown, Filter, Share2, Copy, Check, Bookmark, CalendarPlus, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { JourneyOption, JourneyLeg, SmartTripPlanData } from "@/hooks/useSmartTripPlan";
 import type { StaticStop } from "@/types/gtfs";
+import { useSavedTrips, generateCalendarUrl, formatTripForShare, type SavedTrip } from "@/hooks/useSavedTrips";
 
 interface SmartTripResultsProps {
   origin: StaticStop | null;
@@ -212,7 +213,23 @@ function JourneyLegView({ leg, isLast }: { leg: JourneyLeg; isLast: boolean }) {
 }
 
 // Render a complete journey option
-function JourneyOptionCard({ journey, index }: { journey: JourneyOption; index: number }) {
+function JourneyOptionCard({ 
+  journey, 
+  index,
+  origin,
+  destination,
+  departureDate,
+  onSave,
+  onAddToCalendar,
+}: { 
+  journey: JourneyOption; 
+  index: number;
+  origin: StaticStop;
+  destination: StaticStop;
+  departureDate: Date;
+  onSave: () => void;
+  onAddToCalendar: () => void;
+}) {
   const busLegs = journey.legs.filter(l => l.type === 'bus');
   const routeNames = busLegs.map(l => l.route?.route_short_name).join(' → ');
   const totalWalkingMeters = journey.legs
@@ -231,18 +248,38 @@ function JourneyOptionCard({ journey, index }: { journey: JourneyOption; index: 
             </div>
             <span className="font-bold">{routeNames}</span>
           </div>
-          <div className="flex items-center gap-3 text-sm">
-            <div className="flex items-center gap-1">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <span className="font-mono font-bold text-primary">
-                {journey.departureTime.substring(0, 5)}
-              </span>
-              <span className="text-muted-foreground">→</span>
-              <span className="font-mono">
-                {journey.arrivalTime.substring(0, 5)}
-              </span>
-            </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onSave}
+              title="Αποθήκευση διαδρομής"
+            >
+              <Bookmark className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onAddToCalendar}
+              title="Προσθήκη στο ημερολόγιο"
+            >
+              <CalendarPlus className="h-4 w-4" />
+            </Button>
           </div>
+        </div>
+        
+        {/* Time display */}
+        <div className="flex items-center gap-1 mt-2 text-sm">
+          <Clock className="h-4 w-4 text-muted-foreground" />
+          <span className="font-mono font-bold text-primary">
+            {journey.departureTime.substring(0, 5)}
+          </span>
+          <span className="text-muted-foreground">→</span>
+          <span className="font-mono">
+            {journey.arrivalTime.substring(0, 5)}
+          </span>
         </div>
         
         {/* Summary badges */}
@@ -319,10 +356,12 @@ export function SmartTripResults({
 }: SmartTripResultsProps) {
   const [sortBy, setSortBy] = useState<string>('recommended');
   const [maxTransfersFilter, setMaxTransfersFilter] = useState<number>(-1);
+  const { saveTrip } = useSavedTrips();
   
   if (!origin || !destination) return null;
 
   const isToday = departureDate ? departureDate.toDateString() === new Date().toDateString() : true;
+  const effectiveDate = departureDate || new Date();
   
   // Filter and sort journeys
   const filteredJourneys = useMemo(() => {
@@ -354,6 +393,27 @@ export function SmartTripResults({
     
     return journeys;
   }, [data?.journeyOptions, sortBy, maxTransfersFilter]);
+
+  const handleSaveTrip = (journey: JourneyOption) => {
+    const saved = saveTrip(origin, destination, journey, effectiveDate, 15);
+    toast.success("Η διαδρομή αποθηκεύτηκε!", {
+      description: "Θα λάβεις ειδοποίηση 15 λεπτά πριν την αναχώρηση"
+    });
+  };
+
+  const handleAddToCalendar = (journey: JourneyOption) => {
+    const tempTrip: SavedTrip = {
+      id: 'temp',
+      origin,
+      destination,
+      journey,
+      departureDate: effectiveDate.toISOString(),
+      savedAt: new Date().toISOString(),
+    };
+    const url = generateCalendarUrl(tempTrip);
+    window.open(url, '_blank');
+    toast.success("Άνοιξε το Google Calendar για προσθήκη");
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -522,7 +582,16 @@ export function SmartTripResults({
               </p>
               
               {filteredJourneys.map((journey, idx) => (
-                <JourneyOptionCard key={idx} journey={journey} index={idx} />
+                <JourneyOptionCard 
+                  key={idx} 
+                  journey={journey} 
+                  index={idx} 
+                  origin={origin}
+                  destination={destination}
+                  departureDate={effectiveDate}
+                  onSave={() => handleSaveTrip(journey)}
+                  onAddToCalendar={() => handleAddToCalendar(journey)}
+                />
               ))}
             </>
           )}
