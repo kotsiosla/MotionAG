@@ -390,6 +390,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [mapClickMode, setMapClickMode] = useState<'origin' | 'destination' | null>(null);
   const [mapClickLocation, setMapClickLocation] = useState<{ type: 'origin' | 'destination'; lat: number; lng: number } | null>(null);
   const [viewMode, setViewMode] = useState<'street' | 'overview'>('street');
+  const [mapReady, setMapReady] = useState(false);
   const highlightedStopMarkerRef = useRef<L.Marker | null>(null);
   
   // Trail effect: store position history for each vehicle
@@ -760,7 +761,14 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     mapRef.current.addLayer(vehicleMarkersRef.current);
     mapRef.current.addLayer(stopMarkersRef.current);
 
+    // Mark map as ready after a short delay to ensure cluster groups are fully initialized
+    const readyTimeout = setTimeout(() => {
+      setMapReady(true);
+    }, 100);
+
     return () => {
+      clearTimeout(readyTimeout);
+      setMapReady(false);
       mapRef.current?.remove();
       mapRef.current = null;
     };
@@ -880,6 +888,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
   // Update vehicle markers when vehicles change - with smooth animation
   useEffect(() => {
+    // Wait for map to be ready
+    if (!mapReady) return;
+    
     // Ensure map and cluster group are initialized and the cluster is added to the map
     if (!vehicleMarkersRef.current || !mapRef.current) return;
     
@@ -892,11 +903,6 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       const zoom = mapRef.current.getZoom();
       if (zoom === undefined) return;
     } catch {
-      return;
-    }
-    
-    // Final check - ensure cluster group has the required internal state
-    if (typeof clusterGroup._zoom === 'undefined' && typeof clusterGroup._maxZoom === 'undefined') {
       return;
     }
 
@@ -1185,7 +1191,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         // Skip auto-fitting after initial load to prevent jarring movements
       }
     }
-  }, [vehicles, followedVehicleId, routeNamesMap, tripMap, stopMap, selectedRoute, effectiveRouteShapeData, followedVehicleRouteId]);
+  }, [vehicles, followedVehicleId, routeNamesMap, tripMap, stopMap, selectedRoute, effectiveRouteShapeData, followedVehicleRouteId, mapReady]);
 
   // Get stops with vehicles currently stopped
   const stopsWithVehicles = useMemo(() => {
@@ -1292,6 +1298,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   }, [userLocation]);
 
   useEffect(() => {
+    // Wait for map to be ready
+    if (!mapReady) return;
+    
     if (!stopMarkersRef.current || !mapRef.current) return;
     
     // Check if the cluster group has a map reference (is added to a map)
@@ -1303,11 +1312,6 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       const zoom = mapRef.current.getZoom();
       if (zoom === undefined) return;
     } catch {
-      return;
-    }
-    
-    // Final check - ensure cluster group has the required internal state
-    if (typeof clusterGroup._zoom === 'undefined' && typeof clusterGroup._maxZoom === 'undefined') {
       return;
     }
 
@@ -1390,7 +1394,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
       stopMarkersRef.current!.addLayer(marker);
     });
-  }, [stops, showStops, stopsWithVehicles, trips, vehicles, routeNamesMap]);
+  }, [stops, showStops, stopsWithVehicles, trips, vehicles, routeNamesMap, mapReady]);
 
   // Draw route shape when route changes (only fit bounds on route change)
   useEffect(() => {
