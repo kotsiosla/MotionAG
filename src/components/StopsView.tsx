@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { Search, MapPin, Clock, Bus, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, MapPin, Clock, Bus, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useStopRoutes } from "@/hooks/useGtfsData";
 import type { Trip, StaticStop, RouteInfo } from "@/types/gtfs";
 
 interface StopsViewProps {
@@ -8,6 +9,7 @@ interface StopsViewProps {
   stops: StaticStop[];
   routeNamesMap?: Map<string, RouteInfo>;
   isLoading: boolean;
+  selectedOperator?: string;
 }
 
 const formatETA = (timestamp?: number) => {
@@ -41,7 +43,7 @@ interface RouteArrival {
   arrivalDelay?: number;
 }
 
-export function StopsView({ trips, stops, routeNamesMap, isLoading }: StopsViewProps) {
+export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOperator }: StopsViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedStopId, setExpandedStopId] = useState<string | null>(null);
 
@@ -143,6 +145,116 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading }: StopsViewP
       seen.add(arr.routeId);
       return true;
     });
+  };
+
+  // Component for expanded stop content - fetches static routes
+  const StopExpandedContent = ({ stopId, arrivals, selectedOperator }: { 
+    stopId: string; 
+    arrivals: RouteArrival[];
+    selectedOperator?: string;
+  }) => {
+    const { data: stopRoutesData, isLoading: routesLoading } = useStopRoutes(stopId, selectedOperator);
+    
+    const uniqueRealtimeRoutes = getUniqueRoutes(arrivals);
+    const realtimeRouteIds = new Set(uniqueRealtimeRoutes.map(r => r.routeId));
+    
+    // Static routes that don't have realtime arrivals
+    const staticOnlyRoutes = stopRoutesData?.routes.filter(r => !realtimeRouteIds.has(r.route_id)) || [];
+    
+    return (
+      <div className="px-4 pb-4 space-y-3">
+        {/* Routes with realtime arrivals */}
+        {uniqueRealtimeRoutes.map((route) => {
+          const routeArrivals = arrivals.filter(a => a.routeId === route.routeId).slice(0, 3);
+          
+          return (
+            <div key={route.routeId} className="bg-muted/50 rounded-lg p-3">
+              {/* Route header */}
+              <div className="flex items-center gap-2 mb-2">
+                <span
+                  className="inline-flex items-center px-2.5 py-1 rounded text-sm font-bold text-white"
+                  style={{ backgroundColor: route.routeColor ? `#${route.routeColor}` : '#0ea5e9' }}
+                >
+                  {route.routeShortName || route.routeId}
+                </span>
+                <span className="text-xs text-muted-foreground truncate flex-1">
+                  {route.routeLongName}
+                </span>
+              </div>
+              
+              {/* Arrivals list */}
+              <div className="space-y-1.5">
+                {routeArrivals.map((arrival, idx) => {
+                  const mins = getMinutesUntil(arrival.arrivalTime);
+                  const delayInfo = formatDelay(arrival.arrivalDelay);
+                  
+                  return (
+                    <div key={idx} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="font-mono font-medium">
+                          {formatETA(arrival.arrivalTime)}
+                        </span>
+                        {delayInfo && (
+                          <span className={`text-xs ${delayInfo.className}`}>
+                            {delayInfo.text}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-bold ${mins <= 5 ? 'text-green-500' : 'text-primary'}`}>
+                          {mins <= 0 ? 'Τώρα' : `${mins} λεπτά`}
+                        </span>
+                        {arrival.vehicleLabel && (
+                          <span className="text-xs text-muted-foreground">
+                            ({arrival.vehicleLabel})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+        
+        {/* Static routes without realtime arrivals */}
+        {routesLoading && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <span>Φόρτωση γραμμών...</span>
+          </div>
+        )}
+        
+        {staticOnlyRoutes.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t border-border">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <span>Γραμμές χωρίς δρομολόγιο αυτή τη στιγμή:</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {staticOnlyRoutes.map((route) => (
+                <div key={route.route_id} className="flex items-center gap-1.5">
+                  <span
+                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold text-white opacity-60"
+                    style={{ backgroundColor: route.route_color ? `#${route.route_color}` : '#6b7280' }}
+                  >
+                    {route.route_short_name || route.route_id}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {arrivals.length === 0 && !routesLoading && staticOnlyRoutes.length === 0 && (
+          <div className="text-sm text-muted-foreground italic">
+            Δεν βρέθηκαν γραμμές για αυτή τη στάση
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -258,73 +370,13 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading }: StopsViewP
                     )}
                   </button>
 
-                  {/* Expanded: Show all arrivals by route */}
-                  {isExpanded && data.arrivals.length > 0 && (
-                    <div className="px-4 pb-4 space-y-3">
-                      {uniqueRoutes.map((route) => {
-                        const routeArrivals = data.arrivals.filter(a => a.routeId === route.routeId).slice(0, 3);
-                        
-                        return (
-                          <div key={route.routeId} className="bg-muted/50 rounded-lg p-3">
-                            {/* Route header */}
-                            <div className="flex items-center gap-2 mb-2">
-                              <span
-                                className="inline-flex items-center px-2.5 py-1 rounded text-sm font-bold text-white"
-                                style={{ backgroundColor: route.routeColor ? `#${route.routeColor}` : '#0ea5e9' }}
-                              >
-                                {route.routeShortName || route.routeId}
-                              </span>
-                              <span className="text-xs text-muted-foreground truncate flex-1">
-                                {route.routeLongName}
-                              </span>
-                            </div>
-                            
-                            {/* Arrivals list */}
-                            <div className="space-y-1.5">
-                              {routeArrivals.map((arrival, idx) => {
-                                const mins = getMinutesUntil(arrival.arrivalTime);
-                                const delayInfo = formatDelay(arrival.arrivalDelay);
-                                
-                                return (
-                                  <div key={idx} className="flex items-center justify-between text-sm">
-                                    <div className="flex items-center gap-2">
-                                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                                      <span className="font-mono font-medium">
-                                        {formatETA(arrival.arrivalTime)}
-                                      </span>
-                                      {delayInfo && (
-                                        <span className={`text-xs ${delayInfo.className}`}>
-                                          {delayInfo.text}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <span className={`font-bold ${mins <= 5 ? 'text-green-500' : 'text-primary'}`}>
-                                        {mins <= 0 ? 'Τώρα' : `${mins} λεπτά`}
-                                      </span>
-                                      {arrival.vehicleLabel && (
-                                        <span className="text-xs text-muted-foreground">
-                                          ({arrival.vehicleLabel})
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* No arrivals message */}
-                  {isExpanded && data.arrivals.length === 0 && (
-                    <div className="px-4 pb-4">
-                      <div className="text-sm text-muted-foreground italic">
-                        Δεν υπάρχουν προγραμματισμένες αφίξεις
-                      </div>
-                    </div>
+                  {/* Expanded: Show all arrivals by route + static routes */}
+                  {isExpanded && (
+                    <StopExpandedContent
+                      stopId={data.stop.stop_id}
+                      arrivals={data.arrivals}
+                      selectedOperator={selectedOperator}
+                    />
                   )}
                 </div>
               );

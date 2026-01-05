@@ -176,3 +176,38 @@ export function useRouteSchedule(routeId: string | null, operatorId?: string) {
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
+
+export interface StopRoutesData {
+  stop_id: string;
+  routes: Array<{
+    route_id: string;
+    route_short_name: string;
+    route_long_name: string;
+    route_color?: string;
+  }>;
+}
+
+export function useStopRoutes(stopId: string | null, operatorId?: string) {
+  return useQuery({
+    queryKey: ['stop-routes', stopId, operatorId],
+    queryFn: async () => {
+      if (!stopId) return null;
+      const params = new URLSearchParams();
+      params.set('stop', stopId);
+      if (operatorId && operatorId !== 'all') params.set('operator', operatorId);
+      
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-routes?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch stop routes');
+      const result = await response.json();
+      return result.data as StopRoutesData;
+    },
+    enabled: !!stopId,
+    staleTime: 60 * 60 * 1000, // 1 hour
+    gcTime: 24 * 60 * 60 * 1000, // 24 hours
+  });
+}
