@@ -32,87 +32,68 @@ interface VehicleMapProps {
 
 const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: string, isOnSelectedRoute?: boolean, routeShortName?: string) => {
   const rotation = bearing || 0;
-  const bgColor = routeColor ? `#${routeColor}` : 'hsl(var(--primary))';
+  const bgColor = routeColor ? `#${routeColor}` : '#f97316'; // Orange default like the image
   const routeLabel = routeShortName || '';
   
-  // Modern bus icon with direction arrow - smooth animated
+  // Clean bus icon like the reference image
   if (isOnSelectedRoute || isFollowed) {
-    const glowColor = isFollowed ? 'rgba(250, 204, 21, 0.6)' : `${bgColor}40`;
-    const ringAnimation = isFollowed ? 'animation: pulse-glow 2s ease-in-out infinite;' : 'animation: pulse-ring 3s ease-in-out infinite;';
-    
     return L.divIcon({
       className: 'route-vehicle-marker',
       html: `
-        <style>
-          @keyframes pulse-glow { 
-            0%, 100% { box-shadow: 0 0 0 0 ${glowColor}; } 
-            50% { box-shadow: 0 0 0 12px transparent; } 
-          }
-          @keyframes pulse-ring { 
-            0%, 100% { transform: scale(1); opacity: 0.6; } 
-            50% { transform: scale(1.15); opacity: 0.3; } 
-          }
-          @keyframes float-bus {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-2px); }
-          }
-        </style>
-        <div class="vehicle-container" style="position: relative; width: 44px; height: 56px;">
-          <!-- Glow ring -->
-          <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; border-radius: 50%; background: ${bgColor}; opacity: 0.2; ${ringAnimation}"></div>
-          
-          <!-- Main bus body with rotation -->
-          <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(${rotation}deg); transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);">
-            <!-- Direction arrow (pointing up) -->
-            <svg width="44" height="56" viewBox="0 0 44 56" style="filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));">
-              <!-- Arrow head -->
-              <polygon points="22,2 12,16 32,16" fill="${bgColor}" stroke="white" stroke-width="1.5"/>
-              <!-- Bus body -->
-              <rect x="8" y="14" width="28" height="32" rx="4" fill="${bgColor}" stroke="white" stroke-width="2"/>
-              <!-- Windows -->
-              <rect x="12" y="18" width="20" height="8" rx="2" fill="rgba(255,255,255,0.9)"/>
-              <!-- Windshield line -->
-              <line x1="12" y1="30" x2="32" y2="30" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
-              <!-- Wheels -->
-              <circle cx="14" cy="44" r="3" fill="white"/>
-              <circle cx="30" cy="44" r="3" fill="white"/>
+        <div style="position: relative; width: 48px; height: 60px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">
+          <!-- Teardrop/pin shape pointing in direction -->
+          <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%) rotate(${rotation}deg); transform-origin: center 40px; transition: transform 1.2s cubic-bezier(0.25, 0.1, 0.25, 1);">
+            <svg width="48" height="60" viewBox="0 0 48 60">
+              <!-- Pin/teardrop shape -->
+              <path d="M24 58 C24 58 4 35 4 22 C4 11 13 2 24 2 C35 2 44 11 44 22 C44 35 24 58 24 58Z" 
+                    fill="${bgColor}" stroke="white" stroke-width="2"/>
               <!-- Bus icon inside -->
-              <text x="22" y="40" text-anchor="middle" fill="white" font-size="10" font-weight="bold" style="font-family: system-ui;">🚌</text>
+              <g transform="translate(12, 10)">
+                <!-- Bus body -->
+                <rect x="2" y="4" width="20" height="16" rx="3" fill="white"/>
+                <!-- Windows -->
+                <rect x="4" y="6" width="6" height="4" rx="1" fill="${bgColor}"/>
+                <rect x="14" y="6" width="6" height="4" rx="1" fill="${bgColor}"/>
+                <!-- Front -->
+                <rect x="4" y="12" width="16" height="6" rx="1" fill="rgba(0,0,0,0.1)"/>
+                <!-- Wheels -->
+                <circle cx="7" cy="20" r="2.5" fill="#333"/>
+                <circle cx="17" cy="20" r="2.5" fill="#333"/>
+              </g>
+              <!-- Route number -->
+              ${routeLabel ? `<text x="24" y="30" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="system-ui, sans-serif">${routeLabel}</text>` : ''}
             </svg>
           </div>
-          
-          <!-- Route label (counter-rotated) -->
-          ${routeLabel ? `<div style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); background: ${bgColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.3);">${routeLabel}</div>` : ''}
         </div>
       `,
-      iconSize: [44, 56],
-      iconAnchor: [22, 28],
+      iconSize: [48, 60],
+      iconAnchor: [24, 60],
     });
   }
   
-  // Simple bus icon for non-selected routes
+  // Smaller bus icon for non-selected routes
   return L.divIcon({
     className: 'vehicle-marker',
     html: `
-      <div style="position: relative; width: 28px; height: 36px;">
-        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(${rotation}deg); transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);">
-          <svg width="28" height="36" viewBox="0 0 28 36" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25));">
-            <!-- Arrow head -->
-            <polygon points="14,1 7,10 21,10" fill="${bgColor}" stroke="white" stroke-width="1"/>
-            <!-- Bus body -->
-            <rect x="5" y="9" width="18" height="22" rx="3" fill="${bgColor}" stroke="white" stroke-width="1.5"/>
-            <!-- Window -->
-            <rect x="8" y="12" width="12" height="6" rx="1" fill="rgba(255,255,255,0.85)"/>
-            <!-- Wheels -->
-            <circle cx="9" cy="29" r="2" fill="white"/>
-            <circle cx="19" cy="29" r="2" fill="white"/>
+      <div style="position: relative; width: 32px; height: 40px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25));">
+        <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%) rotate(${rotation}deg); transform-origin: center 28px; transition: transform 1.2s cubic-bezier(0.25, 0.1, 0.25, 1);">
+          <svg width="32" height="40" viewBox="0 0 32 40">
+            <!-- Pin shape -->
+            <path d="M16 38 C16 38 3 24 3 15 C3 8 9 2 16 2 C23 2 29 8 29 15 C29 24 16 38 16 38Z" 
+                  fill="${bgColor}" stroke="white" stroke-width="1.5"/>
+            <!-- Bus silhouette -->
+            <g transform="translate(8, 7)">
+              <rect x="2" y="2" width="12" height="10" rx="2" fill="white"/>
+              <rect x="3" y="3" width="4" height="3" rx="0.5" fill="${bgColor}" opacity="0.7"/>
+              <rect x="9" y="3" width="4" height="3" rx="0.5" fill="${bgColor}" opacity="0.7"/>
+            </g>
+            ${routeLabel ? `<text x="16" y="20" text-anchor="middle" fill="white" font-size="9" font-weight="bold" font-family="system-ui">${routeLabel}</text>` : ''}
           </svg>
         </div>
-        ${routeLabel ? `<div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); background: ${bgColor}; color: white; padding: 1px 4px; border-radius: 3px; font-size: 8px; font-weight: bold; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.2);">${routeLabel}</div>` : ''}
       </div>
     `,
-    iconSize: [28, 36],
-    iconAnchor: [14, 18],
+    iconSize: [32, 40],
+    iconAnchor: [16, 40],
   });
 };
 
@@ -647,7 +628,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             const filteredTrail = trail.filter(p => p.timestamp > cutoffTime).slice(-50);
             vehicleTrailsRef.current.set(vehicleId, filteredTrail);
             
-            // Draw trail polylines with fading effect
+            // Draw smooth snail trail
             if (mapRef.current && filteredTrail.length > 1) {
               // Remove old trail polylines for this vehicle
               const oldPolylines = trailPolylinesRef.current.get(vehicleId) || [];
@@ -659,14 +640,39 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
               
               const newPolylines: L.Polyline[] = [];
               const newParticles: L.Marker[] = [];
-              const trailColor = routeColor ? `#${routeColor}` : '#0ea5e9';
+              const trailColor = routeColor ? `#${routeColor}` : '#f97316';
               
-              // Create gradient trail segments
-              for (let i = 1; i < filteredTrail.length; i++) {
-                const opacity = (i / filteredTrail.length) * 0.6; // Fade from 0 to 0.6
-                const weight = 2 + (i / filteredTrail.length) * 4; // Width grows from 2 to 6
+              // Create smooth gradient snail trail - thicker, more visible
+              const trailPoints: L.LatLngExpression[] = filteredTrail.map(p => [p.lat, p.lng]);
+              
+              // Main trail - smooth continuous line
+              const mainTrail = L.polyline(trailPoints, {
+                color: trailColor,
+                weight: 8,
+                opacity: 0.7,
+                lineCap: 'round',
+                lineJoin: 'round',
+                smoothFactor: 1.5,
+              }).addTo(mapRef.current);
+              newPolylines.push(mainTrail);
+              
+              // Inner glow line
+              const innerTrail = L.polyline(trailPoints, {
+                color: 'white',
+                weight: 3,
+                opacity: 0.4,
+                lineCap: 'round',
+                lineJoin: 'round',
+                smoothFactor: 1.5,
+              }).addTo(mapRef.current);
+              newPolylines.push(innerTrail);
+              
+              // Fading tail segments at the start
+              for (let i = 1; i < Math.min(8, filteredTrail.length); i++) {
+                const opacity = 0.15 * (1 - i / 8);
+                const weight = 10 + i * 2;
                 
-                const segment = L.polyline(
+                const fadeSegment = L.polyline(
                   [[filteredTrail[i-1].lat, filteredTrail[i-1].lng], [filteredTrail[i].lat, filteredTrail[i].lng]],
                   {
                     color: trailColor,
@@ -676,55 +682,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
                     lineJoin: 'round',
                   }
                 ).addTo(mapRef.current);
-                
-                newPolylines.push(segment);
-              }
-              
-              // Add animated particles along the trail
-              const particleCount = Math.min(8, Math.floor(filteredTrail.length / 3));
-              for (let p = 0; p < particleCount; p++) {
-                // Distribute particles along the trail with animation offset
-                const baseIndex = Math.floor((p / particleCount) * (filteredTrail.length - 1));
-                const animOffset = (Date.now() / 500 + p) % 1; // Creates moving effect
-                const index = Math.min(filteredTrail.length - 1, Math.floor(baseIndex + animOffset * 3));
-                
-                if (index > 0 && index < filteredTrail.length) {
-                  const point = filteredTrail[index];
-                  const size = 4 + (index / filteredTrail.length) * 6; // Size grows towards bus
-                  const particleOpacity = 0.3 + (index / filteredTrail.length) * 0.7;
-                  
-                  const particleIcon = L.divIcon({
-                    className: 'trail-particle',
-                    html: `
-                      <div style="
-                        width: ${size}px; 
-                        height: ${size}px; 
-                        background: ${trailColor}; 
-                        border-radius: 50%; 
-                        opacity: ${particleOpacity};
-                        box-shadow: 0 0 ${size}px ${trailColor};
-                        animation: particle-pulse 1s ease-in-out infinite;
-                        animation-delay: ${p * 0.15}s;
-                      "></div>
-                      <style>
-                        @keyframes particle-pulse {
-                          0%, 100% { transform: scale(1); opacity: ${particleOpacity}; }
-                          50% { transform: scale(1.4); opacity: ${particleOpacity * 0.6}; }
-                        }
-                      </style>
-                    `,
-                    iconSize: [size, size],
-                    iconAnchor: [size/2, size/2],
-                  });
-                  
-                  const particle = L.marker([point.lat, point.lng], {
-                    icon: particleIcon,
-                    interactive: false,
-                    zIndexOffset: -100,
-                  }).addTo(mapRef.current);
-                  
-                  newParticles.push(particle);
-                }
+                newPolylines.push(fadeSegment);
               }
               
               trailPolylinesRef.current.set(vehicleId, newPolylines);
