@@ -159,6 +159,55 @@ const findClosestPointOnRoute = (
   return closestIndex;
 };
 
+// Find exact point on route line (interpolated between shape points)
+const snapToRouteLine = (
+  lat: number,
+  lng: number,
+  shape: Array<{ lat: number; lng: number }>
+): { lat: number; lng: number; bearing: number; index: number } | null => {
+  if (shape.length < 2) return null;
+  
+  let closestPoint = { lat, lng };
+  let minDistance = Infinity;
+  let closestIndex = 0;
+  let bearing = 0;
+  
+  for (let i = 0; i < shape.length - 1; i++) {
+    const p1 = shape[i];
+    const p2 = shape[i + 1];
+    
+    // Project point onto line segment
+    const dx = p2.lng - p1.lng;
+    const dy = p2.lat - p1.lat;
+    const segmentLengthSq = dx * dx + dy * dy;
+    
+    if (segmentLengthSq === 0) continue;
+    
+    // Parameter t indicates where on the segment the projection falls
+    let t = ((lng - p1.lng) * dx + (lat - p1.lat) * dy) / segmentLengthSq;
+    t = Math.max(0, Math.min(1, t)); // Clamp to segment
+    
+    const projectedLng = p1.lng + t * dx;
+    const projectedLat = p1.lat + t * dy;
+    
+    const distSq = Math.pow(lng - projectedLng, 2) + Math.pow(lat - projectedLat, 2);
+    
+    if (distSq < minDistance) {
+      minDistance = distSq;
+      closestPoint = { lat: projectedLat, lng: projectedLng };
+      closestIndex = i;
+      // Calculate bearing along the segment
+      bearing = calculateBearing(p1.lat, p1.lng, p2.lat, p2.lng);
+    }
+  }
+  
+  // Only snap if within ~50 meters of the route
+  const thresholdSq = Math.pow(0.0005, 2); // ~50m
+  if (minDistance > thresholdSq) return null;
+  
+  return { ...closestPoint, bearing, index: closestIndex };
+};
+
 const formatTimestamp = (timestamp?: number) => {
   if (!timestamp) return 'Άγνωστο';
   const date = new Date(timestamp * 1000);
@@ -823,35 +872,54 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
       const existingMarker = markerMapRef.current.get(vehicleId);
       
+      // For followed vehicles on a route, snap position to route line
+      let targetLat = vehicle.latitude!;
+      let targetLng = vehicle.longitude!;
+      let effectiveBearing = vehicle.bearing;
+      
+      // Check if this vehicle should snap to route shape
+      const shouldSnapToRoute = isFollowed && routeShapeData?.directions?.[0]?.shape;
+      
+      if (shouldSnapToRoute) {
+        const shape = routeShapeData.directions[0].shape;
+        const snapped = snapToRouteLine(vehicle.latitude!, vehicle.longitude!, shape);
+        if (snapped) {
+          targetLat = snapped.lat;
+          targetLng = snapped.lng;
+          effectiveBearing = snapped.bearing;
+        }
+      }
+      
+      // Calculate bearing from previous position if not provided
+      const prevPos = previousPositionsRef.current.get(vehicleId);
+      if (effectiveBearing === undefined && prevPos) {
+        const distanceMoved = Math.sqrt(
+          Math.pow(targetLat - prevPos.lat, 2) + 
+          Math.pow(targetLng - prevPos.lng, 2)
+        );
+        if (distanceMoved > 0.00005) { // ~5 meters threshold
+          effectiveBearing = calculateBearing(prevPos.lat, prevPos.lng, targetLat, targetLng);
+        }
+      }
+      
+      // Store current position for next bearing calculation
+      previousPositionsRef.current.set(vehicleId, { lat: targetLat, lng: targetLng });
+      
+      const newLatLng = L.latLng(targetLat, targetLng);
+      
       if (existingMarker) {
         // Smooth animation: update position of existing marker
         const currentLatLng = existingMarker.getLatLng();
-        const newLatLng = L.latLng(vehicle.latitude!, vehicle.longitude!);
-        
-        // Calculate bearing from previous position if not provided by data
-        let effectiveBearing = vehicle.bearing;
-        const prevPos = previousPositionsRef.current.get(vehicleId);
-        
-        if (effectiveBearing === undefined && prevPos) {
-          // Only calculate if position changed significantly (avoid jittery rotation)
-          const distanceMoved = Math.sqrt(
-            Math.pow(newLatLng.lat - prevPos.lat, 2) + 
-            Math.pow(newLatLng.lng - prevPos.lng, 2)
-          );
-          if (distanceMoved > 0.00005) { // ~5 meters threshold
-            effectiveBearing = calculateBearing(prevPos.lat, prevPos.lng, newLatLng.lat, newLatLng.lng);
-          }
-        }
-        
-        // Store current position for next bearing calculation
-        previousPositionsRef.current.set(vehicleId, { lat: newLatLng.lat, lng: newLatLng.lng });
         
         // Only animate if position actually changed
         if (currentLatLng.lat !== newLatLng.lat || currentLatLng.lng !== newLatLng.lng) {
           // Get the marker's DOM element and add transition class for smooth movement
           const markerElement = existingMarker.getElement();
           if (markerElement) {
-            markerElement.style.transition = 'transform 1.2s cubic-bezier(0.25, 0.1, 0.25, 1)';
+            // Smoother transition for route-snapped vehicles
+            markerElement.style.transition = shouldSnapToRoute 
+              ? 'transform 2s cubic-bezier(0.25, 0.1, 0.25, 1)' 
+              : 'transform 1.2s cubic-bezier(0.25, 0.1, 0.25, 1)';
           }
           existingMarker.setLatLng(newLatLng);
         }
@@ -1037,7 +1105,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         // Skip auto-fitting after initial load to prevent jarring movements
       }
     }
-  }, [vehicles, followedVehicleId, routeNamesMap, tripMap, stopMap, selectedRoute]);
+  }, [vehicles, followedVehicleId, routeNamesMap, tripMap, stopMap, selectedRoute, routeShapeData]);
 
   // Get stops with vehicles currently stopped
   const stopsWithVehicles = useMemo(() => {
