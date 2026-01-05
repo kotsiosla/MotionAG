@@ -12,6 +12,7 @@ import { ScheduleView } from "@/components/ScheduleView";
 import { SmartTripResults } from "@/components/SmartTripResults";
 import { NearbyStopsPanel } from "@/components/NearbyStopsPanel";
 import { SavedTripsPanel } from "@/components/SavedTripsPanel";
+import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { useSavedTrips } from "@/hooks/useSavedTrips";
 import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } from "@/hooks/useGtfsData";
 import { useSmartTripPlan } from "@/hooks/useSmartTripPlan";
@@ -642,6 +643,9 @@ const Index = () => {
           }}
         />
       )}
+      
+      {/* PWA Install Banner */}
+      <PWAInstallBanner />
     </div>
   );
 };
