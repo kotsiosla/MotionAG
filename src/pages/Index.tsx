@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Map as MapIcon, Route, MapPin, Bell, Calendar } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Header } from "@/components/Header";
@@ -20,12 +21,17 @@ import type { RouteInfo, StaticStop } from "@/types/gtfs";
 import { toast } from "sonner";
 
 const Index = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  
   const [isDark, setIsDark] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(5);
   const [activeTab, setActiveTab] = useState("map");
   const [selectedOperator, setSelectedOperator] = useState("all");
   const [selectedRoute, setSelectedRoute] = useState("all");
   const [showLiveOnly, setShowLiveOnly] = useState(false);
+  
+  // Deep link stop state - passed to VehicleMap to open stop panel
+  const [deepLinkStopId, setDeepLinkStopId] = useState<string | null>(null);
   
   // Trip planning state
   const [tripOrigin, setTripOrigin] = useState<StaticStop | null>(null);
@@ -245,6 +251,50 @@ const Index = () => {
     setSelectedRoute("all");
     staticStopsQuery.refetch();
   }, [selectedOperator]);
+
+  // Handle deep links from URL parameters
+  useEffect(() => {
+    const routeParam = searchParams.get('route');
+    const stopParam = searchParams.get('stop');
+    
+    if (routeParam) {
+      setSelectedRoute(routeParam);
+      setActiveTab("map");
+    }
+    
+    if (stopParam) {
+      setDeepLinkStopId(stopParam);
+      setActiveTab("map");
+    }
+  }, [searchParams]);
+
+  // Update URL when route or stop changes
+  const updateUrlParams = useCallback((params: { route?: string | null; stop?: string | null }) => {
+    const newParams = new URLSearchParams(searchParams);
+    
+    if (params.route !== undefined) {
+      if (params.route && params.route !== 'all') {
+        newParams.set('route', params.route);
+      } else {
+        newParams.delete('route');
+      }
+    }
+    
+    if (params.stop !== undefined) {
+      if (params.stop) {
+        newParams.set('stop', params.stop);
+      } else {
+        newParams.delete('stop');
+      }
+    }
+    
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  // Update URL when route changes
+  useEffect(() => {
+    updateUrlParams({ route: selectedRoute });
+  }, [selectedRoute]);
 
   // Filter data by selected route
   const filteredVehicles = useMemo(() => {
@@ -473,6 +523,11 @@ const Index = () => {
                 onFollowVehicle={setFollowVehicleId}
                 refreshInterval={refreshInterval}
                 lastUpdate={lastUpdate}
+                deepLinkStopId={deepLinkStopId}
+                onStopPanelChange={(stopId) => {
+                  updateUrlParams({ stop: stopId });
+                  if (!stopId) setDeepLinkStopId(null);
+                }}
               />
             </TabsContent>
 
