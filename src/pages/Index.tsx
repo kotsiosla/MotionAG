@@ -263,6 +263,8 @@ const Index = () => {
                 highlightedStop={highlightedStop}
                 followVehicleId={followVehicleId}
                 onFollowVehicle={setFollowVehicleId}
+                refreshInterval={refreshInterval}
+                lastUpdate={lastUpdate}
               />
             </TabsContent>
 
