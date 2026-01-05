@@ -205,6 +205,23 @@ const Index = () => {
   const hasError = vehiclesQuery.isError || tripsQuery.isError || alertsQuery.isError;
   const errorMessage = vehiclesQuery.error?.message || tripsQuery.error?.message || alertsQuery.error?.message;
 
+  // Track previous error state to detect connection restored
+  const wasOfflineRef = useRef(false);
+  
+  // Show toast when connection is restored
+  useEffect(() => {
+    if (wasOfflineRef.current && !hasError && !isLoading) {
+      // Connection was restored
+      toast.success("Σύνδεση αποκαταστάθηκε", {
+        description: "Τα live δεδομένα είναι τώρα διαθέσιμα",
+        duration: 4000,
+      });
+      wasOfflineRef.current = false;
+    } else if (hasError && !isLoading) {
+      wasOfflineRef.current = true;
+    }
+  }, [hasError, isLoading]);
+
   // Track last successful update for status indicator
   const [lastSuccessfulUpdate, setLastSuccessfulUpdate] = useState<number | null>(null);
   
