@@ -9,7 +9,7 @@ import { TripsTable } from "@/components/TripsTable";
 import { StopsView } from "@/components/StopsView";
 import { AlertsList } from "@/components/AlertsList";
 import { ScheduleView } from "@/components/ScheduleView";
-import { TripPlanResults } from "@/components/TripPlanResults";
+import { TripPlanResults, type WalkingInfo, type LocationInfo } from "@/components/TripPlanResults";
 import { NearbyStopsPanel } from "@/components/NearbyStopsPanel";
 import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } from "@/hooks/useGtfsData";
 import { useTripPlan } from "@/hooks/useTripPlan";
@@ -39,6 +39,9 @@ const Index = () => {
   const [tripDepartureTime, setTripDepartureTime] = useState<string>("now");
   const [tripDepartureDate, setTripDepartureDate] = useState<Date>(new Date());
   const [showTripResults, setShowTripResults] = useState(false);
+  const [tripOriginLocation, setTripOriginLocation] = useState<LocationInfo | undefined>(undefined);
+  const [tripDestLocation, setTripDestLocation] = useState<LocationInfo | undefined>(undefined);
+  const [tripWalkingInfo, setTripWalkingInfo] = useState<WalkingInfo | undefined>(undefined);
   
   // Highlighted stop (for nearby stops panel)
   const [highlightedStop, setHighlightedStop] = useState<StaticStop | null>(null);
@@ -428,11 +431,14 @@ const Index = () => {
         liveRoutesCount={liveRoutes.size}
         stops={staticStopsQuery.data?.data || []}
         stopsLoading={staticStopsQuery.isLoading}
-        onTripSearch={(origin, destination, departureTime, departureDate) => {
+        onTripSearch={(origin, destination, departureTime, departureDate, originLocation, destLocation, walkingInfo) => {
           setTripOrigin(origin);
           setTripDestination(destination);
           setTripDepartureTime(departureTime);
           setTripDepartureDate(departureDate);
+          setTripOriginLocation(originLocation);
+          setTripDestLocation(destLocation);
+          setTripWalkingInfo(walkingInfo);
           setShowTripResults(true);
         }}
         favorites={favorites}
@@ -470,6 +476,9 @@ const Index = () => {
               }
             }
           }}
+          originLocation={tripOriginLocation}
+          destLocation={tripDestLocation}
+          walkingInfo={tripWalkingInfo}
         />
       )}
 
