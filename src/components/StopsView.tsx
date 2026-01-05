@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
-import { Search, MapPin, Clock, Bus, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
+import { Search, MapPin, Clock, Bus, ChevronDown, ChevronUp, AlertCircle, Home, Briefcase, Star, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useStopRoutes } from "@/hooks/useGtfsData";
+import { useFavoriteStops, FavoriteStopType } from "@/hooks/useFavoriteStops";
 import type { Trip, StaticStop, RouteInfo } from "@/types/gtfs";
 
 interface StopsViewProps {
@@ -46,6 +48,8 @@ interface RouteArrival {
 export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOperator }: StopsViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedStopId, setExpandedStopId] = useState<string | null>(null);
+  const [showFavoritePicker, setShowFavoritePicker] = useState<{ stopId: string; stop: StaticStop } | null>(null);
+  const { favorites, setFavorite, removeFavorite, isFavorite, homeStop, workStop } = useFavoriteStops();
 
   // Create a map of stopId -> stop info with arrivals
   const stopsWithArrivals = useMemo(() => {
@@ -127,6 +131,12 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
       });
   }, [trips, stops, routeNamesMap, searchTerm]);
 
+  // Get arrivals for a specific stop
+  const getArrivalsForStop = (stopId: string) => {
+    const stopData = stopsWithArrivals.find(s => s.stop.stop_id === stopId);
+    return stopData?.arrivals || [];
+  };
+
   const filteredStops = useMemo(() => {
     if (!searchTerm) return stopsWithArrivals.slice(0, 100); // Limit to 100 for performance
     const term = searchTerm.toLowerCase();
@@ -136,6 +146,28 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
       data.stop.stop_code?.toLowerCase().includes(term)
     ).slice(0, 100);
   }, [stopsWithArrivals, searchTerm]);
+
+  // Favorite stops with arrivals data
+  const favoriteStopsData = useMemo(() => {
+    const result: { type: FavoriteStopType; stop: StaticStop; arrivals: RouteArrival[] }[] = [];
+    
+    if (homeStop) {
+      result.push({
+        type: "home",
+        stop: homeStop,
+        arrivals: getArrivalsForStop(homeStop.stop_id),
+      });
+    }
+    if (workStop) {
+      result.push({
+        type: "work",
+        stop: workStop,
+        arrivals: getArrivalsForStop(workStop.stop_id),
+      });
+    }
+    
+    return result;
+  }, [homeStop, workStop, stopsWithArrivals]);
 
   // Get unique routes for a stop
   const getUniqueRoutes = (arrivals: RouteArrival[]) => {
@@ -276,6 +308,165 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
         </div>
       </div>
 
+      {/* Favorites Section */}
+      {favoriteStopsData.length > 0 && !searchTerm && (
+        <div className="border-b border-border">
+          <div className="px-4 py-2 bg-muted/30">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <Star className="h-3 w-3" />
+              Αγαπημένες Στάσεις
+            </span>
+          </div>
+          <div className="divide-y divide-border">
+            {favoriteStopsData.map((favData) => {
+              const isExpanded = expandedStopId === favData.stop.stop_id;
+              const uniqueRoutes = getUniqueRoutes(favData.arrivals);
+              const nextArrival = favData.arrivals[0];
+              const minutesUntil = nextArrival ? getMinutesUntil(nextArrival.arrivalTime) : null;
+              const FavIcon = favData.type === "home" ? Home : Briefcase;
+
+              return (
+                <div 
+                  key={favData.stop.stop_id} 
+                  className="hover:bg-muted/30 transition-colors bg-primary/5"
+                >
+                  {/* Favorite Stop Header */}
+                  <button
+                    onClick={() => setExpandedStopId(isExpanded ? null : favData.stop.stop_id)}
+                    className="w-full p-4 text-left"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="w-10 h-10 bg-primary text-primary-foreground rounded-lg flex items-center justify-center flex-shrink-0">
+                          <FavIcon className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] uppercase tracking-wider text-primary font-medium">
+                              {favData.type === "home" ? "Σπίτι" : "Δουλειά"}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeFavorite(favData.type);
+                              }}
+                              className="text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                          <div className="font-medium text-sm truncate">
+                            {favData.stop.stop_name || favData.stop.stop_id}
+                          </div>
+                          {favData.arrivals.length > 0 && (
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              <Bus className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                              <span className="text-xs text-muted-foreground">
+                                {uniqueRoutes.length} {uniqueRoutes.length === 1 ? 'γραμμή' : 'γραμμές'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {minutesUntil !== null && (
+                          <div className="text-right">
+                            <div className={`text-lg font-bold ${minutesUntil <= 5 ? 'text-green-500' : 'text-primary'}`}>
+                              {minutesUntil <= 0 ? 'Τώρα' : `${minutesUntil}'`}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              επόμενη
+                            </div>
+                          </div>
+                        )}
+                        {isExpanded ? (
+                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Route badges preview (when collapsed) */}
+                    {!isExpanded && uniqueRoutes.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5 ml-13">
+                        {uniqueRoutes.slice(0, 4).map((route, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold text-white"
+                            style={{ backgroundColor: route.routeColor ? `#${route.routeColor}` : '#0ea5e9' }}
+                          >
+                            {route.routeShortName || route.routeId}
+                          </span>
+                        ))}
+                        {uniqueRoutes.length > 4 && (
+                          <span className="inline-flex items-center px-2 py-0.5 text-xs text-muted-foreground">
+                            +{uniqueRoutes.length - 4}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </button>
+
+                  {/* Expanded: Show all arrivals by route + static routes */}
+                  {isExpanded && (
+                    <StopExpandedContent
+                      stopId={favData.stop.stop_id}
+                      arrivals={favData.arrivals}
+                      selectedOperator={selectedOperator}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Favorite Picker Modal */}
+      {showFavoritePicker && (
+        <div className="absolute inset-0 bg-background/95 z-10 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl shadow-lg p-6 max-w-sm w-full">
+            <h3 className="font-semibold text-lg mb-2">Ορισμός Αγαπημένης Στάσης</h3>
+            <p className="text-sm text-muted-foreground mb-4 truncate">
+              {showFavoritePicker.stop.stop_name || showFavoritePicker.stopId}
+            </p>
+            <div className="space-y-2">
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-3"
+                onClick={() => {
+                  setFavorite("home", showFavoritePicker.stop);
+                  setShowFavoritePicker(null);
+                }}
+              >
+                <Home className="h-5 w-5 text-primary" />
+                <span>Κοντινή στάση από το <strong>Σπίτι</strong></span>
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-3"
+                onClick={() => {
+                  setFavorite("work", showFavoritePicker.stop);
+                  setShowFavoritePicker(null);
+                }}
+              >
+                <Briefcase className="h-5 w-5 text-primary" />
+                <span>Κοντινή στάση από τη <strong>Δουλειά</strong></span>
+              </Button>
+            </div>
+            <Button
+              variant="ghost"
+              className="w-full mt-4"
+              onClick={() => setShowFavoritePicker(null)}
+            >
+              Ακύρωση
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 overflow-auto scrollbar-thin">
         {isLoading && stopsWithArrivals.length === 0 ? (
           <div className="flex items-center justify-center h-48">
@@ -295,6 +486,8 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
               const nextArrival = data.arrivals[0];
               const minutesUntil = nextArrival ? getMinutesUntil(nextArrival.arrivalTime) : null;
 
+              const favType = isFavorite(data.stop.stop_id);
+
               return (
                 <div 
                   key={data.stop.stop_id} 
@@ -307,8 +500,28 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <div className="w-10 h-10 bg-primary/20 text-primary rounded-lg flex items-center justify-center flex-shrink-0">
-                          <MapPin className="h-5 w-5" />
+                        <div className="relative">
+                          <div className="w-10 h-10 bg-primary/20 text-primary rounded-lg flex items-center justify-center flex-shrink-0">
+                            <MapPin className="h-5 w-5" />
+                          </div>
+                          {/* Favorite star button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (favType) {
+                                removeFavorite(favType);
+                              } else {
+                                setShowFavoritePicker({ stopId: data.stop.stop_id, stop: data.stop });
+                              }
+                            }}
+                            className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
+                              favType 
+                                ? 'bg-yellow-500 text-white' 
+                                : 'bg-muted hover:bg-yellow-500/20 text-muted-foreground hover:text-yellow-500'
+                            }`}
+                          >
+                            <Star className={`h-3 w-3 ${favType ? 'fill-current' : ''}`} />
+                          </button>
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm truncate">
