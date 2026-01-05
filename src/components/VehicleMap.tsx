@@ -35,36 +35,60 @@ interface VehicleMapProps {
 const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: string, isOnSelectedRoute?: boolean, routeShortName?: string) => {
   const bgColor = routeColor ? `#${routeColor}` : '#f97316'; // Orange default
   
-  // Bus icon for followed/selected vehicles - more visible
+  // Professional bus marker for followed/selected vehicles
   if (isOnSelectedRoute || isFollowed) {
-    const size = 36;
     return L.divIcon({
       className: 'route-vehicle-marker',
       html: `
         <div style="
-          width: ${size}px; 
-          height: ${size}px; 
-          background: ${bgColor}; 
-          border: 3px solid white; 
-          border-radius: 8px; 
-          box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+          position: relative;
           display: flex;
+          flex-direction: column;
           align-items: center;
-          justify-content: center;
         ">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 6v6"/>
-            <path d="M15 6v6"/>
-            <path d="M2 12h19.6"/>
-            <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/>
-            <circle cx="7" cy="18" r="2"/>
-            <path d="M9 18h5"/>
-            <circle cx="16" cy="18" r="2"/>
-          </svg>
+          ${routeShortName ? `
+            <div style="
+              background: ${bgColor};
+              color: white;
+              font-size: 11px;
+              font-weight: 700;
+              padding: 2px 6px;
+              border-radius: 4px;
+              margin-bottom: 2px;
+              white-space: nowrap;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+              border: 1px solid rgba(255,255,255,0.3);
+            ">${routeShortName}</div>
+          ` : ''}
+          <div style="
+            width: 28px;
+            height: 28px;
+            background: ${bgColor};
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            border: 2px solid white;
+          ">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 6L12 2l8 4"/>
+              <path d="M12 2v20"/>
+              <path d="M20 12l-8 10-8-10"/>
+            </svg>
+          </div>
+          <div style="
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 8px solid ${bgColor};
+            margin-top: -2px;
+          "></div>
         </div>
       `,
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size / 2],
+      iconSize: [40, routeShortName ? 60 : 45],
+      iconAnchor: [20, routeShortName ? 60 : 45],
     });
   }
   
