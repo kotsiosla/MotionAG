@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Moon, Sun, RefreshCw, Menu, X, Download, ChevronUp, ChevronDown } from "lucide-react";
+import { Moon, Sun, RefreshCw, Menu, X, Download, ChevronUp, ChevronDown, Bell, BellOff } from "lucide-react";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { NotificationButton } from "@/components/NotificationButton";
@@ -42,6 +42,8 @@ interface HeaderProps {
   onTripSearch?: (origin: StaticStop | null, destination: StaticStop | null, departureTime: string, departureDate: Date) => void;
   favorites?: FavoriteRoute[];
   onRemoveFavorite?: (id: string) => void;
+  delayNotificationsEnabled?: boolean;
+  onToggleDelayNotifications?: () => void;
 }
 
 export function Header({
@@ -66,6 +68,8 @@ export function Header({
   onTripSearch,
   favorites = [],
   onRemoveFavorite,
+  delayNotificationsEnabled = true,
+  onToggleDelayNotifications,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [tripPlannerVisible, setTripPlannerVisible] = useState(() => {
@@ -122,6 +126,17 @@ export function Header({
               className="h-8 w-8"
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+
+            {/* Delay notifications toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleDelayNotifications}
+              className="h-8 w-8"
+              title={delayNotificationsEnabled ? "Απενεργοποίηση ειδοποιήσεων καθυστερήσεων" : "Ενεργοποίηση ειδοποιήσεων καθυστερήσεων"}
+            >
+              {delayNotificationsEnabled ? <Bell className="h-4 w-4 text-primary" /> : <BellOff className="h-4 w-4 text-muted-foreground" />}
             </Button>
 
             <NotificationButton />
@@ -280,6 +295,16 @@ export function Header({
               title={tripPlannerVisible ? "Απόκρυψη αναζήτησης" : "Εμφάνιση αναζήτησης"}
             >
               {tripPlannerVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+            {/* Delay notifications toggle - Desktop */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleDelayNotifications}
+              className="h-7 w-7"
+              title={delayNotificationsEnabled ? "Απενεργοποίηση ειδοποιήσεων καθυστερήσεων" : "Ενεργοποίηση ειδοποιήσεων καθυστερήσεων"}
+            >
+              {delayNotificationsEnabled ? <Bell className="h-4 w-4 text-primary" /> : <BellOff className="h-4 w-4 text-muted-foreground" />}
             </Button>
             <NotificationButton />
             <Link to="/install">

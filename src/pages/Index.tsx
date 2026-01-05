@@ -38,6 +38,19 @@ const Index = () => {
   // Vehicle to follow from NearbyStopsPanel
   const [followVehicleId, setFollowVehicleId] = useState<string | null>(null);
   
+  // Delay notifications toggle
+  const [delayNotificationsEnabled, setDelayNotificationsEnabled] = useState(() => {
+    const saved = localStorage.getItem('delayNotificationsEnabled');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  
+  // Toggle delay notifications
+  const toggleDelayNotifications = () => {
+    const newValue = !delayNotificationsEnabled;
+    setDelayNotificationsEnabled(newValue);
+    localStorage.setItem('delayNotificationsEnabled', JSON.stringify(newValue));
+  };
+  
   // Favorites
   const { favorites, addFavorite, removeFavorite, isFavorite } = useFavoriteRoutes();
 
@@ -69,7 +82,7 @@ const Index = () => {
   useDelayNotifications(
     tripsQuery.data?.data || [],
     routeNamesMap,
-    true // enabled
+    delayNotificationsEnabled
   );
 
   // Get routes with active vehicles/trips
@@ -171,6 +184,8 @@ const Index = () => {
         }}
         favorites={favorites}
         onRemoveFavorite={removeFavorite}
+        delayNotificationsEnabled={delayNotificationsEnabled}
+        onToggleDelayNotifications={toggleDelayNotifications}
       />
       
       {/* Trip Plan Results Modal */}
