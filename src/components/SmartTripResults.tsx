@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { X, Bus, Clock, MapPin, ArrowDown, Loader2, Star, CalendarIcon, Printer, Footprints, Map, AlertCircle, Navigation, ChevronRight, Settings2, ArrowUpDown, Filter } from "lucide-react";
+import { X, Bus, Clock, MapPin, ArrowDown, Loader2, Star, CalendarIcon, Printer, Footprints, Map, AlertCircle, Navigation, ChevronRight, Settings2, ArrowUpDown, Filter, Share2, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -536,6 +537,41 @@ export function SmartTripResults({
           >
             <Map className="h-4 w-4" />
             Άνοιγμα στο Google Maps
+          </Button>
+          <Button 
+            variant="secondary" 
+            className="gap-2"
+            onClick={async () => {
+              const url = getTransitUrl(origin, destination);
+              const shareText = `Διαδρομή: ${origin.stop_name} → ${destination.stop_name}`;
+              
+              // Try native share first (works on mobile)
+              if (navigator.share) {
+                try {
+                  await navigator.share({
+                    title: 'MotionBus - Διαδρομή',
+                    text: shareText,
+                    url: url,
+                  });
+                  return;
+                } catch (err) {
+                  // User cancelled or error, fall back to copy
+                }
+              }
+              
+              // Fallback: copy to clipboard
+              try {
+                await navigator.clipboard.writeText(url);
+                toast.success("Το link αντιγράφηκε!", {
+                  description: "Μοιράστε το για να ανοίξει η διαδρομή στο Google Maps"
+                });
+              } catch (err) {
+                toast.error("Δεν ήταν δυνατή η αντιγραφή");
+              }
+            }}
+          >
+            <Share2 className="h-4 w-4" />
+            Κοινοποίηση
           </Button>
           <Button variant="outline" onClick={onClose}>
             <X className="h-4 w-4" />
