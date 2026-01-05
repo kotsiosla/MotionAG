@@ -496,48 +496,76 @@ export function NearbyStopsPanel({
             <div>
               <p className="text-xs text-muted-foreground mb-2">Τύποι ειδοποίησης:</p>
               <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant={notificationSettings.sound ? "default" : "outline"}
-                  size="sm"
-                  className="h-8 text-xs justify-start"
+                <button
+                  className={`h-10 text-xs flex items-center justify-start px-3 rounded-md border-2 transition-all ${
+                    notificationSettings.sound 
+                      ? 'bg-green-500/20 border-green-500 text-green-400' 
+                      : 'bg-muted/30 border-muted-foreground/20 text-muted-foreground'
+                  }`}
                   onClick={() => toggleNotificationSetting('sound')}
                 >
-                  <Volume2 className="h-3.5 w-3.5 mr-1.5" />
-                  Ήχος
-                </Button>
-                <Button
-                  variant={notificationSettings.vibration ? "default" : "outline"}
-                  size="sm"
-                  className="h-8 text-xs justify-start"
+                  <div className={`w-5 h-5 rounded-full mr-2 flex items-center justify-center ${
+                    notificationSettings.sound ? 'bg-green-500' : 'bg-muted-foreground/30'
+                  }`}>
+                    <Volume2 className="h-3 w-3 text-white" />
+                  </div>
+                  <span className="font-medium">Ήχος</span>
+                  {notificationSettings.sound && <span className="ml-auto text-green-400">✓</span>}
+                </button>
+                <button
+                  className={`h-10 text-xs flex items-center justify-start px-3 rounded-md border-2 transition-all ${
+                    notificationSettings.vibration 
+                      ? 'bg-green-500/20 border-green-500 text-green-400' 
+                      : 'bg-muted/30 border-muted-foreground/20 text-muted-foreground'
+                  }`}
                   onClick={() => toggleNotificationSetting('vibration')}
                 >
-                  <svg className="h-3.5 w-3.5 mr-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="5" y="2" width="14" height="20" rx="2" />
-                    <path d="M2 8v8M22 8v8" strokeLinecap="round" />
-                  </svg>
-                  Δόνηση
-                </Button>
-                <Button
-                  variant={notificationSettings.voice ? "default" : "outline"}
-                  size="sm"
-                  className="h-8 text-xs justify-start"
+                  <div className={`w-5 h-5 rounded-full mr-2 flex items-center justify-center ${
+                    notificationSettings.vibration ? 'bg-green-500' : 'bg-muted-foreground/30'
+                  }`}>
+                    <svg className="h-3 w-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <rect x="5" y="2" width="14" height="20" rx="2" />
+                      <path d="M2 8v8M22 8v8" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <span className="font-medium">Δόνηση</span>
+                  {notificationSettings.vibration && <span className="ml-auto text-green-400">✓</span>}
+                </button>
+                <button
+                  className={`h-10 text-xs flex items-center justify-start px-3 rounded-md border-2 transition-all ${
+                    notificationSettings.voice 
+                      ? 'bg-green-500/20 border-green-500 text-green-400' 
+                      : 'bg-muted/30 border-muted-foreground/20 text-muted-foreground'
+                  }`}
                   onClick={() => toggleNotificationSetting('voice')}
                 >
-                  <svg className="h-3.5 w-3.5 mr-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
-                  </svg>
-                  Φωνή
-                </Button>
-                <Button
-                  variant={notificationSettings.push ? "default" : "outline"}
-                  size="sm"
-                  className="h-8 text-xs justify-start"
+                  <div className={`w-5 h-5 rounded-full mr-2 flex items-center justify-center ${
+                    notificationSettings.voice ? 'bg-green-500' : 'bg-muted-foreground/30'
+                  }`}>
+                    <svg className="h-3 w-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
+                    </svg>
+                  </div>
+                  <span className="font-medium">Φωνή</span>
+                  {notificationSettings.voice && <span className="ml-auto text-green-400">✓</span>}
+                </button>
+                <button
+                  className={`h-10 text-xs flex items-center justify-start px-3 rounded-md border-2 transition-all ${
+                    notificationSettings.push 
+                      ? 'bg-green-500/20 border-green-500 text-green-400' 
+                      : 'bg-muted/30 border-muted-foreground/20 text-muted-foreground'
+                  }`}
                   onClick={() => toggleNotificationSetting('push')}
                 >
-                  <Bell className="h-3.5 w-3.5 mr-1.5" />
-                  Push
-                </Button>
+                  <div className={`w-5 h-5 rounded-full mr-2 flex items-center justify-center ${
+                    notificationSettings.push ? 'bg-green-500' : 'bg-muted-foreground/30'
+                  }`}>
+                    <Bell className="h-3 w-3 text-white" />
+                  </div>
+                  <span className="font-medium">Push</span>
+                  {notificationSettings.push && <span className="ml-auto text-green-400">✓</span>}
+                </button>
               </div>
             </div>
 
