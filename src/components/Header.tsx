@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Moon, Sun, RefreshCw, Menu, X, Download, ChevronUp, ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
+import { NotificationButton } from "@/components/NotificationButton";
 import {
   Select,
   SelectContent,
@@ -122,6 +123,8 @@ export function Header({
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
+
+            <NotificationButton />
 
             <Link to="/install">
               <Button
@@ -278,6 +281,7 @@ export function Header({
             >
               {tripPlannerVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
+            <NotificationButton />
             <Link to="/install">
               <Button
                 variant="ghost"
