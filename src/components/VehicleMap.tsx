@@ -35,6 +35,8 @@ interface VehicleMapProps {
   onFollowVehicle?: (vehicleId: string | null) => void;
   refreshInterval?: number;
   lastUpdate?: number | null;
+  deepLinkStopId?: string | null;
+  onStopPanelChange?: (stopId: string | null) => void;
 }
 
 const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: string, isOnSelectedRoute?: boolean, routeShortName?: string) => {
@@ -364,7 +366,7 @@ const RefreshIndicator = ({
   );
 };
 
-export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, selectedRoute = 'all', selectedOperator, onRouteClose, isLoading, highlightedStop, followVehicleId, onFollowVehicle, refreshInterval = 10, lastUpdate }: VehicleMapProps) {
+export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, selectedRoute = 'all', selectedOperator, onRouteClose, isLoading, highlightedStop, followVehicleId, onFollowVehicle, refreshInterval = 10, lastUpdate, deepLinkStopId, onStopPanelChange }: VehicleMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const vehicleMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
   const stopMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
@@ -401,6 +403,32 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   // Stop notification state
   const [notificationModalStop, setNotificationModalStop] = useState<{ stopId: string; stopName: string } | null>(null);
   const { notifications: stopNotifications, setNotification: setStopNotification, removeNotification: removeStopNotification, getNotification, hasNotification } = useStopNotifications();
+  
+  // Handle opening stop panel and notify parent for URL update
+  const openStopPanel = useCallback((stopId: string, stopName: string) => {
+    setNotificationModalStop({ stopId, stopName });
+    onStopPanelChange?.(stopId);
+  }, [onStopPanelChange]);
+  
+  // Handle closing stop panel and notify parent for URL update
+  const closeStopPanel = useCallback(() => {
+    setNotificationModalStop(null);
+    onStopPanelChange?.(null);
+  }, [onStopPanelChange]);
+  
+  // Handle deep link stop - open the stop panel when stopId from URL changes
+  useEffect(() => {
+    if (deepLinkStopId && stops.length > 0 && mapReady) {
+      const stop = stops.find(s => s.stop_id === deepLinkStopId);
+      if (stop) {
+        openStopPanel(stop.stop_id, stop.stop_name || stop.stop_id);
+        // Pan to the stop
+        if (mapRef.current && stop.stop_lat && stop.stop_lon) {
+          mapRef.current.flyTo([stop.stop_lat, stop.stop_lon], 16, { animate: true, duration: 1 });
+        }
+      }
+    }
+  }, [deepLinkStopId, stops, mapReady, openStopPanel]);
   
   // Walking route state
   const [walkingRoute, setWalkingRoute] = useState<{ distance: number; duration: number; geometry: Array<[number, number]> } | null>(null);
@@ -504,7 +532,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   // Listen for custom event to open notification modal from popup button
   useEffect(() => {
     const handleOpenNotification = (e: CustomEvent<{ stopId: string; stopName: string }>) => {
-      setNotificationModalStop(e.detail);
+      openStopPanel(e.detail.stopId, e.detail.stopName);
       // Close any open popup
       mapRef.current?.closePopup();
     };
@@ -513,7 +541,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     return () => {
       window.removeEventListener('openStopNotification', handleOpenNotification as EventListener);
     };
-  }, []);
+  }, [openStopPanel]);
 
   // Draw snail trail on route shape - updates when vehicle position changes
   useEffect(() => {
@@ -1444,10 +1472,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
       // Click handler to open notification modal
       marker.on('click', () => {
-        setNotificationModalStop({
-          stopId: stop.stop_id,
-          stopName: stop.stop_name || stop.stop_id,
-        });
+        openStopPanel(stop.stop_id, stop.stop_name || stop.stop_id);
       });
 
       const statusColor = hasVehicleStopped ? '#22c55e' : '#f97316';
@@ -2221,10 +2246,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             }
           }}
           onOpenDetails={() => {
-            setNotificationModalStop({
-              stopId: nearestStopWithArrivals.stop.stop_id,
-              stopName: nearestStopWithArrivals.stop.stop_name || nearestStopWithArrivals.stop.stop_id,
-            });
+            openStopPanel(
+              nearestStopWithArrivals.stop.stop_id,
+              nearestStopWithArrivals.stop.stop_name || nearestStopWithArrivals.stop.stop_id
+            );
           }}
           onNavigate={() => {
             if (nearestStopWithArrivals.stop.stop_lat && nearestStopWithArrivals.stop.stop_lon) {
@@ -2260,10 +2285,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           currentSettings={getNotification(notificationModalStop.stopId)}
           onSave={setStopNotification}
           onRemove={removeStopNotification}
-          onClose={() => setNotificationModalStop(null)}
+          onClose={closeStopPanel}
           onFollowRoute={(routeId) => {
             // Close the panel and set the selected route
-            setNotificationModalStop(null);
+            closeStopPanel();
             if (onRouteClose) {
               // First close any existing route
               onRouteClose();
@@ -2272,7 +2297,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             window.dispatchEvent(new CustomEvent('selectRoute', { detail: { routeId } }));
           }}
           onTrackVehicle={(vehicleId) => {
-            setNotificationModalStop(null);
+            closeStopPanel();
             setFollowedVehicleId(vehicleId);
           }}
         />
