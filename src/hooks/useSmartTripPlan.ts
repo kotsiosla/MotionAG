@@ -84,20 +84,20 @@ function parseTimeToMinutes(timeStr: string): number {
   return parts[0] * 60 + parts[1];
 }
 
-// Find nearby stops within a radius (in meters). If maxRadius is 0, return all stops sorted by distance
+// Find nearby stops within a radius (in meters). If maxRadius is 0, use a large default (5km) to find all reasonable stops
 function findNearbyStops(
   lat: number,
   lon: number,
   stops: StaticStop[],
-  maxRadius: number = 0 // 0 means unlimited
+  maxRadius: number = 0 // 0 means unlimited (use 5km default)
 ): Array<{ stop: StaticStop; distance: number }> {
+  const effectiveRadius = maxRadius === 0 ? 5000 : maxRadius; // 5km when unlimited
   const nearby: Array<{ stop: StaticStop; distance: number }> = [];
   
   for (const stop of stops) {
     if (!stop.stop_lat || !stop.stop_lon) continue;
     const distance = calculateDistance(lat, lon, stop.stop_lat, stop.stop_lon);
-    // If maxRadius is 0, include all stops; otherwise filter by radius
-    if (maxRadius === 0 || distance <= maxRadius) {
+    if (distance <= effectiveRadius) {
       nearby.push({ stop, distance });
     }
   }
@@ -894,6 +894,8 @@ export function useSmartTripPlan(
         filterTimeStr = `${departureTime}:00`;
       }
       
+      console.log(`Searching journeys: origin=${originStop.stop_name}, dest=${destStop.stop_name}, time=${filterTimeStr}, maxWalking=${maxWalkingDistance}`);
+      
       // Find journeys with max walking distance
       const journeyOptions = findJourneys(
         originStop,
@@ -909,7 +911,7 @@ export function useSmartTripPlan(
         maxWalkingDistance
       );
       
-      console.log(`Found ${journeyOptions.length} journey options`);
+      console.log(`Found ${journeyOptions.length} journey options for ${originStop.stop_name} → ${destStop.stop_name}`);
       
       return {
         journeyOptions,
