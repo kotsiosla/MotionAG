@@ -116,13 +116,38 @@
     @apply border-border;
   }
 
+  html {
+    /* Support for iOS safe areas */
+    height: -webkit-fill-available;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    /* Prevent overscroll */
+    overscroll-behavior: none;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold tracking-tight;
   }
+}
+
+/* Safe area utilities for iOS */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.safe-area-inset {
+  padding-top: env(safe-area-inset-top, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
 }
 
 @layer components {

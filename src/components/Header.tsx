@@ -122,16 +122,16 @@ export function Header({
   };
 
   return (
-    <header className="glass-card border-b sticky top-0 z-50">
-      <div className="container mx-auto px-3 sm:px-4 py-2">
+    <header className="glass-card border-b sticky top-0 z-50 safe-area-top flex-shrink-0">
+      <div className="container mx-auto px-2 sm:px-4 py-1.5 sm:py-2">
         {/* Mobile Header */}
-        <div className="flex items-center justify-between gap-2 md:hidden">
-          <div className="flex items-center gap-2">
-            <img src={motionLogo} alt="Motion Logo" className="h-5" />
-            <h1 className="text-sm font-bold tracking-tight">GTFS Realtime</h1>
+        <div className="flex items-center justify-between gap-1 md:hidden">
+          <div className="flex items-center gap-1.5">
+            <img src={motionLogo} alt="Motion Logo" className="h-4 sm:h-5" />
+            <h1 className="text-xs sm:text-sm font-bold tracking-tight">GTFS Realtime</h1>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {/* API Status indicator */}
             <ApiStatusIndicator
               isError={hasApiError}
@@ -147,7 +147,7 @@ export function Header({
               variant="ghost"
               size="icon"
               onClick={toggleTripPlanner}
-              className="h-8 w-8"
+              className="h-7 w-7 sm:h-8 sm:w-8"
               title={tripPlannerVisible ? "Απόκρυψη αναζήτησης" : "Εμφάνιση αναζήτησης"}
             >
               {tripPlannerVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -157,7 +157,7 @@ export function Header({
               variant="ghost"
               size="icon"
               onClick={onToggleTheme}
-              className="h-8 w-8"
+              className="h-7 w-7 sm:h-8 sm:w-8"
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
@@ -167,7 +167,7 @@ export function Header({
               variant="ghost"
               size="icon"
               onClick={onToggleDelayNotifications}
-              className="h-8 w-8"
+              className="h-7 w-7 sm:h-8 sm:w-8"
               title={delayNotificationsEnabled ? "Απενεργοποίηση ειδοποιήσεων καθυστερήσεων" : "Ενεργοποίηση ειδοποιήσεων καθυστερήσεων"}
             >
               {delayNotificationsEnabled ? <Bell className="h-4 w-4 text-primary" /> : <BellOff className="h-4 w-4 text-muted-foreground" />}
@@ -178,12 +178,12 @@ export function Header({
               variant="ghost"
               size="icon"
               onClick={onOpenSavedTrips}
-              className="h-8 w-8 relative"
+              className="h-7 w-7 sm:h-8 sm:w-8 relative"
               title="Οι διαδρομές μου"
             >
               <Bookmark className="h-4 w-4" />
               {savedTripsCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-primary text-[9px] text-primary-foreground flex items-center justify-center">
                   {savedTripsCount}
                 </span>
               )}
@@ -193,7 +193,7 @@ export function Header({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-7 w-7 sm:h-8 sm:w-8"
               >
                 <Download className="h-4 w-4" />
               </Button>
