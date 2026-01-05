@@ -493,7 +493,40 @@ export function NearbyStopsPanel({
                   <Smartphone className="h-3.5 w-3.5" />
                   Push
                 </Button>
-              </div>
+                </div>
+              
+              {/* Test Button */}
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full h-8 text-xs"
+                onClick={() => {
+                  if (soundEnabled) playNotificationSound();
+                  if (vibrationEnabled) triggerVibration();
+                  if (voiceEnabled) speakAnnouncement('Δοκιμή ειδοποίησης. Η γραμμή 101 πλησιάζει στη στάση.');
+                  if (pushEnabled) {
+                    if ('Notification' in window) {
+                      if (Notification.permission === 'granted') {
+                        new Notification('🚌 Δοκιμή ειδοποίησης', {
+                          body: 'Οι ειδοποιήσεις λειτουργούν κανονικά!',
+                          icon: '/pwa-192x192.png',
+                        });
+                      } else if (Notification.permission === 'default') {
+                        Notification.requestPermission().then(p => {
+                          if (p === 'granted') {
+                            new Notification('🚌 Δοκιμή ειδοποίησης', {
+                              body: 'Οι ειδοποιήσεις λειτουργούν κανονικά!',
+                              icon: '/pwa-192x192.png',
+                            });
+                          }
+                        });
+                      }
+                    }
+                  }
+                }}
+              >
+                🔔 Δοκιμή Ειδοποιήσεων
+              </Button>
             </div>
 
             {/* Distance Setting */}
