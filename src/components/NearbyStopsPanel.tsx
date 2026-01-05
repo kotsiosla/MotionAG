@@ -817,15 +817,17 @@ export function NearbyStopsPanel({
                   onClick={() => handleStopSelect(nearbyStop.stop)}
                 >
                   <CardContent className="p-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <MapPin className={`h-4 w-4 shrink-0 ${index === 0 ? 'text-green-500' : 'text-primary'}`} />
-                          <p className="font-medium text-sm truncate">{nearbyStop.stop.stop_name}</p>
+                        <div className="flex items-start gap-2">
+                          <MapPin className={`h-4 w-4 shrink-0 mt-0.5 ${index === 0 ? 'text-green-500' : 'text-primary'}`} />
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm leading-tight">{nearbyStop.stop.stop_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDistance(nearbyStop.distance)}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-xs text-muted-foreground ml-6">
-                          {formatDistance(nearbyStop.distance)}
-                        </p>
                       </div>
                       <div className="flex items-center gap-1">
                         {nearbyStop.arrivals.length > 0 && (
@@ -885,7 +887,7 @@ export function NearbyStopsPanel({
           bottom: mobilePosition.y === 0 ? 0 : 'auto',
           top: mobilePosition.y !== 0 ? mobilePosition.y : 'auto',
           height: mobilePosition.y === 0 ? `${mobileHeight}vh` : '60vh',
-          width: mobilePosition.x === 0 ? 'auto' : '320px',
+          width: mobilePosition.x === 0 ? 'auto' : 'min(90vw, 360px)',
         }}
       >
         {/* Drag handle for resize (when docked at bottom) */}
