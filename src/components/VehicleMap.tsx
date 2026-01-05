@@ -2037,8 +2037,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </Button>
       </div>
 
-      {/* Nearest stop info */}
-      {nearestStop && userLocation && (
+      {/* Nearest stop info - hide when StopDetailPanel is open */}
+      {nearestStop && userLocation && !notificationModalStop && (
         <div 
           className="absolute bottom-4 right-4 glass-card rounded-lg p-3 z-[1000] max-w-[280px] cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
           onClick={() => {
