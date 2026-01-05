@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
 import { useRouteShape } from "@/hooks/useGtfsData";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { Trip, Vehicle, StaticStop, RouteInfo, StopTimeUpdate } from "@/types/gtfs";
 
 interface RouteStopsPanelProps {
@@ -19,6 +20,7 @@ interface RouteStopsPanelProps {
 }
 
 const STOPS_PER_PAGE = 8;
+const STOPS_PER_PAGE_MOBILE = 6;
 
 const formatTime = (timestamp?: number) => {
   if (!timestamp) return null;
@@ -59,6 +61,7 @@ export function RouteStopsPanel({
   onClose,
   onStopClick,
 }: RouteStopsPanelProps) {
+  const isMobile = useIsMobile();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [selectedDirection, setSelectedDirection] = useState(0);
@@ -163,11 +166,12 @@ export function RouteStopsPanel({
   // Get available directions
   const availableDirections = routeShapeData?.directions || [];
 
-  // Pagination
-  const totalPages = Math.ceil(routeStops.length / STOPS_PER_PAGE);
+  // Pagination - use fewer stops per page on mobile
+  const stopsPerPage = isMobile ? STOPS_PER_PAGE_MOBILE : STOPS_PER_PAGE;
+  const totalPages = Math.ceil(routeStops.length / stopsPerPage);
   const paginatedStops = routeStops.slice(
-    currentPage * STOPS_PER_PAGE,
-    (currentPage + 1) * STOPS_PER_PAGE
+    currentPage * stopsPerPage,
+    (currentPage + 1) * stopsPerPage
   );
 
   // Calculate estimated trip duration
@@ -187,6 +191,227 @@ export function RouteStopsPanel({
 
   if (selectedRoute === 'all') return null;
 
+  // Mobile layout - full-width bottom panel
+  if (isMobile) {
+    return (
+      <div className="fixed bottom-0 left-0 right-0 z-[1000] bg-card border-t border-border shadow-lg rounded-t-xl max-h-[60vh] flex flex-col">
+        {/* Header with route color */}
+        <div 
+          className="flex items-center gap-2 p-3 cursor-pointer transition-colors rounded-t-xl"
+          style={{ backgroundColor: routeColor }}
+          onClick={() => setIsCollapsed(!isCollapsed)}
+        >
+          {/* Drag indicator for mobile */}
+          <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/40" />
+          
+          <div 
+            className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/20 text-white font-bold text-base"
+          >
+            {routeInfo?.route_short_name || selectedRoute}
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-sm truncate text-white">
+              {routeInfo?.route_long_name || 'Γραμμή ' + selectedRoute}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-white/80">
+              {tripDuration && (
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {tripDuration}'
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <Bus className="h-3 w-3" />
+                {vehicleCount}
+              </span>
+            </div>
+          </div>
+
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); setIsCollapsed(!isCollapsed); }}>
+            {isCollapsed ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+          
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Content */}
+        {!isCollapsed && (
+          <div className="flex-1 overflow-hidden flex flex-col">
+            {/* Direction selector - only show if multiple directions */}
+            {availableDirections.length > 1 && (
+              <div className="flex items-center justify-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => setSelectedDirection(prev => prev === 0 ? 1 : 0)}
+                >
+                  <ArrowLeftRight className="h-3 w-3" />
+                  Κατεύθυνση {selectedDirection + 1}/{availableDirections.length}
+                </Button>
+              </div>
+            )}
+
+            {/* Stops count and pagination */}
+            <div className="flex items-center justify-between px-3 py-1.5 text-xs text-muted-foreground border-b border-border">
+              <span className="flex items-center gap-1">
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary/20">
+                  <span className="text-[10px]">⊙</span>
+                </span>
+                {routeStops.length} στάσεις
+              </span>
+              {totalPages > 1 && (
+                <span>Σελ. {currentPage + 1}/{totalPages}</span>
+              )}
+            </div>
+
+            {/* Stops list */}
+            <ScrollArea className="flex-1">
+              <div className="p-2">
+                {isLoadingShape ? (
+                  <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+                    <Loader2 className="h-6 w-6 mb-2 animate-spin" />
+                    <p className="text-sm">Φόρτωση στάσεων...</p>
+                  </div>
+                ) : routeStops.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+                    <Bus className="h-6 w-6 mb-2 opacity-50" />
+                    <p className="text-sm">Δεν βρέθηκαν στάσεις</p>
+                  </div>
+                ) : (
+                  paginatedStops.map((stop, index) => {
+                    const timeUntil = getTimeUntilArrival(stop.arrivalTime);
+                    const formattedTime = formatTime(stop.arrivalTime);
+                    const delay = formatDelay(stop.arrivalDelay);
+                    const isNow = timeUntil === "Τώρα";
+                    
+                    return (
+                      <div 
+                        key={stop.stopId}
+                        className="flex items-start gap-2 p-1.5 rounded-lg hover:bg-muted/50 active:bg-muted cursor-pointer transition-colors"
+                        onClick={() => onStopClick?.(stop.stopId)}
+                      >
+                        {/* Timeline indicator */}
+                        <div className="flex flex-col items-center pt-0.5">
+                          <div 
+                            className={`w-2.5 h-2.5 rounded-full border-2 ${
+                              isNow 
+                                ? 'bg-green-500 border-green-500' 
+                                : stop.isFirst 
+                                  ? 'bg-primary border-primary'
+                                  : 'bg-background border-muted-foreground'
+                            }`}
+                          />
+                          {index < paginatedStops.length - 1 && (
+                            <div className="w-0.5 h-8 bg-muted-foreground/30 mt-0.5" />
+                          )}
+                        </div>
+
+                        {/* Stop info */}
+                        <div className="flex-1 min-w-0 pb-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-xs truncate flex-1">
+                              {stop.stopName}
+                            </span>
+                            {stop.isFirst && (
+                              <Badge variant="default" className="text-[9px] px-1 py-0 h-4 bg-red-500 hover:bg-red-600 shrink-0">
+                                ΑΦΕΤ.
+                              </Badge>
+                            )}
+                            {stop.isLast && (
+                              <Badge variant="default" className="text-[9px] px-1 py-0 h-4 bg-blue-500 hover:bg-blue-600 shrink-0">
+                                ΤΕΡΜ.
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <Clock className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+                            {timeUntil && (
+                              <Badge 
+                                variant={isNow ? "default" : "secondary"}
+                                className={`text-[10px] px-1 py-0 h-4 font-mono ${isNow ? 'bg-green-500 hover:bg-green-600' : ''}`}
+                              >
+                                {timeUntil}
+                              </Badge>
+                            )}
+                            {formattedTime && (
+                              <span className="text-[10px] text-muted-foreground">
+                                ({formattedTime})
+                              </span>
+                            )}
+                            {delay && (
+                              <span className={`text-[10px] font-medium ${
+                                delay.startsWith('+') ? 'text-orange-500' : 
+                                delay.startsWith('-') ? 'text-green-500' : 
+                                'text-muted-foreground'
+                              }`}>
+                                {delay}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </ScrollArea>
+
+            {/* Pagination controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between p-2 border-t border-border bg-card">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="h-8 text-xs px-2"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Προηγ.
+                </Button>
+                
+                <div className="flex items-center gap-1.5">
+                  {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
+                    const pageIndex = totalPages <= 5 ? i : 
+                      currentPage < 2 ? i :
+                      currentPage > totalPages - 3 ? totalPages - 5 + i :
+                      currentPage - 2 + i;
+                    return (
+                      <button
+                        key={pageIndex}
+                        className={`w-2 h-2 rounded-full transition-colors ${
+                          pageIndex === currentPage ? 'bg-primary' : 'bg-muted-foreground/30'
+                        }`}
+                        onClick={() => setCurrentPage(pageIndex)}
+                      />
+                    );
+                  })}
+                </div>
+                
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage === totalPages - 1}
+                  className="h-8 text-xs px-2"
+                >
+                  Επόμ.
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Desktop layout - draggable panel
   return (
     <ResizableDraggablePanel
       initialPosition={{ x: 16, y: 60 }}
@@ -291,7 +516,7 @@ export function RouteStopsPanel({
                 const formattedTime = formatTime(stop.arrivalTime);
                 const delay = formatDelay(stop.arrivalDelay);
                 const isNow = timeUntil === "Τώρα";
-                const globalIndex = currentPage * STOPS_PER_PAGE + index;
+                const globalIndex = currentPage * stopsPerPage + index;
                 
                 return (
                   <div 
