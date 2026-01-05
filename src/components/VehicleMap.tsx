@@ -855,12 +855,18 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     
     // Check if the cluster group has a map reference (is added to a map)
     const clusterGroup = vehicleMarkersRef.current as any;
-    if (!clusterGroup._map || !mapRef.current.getZoom) return;
+    if (!clusterGroup._map) return;
     
-    // Additional safety check - ensure map has zoom level
+    // Additional safety check - ensure map has zoom level and is ready
     try {
-      mapRef.current.getZoom();
+      const zoom = mapRef.current.getZoom();
+      if (zoom === undefined) return;
     } catch {
+      return;
+    }
+    
+    // Final check - ensure cluster group has the required internal state
+    if (typeof clusterGroup._zoom === 'undefined' && typeof clusterGroup._maxZoom === 'undefined') {
       return;
     }
 
