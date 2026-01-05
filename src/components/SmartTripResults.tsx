@@ -59,17 +59,40 @@ function getTransitUrl(origin: StaticStop, destination: StaticStop): string {
 // Render a single leg of the journey
 function JourneyLegView({ leg, isLast }: { leg: JourneyLeg; isLast: boolean }) {
   if (leg.type === 'walk') {
+    const isLongWalk = (leg.walkingMeters || 0) > 2000;
     return (
       <div className="flex items-start gap-3 py-3">
         <div className="flex flex-col items-center">
-          <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-            <Footprints className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <div className={cn(
+            "w-8 h-8 rounded-full flex items-center justify-center",
+            isLongWalk 
+              ? "bg-red-100 dark:bg-red-900/40" 
+              : "bg-amber-100 dark:bg-amber-900/40"
+          )}>
+            {isLongWalk ? (
+              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            ) : (
+              <Footprints className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            )}
           </div>
-          {!isLast && <div className="w-0.5 h-8 bg-amber-200 dark:bg-amber-800 mt-1" />}
+          {!isLast && <div className={cn(
+            "w-0.5 h-8 mt-1",
+            isLongWalk ? "bg-red-200 dark:bg-red-800" : "bg-amber-200 dark:bg-amber-800"
+          )} />}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-medium text-amber-700 dark:text-amber-400 text-sm">
+          <div className={cn(
+            "font-medium text-sm",
+            isLongWalk 
+              ? "text-red-700 dark:text-red-400" 
+              : "text-amber-700 dark:text-amber-400"
+          )}>
             Περπάτημα {leg.walkingMinutes} λεπτά
+            {isLongWalk && (
+              <span className="ml-2 text-xs font-normal bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded">
+                ⚠️ Μεγάλη απόσταση!
+              </span>
+            )}
           </div>
           <div className="text-xs text-muted-foreground">
             {leg.fromLocation?.name && leg.toLocation?.name && (
@@ -78,7 +101,9 @@ function JourneyLegView({ leg, isLast }: { leg: JourneyLeg; isLast: boolean }) {
               </span>
             )}
             {leg.walkingMeters && (
-              <span className="ml-2">({formatDistance(leg.walkingMeters)})</span>
+              <span className={cn("ml-2", isLongWalk && "text-red-600 dark:text-red-400 font-medium")}>
+                ({formatDistance(leg.walkingMeters)})
+              </span>
             )}
           </div>
           {leg.fromLocation && leg.toLocation && (
@@ -174,6 +199,10 @@ function JourneyLegView({ leg, isLast }: { leg: JourneyLeg; isLast: boolean }) {
 function JourneyOptionCard({ journey, index }: { journey: JourneyOption; index: number }) {
   const busLegs = journey.legs.filter(l => l.type === 'bus');
   const routeNames = busLegs.map(l => l.route?.route_short_name).join(' → ');
+  const totalWalkingMeters = journey.legs
+    .filter(l => l.type === 'walk')
+    .reduce((sum, l) => sum + (l.walkingMeters || 0), 0);
+  const hasLongWalk = totalWalkingMeters > 2000;
   
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -213,9 +242,17 @@ function JourneyOptionCard({ journey, index }: { journey: JourneyOption; index: 
             </div>
           )}
           {journey.totalWalkingMinutes > 0 && (
-            <div className="flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded text-xs">
-              <Footprints className="h-3 w-3" />
-              <span>{journey.totalWalkingMinutes} λεπτά περπάτημα</span>
+            <div className={cn(
+              "flex items-center gap-1 px-2 py-0.5 rounded text-xs",
+              hasLongWalk 
+                ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400" 
+                : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+            )}>
+              {hasLongWalk ? <AlertCircle className="h-3 w-3" /> : <Footprints className="h-3 w-3" />}
+              <span>
+                {journey.totalWalkingMinutes} λεπτά περπάτημα
+                {hasLongWalk && ` (${formatDistance(totalWalkingMeters)})`}
+              </span>
             </div>
           )}
         </div>
