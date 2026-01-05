@@ -788,10 +788,23 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     mapRef.current.addLayer(vehicleMarkersRef.current);
     mapRef.current.addLayer(stopMarkersRef.current);
 
-    // Mark map as ready after a short delay to ensure cluster groups are fully initialized
+    // Mark map as ready after layers are fully initialized
+    // Use requestAnimationFrame to ensure DOM is updated, then a short delay for cluster initialization
     const readyTimeout = setTimeout(() => {
-      setMapReady(true);
-    }, 100);
+      requestAnimationFrame(() => {
+        // Double-check map is still valid before marking ready
+        if (mapRef.current && vehicleMarkersRef.current && stopMarkersRef.current) {
+          try {
+            // Verify zoom is accessible
+            mapRef.current.getZoom();
+            setMapReady(true);
+          } catch {
+            // Map not ready yet, retry
+            setTimeout(() => setMapReady(true), 200);
+          }
+        }
+      });
+    }, 150);
 
     return () => {
       clearTimeout(readyTimeout);
@@ -923,16 +936,26 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     
     // Check if the cluster group has a map reference (is added to a map)
     const clusterGroup = vehicleMarkersRef.current as any;
-    if (!clusterGroup._map) return;
+    if (!clusterGroup._map) {
+      console.log('[VehicleMap] Cluster group not yet added to map, skipping vehicle update');
+      return;
+    }
     
     // Critical: Check if the map's internal _zoom is defined (map fully initialized)
-    if (typeof clusterGroup._map._zoom === 'undefined') return;
+    if (typeof clusterGroup._map._zoom === 'undefined') {
+      console.log('[VehicleMap] Map _zoom not defined, skipping vehicle update');
+      return;
+    }
     
     // Additional safety check - ensure map has zoom level and is ready
     try {
       const zoom = mapRef.current.getZoom();
-      if (zoom === undefined || zoom === null) return;
-    } catch {
+      if (zoom === undefined || zoom === null) {
+        console.log('[VehicleMap] Map zoom undefined, skipping vehicle update');
+        return;
+      }
+    } catch (e) {
+      console.log('[VehicleMap] Error getting map zoom, skipping vehicle update:', e);
       return;
     }
 
@@ -1355,16 +1378,26 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     
     // Check if the cluster group has a map reference (is added to a map)
     const clusterGroup = stopMarkersRef.current as any;
-    if (!clusterGroup._map) return;
+    if (!clusterGroup._map) {
+      console.log('[VehicleMap] Stop cluster group not yet added to map, skipping stop update');
+      return;
+    }
     
     // Critical: Check if the map's internal _zoom is defined (map fully initialized)
-    if (typeof clusterGroup._map._zoom === 'undefined') return;
+    if (typeof clusterGroup._map._zoom === 'undefined') {
+      console.log('[VehicleMap] Map _zoom not defined for stops, skipping stop update');
+      return;
+    }
 
     // Additional safety check - ensure map is ready
     try {
       const zoom = mapRef.current.getZoom();
-      if (zoom === undefined || zoom === null) return;
-    } catch {
+      if (zoom === undefined || zoom === null) {
+        console.log('[VehicleMap] Map zoom undefined for stops, skipping stop update');
+        return;
+      }
+    } catch (e) {
+      console.log('[VehicleMap] Error getting map zoom for stops, skipping:', e);
       return;
     }
 
