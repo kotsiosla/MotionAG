@@ -19,8 +19,13 @@ import { RouteSelector } from "@/components/RouteSelector";
 import { SmartTripPlanner } from "@/components/SmartTripPlanner";
 import type { RouteInfo, StaticStop } from "@/types/gtfs";
 import type { FavoriteRoute } from "@/hooks/useFavoriteRoutes";
-import type { WalkingInfo, LocationInfo } from "@/components/TripPlanResults";
 import motionLogo from "@/assets/motion-logo.svg";
+
+interface LocationInfo {
+  lat: number;
+  lon: number;
+  name: string;
+}
 
 interface HeaderProps {
   isDark: boolean;
@@ -47,8 +52,7 @@ interface HeaderProps {
     departureTime: string, 
     departureDate: Date,
     originLocation?: LocationInfo,
-    destLocation?: LocationInfo,
-    walkingInfo?: WalkingInfo
+    destLocation?: LocationInfo
   ) => void;
   favorites?: FavoriteRoute[];
   onRemoveFavorite?: (id: string) => void;
