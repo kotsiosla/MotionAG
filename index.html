@@ -2,31 +2,59 @@
 <html lang="el">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Motion Bus | Ζωντανή Παρακολούθηση</title>
-    <meta name="description" content="Παρακολούθηση θέσεων λεωφορείων και δρομολογίων σε πραγματικό χρόνο" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+    <title>Motion Bus | Ζωντανή Παρακολούθηση Λεωφορείων Κύπρου</title>
+    <meta name="description" content="Παρακολούθηση θέσεων λεωφορείων και δρομολογίων σε πραγματικό χρόνο στην Κύπρο. Βρες το επόμενο λεωφορείο, σχεδίασε τη διαδρομή σου." />
     <meta name="author" content="Motion" />
-    <meta name="theme-color" content="#0ea5e9" />
+    <meta name="theme-color" content="#0ea5e9" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0ea5e9" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="dark light" />
     
     <!-- PWA Meta Tags -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Motion Bus" />
+    <meta name="application-name" content="Motion Bus" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="msapplication-TileColor" content="#0ea5e9" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    
+    <!-- Apple Touch Icons -->
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/pwa-192x192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/pwa-512x512.png" />
     <link rel="mask-icon" href="/pwa-512x512.png" color="#0ea5e9" />
+    
+    <!-- Splash screens for iOS -->
+    <link rel="apple-touch-startup-image" href="/pwa-512x512.png" />
 
-    <meta property="og:title" content="Motion Bus - Ζωντανή Παρακολούθηση" />
-    <meta property="og:description" content="Ζωντανή παρακολούθηση δημόσιας συγκοινωνίας στην Κύπρο" />
+    <!-- Open Graph -->
+    <meta property="og:title" content="Motion Bus - Ζωντανή Παρακολούθηση Λεωφορείων" />
+    <meta property="og:description" content="Ζωντανή παρακολούθηση δημόσιας συγκοινωνίας στην Κύπρο. Βρες το επόμενο λεωφορείο σε πραγματικό χρόνο." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:locale" content="el_GR" />
+    <meta property="og:site_name" content="Motion Bus" />
 
+    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@Motion" />
+    <meta name="twitter:title" content="Motion Bus - Ζωντανή Παρακολούθηση" />
+    <meta name="twitter:description" content="Ζωντανή παρακολούθηση δημόσιας συγκοινωνίας στην Κύπρο" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
+    <!-- Preconnect for performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://tile.openstreetmap.org" />
+    
+    <!-- DNS prefetch for API -->
+    <link rel="dns-prefetch" href="https://mhlyndipnpwpcydjukig.supabase.co" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png" />
   </head>
 
   <body class="dark">
