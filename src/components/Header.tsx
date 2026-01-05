@@ -139,8 +139,6 @@ export function Header({
               {delayNotificationsEnabled ? <Bell className="h-4 w-4 text-primary" /> : <BellOff className="h-4 w-4 text-muted-foreground" />}
             </Button>
 
-            <NotificationButton />
-
             <Link to="/install">
               <Button
                 variant="ghost"
@@ -306,7 +304,6 @@ export function Header({
             >
               {delayNotificationsEnabled ? <Bell className="h-4 w-4 text-primary" /> : <BellOff className="h-4 w-4 text-muted-foreground" />}
             </Button>
-            <NotificationButton />
             <Link to="/install">
               <Button
                 variant="ghost"
