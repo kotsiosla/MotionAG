@@ -35,57 +35,84 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
   const bgColor = routeColor ? `#${routeColor}` : 'hsl(var(--primary))';
   const routeLabel = routeShortName || '';
   
-  // Special larger animated icon for vehicles on selected route
-  if (isOnSelectedRoute) {
+  // Modern bus icon with direction arrow - smooth animated
+  if (isOnSelectedRoute || isFollowed) {
+    const glowColor = isFollowed ? 'rgba(250, 204, 21, 0.6)' : `${bgColor}40`;
+    const ringAnimation = isFollowed ? 'animation: pulse-glow 2s ease-in-out infinite;' : 'animation: pulse-ring 3s ease-in-out infinite;';
+    
     return L.divIcon({
       className: 'route-vehicle-marker',
       html: `
-        <div class="relative bus-icon" style="transform: rotate(${rotation}deg)">
-          <div class="absolute -inset-2 rounded-full opacity-30" style="background: ${bgColor}; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-          <div class="absolute -inset-1 rounded-full opacity-50" style="background: ${bgColor}; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;"></div>
-          <div class="relative flex flex-col items-center">
-            ${routeLabel ? `<div class="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-bold text-white shadow-md" style="background: ${bgColor}; transform: rotate(-${rotation}deg);">${routeLabel}</div>` : ''}
-            <div style="width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 8px solid ${bgColor}; margin-bottom: -2px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></div>
-            <div class="w-8 h-6 rounded-sm flex items-center justify-center shadow-lg border-2 border-white" style="background: ${bgColor};">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="4" width="18" height="14" rx="2"/>
-                <circle cx="7" cy="18" r="1.5" fill="white"/>
-                <circle cx="17" cy="18" r="1.5" fill="white"/>
-                <path d="M3 10h18"/>
-              </svg>
-            </div>
+        <style>
+          @keyframes pulse-glow { 
+            0%, 100% { box-shadow: 0 0 0 0 ${glowColor}; } 
+            50% { box-shadow: 0 0 0 12px transparent; } 
+          }
+          @keyframes pulse-ring { 
+            0%, 100% { transform: scale(1); opacity: 0.6; } 
+            50% { transform: scale(1.15); opacity: 0.3; } 
+          }
+          @keyframes float-bus {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-2px); }
+          }
+        </style>
+        <div class="vehicle-container" style="position: relative; width: 44px; height: 56px;">
+          <!-- Glow ring -->
+          <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; border-radius: 50%; background: ${bgColor}; opacity: 0.2; ${ringAnimation}"></div>
+          
+          <!-- Main bus body with rotation -->
+          <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(${rotation}deg); transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);">
+            <!-- Direction arrow (pointing up) -->
+            <svg width="44" height="56" viewBox="0 0 44 56" style="filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));">
+              <!-- Arrow head -->
+              <polygon points="22,2 12,16 32,16" fill="${bgColor}" stroke="white" stroke-width="1.5"/>
+              <!-- Bus body -->
+              <rect x="8" y="14" width="28" height="32" rx="4" fill="${bgColor}" stroke="white" stroke-width="2"/>
+              <!-- Windows -->
+              <rect x="12" y="18" width="20" height="8" rx="2" fill="rgba(255,255,255,0.9)"/>
+              <!-- Windshield line -->
+              <line x1="12" y1="30" x2="32" y2="30" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+              <!-- Wheels -->
+              <circle cx="14" cy="44" r="3" fill="white"/>
+              <circle cx="30" cy="44" r="3" fill="white"/>
+              <!-- Bus icon inside -->
+              <text x="22" y="40" text-anchor="middle" fill="white" font-size="10" font-weight="bold" style="font-family: system-ui;">🚌</text>
+            </svg>
           </div>
+          
+          <!-- Route label (counter-rotated) -->
+          ${routeLabel ? `<div style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); background: ${bgColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.3);">${routeLabel}</div>` : ''}
         </div>
       `,
-      iconSize: [32, 50],
-      iconAnchor: [16, 30],
+      iconSize: [44, 56],
+      iconAnchor: [22, 28],
     });
   }
   
-  const ringClass = isFollowed ? 'animate-ping' : 'animate-pulse-ring';
-  const glowStyle = isFollowed ? 'box-shadow: 0 0 0 2px #facc15;' : '';
-  
+  // Simple bus icon for non-selected routes
   return L.divIcon({
     className: 'vehicle-marker',
     html: `
-      <div class="relative" style="transform: rotate(${rotation}deg)">
-        <div class="absolute inset-0 rounded ${ringClass} opacity-50" style="background: ${bgColor}"></div>
-        <div class="relative flex flex-col items-center">
-          ${routeLabel ? `<div class="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap px-1 py-0.5 rounded text-[9px] font-bold text-white shadow-sm" style="background: ${bgColor}; transform: rotate(-${rotation}deg);">${routeLabel}</div>` : ''}
-          <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 5px solid ${bgColor}; margin-bottom: -1px;"></div>
-          <div class="w-5 h-4 rounded-sm flex items-center justify-center shadow-md" style="background: ${bgColor}; ${glowStyle}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="4" width="18" height="14" rx="2"/>
-              <circle cx="7" cy="18" r="1.5" fill="white"/>
-              <circle cx="17" cy="18" r="1.5" fill="white"/>
-              <path d="M3 10h18"/>
-            </svg>
-          </div>
+      <div style="position: relative; width: 28px; height: 36px;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(${rotation}deg); transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);">
+          <svg width="28" height="36" viewBox="0 0 28 36" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25));">
+            <!-- Arrow head -->
+            <polygon points="14,1 7,10 21,10" fill="${bgColor}" stroke="white" stroke-width="1"/>
+            <!-- Bus body -->
+            <rect x="5" y="9" width="18" height="22" rx="3" fill="${bgColor}" stroke="white" stroke-width="1.5"/>
+            <!-- Window -->
+            <rect x="8" y="12" width="12" height="6" rx="1" fill="rgba(255,255,255,0.85)"/>
+            <!-- Wheels -->
+            <circle cx="9" cy="29" r="2" fill="white"/>
+            <circle cx="19" cy="29" r="2" fill="white"/>
+          </svg>
         </div>
+        ${routeLabel ? `<div style="position: absolute; top: -6px; left: 50%; transform: translateX(-50%); background: ${bgColor}; color: white; padding: 1px 4px; border-radius: 3px; font-size: 8px; font-weight: bold; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.2);">${routeLabel}</div>` : ''}
       </div>
     `,
-    iconSize: [20, 36],
-    iconAnchor: [10, 20],
+    iconSize: [28, 36],
+    iconAnchor: [14, 18],
   });
 };
 
