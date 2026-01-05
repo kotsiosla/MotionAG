@@ -1949,22 +1949,103 @@ serve(async (req) => {
       );
     }
     
-    // Handle stop_times endpoint - DEPRECATED due to memory issues, returns empty
+    // Handle stop_times endpoint - Load all stop times for trip planning
     if (path === '/stop-times') {
-      console.log('stop-times endpoint is deprecated due to large file sizes');
-      return new Response(
-        JSON.stringify({
-          data: [],
-          timestamp: Date.now(),
-          error: 'This endpoint is deprecated. Use /schedule with a route parameter instead.',
-        }),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json',
-          } 
+      console.log('Loading stop_times for trip planning...');
+      
+      try {
+        const allStopTimes: StopTimeInfo[] = [];
+        const operators = operatorId && operatorId !== 'all' ? [operatorId] : Object.keys(GTFS_STATIC_URLS);
+        
+        for (const opId of operators) {
+          const url = GTFS_STATIC_URLS[opId];
+          if (!url) continue;
+          
+          try {
+            console.log(`Fetching stop_times for operator ${opId}`);
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+              console.error(`Failed to fetch GTFS for operator ${opId}: ${response.status}`);
+              continue;
+            }
+            
+            const arrayBuffer = await response.arrayBuffer();
+            const zipData = new Uint8Array(arrayBuffer);
+            
+            const fileContent = await unzipAndParseFile(zipData, 'stop_times.txt');
+            if (!fileContent) {
+              console.log(`No stop_times.txt found for operator ${opId}`);
+              continue;
+            }
+            
+            const lines = fileContent.split('\n');
+            
+            if (lines.length > 0) {
+              const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+              const tripIdIdx = header.indexOf('trip_id');
+              const stopIdIdx = header.indexOf('stop_id');
+              const seqIdx = header.indexOf('stop_sequence');
+              const arrivalIdx = header.indexOf('arrival_time');
+              const departureIdx = header.indexOf('departure_time');
+              
+              // Parse in batches
+              const BATCH_SIZE = 50000;
+              for (let start = 1; start < lines.length; start += BATCH_SIZE) {
+                const end = Math.min(start + BATCH_SIZE, lines.length);
+                
+                for (let i = start; i < end; i++) {
+                  const line = lines[i].trim();
+                  if (!line) continue;
+                  
+                  const values = parseCSVLine(line);
+                  
+                  if (tripIdIdx >= 0 && stopIdIdx >= 0 && seqIdx >= 0) {
+                    const seq = parseInt(values[seqIdx]);
+                    
+                    if (!isNaN(seq)) {
+                      allStopTimes.push({
+                        trip_id: values[tripIdIdx],
+                        stop_id: values[stopIdIdx],
+                        stop_sequence: seq,
+                        arrival_time: arrivalIdx >= 0 ? values[arrivalIdx] || undefined : undefined,
+                        departure_time: departureIdx >= 0 ? values[departureIdx] || undefined : undefined,
+                      });
+                    }
+                  }
+                }
+              }
+              
+              console.log(`Parsed ${allStopTimes.length} stop_times so far (after operator ${opId})`);
+            }
+          } catch (error) {
+            console.error(`Error fetching stop_times for operator ${opId}:`, error);
+          }
         }
-      );
+        
+        console.log(`Total stop_times loaded: ${allStopTimes.length}`);
+        
+        return new Response(
+          JSON.stringify({
+            data: allStopTimes,
+            timestamp: Date.now(),
+            count: allStopTimes.length,
+          }),
+          { 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json',
+              'Cache-Control': 'public, max-age=3600',
+            } 
+          }
+        );
+      } catch (error) {
+        console.error('Error in stop-times endpoint:', error);
+        return new Response(
+          JSON.stringify({ error: String(error), data: [] }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
     
     // Handle stop-routes endpoint - returns all routes that pass through a specific stop
