@@ -26,6 +26,8 @@ interface VehicleMapProps {
   onRouteClose?: () => void;
   isLoading: boolean;
   highlightedStop?: StaticStop | null;
+  followVehicleId?: string | null;
+  onFollowVehicle?: (vehicleId: string | null) => void;
 }
 
 const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: string, isOnSelectedRoute?: boolean, routeShortName?: string) => {
@@ -146,7 +148,7 @@ const formatDelay = (delay?: number) => {
   return `(${minutes} λεπτά)`;
 };
 
-export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, selectedRoute = 'all', selectedOperator, onRouteClose, isLoading, highlightedStop }: VehicleMapProps) {
+export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, selectedRoute = 'all', selectedOperator, onRouteClose, isLoading, highlightedStop, followVehicleId, onFollowVehicle }: VehicleMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const vehicleMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
   const stopMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
@@ -195,6 +197,23 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       setShowLiveVehiclesPanel(true);
     }
   }, [selectedRoute]);
+
+  // Sync external follow vehicle request with internal state
+  useEffect(() => {
+    if (followVehicleId && followVehicleId !== followedVehicleId) {
+      setFollowedVehicleId(followVehicleId);
+      setViewMode('street');
+      
+      // Find the vehicle and fly to it smoothly
+      const vehicle = vehicles.find(v => (v.vehicleId || v.id) === followVehicleId);
+      if (vehicle?.latitude && vehicle?.longitude && mapRef.current) {
+        mapRef.current.flyTo([vehicle.latitude, vehicle.longitude], 17, {
+          duration: 1.5,
+          easeLinearity: 0.25,
+        });
+      }
+    }
+  }, [followVehicleId, followedVehicleId, vehicles]);
 
   // Geocoding search function
   const searchAddress = useCallback(async (query: string) => {

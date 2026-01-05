@@ -35,6 +35,9 @@ const Index = () => {
   // Highlighted stop (for nearby stops panel)
   const [highlightedStop, setHighlightedStop] = useState<StaticStop | null>(null);
   
+  // Vehicle to follow from NearbyStopsPanel
+  const [followVehicleId, setFollowVehicleId] = useState<string | null>(null);
+  
   // Favorites
   const { favorites, addFavorite, removeFavorite, isFavorite } = useFavoriteRoutes();
 
@@ -243,6 +246,8 @@ const Index = () => {
                 onRouteClose={() => setSelectedRoute('all')}
                 isLoading={vehiclesQuery.isLoading}
                 highlightedStop={highlightedStop}
+                followVehicleId={followVehicleId}
+                onFollowVehicle={setFollowVehicleId}
               />
             </TabsContent>
 
@@ -288,6 +293,7 @@ const Index = () => {
         routeNamesMap={routeNamesMap}
         onSelectVehicle={(vehicleId, tripId, routeId) => {
           if (routeId) setSelectedRoute(routeId);
+          setFollowVehicleId(vehicleId);
           setActiveTab("map");
         }}
         onStopSelect={(stop) => {
