@@ -109,15 +109,16 @@ const calculateBearing = (lat1: number, lon1: number, lat2: number, lon2: number
   return (bearing + 360) % 360; // Normalize to 0-360
 };
 
-const createStopIcon = (hasVehicleStopped?: boolean, sequenceNumber?: number, routeColor?: string) => {
+const createStopIcon = (hasVehicleStopped?: boolean, sequenceNumber?: number, routeColor?: string, hasImminent?: boolean) => {
   const bgColor = hasVehicleStopped ? '#22c55e' : (sequenceNumber !== undefined ? (routeColor ? `#${routeColor}` : '#0ea5e9') : '#f97316');
   const size = sequenceNumber !== undefined ? 'w-6 h-6' : 'w-5 h-5';
   const fontSize = sequenceNumber !== undefined ? 'text-[10px]' : '';
+  const pulseClass = hasVehicleStopped ? 'stop-vehicle-present' : (hasImminent ? 'stop-imminent-arrival' : '');
   
   return L.divIcon({
     className: 'stop-marker',
     html: `
-      <div class="${size} rounded-full flex items-center justify-center shadow-md border-2 border-white ${hasVehicleStopped ? 'animate-pulse' : ''}" style="background: ${bgColor}">
+      <div class="${size} rounded-full flex items-center justify-center shadow-md border-2 border-white ${pulseClass}" style="background: ${bgColor}">
         ${sequenceNumber !== undefined 
           ? `<span class="${fontSize} font-bold text-white">${sequenceNumber}</span>`
           : `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1286,8 +1287,15 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       const hasVehicleStopped = stopsWithVehicles.has(stop.stop_id);
       const arrivals = getArrivalsForStop(stop.stop_id);
       
+      // Check if any arrival is within 2 minutes
+      const now = Math.floor(Date.now() / 1000);
+      const hasImminentArrival = arrivals.some(arr => {
+        const secondsUntilArrival = arr.arrivalTime - now;
+        return secondsUntilArrival > 0 && secondsUntilArrival <= 120; // 2 minutes
+      });
+      
       const marker = L.marker([stop.stop_lat!, stop.stop_lon!], {
-        icon: createStopIcon(hasVehicleStopped),
+        icon: createStopIcon(hasVehicleStopped, undefined, undefined, hasImminentArrival),
       });
 
       const statusColor = hasVehicleStopped ? '#22c55e' : '#f97316';
