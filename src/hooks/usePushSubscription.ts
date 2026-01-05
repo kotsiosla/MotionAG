@@ -44,15 +44,14 @@ export function usePushSubscription() {
         if (subscription) {
           setIsSubscribed(true);
           
-          // Fetch subscribed routes from database
-          const { data } = await supabase
-            .from('push_subscriptions')
-            .select('route_ids')
-            .eq('endpoint', subscription.endpoint)
-            .single();
-          
-          if (data?.route_ids) {
-            setSubscribedRoutes(data.route_ids);
+          // Load subscribed routes from localStorage (can't SELECT from DB due to RLS)
+          const storedRoutes = localStorage.getItem('push_subscribed_routes');
+          if (storedRoutes) {
+            try {
+              setSubscribedRoutes(JSON.parse(storedRoutes));
+            } catch (e) {
+              console.error('Error parsing stored routes:', e);
+            }
           }
         }
       } catch (error) {
@@ -124,6 +123,7 @@ export function usePushSubscription() {
 
       setIsSubscribed(true);
       setSubscribedRoutes(routeIds);
+      localStorage.setItem('push_subscribed_routes', JSON.stringify(routeIds));
       
       toast({
         title: 'Επιτυχής εγγραφή',
@@ -164,6 +164,7 @@ export function usePushSubscription() {
 
       setIsSubscribed(false);
       setSubscribedRoutes([]);
+      localStorage.removeItem('push_subscribed_routes');
       
       toast({
         title: 'Απεγγραφή',
@@ -203,6 +204,7 @@ export function usePushSubscription() {
       if (error) throw error;
 
       setSubscribedRoutes(routeIds);
+      localStorage.setItem('push_subscribed_routes', JSON.stringify(routeIds));
       
       toast({
         title: 'Ενημέρωση',
