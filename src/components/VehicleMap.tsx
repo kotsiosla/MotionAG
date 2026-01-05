@@ -232,10 +232,23 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       setFollowedVehicleId(followVehicleId);
       setViewMode('street');
       
+      // Initialize trail with current position when starting to follow
+      const vehicle = vehicles.find(v => (v.vehicleId || v.id) === followVehicleId);
+      if (vehicle?.latitude && vehicle?.longitude) {
+        const now = Date.now();
+        // Create initial trail points around current position for immediate visibility
+        const initialTrail = [
+          { lat: vehicle.latitude - 0.0003, lng: vehicle.longitude - 0.0003, timestamp: now - 2000 },
+          { lat: vehicle.latitude - 0.0002, lng: vehicle.longitude - 0.0002, timestamp: now - 1500 },
+          { lat: vehicle.latitude - 0.0001, lng: vehicle.longitude - 0.0001, timestamp: now - 1000 },
+          { lat: vehicle.latitude, lng: vehicle.longitude, timestamp: now },
+        ];
+        vehicleTrailsRef.current.set(followVehicleId, initialTrail);
+      }
+      
       // Find the vehicle and fly to it smoothly
       // Delay slightly to allow state to settle after route change
       const timeoutId = setTimeout(() => {
-        const vehicle = vehicles.find(v => (v.vehicleId || v.id) === followVehicleId);
         if (vehicle?.latitude && vehicle?.longitude && mapRef.current) {
           mapRef.current.flyTo([vehicle.latitude, vehicle.longitude], 17, {
             duration: 1.5,
@@ -247,6 +260,49 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       return () => clearTimeout(timeoutId);
     }
   }, [followVehicleId, followedVehicleId, vehicles]);
+
+  // Draw initial trail when following starts
+  useEffect(() => {
+    if (!followedVehicleId || !mapRef.current) return;
+    
+    const trail = vehicleTrailsRef.current.get(followedVehicleId);
+    if (!trail || trail.length < 2) return;
+    
+    const vehicle = vehicles.find(v => (v.vehicleId || v.id) === followedVehicleId);
+    const routeInfo = vehicle?.routeId && routeNamesMap ? routeNamesMap.get(vehicle.routeId) : null;
+    const trailColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : '#f97316';
+    
+    // Remove old trail
+    const oldPolylines = trailPolylinesRef.current.get(followedVehicleId) || [];
+    oldPolylines.forEach(p => mapRef.current?.removeLayer(p));
+    
+    const newPolylines: L.Polyline[] = [];
+    const trailPoints: L.LatLngExpression[] = trail.map(p => [p.lat, p.lng]);
+    
+    // Main trail
+    const mainTrail = L.polyline(trailPoints, {
+      color: trailColor,
+      weight: 8,
+      opacity: 0.7,
+      lineCap: 'round',
+      lineJoin: 'round',
+      smoothFactor: 1.5,
+    }).addTo(mapRef.current);
+    newPolylines.push(mainTrail);
+    
+    // Inner glow
+    const innerTrail = L.polyline(trailPoints, {
+      color: 'white',
+      weight: 3,
+      opacity: 0.4,
+      lineCap: 'round',
+      lineJoin: 'round',
+      smoothFactor: 1.5,
+    }).addTo(mapRef.current);
+    newPolylines.push(innerTrail);
+    
+    trailPolylinesRef.current.set(followedVehicleId, newPolylines);
+  }, [followedVehicleId, vehicles, routeNamesMap]);
 
   // Geocoding search function
   const searchAddress = useCallback(async (query: string) => {
