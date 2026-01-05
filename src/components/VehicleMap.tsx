@@ -784,7 +784,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
               <div class="flex justify-between"><span class="text-muted-foreground">Ταχύτητα:</span><span>${formatSpeed(vehicle.speed)}</span></div>
               ${vehicle.bearing !== undefined ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατεύθυνση:</span><span>${vehicle.bearing.toFixed(0)}°</span></div>` : ''}
               ${vehicle.currentStatus ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατάσταση:</span><span>${vehicle.currentStatus}</span></div>` : ''}
-              <div class="flex justify-between pt-1 border-t border-border mt-2"><span class="text-muted-foreground">Ενημ:</span><span class="text-xs">${formatTimestamp(vehicle.timestamp)}</span></div>
+              <div class="flex justify-between pt-1 border-t border-border mt-2"><span class="text-muted-foreground">Ενημέρωση:</span><span class="text-xs">${formatTimestamp(vehicle.timestamp)}</span></div>
             </div>
             ${etaHtml}
           </div>
@@ -857,7 +857,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
               <div class="flex justify-between"><span class="text-muted-foreground">Ταχύτητα:</span><span>${formatSpeed(vehicle.speed)}</span></div>
               ${vehicle.bearing !== undefined ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατεύθυνση:</span><span>${vehicle.bearing.toFixed(0)}°</span></div>` : ''}
               ${vehicle.currentStatus ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατάσταση:</span><span>${vehicle.currentStatus}</span></div>` : ''}
-              <div class="flex justify-between pt-1 border-t border-border mt-2"><span class="text-muted-foreground">Ενημ:</span><span class="text-xs">${formatTimestamp(vehicle.timestamp)}</span></div>
+              <div class="flex justify-between pt-1 border-t border-border mt-2"><span class="text-muted-foreground">Ενημέρωση:</span><span class="text-xs">${formatTimestamp(vehicle.timestamp)}</span></div>
             </div>
             ${etaHtml}
           </div>
