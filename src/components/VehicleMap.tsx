@@ -1294,8 +1294,14 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
     // Additional safety check - ensure map is ready
     try {
-      if (!mapRef.current.getZoom()) return;
+      const zoom = mapRef.current.getZoom();
+      if (zoom === undefined) return;
     } catch {
+      return;
+    }
+    
+    // Final check - ensure cluster group has the required internal state
+    if (typeof clusterGroup._zoom === 'undefined' && typeof clusterGroup._maxZoom === 'undefined') {
       return;
     }
 
