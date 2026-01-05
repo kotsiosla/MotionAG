@@ -82,9 +82,12 @@ export function NearbyStopsPanel({
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(70); // percentage of viewport height
+  const [mobilePosition, setMobilePosition] = useState({ x: 0, y: 0 }); // for free dragging
   const [isDraggingMobile, setIsDraggingMobile] = useState(false);
-  const dragStartYRef = useRef<number>(0);
+  const [mobileDragMode, setMobileDragMode] = useState<'resize' | 'move'>('resize');
+  const dragStartRef = useRef({ x: 0, y: 0 });
   const dragStartHeightRef = useRef<number>(70);
+  const dragStartPosRef = useRef({ x: 0, y: 0 });
   const watchIdRef = useRef<number | null>(null);
 
   // Get nearby stops with arrivals
@@ -351,37 +354,69 @@ export function NearbyStopsPanel({
     }
   }, [onHighlightStop]);
 
-  // Mobile drag handlers
-  const handleMobileDragStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+  // Mobile resize drag handlers (for bottom sheet height)
+  const handleMobileResizeStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault();
     setIsDraggingMobile(true);
+    setMobileDragMode('resize');
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    dragStartYRef.current = clientY;
+    dragStartRef.current = { x: 0, y: clientY };
     dragStartHeightRef.current = mobileHeight;
   }, [mobileHeight]);
+
+  // Mobile move drag handlers (for free positioning)
+  const handleMobileMoveStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    // Don't start drag if clicking on buttons or interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('[data-no-drag]')) {
+      return;
+    }
+    
+    e.preventDefault();
+    setIsDraggingMobile(true);
+    setMobileDragMode('move');
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    dragStartRef.current = { x: clientX, y: clientY };
+    dragStartPosRef.current = { x: mobilePosition.x, y: mobilePosition.y };
+  }, [mobilePosition]);
 
   const handleMobileDragMove = useCallback((e: TouchEvent | MouseEvent) => {
     if (!isDraggingMobile) return;
     
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    const deltaY = dragStartYRef.current - clientY;
-    const deltaPercent = (deltaY / window.innerHeight) * 100;
-    const newHeight = Math.max(30, Math.min(90, dragStartHeightRef.current + deltaPercent));
     
-    setMobileHeight(newHeight);
-  }, [isDraggingMobile]);
+    if (mobileDragMode === 'resize') {
+      const deltaY = dragStartRef.current.y - clientY;
+      const deltaPercent = (deltaY / window.innerHeight) * 100;
+      const newHeight = Math.max(30, Math.min(90, dragStartHeightRef.current + deltaPercent));
+      setMobileHeight(newHeight);
+    } else {
+      const deltaX = clientX - dragStartRef.current.x;
+      const deltaY = clientY - dragStartRef.current.y;
+      const maxX = window.innerWidth - 320;
+      const maxY = window.innerHeight - 200;
+      const newX = Math.max(-20, Math.min(maxX, dragStartPosRef.current.x + deltaX));
+      const newY = Math.max(60, Math.min(maxY, dragStartPosRef.current.y + deltaY));
+      setMobilePosition({ x: newX, y: newY });
+    }
+  }, [isDraggingMobile, mobileDragMode]);
 
   const handleMobileDragEnd = useCallback(() => {
     setIsDraggingMobile(false);
-    // Snap to positions
-    if (mobileHeight < 40) {
-      setMobileHeight(30);
-    } else if (mobileHeight > 75) {
-      setMobileHeight(85);
-    } else {
-      setMobileHeight(60);
+    
+    if (mobileDragMode === 'resize') {
+      // Snap to positions
+      if (mobileHeight < 40) {
+        setMobileHeight(30);
+      } else if (mobileHeight > 75) {
+        setMobileHeight(85);
+      } else {
+        setMobileHeight(60);
+      }
     }
-  }, [mobileHeight]);
+  }, [mobileHeight, mobileDragMode]);
 
   // Add/remove drag listeners for mobile
   useEffect(() => {
@@ -468,6 +503,34 @@ export function NearbyStopsPanel({
             ) : (
               <Navigation className="h-4 w-4" />
             )}
+          </Button>
+          {/* Toggle floating mode - mobile only */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              if (mobilePosition.x === 0 && mobilePosition.y === 0) {
+                setMobilePosition({ x: 16, y: 100 });
+              } else {
+                setMobilePosition({ x: 0, y: 0 });
+              }
+            }}
+            className="h-7 w-7 md:hidden"
+            title={mobilePosition.x === 0 ? "Floating mode" : "Docked mode"}
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {mobilePosition.x === 0 && mobilePosition.y === 0 ? (
+                <>
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M9 3v18M3 9h6" />
+                </>
+              ) : (
+                <>
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M3 15h18" />
+                </>
+              )}
+            </svg>
           </Button>
           <Button
             variant="ghost"
@@ -573,7 +636,7 @@ export function NearbyStopsPanel({
             <div>
               <p className="text-xs text-muted-foreground mb-2">Ειδοποίηση όταν το λεωφορείο είναι σε:</p>
               <div className="flex flex-wrap gap-1">
-                {[200, 300, 500, 750, 1000].map(dist => (
+                {[200, 300, 500, 750, 1000, 2000].map(dist => (
                   <Button
                     key={dist}
                     variant={notificationDistance === dist ? "default" : "outline"}
@@ -797,20 +860,44 @@ export function NearbyStopsPanel({
   // Mobile: Draggable bottom sheet
   return (
     <>
-      {/* Mobile: Draggable bottom sheet */}
+      {/* Mobile: Draggable floating panel */}
       <div 
-        className="fixed inset-x-0 bottom-0 z-50 md:hidden transition-[height] duration-150 ease-out"
-        style={{ height: `${mobileHeight}vh` }}
+        className="fixed z-50 md:hidden transition-all duration-150 ease-out shadow-2xl"
+        style={{ 
+          left: mobilePosition.x === 0 ? 0 : mobilePosition.x,
+          right: mobilePosition.x === 0 ? 0 : 'auto',
+          bottom: mobilePosition.y === 0 ? 0 : 'auto',
+          top: mobilePosition.y !== 0 ? mobilePosition.y : 'auto',
+          height: mobilePosition.y === 0 ? `${mobileHeight}vh` : '60vh',
+          width: mobilePosition.x === 0 ? 'auto' : '320px',
+        }}
       >
-        {/* Drag handle */}
+        {/* Drag handle for resize (when docked at bottom) */}
+        {mobilePosition.x === 0 && mobilePosition.y === 0 && (
+          <div 
+            className="absolute top-0 left-0 right-0 h-6 flex items-center justify-center cursor-grab active:cursor-grabbing bg-card rounded-t-xl border-t border-x border-border touch-none"
+            onMouseDown={handleMobileResizeStart}
+            onTouchStart={handleMobileResizeStart}
+          >
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/40" />
+          </div>
+        )}
+        {/* Drag handle for move (when floating) */}
+        {(mobilePosition.x !== 0 || mobilePosition.y !== 0) && (
+          <div 
+            className="absolute top-0 left-0 right-0 h-8 flex items-center justify-center gap-2 cursor-grab active:cursor-grabbing bg-card rounded-t-xl border border-border touch-none"
+            onMouseDown={handleMobileMoveStart}
+            onTouchStart={handleMobileMoveStart}
+          >
+            <GripHorizontal className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Σύρε για μετακίνηση</span>
+          </div>
+        )}
         <div 
-          className="absolute top-0 left-0 right-0 h-6 flex items-center justify-center cursor-grab active:cursor-grabbing bg-card rounded-t-xl border-t border-x border-border touch-none"
-          onMouseDown={handleMobileDragStart}
-          onTouchStart={handleMobileDragStart}
+          className={`h-full ${mobilePosition.x === 0 && mobilePosition.y === 0 ? 'pt-6' : 'pt-8 rounded-xl border border-border overflow-hidden'}`}
+          onMouseDown={mobilePosition.x !== 0 || mobilePosition.y !== 0 ? handleMobileMoveStart : undefined}
+          onTouchStart={mobilePosition.x !== 0 || mobilePosition.y !== 0 ? handleMobileMoveStart : undefined}
         >
-          <div className="w-10 h-1 rounded-full bg-muted-foreground/40" />
-        </div>
-        <div className="h-full pt-6">
           {panelContent}
         </div>
       </div>
