@@ -49,6 +49,27 @@ const getWalkingUrl = (fromLat: number, fromLon: number, toLat: number, toLon: n
   return `https://www.google.com/maps/dir/?api=1&origin=${fromLat},${fromLon}&destination=${toLat},${toLon}&travelmode=walking`;
 };
 
+// HTML escape function to prevent XSS
+const escapeHtml = (unsafe: string | undefined | null): string => {
+  if (!unsafe) return '';
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
+// Sanitize CSS color to prevent CSS injection
+const sanitizeColor = (color: string | undefined): string => {
+  if (!color) return '#3b82f6';
+  // Only allow hex colors (6 chars, alphanumeric)
+  if (/^[0-9A-Fa-f]{6}$/.test(color)) {
+    return `#${color}`;
+  }
+  return '#3b82f6'; // Fallback
+};
+
 // Print trip results
 const printTripResults = (
   origin: StaticStop,
@@ -78,21 +99,21 @@ const printTripResults = (
   }
 
   const routesHtml = results.map(result => {
-    const bgColor = result.route.route_color ? `#${result.route.route_color}` : '#3b82f6';
+    const bgColor = sanitizeColor(result.route.route_color);
     const tripsHtml = result.trips.map(trip => {
       const depParts = trip.departureTime.split(':').map(Number);
       const arrParts = trip.arrivalTime.split(':').map(Number);
       const duration = (arrParts[0] * 60 + arrParts[1]) - (depParts[0] * 60 + depParts[1]);
       return `<div style="margin: 5px 0; padding: 8px; background: #f3f4f6; border-radius: 4px;">
-        <strong>${trip.departureTime.substring(0, 5)}</strong> → ${trip.arrivalTime.substring(0, 5)}
+        <strong>${escapeHtml(trip.departureTime.substring(0, 5))}</strong> → ${escapeHtml(trip.arrivalTime.substring(0, 5))}
         <span style="color: #666; margin-left: 10px;">(${duration} λεπτά, ${trip.stopCount} στάσεις)</span>
       </div>`;
     }).join('');
 
     return `<div style="margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
       <div style="background: ${bgColor}; color: white; padding: 10px;">
-        <strong style="font-size: 18px; margin-right: 10px;">${result.route.route_short_name}</strong>
-        ${result.route.route_long_name}
+        <strong style="font-size: 18px; margin-right: 10px;">${escapeHtml(result.route.route_short_name)}</strong>
+        ${escapeHtml(result.route.route_long_name)}
       </div>
       <div style="padding: 10px;">
         <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Δρομολόγια:</div>
@@ -124,13 +145,13 @@ const printTripResults = (
     <body>
       <div class="header">
         <h1>🚌 Διαδρομή Λεωφορείου</h1>
-        ${originLocation ? `<div class="route-info"><span>📍 Αφετηρία:</span> <strong>${originLocation.name}</strong></div>` : ''}
+        ${originLocation ? `<div class="route-info"><span>📍 Αφετηρία:</span> <strong>${escapeHtml(originLocation.name)}</strong></div>` : ''}
         <div class="route-info">
-          <div class="stop"><span class="origin-dot"></span> <strong>${origin.stop_name}</strong> (στάση)</div>
+          <div class="stop"><span class="origin-dot"></span> <strong>${escapeHtml(origin.stop_name)}</strong> (στάση)</div>
           <span class="arrow">→</span>
-          <div class="stop"><span class="dest-dot"></span> <strong>${destination.stop_name}</strong> (στάση)</div>
+          <div class="stop"><span class="dest-dot"></span> <strong>${escapeHtml(destination.stop_name)}</strong> (στάση)</div>
         </div>
-        ${destLocation ? `<div class="route-info"><span>🎯 Προορισμός:</span> <strong>${destLocation.name}</strong></div>` : ''}
+        ${destLocation ? `<div class="route-info"><span>🎯 Προορισμός:</span> <strong>${escapeHtml(destLocation.name)}</strong></div>` : ''}
         <div class="route-info">
           <span class="date-time">📅 ${dateStr}</span>
           <span class="date-time">🕐 ${timeStr}</span>

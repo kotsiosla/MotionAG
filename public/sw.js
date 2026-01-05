@@ -46,19 +46,41 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   const urlToOpen = event.notification.data?.url || '/';
+  
+  // Validate URL to prevent open redirect attacks
+  let validatedUrl = '/';
+  try {
+    // Allow relative paths starting with /
+    if (urlToOpen.startsWith('/') && !urlToOpen.startsWith('//')) {
+      validatedUrl = urlToOpen;
+    } else {
+      // Parse absolute URLs and verify they match our origin
+      const parsed = new URL(urlToOpen, self.location.origin);
+      if (parsed.origin === self.location.origin) {
+        validatedUrl = urlToOpen;
+      } else {
+        console.warn('External URL rejected in notification:', urlToOpen);
+        // Default to home for external URLs (prevents phishing)
+        validatedUrl = '/';
+      }
+    }
+  } catch (e) {
+    console.error('Invalid URL in notification:', urlToOpen, e);
+    validatedUrl = '/';
+  }
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       // Try to focus an existing window
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.navigate(urlToOpen);
+          client.navigate(validatedUrl);
           return client.focus();
         }
       }
       // Open a new window if none exists
       if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
+        return clients.openWindow(validatedUrl);
       }
     })
   );
