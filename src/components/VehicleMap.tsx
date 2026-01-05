@@ -260,6 +260,94 @@ const formatDelay = (delay?: number) => {
   return `(${minutes} λεπτά)`;
 };
 
+// Vehicle Info Bar - appears when a vehicle is selected
+const VehicleInfoBar = ({ 
+  vehicle, 
+  routeInfo, 
+  onClose, 
+  onExpand 
+}: { 
+  vehicle: Vehicle; 
+  routeInfo?: RouteInfo | null;
+  onClose: () => void;
+  onExpand: () => void;
+}) => {
+  const routeColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : '#f97316';
+  const speed = vehicle.speed !== undefined ? (vehicle.speed * 3.6).toFixed(1) : '0.0';
+  const vehicleLabel = vehicle.label || vehicle.vehicleId || vehicle.id;
+  
+  // Find current stop name
+  const currentStopName = vehicle.stopId || 'Σε κίνηση';
+  
+  return (
+    <div 
+      className="absolute top-3 left-1/2 -translate-x-1/2 z-[1001] animate-fade-in"
+      style={{ maxWidth: 'calc(100% - 120px)' }}
+    >
+      <div 
+        className="flex items-center gap-3 px-4 py-2.5 rounded-full shadow-lg text-white"
+        style={{ backgroundColor: routeColor }}
+      >
+        {/* Direction icon */}
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          width="20" 
+          height="20" 
+          viewBox="0 0 24 24" 
+          fill="currentColor"
+          style={{ transform: `rotate(${(vehicle.bearing || 0) - 45}deg)` }}
+        >
+          <path d="M3 11l19-9-9 19-2-8-8-2z"/>
+        </svg>
+        
+        {/* Vehicle ID */}
+        <span className="font-bold text-base">{vehicleLabel}</span>
+        
+        <span className="opacity-60">•</span>
+        
+        {/* Speed */}
+        <span className="text-sm">
+          {speed} <span className="text-xs opacity-80">km/h</span>
+        </span>
+        
+        <span className="opacity-60">•</span>
+        
+        {/* Current location */}
+        <div className="flex items-center gap-1.5 text-sm max-w-[200px] truncate">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"/>
+            <circle cx="12" cy="12" r="3" fill="currentColor"/>
+          </svg>
+          <span className="truncate">{currentStopName}</span>
+        </div>
+        
+        {/* Expand button */}
+        <button 
+          onClick={onExpand}
+          className="ml-1 p-1.5 hover:bg-white/20 rounded-full transition-colors"
+          title="Περισσότερες πληροφορίες"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+          </svg>
+        </button>
+        
+        {/* Close button */}
+        <button 
+          onClick={onClose}
+          className="p-1.5 hover:bg-white/20 rounded-full transition-colors"
+          title="Κλείσιμο"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // Auto-refresh indicator component
 const RefreshIndicator = ({ 
   refreshInterval, 
@@ -1740,9 +1828,33 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     }
   }, [showRoutePlanner]);
 
+  // Get route info for followed vehicle (for info bar)
+  const followedVehicleRouteInfo = followedVehicle?.routeId && routeNamesMap 
+    ? routeNamesMap.get(followedVehicle.routeId) 
+    : null;
+
   return (
     <div className="relative h-full w-full rounded-lg overflow-hidden">
       <div ref={containerRef} className="h-full w-full" />
+      
+      {/* Vehicle Info Bar - appears when a bus is selected */}
+      {followedVehicle && !showRoutePlanner && (
+        <VehicleInfoBar
+          vehicle={followedVehicle}
+          routeInfo={followedVehicleRouteInfo}
+          onClose={() => setFollowedVehicleId(null)}
+          onExpand={() => {
+            if (followedVehicle.tripId) {
+              setSelectedVehicleTrip({
+                vehicleId: followedVehicleId!,
+                tripId: followedVehicle.tripId,
+                routeId: followedVehicle.routeId,
+              });
+              setShowRoutePlanner(true);
+            }
+          }}
+        />
+      )}
       
       {/* Route Planner Panel */}
       <RoutePlannerPanel
