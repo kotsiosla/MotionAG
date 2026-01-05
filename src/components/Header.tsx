@@ -4,6 +4,7 @@ import { Moon, Sun, RefreshCw, Menu, X, Download, ChevronUp, ChevronDown, Bell, 
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { NotificationButton } from "@/components/NotificationButton";
+import { ApiStatusIndicator } from "@/components/ApiStatusIndicator";
 import {
   Select,
   SelectContent,
@@ -44,6 +45,11 @@ interface HeaderProps {
   onRemoveFavorite?: (id: string) => void;
   delayNotificationsEnabled?: boolean;
   onToggleDelayNotifications?: () => void;
+  // API Status props
+  hasApiError?: boolean;
+  apiErrorMessage?: string;
+  onApiRetry?: () => void;
+  retryCountdown?: number;
 }
 
 export function Header({
@@ -70,6 +76,10 @@ export function Header({
   onRemoveFavorite,
   delayNotificationsEnabled = true,
   onToggleDelayNotifications,
+  hasApiError = false,
+  apiErrorMessage,
+  onApiRetry,
+  retryCountdown,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [tripPlannerVisible, setTripPlannerVisible] = useState(() => {
@@ -103,11 +113,15 @@ export function Header({
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Status indicator */}
-            <div className="flex items-center gap-1">
-              <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-warning animate-pulse' : 'bg-success'}`} />
-              <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${isLoading ? 'animate-spin' : ''}`} />
-            </div>
+            {/* API Status indicator */}
+            <ApiStatusIndicator
+              isError={hasApiError}
+              isLoading={isLoading}
+              errorMessage={apiErrorMessage}
+              onRetry={onApiRetry || (() => {})}
+              lastSuccessfulUpdate={lastUpdate || undefined}
+              retryCountdown={retryCountdown}
+            />
             
             <Button
               variant="ghost"
@@ -260,10 +274,19 @@ export function Header({
             )}
           </div>
 
-          {/* Right: Refresh, Theme */}
+          {/* Right: API Status, Refresh, Theme */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            {/* API Status Indicator */}
+            <ApiStatusIndicator
+              isError={hasApiError}
+              isLoading={isLoading}
+              errorMessage={apiErrorMessage}
+              onRetry={onApiRetry || (() => {})}
+              lastSuccessfulUpdate={lastUpdate || undefined}
+              retryCountdown={retryCountdown}
+            />
+            
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground border-l border-border pl-2">
               <Select
                 value={refreshInterval.toString()}
                 onValueChange={(value) => onRefreshIntervalChange(parseInt(value))}
@@ -279,12 +302,6 @@ export function Header({
                 </SelectContent>
               </Select>
             </div>
-            {lastUpdate && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-warning animate-pulse' : 'bg-success'}`} />
-                <span className="hidden lg:inline">{formatLastUpdate(lastUpdate)}</span>
-              </div>
-            )}
             <Button
               variant="ghost"
               size="icon"
