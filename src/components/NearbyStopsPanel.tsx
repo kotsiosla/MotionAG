@@ -13,7 +13,8 @@ import {
   X,
   AlertCircle,
   Settings,
-  Minimize2
+  Minimize2,
+  GripHorizontal
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,6 +72,10 @@ export function NearbyStopsPanel({
   const [showSettings, setShowSettings] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [mobileHeight, setMobileHeight] = useState(70); // percentage of viewport height
+  const [isDraggingMobile, setIsDraggingMobile] = useState(false);
+  const dragStartYRef = useRef<number>(0);
+  const dragStartHeightRef = useRef<number>(70);
   const watchIdRef = useRef<number | null>(null);
 
   // Get nearby stops with arrivals
@@ -312,10 +317,62 @@ export function NearbyStopsPanel({
   const handleClosePanel = useCallback(() => {
     setIsPanelOpen(false);
     setSelectedStop(null);
+    setMobileHeight(70);
     if (onHighlightStop) {
       onHighlightStop(null);
     }
   }, [onHighlightStop]);
+
+  // Mobile drag handlers
+  const handleMobileDragStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingMobile(true);
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    dragStartYRef.current = clientY;
+    dragStartHeightRef.current = mobileHeight;
+  }, [mobileHeight]);
+
+  const handleMobileDragMove = useCallback((e: TouchEvent | MouseEvent) => {
+    if (!isDraggingMobile) return;
+    
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const deltaY = dragStartYRef.current - clientY;
+    const deltaPercent = (deltaY / window.innerHeight) * 100;
+    const newHeight = Math.max(30, Math.min(90, dragStartHeightRef.current + deltaPercent));
+    
+    setMobileHeight(newHeight);
+  }, [isDraggingMobile]);
+
+  const handleMobileDragEnd = useCallback(() => {
+    setIsDraggingMobile(false);
+    // Snap to positions
+    if (mobileHeight < 40) {
+      setMobileHeight(30);
+    } else if (mobileHeight > 75) {
+      setMobileHeight(85);
+    } else {
+      setMobileHeight(60);
+    }
+  }, [mobileHeight]);
+
+  // Add/remove drag listeners for mobile
+  useEffect(() => {
+    if (isDraggingMobile) {
+      document.addEventListener('mousemove', handleMobileDragMove);
+      document.addEventListener('mouseup', handleMobileDragEnd);
+      document.addEventListener('touchmove', handleMobileDragMove, { passive: false });
+      document.addEventListener('touchend', handleMobileDragEnd);
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMobileDragMove);
+      document.removeEventListener('mouseup', handleMobileDragEnd);
+      document.removeEventListener('touchmove', handleMobileDragMove);
+      document.removeEventListener('touchend', handleMobileDragEnd);
+      document.body.style.userSelect = '';
+    };
+  }, [isDraggingMobile, handleMobileDragMove, handleMobileDragEnd]);
 
   // Floating button (shown when panel is closed)
   if (!isPanelOpen) {
@@ -629,12 +686,25 @@ export function NearbyStopsPanel({
   );
 
   // Desktop: Draggable/Resizable panel
-  // Mobile: Fixed position panel
+  // Mobile: Draggable bottom sheet
   return (
     <>
-      {/* Mobile: Sheet-like panel */}
-      <div className="fixed inset-x-0 bottom-0 z-50 md:hidden" style={{ height: '70vh' }}>
-        {panelContent}
+      {/* Mobile: Draggable bottom sheet */}
+      <div 
+        className="fixed inset-x-0 bottom-0 z-50 md:hidden transition-[height] duration-150 ease-out"
+        style={{ height: `${mobileHeight}vh` }}
+      >
+        {/* Drag handle */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-6 flex items-center justify-center cursor-grab active:cursor-grabbing bg-card rounded-t-xl border-t border-x border-border touch-none"
+          onMouseDown={handleMobileDragStart}
+          onTouchStart={handleMobileDragStart}
+        >
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/40" />
+        </div>
+        <div className="h-full pt-6">
+          {panelContent}
+        </div>
       </div>
 
       {/* Desktop: Draggable/Resizable panel */}
