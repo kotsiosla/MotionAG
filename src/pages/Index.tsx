@@ -11,6 +11,8 @@ import { AlertsList } from "@/components/AlertsList";
 import { ScheduleView } from "@/components/ScheduleView";
 import { SmartTripResults } from "@/components/SmartTripResults";
 import { NearbyStopsPanel } from "@/components/NearbyStopsPanel";
+import { SavedTripsPanel } from "@/components/SavedTripsPanel";
+import { useSavedTrips } from "@/hooks/useSavedTrips";
 import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } from "@/hooks/useGtfsData";
 import { useSmartTripPlan } from "@/hooks/useSmartTripPlan";
 import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
@@ -64,6 +66,10 @@ const Index = () => {
     setDelayNotificationsEnabled(newValue);
     localStorage.setItem('delayNotificationsEnabled', JSON.stringify(newValue));
   };
+  
+  // Saved trips
+  const { savedTrips, getUpcomingTrips } = useSavedTrips();
+  const [showSavedTrips, setShowSavedTrips] = useState(false);
   
   // Favorites
   const { favorites, addFavorite, removeFavorite, isFavorite } = useFavoriteRoutes();
@@ -468,6 +474,14 @@ const Index = () => {
         onApiRetry={handleRetry}
         retryCountdown={retryCountdown}
         isUsingCachedData={isUsingCachedData}
+        onOpenSavedTrips={() => setShowSavedTrips(true)}
+        savedTripsCount={getUpcomingTrips().length}
+      />
+      
+      {/* Saved Trips Panel */}
+      <SavedTripsPanel 
+        isOpen={showSavedTrips} 
+        onClose={() => setShowSavedTrips(false)} 
       />
       
       {/* Smart Trip Plan Results Modal */}

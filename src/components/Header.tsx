@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Moon, Sun, RefreshCw, Menu, X, Download, ChevronUp, ChevronDown, Bell, BellOff } from "lucide-react";
+import { Moon, Sun, RefreshCw, Menu, X, Download, ChevronUp, ChevronDown, Bell, BellOff, Bookmark } from "lucide-react";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { NotificationButton } from "@/components/NotificationButton";
@@ -64,6 +64,8 @@ interface HeaderProps {
   onApiRetry?: () => void;
   retryCountdown?: number;
   isUsingCachedData?: boolean;
+  onOpenSavedTrips?: () => void;
+  savedTripsCount?: number;
 }
 
 export function Header({
@@ -95,6 +97,8 @@ export function Header({
   onApiRetry,
   retryCountdown,
   isUsingCachedData = false,
+  onOpenSavedTrips,
+  savedTripsCount = 0,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [tripPlannerVisible, setTripPlannerVisible] = useState(() => {
@@ -167,6 +171,22 @@ export function Header({
               title={delayNotificationsEnabled ? "Απενεργοποίηση ειδοποιήσεων καθυστερήσεων" : "Ενεργοποίηση ειδοποιήσεων καθυστερήσεων"}
             >
               {delayNotificationsEnabled ? <Bell className="h-4 w-4 text-primary" /> : <BellOff className="h-4 w-4 text-muted-foreground" />}
+            </Button>
+
+            {/* Saved trips button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onOpenSavedTrips}
+              className="h-8 w-8 relative"
+              title="Οι διαδρομές μου"
+            >
+              <Bookmark className="h-4 w-4" />
+              {savedTripsCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center">
+                  {savedTripsCount}
+                </span>
+              )}
             </Button>
 
             <Link to="/install">
@@ -337,6 +357,21 @@ export function Header({
               title={delayNotificationsEnabled ? "Απενεργοποίηση ειδοποιήσεων καθυστερήσεων" : "Ενεργοποίηση ειδοποιήσεων καθυστερήσεων"}
             >
               {delayNotificationsEnabled ? <Bell className="h-4 w-4 text-primary" /> : <BellOff className="h-4 w-4 text-muted-foreground" />}
+            </Button>
+            {/* Saved trips button - Desktop */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onOpenSavedTrips}
+              className="h-7 w-7 relative"
+              title="Οι διαδρομές μου"
+            >
+              <Bookmark className="h-4 w-4" />
+              {savedTripsCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center">
+                  {savedTripsCount}
+                </span>
+              )}
             </Button>
             <Link to="/install">
               <Button
