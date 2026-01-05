@@ -313,7 +313,11 @@ export function SmartTripResults({
             </div>
             <div className="flex items-center gap-1 bg-secondary/50 px-2 py-1 rounded text-xs">
               <Clock className="h-3 w-3" />
-              <span>{departureTime === 'now' ? 'Τώρα' : departureTime}</span>
+              <span>
+                {departureTime === 'now' && 'Τώρα'}
+                {departureTime === 'all_day' && 'Όλη η μέρα'}
+                {departureTime !== 'now' && departureTime !== 'all_day' && departureTime}
+              </span>
             </div>
             
             {/* Walking Distance Selector */}

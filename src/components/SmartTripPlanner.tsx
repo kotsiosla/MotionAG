@@ -69,21 +69,14 @@ type SelectedLocation =
   | { type: 'poi'; poi: PointOfInterest; nearestStop: StaticStop; displayName: string }
   | { type: 'address'; location: GeocodedLocation; nearestStop: StaticStop; displayName: string };
 
-// Generate time options
-const generateTimeOptions = () => {
-  const options: { value: string; label: string }[] = [];
-  options.push({ value: 'now', label: 'Τώρα' });
-  
-  for (let h = 5; h < 24; h++) {
-    for (let m = 0; m < 60; m += 15) {
-      const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-      options.push({ value: time, label: time });
-    }
-  }
-  return options;
-};
+// Time mode options
+type TimeMode = 'now' | 'all_day' | 'specific';
 
-const TIME_OPTIONS = generateTimeOptions();
+const TIME_PRESETS = [
+  { value: 'now', label: 'Τώρα', icon: '⏱️' },
+  { value: 'all_day', label: 'Όλη η μέρα', icon: '📅' },
+  { value: 'specific', label: 'Συγκεκριμένη ώρα', icon: '🕐' },
+];
 
 // Location search input component with geocoding and voice search
 function LocationSearchInput({
@@ -431,9 +424,18 @@ export function SmartTripPlanner({
   const [origin, setOrigin] = useState<SelectedLocation | null>(null);
   const [destination, setDestination] = useState<SelectedLocation | null>(null);
   const [isLocating, setIsLocating] = useState(false);
-  const [departureTime, setDepartureTime] = useState<string>("now");
+  const [timeMode, setTimeMode] = useState<TimeMode>("now");
+  const [specificTime, setSpecificTime] = useState<string>("09:00");
   const [departureDate, setDepartureDate] = useState<Date>(new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
+  
+  // Compute the actual departure time to pass to search
+  const departureTime = useMemo(() => {
+    if (timeMode === 'now') return 'now';
+    if (timeMode === 'all_day') return 'all_day';
+    return specificTime;
+  }, [timeMode, specificTime]);
 
   const isToday = useMemo(() => {
     const today = new Date();
@@ -668,24 +670,91 @@ export function SmartTripPlanner({
             </Popover>
           </div>
 
-          {/* Time Picker */}
-          <div className="w-[calc(50%-4px)] sm:w-[100px] flex-shrink-0">
+          {/* Time Picker - Improved */}
+          <div className="w-[calc(50%-4px)] sm:w-auto flex-shrink-0">
             <div className="flex items-center gap-1 mb-1">
               <span className="text-xs text-muted-foreground">Ώρα</span>
             </div>
-            <Select value={departureTime} onValueChange={setDepartureTime}>
-              <SelectTrigger className="h-10 sm:h-9 bg-background">
-                <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="max-h-[300px] z-[100]">
-                {TIME_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={timePickerOpen} onOpenChange={setTimePickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="h-10 sm:h-9 justify-start text-left font-normal bg-background min-w-[120px]"
+                >
+                  <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
+                  <span className="text-sm">
+                    {timeMode === 'now' && 'Τώρα'}
+                    {timeMode === 'all_day' && 'Όλη η μέρα'}
+                    {timeMode === 'specific' && specificTime}
+                  </span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-2 z-[100]" align="start">
+                <div className="space-y-2">
+                  {/* Preset buttons */}
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => {
+                        setTimeMode('now');
+                        setTimePickerOpen(false);
+                      }}
+                      className={cn(
+                        "w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-2",
+                        timeMode === 'now' 
+                          ? "bg-primary text-primary-foreground" 
+                          : "hover:bg-accent"
+                      )}
+                    >
+                      <Clock className="h-4 w-4" />
+                      <span>Τώρα</span>
+                      <span className="text-xs opacity-70 ml-auto">Από αυτή τη στιγμή</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setTimeMode('all_day');
+                        setTimePickerOpen(false);
+                      }}
+                      className={cn(
+                        "w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-2",
+                        timeMode === 'all_day' 
+                          ? "bg-primary text-primary-foreground" 
+                          : "hover:bg-accent"
+                      )}
+                    >
+                      <CalendarIcon className="h-4 w-4" />
+                      <span>Όλη η μέρα</span>
+                      <span className="text-xs opacity-70 ml-auto">Όλα τα δρομολόγια</span>
+                    </button>
+                  </div>
+                  
+                  <div className="border-t border-border pt-2">
+                    <div className="text-xs text-muted-foreground mb-1.5 px-1">Συγκεκριμένη ώρα:</div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="time"
+                        value={specificTime}
+                        onChange={(e) => {
+                          setSpecificTime(e.target.value);
+                          setTimeMode('specific');
+                        }}
+                        className="flex-1 h-9 px-3 rounded-md border border-input bg-background text-sm"
+                      />
+                      <Button
+                        size="sm"
+                        variant={timeMode === 'specific' ? 'default' : 'outline'}
+                        onClick={() => {
+                          setTimeMode('specific');
+                          setTimePickerOpen(false);
+                        }}
+                      >
+                        OK
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Favorites Dropdown */}

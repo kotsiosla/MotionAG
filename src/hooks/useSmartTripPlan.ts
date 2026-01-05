@@ -879,7 +879,11 @@ export function useSmartTripPlan(
       const today = new Date();
       const isToday = departureDate ? departureDate.toDateString() === today.toDateString() : true;
       let filterTimeStr: string;
-      if (!departureTime || departureTime === 'now') {
+      
+      if (departureTime === 'all_day') {
+        // Show all trips for the day - start from 00:00
+        filterTimeStr = '00:00:00';
+      } else if (!departureTime || departureTime === 'now') {
         if (isToday) {
           filterTimeStr = `${today.getHours().toString().padStart(2, '0')}:${today.getMinutes().toString().padStart(2, '0')}:00`;
         } else {
