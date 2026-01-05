@@ -4,7 +4,8 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
-import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Home, ZoomIn, ZoomOut, Route, Maximize2, Focus } from "lucide-react";
+import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Home, ZoomIn, ZoomOut, Route, Maximize2, Focus, Share2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import { SchedulePanel } from "@/components/SchedulePanel";
 import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
 import { Button } from "@/components/ui/button";
@@ -2159,6 +2160,46 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           onClick={() => mapRef.current?.zoomOut()}
         >
           <ZoomOut className="h-3.5 w-3.5" />
+        </Button>
+
+        <Button
+          variant="secondary"
+          size="icon"
+          className="h-8 w-8 rounded-full shadow-md bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
+          title="Κοινοποίηση"
+          onClick={async () => {
+            const shareData = {
+              title: 'Motion - Cyprus Public Transport',
+              text: 'Παρακολούθηση λεωφορείων σε πραγματικό χρόνο στην Κύπρο',
+              url: window.location.href,
+            };
+            
+            if (navigator.share) {
+              try {
+                await navigator.share(shareData);
+              } catch (err) {
+                if ((err as Error).name !== 'AbortError') {
+                  console.error('Share failed:', err);
+                }
+              }
+            } else {
+              try {
+                await navigator.clipboard.writeText(window.location.href);
+                toast({
+                  title: "Link αντιγράφηκε",
+                  description: "Το link αντιγράφηκε στο clipboard",
+                });
+              } catch {
+                toast({
+                  title: "Σφάλμα",
+                  description: "Δεν ήταν δυνατή η αντιγραφή του link",
+                  variant: "destructive",
+                });
+              }
+            }
+          }}
+        >
+          <Share2 className="h-3.5 w-3.5" />
         </Button>
       </div>
 
