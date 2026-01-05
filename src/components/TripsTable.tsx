@@ -46,9 +46,30 @@ export function TripsTable({ trips, isLoading, routeNames }: TripsTableProps) {
         longName: info.route_long_name || '',
         color: info.route_color ? `#${info.route_color}` : undefined,
         textColor: info.route_text_color ? `#${info.route_text_color}` : '#FFFFFF',
+        routeType: info.route_type,
       };
     }
-    return { shortName: routeId, longName: '', color: undefined, textColor: undefined };
+    return { shortName: routeId, longName: '', color: undefined, textColor: undefined, routeType: undefined };
+  };
+
+  const getDirectionLabel = (directionId?: number) => {
+    if (directionId === undefined) return null;
+    return directionId === 0 ? 'Πορεία Α' : 'Πορεία Β';
+  };
+
+  const getScheduleRelationshipLabel = (rel?: string) => {
+    if (!rel) return null;
+    const labels: Record<string, string> = {
+      '0': 'Προγραμματισμένο',
+      '1': 'Προστέθηκε',
+      '2': 'Ακυρώθηκε',
+      '3': 'Χωρίς πρόγραμμα',
+      'SCHEDULED': 'Προγραμματισμένο',
+      'ADDED': 'Προστέθηκε',
+      'CANCELED': 'Ακυρώθηκε',
+      'UNSCHEDULED': 'Χωρίς πρόγραμμα',
+    };
+    return labels[rel] || rel;
   };
 
   const filteredTrips = useMemo(() => {
@@ -140,45 +161,61 @@ export function TripsTable({ trips, isLoading, routeNames }: TripsTableProps) {
                                     {route.shortName}
                                   </span>
                                 )}
-                                {delayInfo && (
-                                  <span className={`status-badge ${delayInfo.className}`}>
-                                    {delayInfo.text}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-3 text-xs text-muted-foreground mb-1">
-                                <span>Trip: {trip.tripId || '-'}</span>
-                                {trip.vehicleId && (
-                                  <span>
-                                    Όχημα: {trip.vehicleId}
-                                    {trip.vehicleLabel && ` (${trip.vehicleLabel})`}
-                                  </span>
-                                )}
-                              </div>
-                              {route.longName && (
-                                <div className="text-xs text-muted-foreground">
-                                  {route.longName}
-                                </div>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {formatTimestamp(trip.timestamp)}
-                        </span>
-                        {isExpanded ? (
-                          <ChevronUp className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
-                        )}
-                      </div>
-                    </div>
-                  </CollapsibleTrigger>
+                                                {delayInfo && (
+                                                  <span className={`status-badge ${delayInfo.className}`}>
+                                                    {delayInfo.text}
+                                                  </span>
+                                                )}
+                                                {getDirectionLabel(trip.directionId) && (
+                                                  <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                                    {getDirectionLabel(trip.directionId)}
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mb-1">
+                                                <span>Trip: {trip.tripId || '-'}</span>
+                                                {trip.vehicleId && (
+                                                  <span>
+                                                    Όχημα: {trip.vehicleId}
+                                                    {trip.vehicleLabel && ` (${trip.vehicleLabel})`}
+                                                  </span>
+                                                )}
+                                                {trip.startTime && (
+                                                  <span>Αναχώρηση: {trip.startTime}</span>
+                                                )}
+                                                {trip.startDate && (
+                                                  <span>Ημερ/νία: {trip.startDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1')}</span>
+                                                )}
+                                              </div>
+                                              {route.longName && (
+                                                <div className="text-xs text-muted-foreground mb-1">
+                                                  {route.longName}
+                                                </div>
+                                              )}
+                                              {getScheduleRelationshipLabel(trip.scheduleRelationship) && (
+                                                <div className="text-xs text-muted-foreground/70">
+                                                  Κατάσταση: {getScheduleRelationshipLabel(trip.scheduleRelationship)}
+                                                </div>
+                                              )}
+                                            </>
+                                          );
+                                        })()}
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-muted-foreground">
+                                          {formatTimestamp(trip.timestamp)}
+                                        </span>
+                                        {isExpanded ? (
+                                          <ChevronUp className="h-4 w-4" />
+                                        ) : (
+                                          <ChevronDown className="h-4 w-4" />
+                                        )}
+                                      </div>
+                                    </div>
+                                  </CollapsibleTrigger>
 
-                  <CollapsibleContent>
-                    <div className="px-4 pb-4">
+                                  <CollapsibleContent>
+                                    <div className="px-4 pb-4">
                       <div className="bg-muted/30 rounded-lg p-3">
                         <h4 className="text-xs font-medium mb-2 text-muted-foreground">
                           Ενημερώσεις Στάσεων ({trip.stopTimeUpdates.length})
