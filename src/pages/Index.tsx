@@ -515,25 +515,27 @@ const Index = () => {
         </Tabs>
       </main>
 
-      {/* Nearby Stops Panel */}
-      <NearbyStopsPanel
-        stops={staticStopsQuery.data?.data || []}
-        trips={effectiveTripsData?.data || []}
-        vehicles={effectiveVehiclesData?.data || []}
-        routeNamesMap={routeNamesMap}
-        onSelectVehicle={(vehicleId, tripId, routeId) => {
-          if (routeId) setSelectedRoute(routeId);
-          setFollowVehicleId(vehicleId);
-          setActiveTab("map");
-        }}
-        onStopSelect={(stop) => {
-          setActiveTab("map");
-        }}
-        onHighlightStop={(stop) => {
-          // Pass highlighted stop to VehicleMap - will be implemented via state
-          setHighlightedStop(stop);
-        }}
-      />
+      {/* Nearby Stops Panel - only show on map tab */}
+      {activeTab === "map" && (
+        <NearbyStopsPanel
+          stops={staticStopsQuery.data?.data || []}
+          trips={effectiveTripsData?.data || []}
+          vehicles={effectiveVehiclesData?.data || []}
+          routeNamesMap={routeNamesMap}
+          onSelectVehicle={(vehicleId, tripId, routeId) => {
+            if (routeId) setSelectedRoute(routeId);
+            setFollowVehicleId(vehicleId);
+            setActiveTab("map");
+          }}
+          onStopSelect={(stop) => {
+            setActiveTab("map");
+          }}
+          onHighlightStop={(stop) => {
+            // Pass highlighted stop to VehicleMap - will be implemented via state
+            setHighlightedStop(stop);
+          }}
+        />
+      )}
     </div>
   );
 };
