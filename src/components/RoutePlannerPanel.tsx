@@ -1,7 +1,9 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { X, MapPin, Navigation, Clock, Footprints, Bus, ChevronDown, ChevronUp, Search, Loader2, LocateFixed, ArrowRight, MousePointer2, Target, Bell, BellOff, Volume2, Settings } from "lucide-react";
+import { X, MapPin, Navigation, Clock, Footprints, Bus, ChevronDown, ChevronUp, Search, Loader2, LocateFixed, ArrowRight, MousePointer2, Target, Bell, BellOff, Volume2, Settings, GripHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { StaticStop, Trip, Vehicle, RouteInfo } from "@/types/gtfs";
 
 interface Location {
@@ -119,6 +121,7 @@ export function RoutePlannerPanel({
   onClearVehicleTrip,
   onTripStopClick,
 }: RoutePlannerPanelProps) {
+  const isMobile = useIsMobile();
   const [origin, setOrigin] = useState<Location | null>(null);
   const [destination, setDestination] = useState<Location | null>(null);
   const [originQuery, setOriginQuery] = useState("");
@@ -151,6 +154,10 @@ export function RoutePlannerPanel({
     return localStorage.getItem('notificationSound') || 'chime';
   });
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [mobileHeight, setMobileHeight] = useState(70);
+  const [isDraggingMobile, setIsDraggingMobile] = useState(false);
+  const dragStartRef = useRef({ y: 0 });
+  const dragStartHeightRef = useRef<number>(70);
   const distanceOptions = [200, 300, 500, 750, 1000];
   const soundOptions = [
     { id: 'chime', name: 'Κουδούνι', icon: '🔔' },
@@ -158,6 +165,57 @@ export function RoutePlannerPanel({
     { id: 'bell', name: 'Καμπάνα', icon: '🔊' },
     { id: 'soft', name: 'Απαλός', icon: '🎵' },
   ];
+
+  // Mobile drag handlers
+  const handleMobileResizeStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingMobile(true);
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    dragStartRef.current = { y: clientY };
+    dragStartHeightRef.current = mobileHeight;
+  }, [mobileHeight]);
+
+  const handleMobileDragMove = useCallback((e: TouchEvent | MouseEvent) => {
+    if (!isDraggingMobile) return;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const deltaY = dragStartRef.current.y - clientY;
+    const deltaPercent = (deltaY / window.innerHeight) * 100;
+    const newHeight = Math.max(30, Math.min(90, dragStartHeightRef.current + deltaPercent));
+    setMobileHeight(newHeight);
+  }, [isDraggingMobile]);
+
+  const handleMobileDragEnd = useCallback((e?: TouchEvent | MouseEvent) => {
+    setIsDraggingMobile(false);
+    // Snap to positions
+    if (mobileHeight < 35) {
+      onClose();
+    } else if (mobileHeight < 50) {
+      setMobileHeight(45);
+    } else if (mobileHeight > 75) {
+      setMobileHeight(85);
+    } else {
+      setMobileHeight(65);
+    }
+  }, [mobileHeight, onClose]);
+
+  // Add/remove drag listeners for mobile
+  useEffect(() => {
+    if (isDraggingMobile) {
+      document.addEventListener('mousemove', handleMobileDragMove);
+      document.addEventListener('mouseup', handleMobileDragEnd);
+      document.addEventListener('touchmove', handleMobileDragMove, { passive: false });
+      document.addEventListener('touchend', handleMobileDragEnd);
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMobileDragMove);
+      document.removeEventListener('mouseup', handleMobileDragEnd);
+      document.removeEventListener('touchmove', handleMobileDragMove);
+      document.removeEventListener('touchend', handleMobileDragEnd);
+      document.body.style.userSelect = '';
+    };
+  }, [isDraggingMobile, handleMobileDragMove, handleMobileDragEnd]);
 
   // Save notification settings to localStorage
   useEffect(() => {
@@ -852,16 +910,17 @@ export function RoutePlannerPanel({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="absolute top-0 left-0 bottom-0 w-full sm:w-[380px] glass-card z-[1001] flex flex-col overflow-hidden">
+  // Panel content (shared between mobile and desktop)
+  const panelContent = (
+    <>
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-border">
+      <div className="flex items-center justify-between p-3 border-b border-border bg-card shrink-0">
         <div className="flex items-center gap-2">
           <Navigation className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold text-sm sm:text-base">Σχεδιασμός Διαδρομής</h2>
+          <h2 className="font-semibold text-sm">Σχεδιασμός Διαδρομής</h2>
         </div>
-        <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8" onClick={onClose}>
-          <X className="h-5 w-5 sm:h-4 sm:w-4" />
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+          <X className="h-4 w-4" />
         </Button>
       </div>
 
@@ -1472,13 +1531,42 @@ export function RoutePlannerPanel({
 
       {/* Footer with calculate button - hidden when showing vehicle trip */}
       {!selectedVehicleTripInfo && origin && destination && !isCalculating && (
-        <div className="p-3 border-t border-border">
+        <div className="p-3 border-t border-border shrink-0 bg-card">
           <Button className="w-full" onClick={calculateRoute} disabled={isCalculating}>
             <Navigation className="h-4 w-4 mr-2" />
             Υπολογισμός Διαδρομής
           </Button>
         </div>
       )}
+    </>
+  );
+
+  // Mobile layout - bottom sheet
+  if (isMobile) {
+    return (
+      <div 
+        className="fixed bottom-0 left-0 right-0 z-[1001] bg-card border-t border-border shadow-2xl rounded-t-xl flex flex-col transition-all duration-150 ease-out"
+        style={{ height: `${mobileHeight}vh` }}
+      >
+        {/* Drag handle */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-6 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none"
+          onMouseDown={handleMobileResizeStart}
+          onTouchStart={handleMobileResizeStart}
+        >
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/40" />
+        </div>
+        <div className="h-full pt-4 flex flex-col overflow-hidden">
+          {panelContent}
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop layout - side panel
+  return (
+    <div className="absolute top-0 left-0 bottom-0 w-[380px] glass-card z-[1001] flex flex-col overflow-hidden">
+      {panelContent}
     </div>
   );
 }
