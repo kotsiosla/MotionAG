@@ -84,19 +84,20 @@ function parseTimeToMinutes(timeStr: string): number {
   return parts[0] * 60 + parts[1];
 }
 
-// Find nearby stops within a radius (in meters)
+// Find nearby stops within a radius (in meters). If maxRadius is 0, return all stops sorted by distance
 function findNearbyStops(
   lat: number,
   lon: number,
   stops: StaticStop[],
-  maxRadius: number = 500
+  maxRadius: number = 0 // 0 means unlimited
 ): Array<{ stop: StaticStop; distance: number }> {
   const nearby: Array<{ stop: StaticStop; distance: number }> = [];
   
   for (const stop of stops) {
     if (!stop.stop_lat || !stop.stop_lon) continue;
     const distance = calculateDistance(lat, lon, stop.stop_lat, stop.stop_lon);
-    if (distance <= maxRadius) {
+    // If maxRadius is 0, include all stops; otherwise filter by radius
+    if (maxRadius === 0 || distance <= maxRadius) {
       nearby.push({ stop, distance });
     }
   }
@@ -231,7 +232,7 @@ function findJourneys(
   routeMap: Map<string, RouteInfo>,
   stopMap: Map<string, StaticStop>,
   filterTimeStr: string,
-  maxWalkingDistance: number = 500,
+  maxWalkingDistance: number = 0, // 0 means unlimited
   maxTransfers: number = 2
 ): JourneyOption[] {
   const journeys: JourneyOption[] = [];

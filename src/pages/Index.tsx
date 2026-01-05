@@ -43,7 +43,7 @@ const Index = () => {
   const [tripDestLocation, setTripDestLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [maxWalkingDistance, setMaxWalkingDistance] = useState<number>(() => {
     const saved = localStorage.getItem('maxWalkingDistance');
-    return saved ? parseInt(saved, 10) : 500;
+    return saved ? parseInt(saved, 10) : 0; // Default to unlimited (0)
   });
   
   // Highlighted stop (for nearby stops panel)

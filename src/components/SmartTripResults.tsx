@@ -29,6 +29,7 @@ interface SmartTripResultsProps {
 }
 
 const WALKING_DISTANCE_OPTIONS = [
+  { value: 0, label: 'Χωρίς όριο' },
   { value: 300, label: '300μ' },
   { value: 400, label: '400μ' },
   { value: 500, label: '500μ' },
