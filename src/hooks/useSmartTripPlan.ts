@@ -389,8 +389,8 @@ function findJourneys(
   
   console.log(`Found ${journeys.length} direct journeys`);
   
-  // STEP 2: Find ONE-TRANSFER routes if not enough direct routes
-  if (journeys.length < 5 && maxTransfers >= 1) {
+  // STEP 2: Find ONE-TRANSFER routes
+  if (maxTransfers >= 1) {
     // For each trip from origin, find where it goes
     // Then for each of those stops, check if another trip can reach destination
     
