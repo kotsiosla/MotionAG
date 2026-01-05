@@ -33,69 +33,65 @@ interface VehicleMapProps {
 }
 
 const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: string, isOnSelectedRoute?: boolean, routeShortName?: string) => {
-  const rotation = bearing || 0;
-  const bgColor = routeColor ? `#${routeColor}` : '#f97316'; // Orange default like the image
-  const routeLabel = routeShortName || '';
+  const bgColor = routeColor ? `#${routeColor}` : '#f97316'; // Orange default
   
-  // Clean bus icon like the reference image
+  // Simple clean circle icon like busonmap.com
   if (isOnSelectedRoute || isFollowed) {
+    // Slightly larger for followed/selected vehicles
+    const size = 24;
     return L.divIcon({
       className: 'route-vehicle-marker',
       html: `
-        <div style="position: relative; width: 48px; height: 60px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">
-          <!-- Teardrop/pin shape pointing in direction -->
-          <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%) rotate(${rotation}deg); transform-origin: center 40px; transition: transform 1.2s cubic-bezier(0.25, 0.1, 0.25, 1);">
-            <svg width="48" height="60" viewBox="0 0 48 60">
-              <!-- Pin/teardrop shape -->
-              <path d="M24 58 C24 58 4 35 4 22 C4 11 13 2 24 2 C35 2 44 11 44 22 C44 35 24 58 24 58Z" 
-                    fill="${bgColor}" stroke="white" stroke-width="2"/>
-              <!-- Bus icon inside -->
-              <g transform="translate(12, 10)">
-                <!-- Bus body -->
-                <rect x="2" y="4" width="20" height="16" rx="3" fill="white"/>
-                <!-- Windows -->
-                <rect x="4" y="6" width="6" height="4" rx="1" fill="${bgColor}"/>
-                <rect x="14" y="6" width="6" height="4" rx="1" fill="${bgColor}"/>
-                <!-- Front -->
-                <rect x="4" y="12" width="16" height="6" rx="1" fill="rgba(0,0,0,0.1)"/>
-                <!-- Wheels -->
-                <circle cx="7" cy="20" r="2.5" fill="#333"/>
-                <circle cx="17" cy="20" r="2.5" fill="#333"/>
-              </g>
-              <!-- Route number -->
-              ${routeLabel ? `<text x="24" y="30" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="system-ui, sans-serif">${routeLabel}</text>` : ''}
-            </svg>
-          </div>
+        <div style="
+          width: ${size}px; 
+          height: ${size}px; 
+          background: ${bgColor}; 
+          border: 3px solid white; 
+          border-radius: 50%; 
+          box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">
+          <div style="
+            width: 6px; 
+            height: 6px; 
+            background: white; 
+            border-radius: 50%;
+          "></div>
         </div>
       `,
-      iconSize: [48, 60],
-      iconAnchor: [24, 60],
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
     });
   }
   
-  // Smaller bus icon for non-selected routes
+  // Standard small circle for all vehicles
+  const size = 18;
   return L.divIcon({
     className: 'vehicle-marker',
     html: `
-      <div style="position: relative; width: 32px; height: 40px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25));">
-        <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%) rotate(${rotation}deg); transform-origin: center 28px; transition: transform 1.2s cubic-bezier(0.25, 0.1, 0.25, 1);">
-          <svg width="32" height="40" viewBox="0 0 32 40">
-            <!-- Pin shape -->
-            <path d="M16 38 C16 38 3 24 3 15 C3 8 9 2 16 2 C23 2 29 8 29 15 C29 24 16 38 16 38Z" 
-                  fill="${bgColor}" stroke="white" stroke-width="1.5"/>
-            <!-- Bus silhouette -->
-            <g transform="translate(8, 7)">
-              <rect x="2" y="2" width="12" height="10" rx="2" fill="white"/>
-              <rect x="3" y="3" width="4" height="3" rx="0.5" fill="${bgColor}" opacity="0.7"/>
-              <rect x="9" y="3" width="4" height="3" rx="0.5" fill="${bgColor}" opacity="0.7"/>
-            </g>
-            ${routeLabel ? `<text x="16" y="20" text-anchor="middle" fill="white" font-size="9" font-weight="bold" font-family="system-ui">${routeLabel}</text>` : ''}
-          </svg>
-        </div>
+      <div style="
+        width: ${size}px; 
+        height: ${size}px; 
+        background: ${bgColor}; 
+        border: 2px solid white; 
+        border-radius: 50%; 
+        box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">
+        <div style="
+          width: 4px; 
+          height: 4px; 
+          background: white; 
+          border-radius: 50%;
+        "></div>
       </div>
     `,
-    iconSize: [32, 40],
-    iconAnchor: [16, 40],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 };
 
