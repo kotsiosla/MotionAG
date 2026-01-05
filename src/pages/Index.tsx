@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Map as MapIcon, Route, MapPin, Bell, Calendar } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Header } from "@/components/Header";
@@ -140,17 +140,76 @@ const Index = () => {
   const hasError = vehiclesQuery.isError || tripsQuery.isError || alertsQuery.isError;
   const errorMessage = vehiclesQuery.error?.message || tripsQuery.error?.message || alertsQuery.error?.message;
 
+  // Track last successful update for status indicator
+  const [lastSuccessfulUpdate, setLastSuccessfulUpdate] = useState<number | null>(null);
+  
+  useEffect(() => {
+    if (vehiclesQuery.data?.timestamp || tripsQuery.data?.timestamp) {
+      setLastSuccessfulUpdate(Date.now());
+    }
+  }, [vehiclesQuery.data?.timestamp, tripsQuery.data?.timestamp]);
+
   const lastUpdate = Math.max(
     vehiclesQuery.data?.timestamp || 0,
     tripsQuery.data?.timestamp || 0,
     alertsQuery.data?.timestamp || 0
   );
 
-  const handleRetry = () => {
+  // Auto-retry logic with countdown
+  const [retryCountdown, setRetryCountdown] = useState<number>(0);
+  const retryIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleRetry = useCallback(() => {
     vehiclesQuery.refetch();
     tripsQuery.refetch();
     alertsQuery.refetch();
-  };
+  }, [vehiclesQuery, tripsQuery, alertsQuery]);
+
+  // Auto-retry when there's an error
+  useEffect(() => {
+    if (hasError && !isLoading) {
+      // Clear any existing intervals
+      if (retryIntervalRef.current) clearTimeout(retryIntervalRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      
+      // Set countdown to 30 seconds
+      const retryDelay = 30;
+      setRetryCountdown(retryDelay);
+      
+      // Start countdown
+      countdownIntervalRef.current = setInterval(() => {
+        setRetryCountdown(prev => {
+          if (prev <= 1) {
+            if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      // Schedule retry
+      retryIntervalRef.current = setTimeout(() => {
+        handleRetry();
+      }, retryDelay * 1000);
+    } else {
+      // Clear intervals when no error
+      if (retryIntervalRef.current) {
+        clearTimeout(retryIntervalRef.current);
+        retryIntervalRef.current = null;
+      }
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
+      setRetryCountdown(0);
+    }
+    
+    return () => {
+      if (retryIntervalRef.current) clearTimeout(retryIntervalRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    };
+  }, [hasError, isLoading, handleRetry]);
 
   const alertCount = alertsQuery.data?.data?.length || 0;
 
@@ -186,6 +245,10 @@ const Index = () => {
         onRemoveFavorite={removeFavorite}
         delayNotificationsEnabled={delayNotificationsEnabled}
         onToggleDelayNotifications={toggleDelayNotifications}
+        hasApiError={hasError}
+        apiErrorMessage={errorMessage}
+        onApiRetry={handleRetry}
+        retryCountdown={retryCountdown}
       />
       
       {/* Trip Plan Results Modal */}
