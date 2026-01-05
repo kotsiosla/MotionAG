@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { setPushEndpoint } from '@/hooks/useSavedTrips';
 
 // VAPID public key from environment
 const VAPID_PUBLIC_KEY = 'BOY7TtDjqW97iKphI_H198l6XVX5_JV2msRrSPs8yz7JsVyJmyTTQh1sX8D43CyUpEzEktYTfsiC238Vi2QGjJ0';
@@ -124,6 +125,9 @@ export function usePushSubscription() {
       setIsSubscribed(true);
       setSubscribedRoutes(routeIds);
       localStorage.setItem('push_subscribed_routes', JSON.stringify(routeIds));
+      
+      // Store endpoint for saved trips sync
+      setPushEndpoint(subscription.endpoint);
       
       toast({
         title: 'Επιτυχής εγγραφή',

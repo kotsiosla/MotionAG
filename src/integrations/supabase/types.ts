@@ -44,6 +44,57 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_trips: {
+        Row: {
+          created_at: string
+          departure_date: string
+          departure_time: string
+          destination_stop_id: string
+          destination_stop_name: string
+          id: string
+          journey_data: Json
+          origin_stop_id: string
+          origin_stop_name: string
+          push_endpoint: string
+          reminder_minutes: number
+          reminder_sent: boolean
+          route_names: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          departure_date: string
+          departure_time: string
+          destination_stop_id: string
+          destination_stop_name: string
+          id?: string
+          journey_data: Json
+          origin_stop_id: string
+          origin_stop_name: string
+          push_endpoint: string
+          reminder_minutes?: number
+          reminder_sent?: boolean
+          route_names?: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          departure_date?: string
+          departure_time?: string
+          destination_stop_id?: string
+          destination_stop_name?: string
+          id?: string
+          journey_data?: Json
+          origin_stop_id?: string
+          origin_stop_name?: string
+          push_endpoint?: string
+          reminder_minutes?: number
+          reminder_sent?: boolean
+          route_names?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
