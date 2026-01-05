@@ -382,6 +382,24 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     selectedRoute !== 'all' ? selectedRoute : null,
     selectedOperator
   );
+  
+  // Get the routeId of the followed vehicle for fetching its shape
+  const followedVehicleRouteId = useMemo(() => {
+    if (!followedVehicleId) return null;
+    const vehicle = vehicles.find(v => (v.vehicleId || v.id) === followedVehicleId);
+    return vehicle?.routeId || null;
+  }, [followedVehicleId, vehicles]);
+  
+  // Fetch route shape for followed vehicle (when different from selected route)
+  const { data: followedRouteShapeData } = useRouteShape(
+    followedVehicleRouteId && followedVehicleRouteId !== selectedRoute ? followedVehicleRouteId : null,
+    selectedOperator
+  );
+  
+  // Use whichever route shape is relevant for the followed vehicle
+  const effectiveRouteShapeData = followedVehicleRouteId === selectedRoute 
+    ? routeShapeData 
+    : (followedRouteShapeData || routeShapeData);
 
   // Get route info for coloring
   const selectedRouteInfo = selectedRoute !== 'all' && routeNamesMap 
@@ -878,10 +896,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       let effectiveBearing = vehicle.bearing;
       
       // Check if this vehicle should snap to route shape
-      const shouldSnapToRoute = isFollowed && routeShapeData?.directions?.[0]?.shape;
+      const vehicleRouteShape = isFollowed && effectiveRouteShapeData?.directions?.[0]?.shape;
       
-      if (shouldSnapToRoute) {
-        const shape = routeShapeData.directions[0].shape;
+      if (vehicleRouteShape) {
+        const shape = effectiveRouteShapeData.directions[0].shape;
         const snapped = snapToRouteLine(vehicle.latitude!, vehicle.longitude!, shape);
         console.log('[VehicleMap] Snap to route:', { vehicleId, snapped, shapeLength: shape.length });
         if (snapped) {
@@ -890,7 +908,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           effectiveBearing = snapped.bearing;
         }
       } else if (isFollowed) {
-        console.log('[VehicleMap] No route shape for followed vehicle:', { vehicleId, hasRouteShape: !!routeShapeData });
+        console.log('[VehicleMap] No route shape for followed vehicle:', { vehicleId, hasEffectiveShape: !!effectiveRouteShapeData, followedVehicleRouteId });
       }
       
       // Calculate bearing from previous position if not provided
@@ -920,7 +938,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           const markerElement = existingMarker.getElement();
           if (markerElement) {
             // Smoother transition for route-snapped vehicles
-            markerElement.style.transition = shouldSnapToRoute 
+            markerElement.style.transition = vehicleRouteShape 
               ? 'transform 2s cubic-bezier(0.25, 0.1, 0.25, 1)' 
               : 'transform 1.2s cubic-bezier(0.25, 0.1, 0.25, 1)';
           }
@@ -1108,7 +1126,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         // Skip auto-fitting after initial load to prevent jarring movements
       }
     }
-  }, [vehicles, followedVehicleId, routeNamesMap, tripMap, stopMap, selectedRoute, routeShapeData]);
+  }, [vehicles, followedVehicleId, routeNamesMap, tripMap, stopMap, selectedRoute, effectiveRouteShapeData, followedVehicleRouteId]);
 
   // Get stops with vehicles currently stopped
   const stopsWithVehicles = useMemo(() => {
