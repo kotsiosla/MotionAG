@@ -941,15 +941,19 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         // Smooth animation: update position of existing marker
         const currentLatLng = existingMarker.getLatLng();
         
-        // Only animate if position actually changed
-        if (currentLatLng.lat !== newLatLng.lat || currentLatLng.lng !== newLatLng.lng) {
-          // Get the marker's DOM element and add transition class for smooth movement
+        // Only animate if position actually changed significantly
+        const latDiff = Math.abs(currentLatLng.lat - newLatLng.lat);
+        const lngDiff = Math.abs(currentLatLng.lng - newLatLng.lng);
+        const hasMovedSignificantly = latDiff > 0.000001 || lngDiff > 0.000001;
+        
+        if (hasMovedSignificantly) {
+          // Get the marker's DOM element and add transition for smooth movement
           const markerElement = existingMarker.getElement();
           if (markerElement) {
-            // Smoother transition for route-snapped vehicles
-            markerElement.style.transition = vehicleRouteShape 
-              ? 'transform 2s cubic-bezier(0.25, 0.1, 0.25, 1)' 
-              : 'transform 1.2s cubic-bezier(0.25, 0.1, 0.25, 1)';
+            // Use a smooth transition that matches the refresh interval
+            // This creates continuous smooth movement between updates
+            markerElement.style.transition = 'transform 8s linear';
+            markerElement.style.willChange = 'transform';
           }
           existingMarker.setLatLng(newLatLng);
         }
