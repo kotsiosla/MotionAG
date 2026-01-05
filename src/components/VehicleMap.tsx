@@ -210,6 +210,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   // Trail effect: store position history for each vehicle
   const vehicleTrailsRef = useRef<Map<string, Array<{ lat: number; lng: number; timestamp: number }>>>(new Map());
   const trailPolylinesRef = useRef<Map<string, L.Polyline[]>>(new Map());
+  const trailParticlesRef = useRef<Map<string, L.Marker[]>>(new Map());
+  const particleAnimationRef = useRef<number | null>(null);
 
   // Fetch route shape data when a route is selected
   const { data: routeShapeData } = useRouteShape(
@@ -229,11 +231,17 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       setShowLiveVehiclesPanel(true);
     }
     
-    // Clear all trails when route changes
+    // Clear all trails and particles when route changes
     trailPolylinesRef.current.forEach((polylines) => {
       polylines.forEach(p => mapRef.current?.removeLayer(p));
     });
     trailPolylinesRef.current.clear();
+    
+    trailParticlesRef.current.forEach((particles) => {
+      particles.forEach(p => mapRef.current?.removeLayer(p));
+    });
+    trailParticlesRef.current.clear();
+    
     vehicleTrailsRef.current.clear();
   }, [selectedRoute]);
 
@@ -645,7 +653,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
               const oldPolylines = trailPolylinesRef.current.get(vehicleId) || [];
               oldPolylines.forEach(p => mapRef.current?.removeLayer(p));
               
+              // Remove old particles
+              const oldParticles = trailParticlesRef.current.get(vehicleId) || [];
+              oldParticles.forEach(p => mapRef.current?.removeLayer(p));
+              
               const newPolylines: L.Polyline[] = [];
+              const newParticles: L.Marker[] = [];
               const trailColor = routeColor ? `#${routeColor}` : '#0ea5e9';
               
               // Create gradient trail segments
@@ -667,7 +680,55 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
                 newPolylines.push(segment);
               }
               
+              // Add animated particles along the trail
+              const particleCount = Math.min(8, Math.floor(filteredTrail.length / 3));
+              for (let p = 0; p < particleCount; p++) {
+                // Distribute particles along the trail with animation offset
+                const baseIndex = Math.floor((p / particleCount) * (filteredTrail.length - 1));
+                const animOffset = (Date.now() / 500 + p) % 1; // Creates moving effect
+                const index = Math.min(filteredTrail.length - 1, Math.floor(baseIndex + animOffset * 3));
+                
+                if (index > 0 && index < filteredTrail.length) {
+                  const point = filteredTrail[index];
+                  const size = 4 + (index / filteredTrail.length) * 6; // Size grows towards bus
+                  const particleOpacity = 0.3 + (index / filteredTrail.length) * 0.7;
+                  
+                  const particleIcon = L.divIcon({
+                    className: 'trail-particle',
+                    html: `
+                      <div style="
+                        width: ${size}px; 
+                        height: ${size}px; 
+                        background: ${trailColor}; 
+                        border-radius: 50%; 
+                        opacity: ${particleOpacity};
+                        box-shadow: 0 0 ${size}px ${trailColor};
+                        animation: particle-pulse 1s ease-in-out infinite;
+                        animation-delay: ${p * 0.15}s;
+                      "></div>
+                      <style>
+                        @keyframes particle-pulse {
+                          0%, 100% { transform: scale(1); opacity: ${particleOpacity}; }
+                          50% { transform: scale(1.4); opacity: ${particleOpacity * 0.6}; }
+                        }
+                      </style>
+                    `,
+                    iconSize: [size, size],
+                    iconAnchor: [size/2, size/2],
+                  });
+                  
+                  const particle = L.marker([point.lat, point.lng], {
+                    icon: particleIcon,
+                    interactive: false,
+                    zIndexOffset: -100,
+                  }).addTo(mapRef.current);
+                  
+                  newParticles.push(particle);
+                }
+              }
+              
               trailPolylinesRef.current.set(vehicleId, newPolylines);
+              trailParticlesRef.current.set(vehicleId, newParticles);
             }
           }
           
