@@ -898,10 +898,13 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     const clusterGroup = vehicleMarkersRef.current as any;
     if (!clusterGroup._map) return;
     
+    // Critical: Check if the map's internal _zoom is defined (map fully initialized)
+    if (typeof clusterGroup._map._zoom === 'undefined') return;
+    
     // Additional safety check - ensure map has zoom level and is ready
     try {
       const zoom = mapRef.current.getZoom();
-      if (zoom === undefined) return;
+      if (zoom === undefined || zoom === null) return;
     } catch {
       return;
     }
@@ -1241,11 +1244,14 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     // Check if the cluster group has a map reference (is added to a map)
     const clusterGroup = stopMarkersRef.current as any;
     if (!clusterGroup._map) return;
+    
+    // Critical: Check if the map's internal _zoom is defined (map fully initialized)
+    if (typeof clusterGroup._map._zoom === 'undefined') return;
 
     // Additional safety check - ensure map is ready
     try {
       const zoom = mapRef.current.getZoom();
-      if (zoom === undefined) return;
+      if (zoom === undefined || zoom === null) return;
     } catch {
       return;
     }
