@@ -172,6 +172,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const routeMarkersRef = useRef<L.Marker[]>([]);
   const routeLineRef = useRef<L.Polyline | null>(null);
   const routeShapeLineRef = useRef<L.Polyline | null>(null);
+  const routeArrowsRef = useRef<L.Marker[]>([]);
   const routeStopMarkersRef = useRef<L.Marker[]>([]);
   const lastDrawnRouteRef = useRef<string | null>(null);
   const [mapClickMode, setMapClickMode] = useState<'origin' | 'destination' | null>(null);
@@ -948,11 +949,13 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Clear previous route shape line
+    // Clear previous route shape line and arrows
     if (routeShapeLineRef.current) {
       mapRef.current.removeLayer(routeShapeLineRef.current);
       routeShapeLineRef.current = null;
     }
+    routeArrowsRef.current.forEach(arrow => mapRef.current?.removeLayer(arrow));
+    routeArrowsRef.current = [];
 
     // If no route selected or no data, reset ref and exit
     if (selectedRoute === 'all' || !routeShapeData) {
@@ -976,6 +979,38 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         lineCap: 'round',
         lineJoin: 'round',
       }).addTo(mapRef.current);
+
+      // Add direction arrows along the route
+      const arrowInterval = Math.max(5, Math.floor(direction.shape.length / 15)); // ~15 arrows along route
+      for (let i = arrowInterval; i < direction.shape.length - 1; i += arrowInterval) {
+        const p1 = direction.shape[i - 1];
+        const p2 = direction.shape[i];
+        
+        // Calculate bearing/angle
+        const dx = p2.lng - p1.lng;
+        const dy = p2.lat - p1.lat;
+        const angle = Math.atan2(dx, dy) * (180 / Math.PI);
+        
+        const arrowIcon = L.divIcon({
+          className: 'route-direction-arrow',
+          html: `
+            <div style="transform: rotate(${angle}deg); width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="#${routeColor}" stroke="white" stroke-width="1.5">
+                <path d="M12 2L6 12h4v10h4V12h4L12 2z"/>
+              </svg>
+            </div>
+          `,
+          iconSize: [20, 20],
+          iconAnchor: [10, 10],
+        });
+
+        const arrowMarker = L.marker([p2.lat, p2.lng], {
+          icon: arrowIcon,
+          interactive: false,
+        }).addTo(mapRef.current);
+        
+        routeArrowsRef.current.push(arrowMarker);
+      }
 
       // Only fit bounds when route changes, not on every update
       if (lastDrawnRouteRef.current !== selectedRoute) {
