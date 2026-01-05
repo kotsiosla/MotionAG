@@ -1131,6 +1131,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   }, [selectedRoute, routeShapeData, selectedRouteInfo, stopsWithVehicles, trips, vehicles]);
 
   // Follow the selected vehicle in realtime - respects view mode
+  // Use panTo for smooth following without shaking
   useEffect(() => {
     if (!followedVehicleId || !mapRef.current) return;
 
@@ -1140,12 +1141,24 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
     if (followedVehicle?.latitude && followedVehicle?.longitude) {
       if (viewMode === 'street') {
-        // Street level - close zoom following the bus
-        mapRef.current.flyTo(
-          [followedVehicle.latitude, followedVehicle.longitude],
-          18,
-          { animate: true, duration: 0.8, easeLinearity: 0.5 }
-        );
+        // Use panTo for smooth following without zoom changes that cause shaking
+        const currentZoom = mapRef.current.getZoom();
+        const targetZoom = Math.max(currentZoom, 17); // Don't zoom out, but allow staying at current zoom
+        
+        // Check if we need to zoom first (initial follow)
+        if (currentZoom < 15) {
+          mapRef.current.flyTo(
+            [followedVehicle.latitude, followedVehicle.longitude],
+            targetZoom,
+            { animate: true, duration: 1.2, easeLinearity: 0.25 }
+          );
+        } else {
+          // Smooth pan without zoom changes
+          mapRef.current.panTo(
+            [followedVehicle.latitude, followedVehicle.longitude],
+            { animate: true, duration: 0.5, easeLinearity: 0.5 }
+          );
+        }
       }
       // In overview mode, don't auto-pan - user controls the view
     }
