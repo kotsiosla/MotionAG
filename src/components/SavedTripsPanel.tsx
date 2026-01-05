@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useSavedTrips, generateCalendarUrl, type SavedTrip } from "@/hooks/useSavedTrips";
-
+import { useNativeNotifications } from "@/hooks/useNativeNotifications";
 interface SavedTripsPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -35,11 +35,13 @@ function formatCountdown(departureDate: Date): { text: string; isUrgent: boolean
   }
 }
 
-function TripCard({ trip, onDelete, onAddToCalendar }: {
+function TripCard({ trip, onDelete, onAddToCalendar, onScheduleReminder }: {
   trip: SavedTrip;
   onDelete: () => void;
   onAddToCalendar: () => void;
+  onScheduleReminder: () => void;
 }) {
+  const { isNative, scheduleLocalNotification, playSound, vibrate } = useNativeNotifications();
   const [countdown, setCountdown] = useState<{ text: string; isUrgent: boolean; isPast: boolean }>({ text: '', isUrgent: false, isPast: false });
   
   // Calculate departure datetime
@@ -67,12 +69,25 @@ function TripCard({ trip, onDelete, onAddToCalendar }: {
       const minutesUntil = differenceInMinutes(departureDateTime, now);
       
       if (minutesUntil > 0 && minutesUntil <= trip.reminderMinutes) {
-        // Show notification
-        if ('Notification' in window && Notification.permission === 'granted') {
-          const busLegs = trip.journey.legs.filter(l => l.type === 'bus');
-          const firstBus = busLegs[0];
+        const busLegs = trip.journey.legs.filter(l => l.type === 'bus');
+        const firstBus = busLegs[0];
+        const notificationBody = `Πιάσε τη γραμμή ${firstBus?.route?.route_short_name} σε ${minutesUntil} λεπτά από ${firstBus?.fromStop?.stop_name}`;
+        
+        // Play sound and vibrate for urgency
+        playSound(minutesUntil <= 5 ? 'high' : minutesUntil <= 10 ? 'medium' : 'low');
+        vibrate(minutesUntil <= 5 ? [300, 100, 300, 100, 300] : [200, 100, 200]);
+        
+        if (isNative) {
+          // Use native local notification
+          scheduleLocalNotification({
+            title: '🚌 Ώρα να φύγεις!',
+            body: notificationBody,
+            id: parseInt(trip.id.replace(/\D/g, '').slice(0, 9)) || Date.now(),
+          });
+        } else if ('Notification' in window && Notification.permission === 'granted') {
+          // Fallback to web notification
           new Notification('🚌 Ώρα να φύγεις!', {
-            body: `Πιάσε τη γραμμή ${firstBus?.route?.route_short_name} σε ${minutesUntil} λεπτά από ${firstBus?.fromStop?.stop_name}`,
+            body: notificationBody,
             icon: '/pwa-192x192.png',
             tag: `trip-${trip.id}`,
           });
@@ -87,7 +102,7 @@ function TripCard({ trip, onDelete, onAddToCalendar }: {
     checkReminder();
     const interval = setInterval(checkReminder, 60000);
     return () => clearInterval(interval);
-  }, [trip, departureDateTime]);
+  }, [trip, departureDateTime, isNative, scheduleLocalNotification, playSound, vibrate]);
   
   const busLegs = trip.journey.legs.filter(l => l.type === 'bus');
   const routeNames = busLegs.map(l => l.route?.route_short_name).join(' → ');
@@ -184,6 +199,15 @@ function TripCard({ trip, onDelete, onAddToCalendar }: {
           variant="ghost"
           size="sm"
           className="flex-1 text-xs gap-1"
+          onClick={onScheduleReminder}
+        >
+          <Bell className="h-3 w-3" />
+          Υπενθύμιση
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="flex-1 text-xs gap-1"
           onClick={onAddToCalendar}
         >
           <CalendarPlus className="h-3 w-3" />
@@ -204,13 +228,33 @@ function TripCard({ trip, onDelete, onAddToCalendar }: {
 
 export function SavedTripsPanel({ isOpen, onClose }: SavedTripsPanelProps) {
   const { savedTrips, deleteTrip, getUpcomingTrips } = useSavedTrips();
+  const { scheduleTripReminder, isNative, registerPush } = useNativeNotifications();
   
-  // Request notification permission
+  // Request notification permission on mount
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
+    if (isNative) {
+      registerPush();
+    } else if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
-  }, []);
+  }, [isNative, registerPush]);
+  
+  const handleScheduleReminder = (trip: SavedTrip) => {
+    const departureDate = new Date(trip.departureDate);
+    const [hours, minutes] = trip.journey.departureTime.split(':').map(Number);
+    departureDate.setHours(hours, minutes, 0, 0);
+    
+    const busLegs = trip.journey.legs.filter(l => l.type === 'bus');
+    const routeNames = busLegs.map(l => l.route?.route_short_name || '').filter(Boolean);
+    
+    scheduleTripReminder({
+      id: trip.id,
+      departureTime: departureDate,
+      origin: trip.origin.stop_name,
+      destination: trip.destination.stop_name,
+      routeNames,
+    }, 15);
+  };
   
   const upcomingTrips = getUpcomingTrips();
   const pastTrips = savedTrips.filter(t => !upcomingTrips.includes(t));
@@ -265,6 +309,7 @@ export function SavedTripsPanel({ isOpen, onClose }: SavedTripsPanelProps) {
                         onAddToCalendar={() => {
                           window.open(generateCalendarUrl(trip), '_blank');
                         }}
+                        onScheduleReminder={() => handleScheduleReminder(trip)}
                       />
                     ))}
                   </div>
@@ -286,6 +331,7 @@ export function SavedTripsPanel({ isOpen, onClose }: SavedTripsPanelProps) {
                         onAddToCalendar={() => {
                           window.open(generateCalendarUrl(trip), '_blank');
                         }}
+                        onScheduleReminder={() => handleScheduleReminder(trip)}
                       />
                     ))}
                   </div>
