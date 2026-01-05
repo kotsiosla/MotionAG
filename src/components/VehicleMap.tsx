@@ -1090,6 +1090,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         });
 
         marker.on('click', () => {
+          // Close all popups first
+          if (mapRef.current) {
+            mapRef.current.closePopup();
+          }
+          marker.closeTooltip();
+          
           setFollowedVehicleId(vehicleId);
           // Open route planner with this vehicle's trip info
           if (vehicle.tripId) {
