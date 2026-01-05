@@ -403,10 +403,21 @@ export function NearbyStopsPanel({
     }
   }, [isDraggingMobile, mobileDragMode]);
 
-  const handleMobileDragEnd = useCallback(() => {
+  const handleMobileDragEnd = useCallback((e?: TouchEvent | MouseEvent) => {
     setIsDraggingMobile(false);
     
     if (mobileDragMode === 'resize') {
+      // Check for swipe down to close
+      const endY = e && 'changedTouches' in e ? e.changedTouches[0].clientY : (e as MouseEvent)?.clientY || 0;
+      const swipeDistance = endY - dragStartRef.current.y;
+      const swipeVelocity = swipeDistance / 200; // rough velocity estimate
+      
+      // Close if swiped down fast or dragged below 20% height
+      if (swipeDistance > 150 || mobileHeight < 20 || swipeVelocity > 1.5) {
+        handleClosePanel();
+        return;
+      }
+      
       // Snap to positions
       if (mobileHeight < 40) {
         setMobileHeight(30);
@@ -415,8 +426,13 @@ export function NearbyStopsPanel({
       } else {
         setMobileHeight(60);
       }
+    } else {
+      // For floating mode, check if dragged to bottom to close
+      if (mobilePosition.y > window.innerHeight - 100) {
+        handleClosePanel();
+      }
     }
-  }, [mobileHeight, mobileDragMode]);
+  }, [mobileHeight, mobileDragMode, mobilePosition.y, handleClosePanel]);
 
   // Add/remove drag listeners for mobile
   useEffect(() => {
