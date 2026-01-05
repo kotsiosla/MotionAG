@@ -207,19 +207,22 @@
 }
 
 /* Vehicle cluster styling - single clean circle */
-.marker-cluster-small,
-.marker-cluster-medium,
-.marker-cluster-large {
-  background: hsl(var(--primary)) !important;
+.leaflet-marker-icon.marker-cluster-small,
+.leaflet-marker-icon.marker-cluster-medium,
+.leaflet-marker-icon.marker-cluster-large {
+  background-color: hsl(var(--primary)) !important;
   border: 3px solid white !important;
   border-radius: 50% !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
-.marker-cluster-small div,
-.marker-cluster-medium div,
-.marker-cluster-large div {
-  background: transparent !important;
+.leaflet-marker-icon.marker-cluster-small div,
+.leaflet-marker-icon.marker-cluster-medium div,
+.leaflet-marker-icon.marker-cluster-large div {
+  background-color: transparent !important;
   color: white !important;
   font-weight: 700 !important;
   font-size: 14px !important;
@@ -230,51 +233,41 @@
   justify-content: center !important;
   margin: 0 !important;
   line-height: 1 !important;
+  text-align: center !important;
 }
 
 /* Size variations */
-.marker-cluster-small {
+.leaflet-marker-icon.marker-cluster-small {
   width: 36px !important;
   height: 36px !important;
+  margin-left: -18px !important;
+  margin-top: -18px !important;
 }
 
-.marker-cluster-medium {
+.leaflet-marker-icon.marker-cluster-medium {
   width: 44px !important;
   height: 44px !important;
+  margin-left: -22px !important;
+  margin-top: -22px !important;
 }
 
-.marker-cluster-large {
+.leaflet-marker-icon.marker-cluster-large {
   width: 52px !important;
   height: 52px !important;
+  margin-left: -26px !important;
+  margin-top: -26px !important;
 }
 
-/* Stop cluster styling - orange single circle */
-.stop-cluster-container .marker-cluster-small,
-.stop-cluster-container .marker-cluster-medium,
-.stop-cluster-container .marker-cluster-large {
-  background: hsl(25 95% 53%) !important;
-  border: 2px solid white !important;
+.leaflet-marker-icon.marker-cluster-small div {
+  font-size: 12px !important;
 }
 
-.stop-cluster-container .marker-cluster-small {
-  width: 28px !important;
-  height: 28px !important;
+.leaflet-marker-icon.marker-cluster-medium div {
+  font-size: 14px !important;
 }
 
-.stop-cluster-container .marker-cluster-medium {
-  width: 34px !important;
-  height: 34px !important;
-}
-
-.stop-cluster-container .marker-cluster-large {
-  width: 40px !important;
-  height: 40px !important;
-}
-
-.stop-cluster-container .marker-cluster-small div,
-.stop-cluster-container .marker-cluster-medium div,
-.stop-cluster-container .marker-cluster-large div {
-  font-size: 11px !important;
+.leaflet-marker-icon.marker-cluster-large div {
+  font-size: 16px !important;
 }
 
 /* Animated bus on route */
