@@ -1,9 +1,9 @@
-import { X, Bus, Clock, MapPin, ArrowRight, Loader2, ChevronRight, Star, CalendarIcon, ExternalLink, Printer, Footprints, Navigation, Map } from "lucide-react";
+import { X, Bus, Clock, MapPin, ArrowRight, Loader2, ChevronRight, Star, CalendarIcon, ExternalLink, Printer, Footprints, Navigation, Map, RefreshCw, Info, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { TripPlanResult } from "@/hooks/useTripPlan";
+import type { TripPlanResult, TransferRoute, StopRouteInfo } from "@/hooks/useTripPlan";
 import type { StaticStop } from "@/types/gtfs";
 import { formatDistance } from "@/hooks/useGeocode";
 
@@ -175,6 +175,10 @@ interface TripPlanResultsProps {
   originLocation?: LocationInfo;
   destLocation?: LocationInfo;
   walkingInfo?: WalkingInfo;
+  // Enhanced data
+  transferRoutes?: TransferRoute[];
+  originStopRoutes?: StopRouteInfo[];
+  destinationStopRoutes?: StopRouteInfo[];
 }
 
 export function TripPlanResults({
@@ -191,6 +195,9 @@ export function TripPlanResults({
   originLocation,
   destLocation,
   walkingInfo,
+  transferRoutes = [],
+  originStopRoutes = [],
+  destinationStopRoutes = [],
 }: TripPlanResultsProps) {
   if (!origin || !destination) return null;
 
@@ -309,10 +316,156 @@ export function TripPlanResults({
               <p className="text-sm text-muted-foreground mt-1">{error.message}</p>
             </div>
           ) : results.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Bus className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="font-medium">Δεν βρέθηκαν διαδρομές</p>
-              <p className="text-sm mt-1">Δοκιμάστε διαφορετικές στάσεις ή ώρα αναχώρησης</p>
+            <div className="space-y-6">
+              {/* No direct routes message */}
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-amber-800 dark:text-amber-300">Δεν υπάρχει απευθείας σύνδεση</p>
+                    <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                      Δεν βρέθηκε απευθείας γραμμή λεωφορείου μεταξύ αυτών των σημείων. Δείτε παρακάτω εναλλακτικές λύσεις.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transfer routes section */}
+              {transferRoutes.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 text-primary" />
+                    <h3 className="font-semibold">Διαδρομές με Μεταβίβαση</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Μπορείτε να φτάσετε με αλλαγή λεωφορείου:
+                  </p>
+                  {transferRoutes.map((transfer, idx) => (
+                    <div key={idx} className="rounded-lg border border-border bg-card overflow-hidden">
+                      <div className="p-3 space-y-3">
+                        {transfer.legs.map((leg, legIdx) => {
+                          const bgColor = leg.route.route_color ? `#${leg.route.route_color}` : 'hsl(var(--primary))';
+                          return (
+                            <div key={legIdx} className="flex items-center gap-2 flex-wrap">
+                              <span 
+                                className="text-white text-sm font-bold px-2 py-0.5 rounded"
+                                style={{ backgroundColor: bgColor }}
+                              >
+                                {leg.route.route_short_name}
+                              </span>
+                              <span className="text-sm truncate">{leg.fromStop.name}</span>
+                              <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                              <span className="text-sm truncate">{leg.toStop.name}</span>
+                              {legIdx < transfer.legs.length - 1 && (
+                                <div className="w-full flex items-center gap-2 pl-2 py-1 text-xs text-amber-600 dark:text-amber-400">
+                                  <RefreshCw className="h-3 w-3" />
+                                  <span>Αλλαγή στη στάση: <strong>{transfer.transferStop.name}</strong></span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Routes at origin stop */}
+              {originStopRoutes.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    <h3 className="font-semibold">Γραμμές από τη στάση αφετηρίας</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Στάση: <strong>{origin.stop_name}</strong>
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {originStopRoutes.slice(0, 6).map((routeInfo, idx) => {
+                      const bgColor = routeInfo.route.route_color ? `#${routeInfo.route.route_color}` : 'hsl(var(--primary))';
+                      return (
+                        <div key={idx} className="rounded-lg border border-border bg-card/50 p-2 flex items-center gap-2">
+                          <span 
+                            className="text-white text-sm font-bold px-2 py-0.5 rounded flex-shrink-0"
+                            style={{ backgroundColor: bgColor }}
+                          >
+                            {routeInfo.route.route_short_name}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs truncate">{routeInfo.route.route_long_name || routeInfo.direction}</div>
+                            {routeInfo.nextDepartures.length > 0 && (
+                              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {routeInfo.nextDepartures.join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Routes at destination stop */}
+              {destinationStopRoutes.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-destructive" />
+                    <h3 className="font-semibold">Γραμμές προς τη στάση προορισμού</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Στάση: <strong>{destination.stop_name}</strong>
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {destinationStopRoutes.slice(0, 6).map((routeInfo, idx) => {
+                      const bgColor = routeInfo.route.route_color ? `#${routeInfo.route.route_color}` : 'hsl(var(--primary))';
+                      return (
+                        <div key={idx} className="rounded-lg border border-border bg-card/50 p-2 flex items-center gap-2">
+                          <span 
+                            className="text-white text-sm font-bold px-2 py-0.5 rounded flex-shrink-0"
+                            style={{ backgroundColor: bgColor }}
+                          >
+                            {routeInfo.route.route_short_name}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs truncate">{routeInfo.route.route_long_name || routeInfo.direction}</div>
+                            {routeInfo.nextDepartures.length > 0 && (
+                              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {routeInfo.nextDepartures.join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Suggestion to use Google Maps */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-blue-800 dark:text-blue-300">Χρησιμοποιήστε το Google Maps</p>
+                    <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
+                      Για πλήρη διαδρομή με όλες τις εναλλακτικές και ακριβείς χρόνους, πατήστε το κουμπί "Άνοιγμα στο Google Maps" παρακάτω.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* No routes at all fallback */}
+              {transferRoutes.length === 0 && originStopRoutes.length === 0 && destinationStopRoutes.length === 0 && (
+                <div className="text-center py-6 text-muted-foreground">
+                  <Bus className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                  <p className="font-medium">Δεν βρέθηκαν διαθέσιμα δρομολόγια</p>
+                  <p className="text-sm mt-1">Δοκιμάστε διαφορετική ώρα αναχώρησης</p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
