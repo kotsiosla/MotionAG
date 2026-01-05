@@ -69,6 +69,15 @@ export function NearbyStopsPanel({
     const saved = localStorage.getItem('nearbyNotificationDistance');
     return saved ? parseInt(saved, 10) : 500;
   });
+  const [notificationSettings, setNotificationSettings] = useState(() => {
+    const saved = localStorage.getItem('nearbyNotificationSettings');
+    return saved ? JSON.parse(saved) : {
+      sound: true,
+      vibration: true,
+      voice: true,
+      push: true,
+    };
+  });
   const [showSettings, setShowSettings] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -117,6 +126,19 @@ export function NearbyStopsPanel({
   useEffect(() => {
     localStorage.setItem('nearbyNotificationDistance', notificationDistance.toString());
   }, [notificationDistance]);
+
+  // Save notification settings
+  useEffect(() => {
+    localStorage.setItem('nearbyNotificationSettings', JSON.stringify(notificationSettings));
+  }, [notificationSettings]);
+
+  // Toggle notification setting
+  const toggleNotificationSetting = useCallback((key: keyof typeof notificationSettings) => {
+    setNotificationSettings((prev: typeof notificationSettings) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  }, []);
 
   // Get user location
   const getLocation = useCallback(() => {
@@ -232,24 +254,30 @@ export function NearbyStopsPanel({
     }
   }, []);
 
-  // Full notification trigger
+  // Full notification trigger - respects settings
   const triggerFullNotification = useCallback((arrival: StopArrival, stopName: string) => {
     const routeName = arrival.routeShortName 
       ? `${arrival.routeShortName}${arrival.routeLongName ? `, ${arrival.routeLongName}` : ''}`
       : arrival.routeId;
 
     // Sound
-    playNotificationSound();
+    if (notificationSettings.sound) {
+      playNotificationSound();
+    }
     
     // Vibration
-    triggerVibration();
+    if (notificationSettings.vibration) {
+      triggerVibration();
+    }
     
     // Voice announcement
-    const message = `Προσοχή! Γραμμή ${routeName} πλησιάζει στη στάση ${stopName}. Ετοιμαστείτε για επιβίβαση.`;
-    speakAnnouncement(message);
+    if (notificationSettings.voice) {
+      const message = `Προσοχή! Γραμμή ${routeName} πλησιάζει στη στάση ${stopName}. Ετοιμαστείτε για επιβίβαση.`;
+      speakAnnouncement(message);
+    }
     
     // Push notification
-    if ('Notification' in window && Notification.permission === 'granted') {
+    if (notificationSettings.push && 'Notification' in window && Notification.permission === 'granted') {
       new Notification(`🚌 ${routeName} πλησιάζει!`, {
         body: `Η γραμμή πλησιάζει στη στάση: ${stopName}`,
         icon: '/pwa-192x192.png',
@@ -257,7 +285,7 @@ export function NearbyStopsPanel({
         requireInteraction: true,
       });
     }
-  }, [playNotificationSound, triggerVibration, speakAnnouncement]);
+  }, [playNotificationSound, triggerVibration, speakAnnouncement, notificationSettings]);
 
   // Monitor watched arrivals
   useEffect(() => {
@@ -463,20 +491,72 @@ export function NearbyStopsPanel({
       {/* Settings */}
       <Collapsible open={showSettings} onOpenChange={setShowSettings}>
         <CollapsibleContent className="p-3 border-b border-border bg-muted/50">
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">Ειδοποίηση όταν το λεωφορείο είναι σε:</p>
-            <div className="flex flex-wrap gap-1">
-              {[200, 300, 500, 750, 1000].map(dist => (
+          <div className="space-y-3">
+            {/* Notification types */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Τύποι ειδοποίησης:</p>
+              <div className="grid grid-cols-2 gap-2">
                 <Button
-                  key={dist}
-                  variant={notificationDistance === dist ? "default" : "outline"}
+                  variant={notificationSettings.sound ? "default" : "outline"}
                   size="sm"
-                  className="h-7 text-xs px-2"
-                  onClick={() => setNotificationDistance(dist)}
+                  className="h-8 text-xs justify-start"
+                  onClick={() => toggleNotificationSetting('sound')}
                 >
-                  {dist < 1000 ? `${dist}μ` : `${dist/1000}χλμ`}
+                  <Volume2 className="h-3.5 w-3.5 mr-1.5" />
+                  Ήχος
                 </Button>
-              ))}
+                <Button
+                  variant={notificationSettings.vibration ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 text-xs justify-start"
+                  onClick={() => toggleNotificationSetting('vibration')}
+                >
+                  <svg className="h-3.5 w-3.5 mr-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="5" y="2" width="14" height="20" rx="2" />
+                    <path d="M2 8v8M22 8v8" strokeLinecap="round" />
+                  </svg>
+                  Δόνηση
+                </Button>
+                <Button
+                  variant={notificationSettings.voice ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 text-xs justify-start"
+                  onClick={() => toggleNotificationSetting('voice')}
+                >
+                  <svg className="h-3.5 w-3.5 mr-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
+                  </svg>
+                  Φωνή
+                </Button>
+                <Button
+                  variant={notificationSettings.push ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 text-xs justify-start"
+                  onClick={() => toggleNotificationSetting('push')}
+                >
+                  <Bell className="h-3.5 w-3.5 mr-1.5" />
+                  Push
+                </Button>
+              </div>
+            </div>
+
+            {/* Distance settings */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Ειδοποίηση όταν το λεωφορείο είναι σε:</p>
+              <div className="flex flex-wrap gap-1">
+                {[200, 300, 500, 750, 1000].map(dist => (
+                  <Button
+                    key={dist}
+                    variant={notificationDistance === dist ? "default" : "outline"}
+                    size="sm"
+                    className="h-7 text-xs px-2"
+                    onClick={() => setNotificationDistance(dist)}
+                  >
+                    {dist < 1000 ? `${dist}μ` : `${dist/1000}χλμ`}
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
         </CollapsibleContent>
