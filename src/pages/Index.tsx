@@ -41,6 +41,10 @@ const Index = () => {
   const [showTripResults, setShowTripResults] = useState(false);
   const [tripOriginLocation, setTripOriginLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [tripDestLocation, setTripDestLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [maxWalkingDistance, setMaxWalkingDistance] = useState<number>(() => {
+    const saved = localStorage.getItem('maxWalkingDistance');
+    return saved ? parseInt(saved, 10) : 500;
+  });
   
   // Highlighted stop (for nearby stops panel)
   const [highlightedStop, setHighlightedStop] = useState<StaticStop | null>(null);
@@ -193,8 +197,15 @@ const Index = () => {
     tripOriginLocation,
     tripDestLocation,
     tripDepartureTime,
-    tripDepartureDate
+    tripDepartureDate,
+    maxWalkingDistance
   );
+  
+  // Save walking distance preference
+  const handleWalkingDistanceChange = useCallback((distance: number) => {
+    setMaxWalkingDistance(distance);
+    localStorage.setItem('maxWalkingDistance', distance.toString());
+  }, []);
 
   // Create a map of route_id -> RouteInfo for quick lookup
   const routeNamesMap = useMemo(() => {
@@ -483,6 +494,8 @@ const Index = () => {
               }
             }
           }}
+          maxWalkingDistance={maxWalkingDistance}
+          onWalkingDistanceChange={handleWalkingDistanceChange}
         />
       )}
 

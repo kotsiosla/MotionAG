@@ -1,7 +1,14 @@
-import { X, Bus, Clock, MapPin, ArrowDown, Loader2, Star, CalendarIcon, Printer, Footprints, Map, AlertCircle, Navigation, ChevronRight } from "lucide-react";
+import { X, Bus, Clock, MapPin, ArrowDown, Loader2, Star, CalendarIcon, Printer, Footprints, Map, AlertCircle, Navigation, ChevronRight, Settings2 } from "lucide-react";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { JourneyOption, JourneyLeg, SmartTripPlanData } from "@/hooks/useSmartTripPlan";
 import type { StaticStop } from "@/types/gtfs";
@@ -17,7 +24,18 @@ interface SmartTripResultsProps {
   onClose: () => void;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
+  maxWalkingDistance?: number;
+  onWalkingDistanceChange?: (distance: number) => void;
 }
+
+const WALKING_DISTANCE_OPTIONS = [
+  { value: 300, label: '300μ' },
+  { value: 400, label: '400μ' },
+  { value: 500, label: '500μ' },
+  { value: 600, label: '600μ' },
+  { value: 800, label: '800μ' },
+  { value: 1000, label: '1χλμ' },
+];
 
 // Format distance nicely
 function formatDistance(meters: number): string {
@@ -216,6 +234,21 @@ function JourneyOptionCard({ journey, index }: { journey: JourneyOption; index: 
   );
 }
 
+interface SmartTripResultsProps {
+  origin: StaticStop | null;
+  destination: StaticStop | null;
+  departureTime?: string;
+  departureDate?: Date;
+  data: SmartTripPlanData | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  onClose: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
+  maxWalkingDistance?: number;
+  onWalkingDistanceChange?: (distance: number) => void;
+}
+
 export function SmartTripResults({
   origin,
   destination,
@@ -227,6 +260,8 @@ export function SmartTripResults({
   onClose,
   isFavorite,
   onToggleFavorite,
+  maxWalkingDistance = 500,
+  onWalkingDistanceChange,
 }: SmartTripResultsProps) {
   if (!origin || !destination) return null;
 
@@ -270,7 +305,7 @@ export function SmartTripResults({
             </div>
           </div>
 
-          {/* Date/Time */}
+          {/* Date/Time and Walking Distance */}
           <div className="flex items-center gap-2 flex-wrap pt-2">
             <div className="flex items-center gap-1 bg-secondary/50 px-2 py-1 rounded text-xs">
               <CalendarIcon className="h-3 w-3" />
@@ -279,6 +314,27 @@ export function SmartTripResults({
             <div className="flex items-center gap-1 bg-secondary/50 px-2 py-1 rounded text-xs">
               <Clock className="h-3 w-3" />
               <span>{departureTime === 'now' ? 'Τώρα' : departureTime}</span>
+            </div>
+            
+            {/* Walking Distance Selector */}
+            <div className="flex items-center gap-1">
+              <Footprints className="h-3 w-3 text-amber-600" />
+              <Select 
+                value={maxWalkingDistance.toString()} 
+                onValueChange={(v) => onWalkingDistanceChange?.(parseInt(v, 10))}
+              >
+                <SelectTrigger className="h-6 w-[80px] text-xs border-amber-200 dark:border-amber-800">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {WALKING_DISTANCE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value.toString()}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground">περπάτημα</span>
             </div>
           </div>
         </div>

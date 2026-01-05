@@ -231,6 +231,7 @@ function findJourneys(
   routeMap: Map<string, RouteInfo>,
   stopMap: Map<string, StaticStop>,
   filterTimeStr: string,
+  maxWalkingDistance: number = 500,
   maxTransfers: number = 2
 ): JourneyOption[] {
   const journeys: JourneyOption[] = [];
@@ -249,19 +250,19 @@ function findJourneys(
     tripStops.sort((a, b) => a.stop_sequence - b.stop_sequence);
   });
   
-  // Find all stops near origin and destination for walking
+  // Find all stops near origin and destination for walking (use maxWalkingDistance)
   const originNearbyStops = findNearbyStops(
     originStop.stop_lat || 0, 
     originStop.stop_lon || 0, 
     stops, 
-    800 // 800m radius for origin
+    maxWalkingDistance
   );
   
   const destNearbyStops = findNearbyStops(
     destStop.stop_lat || 0, 
     destStop.stop_lon || 0, 
     stops, 
-    800 // 800m radius for destination
+    maxWalkingDistance
   );
   
   // Include the origin and dest stops themselves
@@ -829,10 +830,11 @@ export function useSmartTripPlan(
   originLocation: { lat: number; lon: number } | null,
   destLocation: { lat: number; lon: number } | null,
   departureTime?: string,
-  departureDate?: Date
+  departureDate?: Date,
+  maxWalkingDistance: number = 500
 ) {
   return useQuery({
-    queryKey: ['smart-trip-plan', originStop?.stop_id, destStop?.stop_id, departureTime, departureDate?.toDateString()],
+    queryKey: ['smart-trip-plan', originStop?.stop_id, destStop?.stop_id, departureTime, departureDate?.toDateString(), maxWalkingDistance],
     queryFn: async (): Promise<SmartTripPlanData> => {
       if (!originStop || !destStop) {
         return {
@@ -842,7 +844,7 @@ export function useSmartTripPlan(
         };
       }
       
-      console.log(`Smart trip planning from ${originStop.stop_name} to ${destStop.stop_name}`);
+      console.log(`Smart trip planning from ${originStop.stop_name} to ${destStop.stop_name} (max walk: ${maxWalkingDistance}m)`);
       
       // Fetch all data
       const [stopTimes, tripsStatic, routes, stops] = await Promise.all([
@@ -887,7 +889,7 @@ export function useSmartTripPlan(
         filterTimeStr = `${departureTime}:00`;
       }
       
-      // Find journeys
+      // Find journeys with max walking distance
       const journeyOptions = findJourneys(
         originStop,
         destStop,
@@ -898,7 +900,8 @@ export function useSmartTripPlan(
         tripRouteMap,
         routeMap,
         stopMap,
-        filterTimeStr
+        filterTimeStr,
+        maxWalkingDistance
       );
       
       console.log(`Found ${journeyOptions.length} journey options`);
@@ -908,7 +911,7 @@ export function useSmartTripPlan(
         noRouteFound: journeyOptions.length === 0,
         searchedStops: stops.length,
         message: journeyOptions.length === 0 
-          ? 'Δεν βρέθηκε διαδρομή. Δοκιμάστε διαφορετική ώρα ή κοντινές στάσεις.'
+          ? 'Δεν βρέθηκε διαδρομή. Δοκιμάστε διαφορετική ώρα ή αυξήστε την απόσταση περπατήματος.'
           : undefined,
       };
     },
