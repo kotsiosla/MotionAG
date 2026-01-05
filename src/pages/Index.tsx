@@ -273,6 +273,7 @@ const Index = () => {
                 trips={filteredTrips}
                 isLoading={tripsQuery.isLoading}
                 routeNames={routeNamesMap}
+                stops={staticStopsQuery.data?.data || []}
               />
             </TabsContent>
 
