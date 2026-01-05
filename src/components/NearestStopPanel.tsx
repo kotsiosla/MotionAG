@@ -3,6 +3,7 @@ import { X, MapPin, Navigation, Footprints, Clock, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { StaticStop } from "@/types/gtfs";
 
 interface ArrivalInfo {
@@ -14,7 +15,38 @@ interface ArrivalInfo {
   arrivalTime?: number;
   arrivalDelay?: number;
   vehicleId?: string;
+  confidence?: 'high' | 'medium' | 'low';
+  source?: 'gtfs' | 'siri' | 'merged';
 }
+
+// Confidence indicator component
+const ConfidenceIndicator = ({ confidence, source }: { confidence?: 'high' | 'medium' | 'low'; source?: string }) => {
+  if (!confidence) return null;
+  
+  const config = {
+    high: { color: 'text-green-500', bg: 'bg-green-500/20', label: 'Υψηλή ακρίβεια', icon: '●●●' },
+    medium: { color: 'text-yellow-500', bg: 'bg-yellow-500/20', label: 'Μέτρια ακρίβεια', icon: '●●○' },
+    low: { color: 'text-red-500', bg: 'bg-red-500/20', label: 'Χαμηλή ακρίβεια', icon: '●○○' },
+  };
+  
+  const { color, bg, label, icon } = config[confidence];
+  const sourceLabel = source === 'siri' ? ' (SIRI)' : source === 'merged' ? ' (Συνδυασμός)' : ' (GPS)';
+  
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold ${color} ${bg}`}>
+            {icon}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          <p>{label}{sourceLabel}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
 interface NearestStopPanelProps {
   stop: StaticStop;
@@ -202,6 +234,7 @@ export function NearestStopPanel({
                 className="flex items-center justify-between text-sm"
               >
                 <div className="flex items-center gap-2">
+                  <ConfidenceIndicator confidence={arr.confidence} source={arr.source} />
                   <Badge
                     className="text-white font-bold text-[10px] px-1.5"
                     style={{ backgroundColor: arr.routeColor ? `#${arr.routeColor}` : '#0ea5e9' }}
