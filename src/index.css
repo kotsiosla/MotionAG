@@ -423,6 +423,28 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
+/* Stop tooltip styles */
+.leaflet-tooltip.stop-tooltip {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 8px 12px;
+  color: hsl(var(--card-foreground));
+  font-size: 12px;
+  max-width: 200px;
+}
+
+.leaflet-tooltip.stop-tooltip::before {
+  border-top-color: hsl(var(--card));
+}
+
+.dark .leaflet-tooltip.stop-tooltip {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
 /* Subtle pulse animation for current stop */
 @keyframes pulse-subtle {
   0%, 100% {

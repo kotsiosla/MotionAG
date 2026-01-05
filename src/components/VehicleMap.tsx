@@ -13,7 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RouteStopsPanel } from "@/components/RouteStopsPanel";
 import { RoutePlannerPanel } from "@/components/RoutePlannerPanel";
+import { StopNotificationModal } from "@/components/StopNotificationModal";
 import { useRouteShape } from "@/hooks/useGtfsData";
+import { useStopNotifications } from "@/hooks/useStopNotifications";
 import type { Vehicle, StaticStop, Trip, RouteInfo } from "@/types/gtfs";
 
 interface VehicleMapProps {
@@ -393,6 +395,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [mapReady, setMapReady] = useState(false);
   const highlightedStopMarkerRef = useRef<L.Marker | null>(null);
   
+  // Stop notification state
+  const [notificationModalStop, setNotificationModalStop] = useState<{ stopId: string; stopName: string } | null>(null);
+  const { notifications: stopNotifications, setNotification: setStopNotification, removeNotification: removeStopNotification, getNotification, hasNotification } = useStopNotifications();
+  
   // Trail effect: store position history for each vehicle
   const vehicleTrailsRef = useRef<Map<string, Array<{ lat: number; lng: number; timestamp: number }>>>(new Map());
   const trailPolylinesRef = useRef<Map<string, L.Polyline[]>>(new Map());
@@ -486,6 +492,20 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       return () => clearTimeout(timeoutId);
     }
   }, [followVehicleId, followedVehicleId, vehicles]);
+
+  // Listen for custom event to open notification modal from popup button
+  useEffect(() => {
+    const handleOpenNotification = (e: CustomEvent<{ stopId: string; stopName: string }>) => {
+      setNotificationModalStop(e.detail);
+      // Close any open popup
+      mapRef.current?.closePopup();
+    };
+    
+    window.addEventListener('openStopNotification', handleOpenNotification as EventListener);
+    return () => {
+      window.removeEventListener('openStopNotification', handleOpenNotification as EventListener);
+    };
+  }, []);
 
   // Draw snail trail on route shape - updates when vehicle position changes
   useEffect(() => {
@@ -1269,6 +1289,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     validStops.forEach((stop) => {
       const hasVehicleStopped = stopsWithVehicles.has(stop.stop_id);
       const arrivals = getArrivalsForStop(stop.stop_id);
+      const hasStopNotification = hasNotification(stop.stop_id);
       
       // Check if any arrival is within 2 minutes
       const now = Math.floor(Date.now() / 1000);
@@ -1281,8 +1302,31 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         icon: createStopIcon(hasVehicleStopped, undefined, undefined, hasImminentArrival),
       });
 
+      // Add tooltip with stop name
+      const stopName = stop.stop_name || stop.stop_id;
+      const nextArrival = arrivals[0];
+      const tooltipContent = nextArrival 
+        ? `<div class="font-medium">${stopName}</div><div class="text-xs text-muted-foreground">Επόμενη: ${formatETA(nextArrival.arrivalTime)}</div>`
+        : `<div class="font-medium">${stopName}</div>`;
+      
+      marker.bindTooltip(tooltipContent, {
+        direction: 'top',
+        offset: [0, -10],
+        className: 'stop-tooltip',
+        permanent: false,
+      });
+
+      // Click handler to open notification modal
+      marker.on('click', () => {
+        setNotificationModalStop({
+          stopId: stop.stop_id,
+          stopName: stop.stop_name || stop.stop_id,
+        });
+      });
+
       const statusColor = hasVehicleStopped ? '#22c55e' : '#f97316';
       const statusText = hasVehicleStopped ? '<div class="text-green-500 font-medium mt-2 pt-2 border-t border-border">🚌 Λεωφορείο στη στάση</div>' : '';
+      const notificationBadge = hasStopNotification ? '<span class="inline-block ml-2 px-1.5 py-0.5 bg-primary text-primary-foreground text-[10px] rounded font-medium">🔔</span>' : '';
 
       // Build arrivals HTML
       let arrivalsHtml = '';
@@ -1319,7 +1363,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         <div class="p-3 min-w-[220px] max-w-[300px]">
           <div class="font-semibold text-base mb-2 flex items-center gap-2">
             <span class="inline-block w-2 h-2 rounded-full" style="background: ${statusColor}"></span>
-            ${stop.stop_name || 'Στάση'}
+            ${stop.stop_name || 'Στάση'}${notificationBadge}
           </div>
           <div class="space-y-1.5 text-sm">
             <div class="flex justify-between"><span class="text-muted-foreground">ID:</span><span class="font-mono">${stop.stop_id}</span></div>
@@ -1327,6 +1371,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           </div>
           ${statusText}
           ${arrivalsHtml}
+          <div class="mt-3 pt-2 border-t border-border">
+            <button onclick="window.dispatchEvent(new CustomEvent('openStopNotification', { detail: { stopId: '${stop.stop_id}', stopName: '${(stop.stop_name || stop.stop_id).replace(/'/g, "\\'")}' } }))" class="w-full py-2 px-3 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+              Ρύθμιση ειδοποίησης
+            </button>
+          </div>
         </div>
       `, {
         className: 'stop-popup',
@@ -1335,7 +1385,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
       stopMarkersRef.current!.addLayer(marker);
     });
-  }, [stops, showStops, stopsWithVehicles, trips, vehicles, routeNamesMap, mapReady]);
+  }, [stops, showStops, stopsWithVehicles, trips, vehicles, routeNamesMap, mapReady, hasNotification]);
 
   // Draw route shape when route changes or when following a vehicle
   useEffect(() => {
@@ -1477,6 +1527,19 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         zIndexOffset: 1000 - index,
       });
 
+      // Add tooltip with stop name
+      const nextEta = stopEtaInfo[0];
+      const tooltipContent = nextEta 
+        ? `<div class="font-medium">${stop.stop_name}</div><div class="text-xs text-muted-foreground">Επόμενη: ${formatETA(nextEta.arrivalTime)}</div>`
+        : `<div class="font-medium">${stop.stop_name}</div>`;
+      
+      marker.bindTooltip(tooltipContent, {
+        direction: 'top',
+        offset: [0, -10],
+        className: 'stop-tooltip',
+        permanent: false,
+      });
+
       // Build ETA HTML for popup
       let etaHtml = '';
       if (stopEtaInfo.length > 0) {
@@ -1529,6 +1592,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             Στάση ${sequenceNumber} από ${direction.stops.length}
           </div>
           ${etaHtml}
+          <div class="mt-3 pt-2 border-t border-gray-300">
+            <button onclick="window.dispatchEvent(new CustomEvent('openStopNotification', { detail: { stopId: '${stop.stop_id}', stopName: '${(stop.stop_name || stop.stop_id).replace(/'/g, "\\'")}' } }))" class="w-full py-2 px-3 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+              Ρύθμιση ειδοποίησης
+            </button>
+          </div>
         </div>
       `, {
         className: 'stop-popup',
@@ -2034,6 +2103,18 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           />
         </div>
       </div>
+      
+      {/* Stop Notification Modal */}
+      {notificationModalStop && (
+        <StopNotificationModal
+          stopId={notificationModalStop.stopId}
+          stopName={notificationModalStop.stopName}
+          currentSettings={getNotification(notificationModalStop.stopId)}
+          onSave={setStopNotification}
+          onRemove={removeStopNotification}
+          onClose={() => setNotificationModalStop(null)}
+        />
+      )}
     </div>
   );
 }
