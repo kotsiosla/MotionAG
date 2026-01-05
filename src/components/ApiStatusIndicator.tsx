@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Wifi, WifiOff, RefreshCw, AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import { Wifi, WifiOff, RefreshCw, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,7 @@ interface ApiStatusIndicatorProps {
   onRetry: () => void;
   lastSuccessfulUpdate?: number;
   retryCountdown?: number;
+  isUsingCachedData?: boolean;
 }
 
 export function ApiStatusIndicator({
@@ -24,6 +25,7 @@ export function ApiStatusIndicator({
   onRetry,
   lastSuccessfulUpdate,
   retryCountdown,
+  isUsingCachedData,
 }: ApiStatusIndicatorProps) {
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -73,15 +75,33 @@ export function ApiStatusIndicator({
     );
   }
 
+  // Error state - show offline with optional cached data indicator
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-destructive/10 border border-destructive/20">
-            <WifiOff className="h-3.5 w-3.5 text-destructive" />
-            <span className="text-xs text-destructive font-medium">Offline</span>
+          <div className={cn(
+            "flex items-center gap-1.5 px-2 py-1 rounded-md border",
+            isUsingCachedData 
+              ? "bg-amber-500/10 border-amber-500/20" 
+              : "bg-destructive/10 border-destructive/20"
+          )}>
+            {isUsingCachedData ? (
+              <>
+                <Clock className="h-3.5 w-3.5 text-amber-500" />
+                <span className="text-xs text-amber-500 font-medium">Cached</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="h-3.5 w-3.5 text-destructive" />
+                <span className="text-xs text-destructive font-medium">Offline</span>
+              </>
+            )}
             {retryCountdown !== undefined && retryCountdown > 0 && (
-              <span className="text-xs text-destructive/70">({retryCountdown}δ)</span>
+              <span className={cn(
+                "text-xs",
+                isUsingCachedData ? "text-amber-500/70" : "text-destructive/70"
+              )}>({retryCountdown}δ)</span>
             )}
           </div>
           <Button
@@ -97,9 +117,20 @@ export function ApiStatusIndicator({
       </TooltipTrigger>
       <TooltipContent side="bottom" className="max-w-xs">
         <div className="space-y-1">
-          <p className="font-medium text-destructive">Αποτυχία σύνδεσης με GTFS API</p>
-          {errorMessage && (
-            <p className="text-xs text-muted-foreground">{errorMessage}</p>
+          {isUsingCachedData ? (
+            <>
+              <p className="font-medium text-amber-500">Χρήση αποθηκευμένων δεδομένων</p>
+              <p className="text-xs text-muted-foreground">
+                Το GTFS API δεν είναι διαθέσιμο. Εμφανίζονται οι τελευταίες γνωστές θέσεις οχημάτων.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium text-destructive">Αποτυχία σύνδεσης με GTFS API</p>
+              {errorMessage && (
+                <p className="text-xs text-muted-foreground">{errorMessage}</p>
+              )}
+            </>
           )}
           {lastSuccessfulUpdate && (
             <p className="text-xs text-muted-foreground">

@@ -50,6 +50,7 @@ interface HeaderProps {
   apiErrorMessage?: string;
   onApiRetry?: () => void;
   retryCountdown?: number;
+  isUsingCachedData?: boolean;
 }
 
 export function Header({
@@ -80,6 +81,7 @@ export function Header({
   apiErrorMessage,
   onApiRetry,
   retryCountdown,
+  isUsingCachedData = false,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [tripPlannerVisible, setTripPlannerVisible] = useState(() => {
@@ -121,6 +123,7 @@ export function Header({
               onRetry={onApiRetry || (() => {})}
               lastSuccessfulUpdate={lastUpdate || undefined}
               retryCountdown={retryCountdown}
+              isUsingCachedData={isUsingCachedData}
             />
             
             <Button
@@ -284,6 +287,7 @@ export function Header({
               onRetry={onApiRetry || (() => {})}
               lastSuccessfulUpdate={lastUpdate || undefined}
               retryCountdown={retryCountdown}
+              isUsingCachedData={isUsingCachedData}
             />
             
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground border-l border-border pl-2">

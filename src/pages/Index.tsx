@@ -60,6 +60,71 @@ const Index = () => {
   const staticRoutesQuery = useStaticRoutes(selectedOperator);
   const staticStopsQuery = useStaticStops(selectedOperator);
   
+  // Cache for last known good data
+  const [cachedVehicles, setCachedVehicles] = useState<typeof vehiclesQuery.data>(null);
+  const [cachedTrips, setCachedTrips] = useState<typeof tripsQuery.data>(null);
+  const [cachedAlerts, setCachedAlerts] = useState<typeof alertsQuery.data>(null);
+  const [isUsingCachedData, setIsUsingCachedData] = useState(false);
+  
+  // Update cache when we get successful data
+  useEffect(() => {
+    if (vehiclesQuery.data?.data && vehiclesQuery.data.data.length > 0) {
+      setCachedVehicles(vehiclesQuery.data);
+    }
+  }, [vehiclesQuery.data]);
+  
+  useEffect(() => {
+    if (tripsQuery.data?.data && tripsQuery.data.data.length > 0) {
+      setCachedTrips(tripsQuery.data);
+    }
+  }, [tripsQuery.data]);
+  
+  useEffect(() => {
+    if (alertsQuery.data?.data) {
+      setCachedAlerts(alertsQuery.data);
+    }
+  }, [alertsQuery.data]);
+  
+  // Determine if we're using cached data
+  useEffect(() => {
+    const hasError = vehiclesQuery.isError || tripsQuery.isError;
+    const hasNoCurrentData = !vehiclesQuery.data?.data?.length && !tripsQuery.data?.data?.length;
+    const hasCachedData = (cachedVehicles?.data?.length ?? 0) > 0 || (cachedTrips?.data?.length ?? 0) > 0;
+    
+    setIsUsingCachedData(hasError && hasNoCurrentData && hasCachedData);
+  }, [vehiclesQuery.isError, tripsQuery.isError, vehiclesQuery.data, tripsQuery.data, cachedVehicles, cachedTrips]);
+  
+  // Use current data if available, otherwise fall back to cached data
+  const effectiveVehiclesData = useMemo(() => {
+    if (vehiclesQuery.data?.data && vehiclesQuery.data.data.length > 0) {
+      return vehiclesQuery.data;
+    }
+    if (vehiclesQuery.isError && cachedVehicles) {
+      return cachedVehicles;
+    }
+    return vehiclesQuery.data;
+  }, [vehiclesQuery.data, vehiclesQuery.isError, cachedVehicles]);
+  
+  const effectiveTripsData = useMemo(() => {
+    if (tripsQuery.data?.data && tripsQuery.data.data.length > 0) {
+      return tripsQuery.data;
+    }
+    if (tripsQuery.isError && cachedTrips) {
+      return cachedTrips;
+    }
+    return tripsQuery.data;
+  }, [tripsQuery.data, tripsQuery.isError, cachedTrips]);
+  
+  const effectiveAlertsData = useMemo(() => {
+    if (alertsQuery.data?.data) {
+      return alertsQuery.data;
+    }
+    if (alertsQuery.isError && cachedAlerts) {
+      return cachedAlerts;
+    }
+    return alertsQuery.data;
+  }, [alertsQuery.data, alertsQuery.isError, cachedAlerts]);
+  
   // Trip planning query
   const tripPlanQuery = useTripPlan(
     tripOrigin?.stop_id || null,
@@ -80,7 +145,7 @@ const Index = () => {
   
   // Delay notifications - monitors trips for delays and shows browser notifications
   useDelayNotifications(
-    tripsQuery.data?.data || [],
+    effectiveTripsData?.data || [],
     routeNamesMap,
     delayNotificationsEnabled
   );
@@ -88,14 +153,14 @@ const Index = () => {
   // Get routes with active vehicles/trips
   const liveRoutes = useMemo(() => {
     const routeSet = new Set<string>();
-    vehiclesQuery.data?.data?.forEach(v => {
+    effectiveVehiclesData?.data?.forEach(v => {
       if (v.routeId) routeSet.add(v.routeId);
     });
-    tripsQuery.data?.data?.forEach(t => {
+    effectiveTripsData?.data?.forEach(t => {
       if (t.routeId) routeSet.add(t.routeId);
     });
     return routeSet;
-  }, [vehiclesQuery.data, tripsQuery.data]);
+  }, [effectiveVehiclesData, effectiveTripsData]);
 
   // Get all available routes from static data, or live routes only
   const availableRoutes = useMemo(() => {
@@ -121,16 +186,16 @@ const Index = () => {
 
   // Filter data by selected route
   const filteredVehicles = useMemo(() => {
-    const vehicles = vehiclesQuery.data?.data || [];
+    const vehicles = effectiveVehiclesData?.data || [];
     if (selectedRoute === "all") return vehicles;
     return vehicles.filter(v => v.routeId === selectedRoute);
-  }, [vehiclesQuery.data, selectedRoute]);
+  }, [effectiveVehiclesData, selectedRoute]);
 
   const filteredTrips = useMemo(() => {
-    const trips = tripsQuery.data?.data || [];
+    const trips = effectiveTripsData?.data || [];
     if (selectedRoute === "all") return trips;
     return trips.filter(t => t.routeId === selectedRoute);
-  }, [tripsQuery.data, selectedRoute]);
+  }, [effectiveTripsData, selectedRoute]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -249,6 +314,7 @@ const Index = () => {
         apiErrorMessage={errorMessage}
         onApiRetry={handleRetry}
         retryCountdown={retryCountdown}
+        isUsingCachedData={isUsingCachedData}
       />
       
       {/* Trip Plan Results Modal */}
@@ -368,7 +434,7 @@ const Index = () => {
 
             <TabsContent value="alerts" className="h-[calc(100vh-240px)] sm:h-[calc(100vh-220px)] m-0 overflow-auto">
               <AlertsList
-                alerts={alertsQuery.data?.data || []}
+                alerts={effectiveAlertsData?.data || []}
                 trips={filteredTrips}
                 routeNamesMap={routeNamesMap}
                 isLoading={alertsQuery.isLoading}
@@ -381,8 +447,8 @@ const Index = () => {
       {/* Nearby Stops Panel */}
       <NearbyStopsPanel
         stops={staticStopsQuery.data?.data || []}
-        trips={tripsQuery.data?.data || []}
-        vehicles={vehiclesQuery.data?.data || []}
+        trips={effectiveTripsData?.data || []}
+        vehicles={effectiveVehiclesData?.data || []}
         routeNamesMap={routeNamesMap}
         onSelectVehicle={(vehicleId, tripId, routeId) => {
           if (routeId) setSelectedRoute(routeId);
