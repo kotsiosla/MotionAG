@@ -121,6 +121,28 @@ const createStopIcon = (hasVehicleStopped?: boolean, sequenceNumber?: number, ro
   });
 };
 
+// Find the closest point index on a route shape to a given lat/lng
+const findClosestPointOnRoute = (
+  lat: number, 
+  lng: number, 
+  shape: Array<{ lat: number; lng: number }>
+): number => {
+  let closestIndex = 0;
+  let minDistance = Infinity;
+  
+  for (let i = 0; i < shape.length; i++) {
+    const dx = shape[i].lng - lng;
+    const dy = shape[i].lat - lat;
+    const distance = dx * dx + dy * dy;
+    if (distance < minDistance) {
+      minDistance = distance;
+      closestIndex = i;
+    }
+  }
+  
+  return closestIndex;
+};
+
 const formatTimestamp = (timestamp?: number) => {
   if (!timestamp) return 'Άγνωστο';
   const date = new Date(timestamp * 1000);
@@ -261,48 +283,73 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     }
   }, [followVehicleId, followedVehicleId, vehicles]);
 
-  // Draw initial trail when following starts
+  // Draw snail trail on route shape - updates when vehicle position changes
   useEffect(() => {
-    if (!followedVehicleId || !mapRef.current) return;
-    
-    const trail = vehicleTrailsRef.current.get(followedVehicleId);
-    if (!trail || trail.length < 2) return;
+    if (!followedVehicleId || !mapRef.current || !routeShapeData) return;
     
     const vehicle = vehicles.find(v => (v.vehicleId || v.id) === followedVehicleId);
-    const routeInfo = vehicle?.routeId && routeNamesMap ? routeNamesMap.get(vehicle.routeId) : null;
+    if (!vehicle?.latitude || !vehicle?.longitude) return;
+    
+    const direction = routeShapeData.directions[0];
+    if (!direction || !direction.shape || direction.shape.length < 2) return;
+    
+    const routeInfo = vehicle.routeId && routeNamesMap ? routeNamesMap.get(vehicle.routeId) : null;
     const trailColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : '#f97316';
+    
+    // Find where the vehicle is on the route shape
+    const closestIndex = findClosestPointOnRoute(vehicle.latitude, vehicle.longitude, direction.shape);
     
     // Remove old trail
     const oldPolylines = trailPolylinesRef.current.get(followedVehicleId) || [];
     oldPolylines.forEach(p => mapRef.current?.removeLayer(p));
     
+    // Get trail portion - from start of route to current position
+    // Take a segment behind the vehicle (the "snail trail")
+    const trailStartIndex = Math.max(0, closestIndex - 80); // ~80 points behind
+    const trailEndIndex = closestIndex;
+    
+    if (trailEndIndex <= trailStartIndex) return;
+    
+    const trailShape = direction.shape.slice(trailStartIndex, trailEndIndex + 1);
+    const trailPoints: L.LatLngExpression[] = trailShape.map(p => [p.lat, p.lng]);
+    
     const newPolylines: L.Polyline[] = [];
-    const trailPoints: L.LatLngExpression[] = trail.map(p => [p.lat, p.lng]);
     
-    // Main trail
-    const mainTrail = L.polyline(trailPoints, {
-      color: trailColor,
-      weight: 8,
-      opacity: 0.7,
-      lineCap: 'round',
-      lineJoin: 'round',
-      smoothFactor: 1.5,
-    }).addTo(mapRef.current);
-    newPolylines.push(mainTrail);
+    // Create gradient segments for snail trail effect
+    const segmentCount = trailPoints.length - 1;
+    for (let i = 0; i < segmentCount; i++) {
+      const progress = i / segmentCount; // 0 = oldest, 1 = newest
+      const opacity = 0.2 + progress * 0.6; // Fade from 0.2 to 0.8
+      const weight = 4 + progress * 6; // Width from 4 to 10
+      
+      const segment = L.polyline(
+        [trailPoints[i], trailPoints[i + 1]],
+        {
+          color: trailColor,
+          weight: weight,
+          opacity: opacity,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }
+      ).addTo(mapRef.current);
+      newPolylines.push(segment);
+    }
     
-    // Inner glow
-    const innerTrail = L.polyline(trailPoints, {
-      color: 'white',
-      weight: 3,
-      opacity: 0.4,
-      lineCap: 'round',
-      lineJoin: 'round',
-      smoothFactor: 1.5,
-    }).addTo(mapRef.current);
-    newPolylines.push(innerTrail);
+    // Add white glow on top for the recent part
+    if (trailPoints.length > 10) {
+      const glowPoints = trailPoints.slice(-15);
+      const glowTrail = L.polyline(glowPoints, {
+        color: 'white',
+        weight: 3,
+        opacity: 0.5,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(mapRef.current);
+      newPolylines.push(glowTrail);
+    }
     
     trailPolylinesRef.current.set(followedVehicleId, newPolylines);
-  }, [followedVehicleId, vehicles, routeNamesMap]);
+  }, [followedVehicleId, vehicles, routeNamesMap, routeShapeData]);
 
   // Geocoding search function
   const searchAddress = useCallback(async (query: string) => {
@@ -671,85 +718,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         
         // Only animate if position actually changed
         if (currentLatLng.lat !== newLatLng.lat || currentLatLng.lng !== newLatLng.lng) {
-          // Update trail history for followed/selected vehicles
-          if (isFollowed || isOnSelectedRoute) {
-            const trail = vehicleTrailsRef.current.get(vehicleId) || [];
-            const now = Date.now();
-            
-            // Add new position
-            trail.push({ lat: vehicle.latitude!, lng: vehicle.longitude!, timestamp: now });
-            
-            // Keep only last 30 seconds of trail (or max 50 points)
-            const cutoffTime = now - 30000;
-            const filteredTrail = trail.filter(p => p.timestamp > cutoffTime).slice(-50);
-            vehicleTrailsRef.current.set(vehicleId, filteredTrail);
-            
-            // Draw smooth snail trail
-            if (mapRef.current && filteredTrail.length > 1) {
-              // Remove old trail polylines for this vehicle
-              const oldPolylines = trailPolylinesRef.current.get(vehicleId) || [];
-              oldPolylines.forEach(p => mapRef.current?.removeLayer(p));
-              
-              // Remove old particles
-              const oldParticles = trailParticlesRef.current.get(vehicleId) || [];
-              oldParticles.forEach(p => mapRef.current?.removeLayer(p));
-              
-              const newPolylines: L.Polyline[] = [];
-              const newParticles: L.Marker[] = [];
-              const trailColor = routeColor ? `#${routeColor}` : '#f97316';
-              
-              // Create smooth gradient snail trail - thicker, more visible
-              const trailPoints: L.LatLngExpression[] = filteredTrail.map(p => [p.lat, p.lng]);
-              
-              // Main trail - smooth continuous line
-              const mainTrail = L.polyline(trailPoints, {
-                color: trailColor,
-                weight: 8,
-                opacity: 0.7,
-                lineCap: 'round',
-                lineJoin: 'round',
-                smoothFactor: 1.5,
-              }).addTo(mapRef.current);
-              newPolylines.push(mainTrail);
-              
-              // Inner glow line
-              const innerTrail = L.polyline(trailPoints, {
-                color: 'white',
-                weight: 3,
-                opacity: 0.4,
-                lineCap: 'round',
-                lineJoin: 'round',
-                smoothFactor: 1.5,
-              }).addTo(mapRef.current);
-              newPolylines.push(innerTrail);
-              
-              // Fading tail segments at the start
-              for (let i = 1; i < Math.min(8, filteredTrail.length); i++) {
-                const opacity = 0.15 * (1 - i / 8);
-                const weight = 10 + i * 2;
-                
-                const fadeSegment = L.polyline(
-                  [[filteredTrail[i-1].lat, filteredTrail[i-1].lng], [filteredTrail[i].lat, filteredTrail[i].lng]],
-                  {
-                    color: trailColor,
-                    weight: weight,
-                    opacity: opacity,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                  }
-                ).addTo(mapRef.current);
-                newPolylines.push(fadeSegment);
-              }
-              
-              trailPolylinesRef.current.set(vehicleId, newPolylines);
-              trailParticlesRef.current.set(vehicleId, newParticles);
-            }
-          }
-          
-          // Get the marker's DOM element and add transition class
+          // Get the marker's DOM element and add transition class for smooth movement
           const markerElement = existingMarker.getElement();
           if (markerElement) {
-            markerElement.style.transition = 'transform 1s ease-out';
+            markerElement.style.transition = 'transform 1.2s cubic-bezier(0.25, 0.1, 0.25, 1)';
           }
           existingMarker.setLatLng(newLatLng);
         }
