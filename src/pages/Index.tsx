@@ -60,30 +60,81 @@ const Index = () => {
   const staticRoutesQuery = useStaticRoutes(selectedOperator);
   const staticStopsQuery = useStaticStops(selectedOperator);
   
-  // Cache for last known good data
-  const [cachedVehicles, setCachedVehicles] = useState<typeof vehiclesQuery.data>(null);
-  const [cachedTrips, setCachedTrips] = useState<typeof tripsQuery.data>(null);
-  const [cachedAlerts, setCachedAlerts] = useState<typeof alertsQuery.data>(null);
+  // Cache for last known good data - initialize from localStorage
+  const [cachedVehicles, setCachedVehicles] = useState<typeof vehiclesQuery.data>(() => {
+    try {
+      const stored = localStorage.getItem('gtfs_cached_vehicles');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [cachedTrips, setCachedTrips] = useState<typeof tripsQuery.data>(() => {
+    try {
+      const stored = localStorage.getItem('gtfs_cached_trips');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [cachedAlerts, setCachedAlerts] = useState<typeof alertsQuery.data>(() => {
+    try {
+      const stored = localStorage.getItem('gtfs_cached_alerts');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [isUsingCachedData, setIsUsingCachedData] = useState(false);
   
-  // Update cache when we get successful data
+  // Update cache when we get successful data - also persist to localStorage
   useEffect(() => {
     if (vehiclesQuery.data?.data && vehiclesQuery.data.data.length > 0) {
       setCachedVehicles(vehiclesQuery.data);
+      try {
+        localStorage.setItem('gtfs_cached_vehicles', JSON.stringify(vehiclesQuery.data));
+        localStorage.setItem('gtfs_cache_timestamp', Date.now().toString());
+      } catch (e) {
+        // localStorage might be full or unavailable
+        console.warn('Failed to persist vehicle cache:', e);
+      }
     }
   }, [vehiclesQuery.data]);
   
   useEffect(() => {
     if (tripsQuery.data?.data && tripsQuery.data.data.length > 0) {
       setCachedTrips(tripsQuery.data);
+      try {
+        localStorage.setItem('gtfs_cached_trips', JSON.stringify(tripsQuery.data));
+      } catch (e) {
+        console.warn('Failed to persist trips cache:', e);
+      }
     }
   }, [tripsQuery.data]);
   
   useEffect(() => {
     if (alertsQuery.data?.data) {
       setCachedAlerts(alertsQuery.data);
+      try {
+        localStorage.setItem('gtfs_cached_alerts', JSON.stringify(alertsQuery.data));
+      } catch (e) {
+        console.warn('Failed to persist alerts cache:', e);
+      }
     }
   }, [alertsQuery.data]);
+  
+  // Get cache age for display
+  const getCacheAge = useCallback(() => {
+    try {
+      const timestamp = localStorage.getItem('gtfs_cache_timestamp');
+      if (timestamp) {
+        return parseInt(timestamp, 10);
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }, []);
   
   // Determine if we're using cached data
   useEffect(() => {
