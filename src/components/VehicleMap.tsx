@@ -206,13 +206,18 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       setViewMode('street');
       
       // Find the vehicle and fly to it smoothly
-      const vehicle = vehicles.find(v => (v.vehicleId || v.id) === followVehicleId);
-      if (vehicle?.latitude && vehicle?.longitude && mapRef.current) {
-        mapRef.current.flyTo([vehicle.latitude, vehicle.longitude], 17, {
-          duration: 1.5,
-          easeLinearity: 0.25,
-        });
-      }
+      // Delay slightly to allow state to settle after route change
+      const timeoutId = setTimeout(() => {
+        const vehicle = vehicles.find(v => (v.vehicleId || v.id) === followVehicleId);
+        if (vehicle?.latitude && vehicle?.longitude && mapRef.current) {
+          mapRef.current.flyTo([vehicle.latitude, vehicle.longitude], 17, {
+            duration: 1.5,
+            easeLinearity: 0.25,
+          });
+        }
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [followVehicleId, followedVehicleId, vehicles]);
 
