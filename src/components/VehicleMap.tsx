@@ -1371,8 +1371,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         }}
       />
       
-      {/* Route Stops Panel */}
-      {showRoutePanel && selectedRoute !== 'all' && !showRoutePlanner && (
+      {/* Route Stops Panel - hide when following a vehicle */}
+      {showRoutePanel && selectedRoute !== 'all' && !showRoutePlanner && !followedVehicleId && (
         <RouteStopsPanel
           selectedRoute={selectedRoute}
           trips={trips}
@@ -1422,106 +1422,58 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </div>
       )}
       
-      {/* Vehicle tracking panel - positioned next to other panels */}
+      {/* Compact vehicle tracking bar - minimal floating UI */}
       {followedVehicle && (
-        <ResizableDraggablePanel
-          initialPosition={{ x: showRoutePanel ? 410 : 16, y: 60 }}
-          initialSize={{ width: 300, height: 220 }}
-          minSize={{ width: 250, height: 180 }}
-          maxSize={{ width: 450, height: 400 }}
-          className="rounded-lg overflow-hidden border border-border bg-card/95 backdrop-blur-sm"
-          zIndex={1001}
-          title="Παρακολούθηση"
+        <div 
+          className="absolute top-2 left-1/2 -translate-x-1/2 z-[1001] flex items-center gap-2 px-3 py-2 rounded-full shadow-lg border border-border/50 backdrop-blur-md"
+          style={{ 
+            backgroundColor: followedRouteInfo?.route_color 
+              ? `rgba(${parseInt(followedRouteInfo.route_color.slice(0,2), 16)}, ${parseInt(followedRouteInfo.route_color.slice(2,4), 16)}, ${parseInt(followedRouteInfo.route_color.slice(4,6), 16)}, 0.9)` 
+              : 'hsl(var(--primary) / 0.9)' 
+          }}
         >
-          <div className="h-full">
-            {/* Header with route color */}
-            <div 
-              className="flex items-center gap-2 p-2"
-              style={{ backgroundColor: followedRouteInfo?.route_color ? `#${followedRouteInfo.route_color}` : 'hsl(var(--primary))' }}
-            >
-              <Navigation className="h-3.5 w-3.5 animate-pulse text-white" />
-              <span className="text-xs font-semibold flex-1 text-white">
-                {followedVehicle.label || followedVehicle.vehicleId || followedVehicle.id}
+          <Navigation className="h-4 w-4 animate-pulse text-white" />
+          <span className="text-sm font-semibold text-white">
+            {followedVehicle.label || followedVehicle.vehicleId || followedVehicle.id}
+          </span>
+          <span className="text-xs text-white/80">
+            {followedVehicle.speed !== undefined ? formatSpeed(followedVehicle.speed) : ''}
+          </span>
+          {followedNextStop && (
+            <>
+              <span className="text-white/50">•</span>
+              <MapPin className="h-3 w-3 text-white/80" />
+              <span className="text-xs text-white/90 max-w-[120px] truncate">
+                {followedNextStop.stopName}
               </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 text-white hover:bg-white/20"
-                onClick={() => {
-                  setFollowedVehicleId(null);
-                  setViewMode('street');
-                  setShowLiveVehiclesPanel(true);
-                }}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-            
-            {/* View mode toggle */}
-            <div className="flex items-center gap-1 p-2 border-b border-border bg-muted/30">
-              <Button
-                variant={viewMode === 'street' ? 'default' : 'ghost'}
-                size="sm"
-                className="h-6 text-[10px] px-2 gap-1 flex-1"
-                onClick={switchToStreetView}
-              >
-                <Focus className="h-3 w-3" />
-                Street View
-              </Button>
-              <Button
-                variant={viewMode === 'overview' ? 'default' : 'ghost'}
-                size="sm"
-                className="h-6 text-[10px] px-2 gap-1 flex-1"
-                onClick={switchToOverview}
-              >
-                <Maximize2 className="h-3 w-3" />
-                Overview
-              </Button>
-            </div>
-            
-            {/* Content */}
-            <div className="p-2 space-y-2 overflow-y-auto h-[calc(100%-72px)]">
-              {/* Vehicle info */}
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-muted-foreground">Ταχύτητα:</span>
-                {followedVehicle.speed !== undefined && (
-                  <span className="text-primary font-medium">{formatSpeed(followedVehicle.speed)}</span>
-                )}
-              </div>
-              
-              {/* Route info */}
-              {followedRouteInfo && (
-                <div 
-                  className="text-xs font-medium"
-                  style={{ color: followedRouteInfo.route_color ? `#${followedRouteInfo.route_color}` : 'inherit' }}
-                >
-                  {followedRouteInfo.route_short_name} - {followedRouteInfo.route_long_name}
-                </div>
-              )}
-              
-              {/* Next stop */}
-              {followedNextStop && (
-                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border text-xs">
-                  <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                  <span className="text-muted-foreground">Επόμενη:</span>
-                  <span className="font-medium">{followedNextStop.stopName}</span>
-                  {followedNextStop.arrivalTime && (
-                    <span className="font-mono text-primary">{formatETA(followedNextStop.arrivalTime)}</span>
-                  )}
-                  {followedNextStop.arrivalDelay !== undefined && (
-                    <span className={`text-[10px] ${
-                      followedNextStop.arrivalDelay > 0 ? 'text-destructive' : 
-                      followedNextStop.arrivalDelay < 0 ? 'text-green-500' : 
-                      'text-muted-foreground'
-                    }`}>
-                      {followedNextStop.arrivalDelay === 0 ? '(στην ώρα)' : formatDelay(followedNextStop.arrivalDelay)}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
+            </>
+          )}
+          <div className="flex items-center gap-1 ml-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-white hover:bg-white/20 rounded-full"
+              onClick={viewMode === 'street' ? switchToOverview : switchToStreetView}
+              title={viewMode === 'street' ? 'Overview' : 'Street View'}
+            >
+              {viewMode === 'street' ? <Maximize2 className="h-3.5 w-3.5" /> : <Focus className="h-3.5 w-3.5" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-white hover:bg-white/20 rounded-full"
+              onClick={() => {
+                setFollowedVehicleId(null);
+                setViewMode('street');
+                setShowLiveVehiclesPanel(true);
+                setShowRoutePanel(true);
+                if (onFollowVehicle) onFollowVehicle(null);
+              }}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
           </div>
-        </ResizableDraggablePanel>
+        </div>
       )}
 
       {/* Left side: Search box and Stops toggle */}
