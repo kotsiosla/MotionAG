@@ -531,7 +531,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     }
 
     const validVehicles = vehicles.filter(
-      (v) => v.latitude !== undefined && v.longitude !== undefined
+      (v) => v.latitude !== undefined && v.longitude !== undefined &&
+             typeof v.latitude === 'number' && typeof v.longitude === 'number' &&
+             !isNaN(v.latitude) && !isNaN(v.longitude)
     );
 
     // Track which vehicle IDs are currently in the data
@@ -842,12 +844,21 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     const clusterGroup = stopMarkersRef.current as any;
     if (!clusterGroup._map) return;
 
+    // Additional safety check - ensure map is ready
+    try {
+      if (!mapRef.current.getZoom()) return;
+    } catch {
+      return;
+    }
+
     stopMarkersRef.current.clearLayers();
 
     if (!showStops) return;
 
     const validStops = stops.filter(
-      (s) => s.stop_lat !== undefined && s.stop_lon !== undefined
+      (s) => s.stop_lat !== undefined && s.stop_lon !== undefined &&
+             typeof s.stop_lat === 'number' && typeof s.stop_lon === 'number' &&
+             !isNaN(s.stop_lat) && !isNaN(s.stop_lon)
     );
 
     validStops.forEach((stop) => {
