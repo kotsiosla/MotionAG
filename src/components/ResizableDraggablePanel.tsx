@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, ReactNode } from 'react';
+import { useState, useRef, useCallback, useEffect, ReactNode, forwardRef } from 'react';
 import { GripVertical } from 'lucide-react';
 
 interface ResizableDraggablePanelProps {
@@ -14,7 +14,7 @@ interface ResizableDraggablePanelProps {
   title?: string;
 }
 
-export function ResizableDraggablePanel({
+export const ResizableDraggablePanel = forwardRef<HTMLDivElement, ResizableDraggablePanelProps>(function ResizableDraggablePanel({
   children,
   initialPosition = { x: 16, y: 16 },
   initialSize = { width: 320, height: 400 },
@@ -25,7 +25,7 @@ export function ResizableDraggablePanel({
   onSizeChange,
   zIndex = 1000,
   title,
-}: ResizableDraggablePanelProps) {
+}, ref) {
   const [position, setPosition] = useState(initialPosition);
   const [size, setSize] = useState(initialSize);
   const [isDragging, setIsDragging] = useState(false);
@@ -210,4 +210,4 @@ export function ResizableDraggablePanel({
       />
     </div>
   );
-}
+});
