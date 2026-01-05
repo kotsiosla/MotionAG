@@ -6,12 +6,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import type { Trip, RouteInfo } from "@/types/gtfs";
+import type { Trip, RouteInfo, StaticStop } from "@/types/gtfs";
 
 interface TripsTableProps {
   trips: Trip[];
   isLoading: boolean;
   routeNames?: Map<string, RouteInfo>;
+  stops?: StaticStop[];
 }
 
 const formatDelay = (seconds?: number) => {
@@ -33,9 +34,23 @@ const formatTimestamp = (timestamp?: number) => {
   });
 };
 
-export function TripsTable({ trips, isLoading, routeNames }: TripsTableProps) {
+export function TripsTable({ trips, isLoading, routeNames, stops = [] }: TripsTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedTrips, setExpandedTrips] = useState<Set<string>>(new Set());
+
+  // Create a map for quick stop name lookup
+  const stopsMap = useMemo(() => {
+    const map = new Map<string, string>();
+    stops.forEach(stop => {
+      map.set(stop.stop_id, stop.stop_name);
+    });
+    return map;
+  }, [stops]);
+
+  const getStopName = (stopId?: string) => {
+    if (!stopId) return '-';
+    return stopsMap.get(stopId) || stopId;
+  };
 
   const getRouteDisplay = (routeId?: string) => {
     if (!routeId) return { shortName: 'N/A', longName: '', color: undefined, textColor: undefined };
@@ -75,13 +90,15 @@ export function TripsTable({ trips, isLoading, routeNames }: TripsTableProps) {
   const filteredTrips = useMemo(() => {
     if (!searchTerm) return trips;
     const term = searchTerm.toLowerCase();
-    return trips.filter(
-      (trip) =>
-        trip.tripId?.toLowerCase().includes(term) ||
-        trip.routeId?.toLowerCase().includes(term) ||
-        trip.vehicleId?.toLowerCase().includes(term)
-    );
-  }, [trips, searchTerm]);
+    return trips.filter((trip) => {
+      const route = getRouteDisplay(trip.routeId);
+      return (
+        route.shortName.toLowerCase().includes(term) ||
+        route.longName.toLowerCase().includes(term) ||
+        trip.routeId?.toLowerCase().includes(term)
+      );
+    });
+  }, [trips, searchTerm, routeNames]);
 
   const toggleExpanded = (id: string) => {
     const newSet = new Set(expandedTrips);
@@ -107,7 +124,7 @@ export function TripsTable({ trips, isLoading, routeNames }: TripsTableProps) {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Αναζήτηση route, trip ή vehicle ID..."
+            placeholder="Αναζήτηση γραμμής (π.χ. 25, Nicosia)..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -235,12 +252,12 @@ export function TripsTable({ trips, isLoading, routeNames }: TripsTableProps) {
                                   key={idx}
                                   className="flex items-center justify-between text-sm py-1 border-b border-border/50 last:border-0"
                                 >
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-6 h-6 bg-primary/20 text-primary rounded-full flex items-center justify-center text-xs font-medium">
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <span className="w-6 h-6 bg-primary/20 text-primary rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0">
                                       {stu.stopSequence || idx + 1}
                                     </span>
-                                    <span className="font-mono text-xs">
-                                      {stu.stopId || '-'}
+                                    <span className="text-xs truncate">
+                                      {getStopName(stu.stopId)}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-2">
