@@ -883,11 +883,14 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       if (shouldSnapToRoute) {
         const shape = routeShapeData.directions[0].shape;
         const snapped = snapToRouteLine(vehicle.latitude!, vehicle.longitude!, shape);
+        console.log('[VehicleMap] Snap to route:', { vehicleId, snapped, shapeLength: shape.length });
         if (snapped) {
           targetLat = snapped.lat;
           targetLng = snapped.lng;
           effectiveBearing = snapped.bearing;
         }
+      } else if (isFollowed) {
+        console.log('[VehicleMap] No route shape for followed vehicle:', { vehicleId, hasRouteShape: !!routeShapeData });
       }
       
       // Calculate bearing from previous position if not provided
