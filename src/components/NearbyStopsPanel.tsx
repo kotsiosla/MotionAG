@@ -9,15 +9,11 @@ import {
   ChevronRight,
   Loader2,
   Volume2,
-  VolumeX,
   LocateFixed,
   X,
   AlertCircle,
   Settings,
-  Minimize2,
-  Vibrate,
-  MessageSquare,
-  Smartphone
+  Minimize2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,22 +68,6 @@ export function NearbyStopsPanel({
     const saved = localStorage.getItem('nearbyNotificationDistance');
     return saved ? parseInt(saved, 10) : 500;
   });
-  const [soundEnabled, setSoundEnabled] = useState(() => {
-    const saved = localStorage.getItem('nearbySoundEnabled');
-    return saved !== null ? saved === 'true' : true;
-  });
-  const [vibrationEnabled, setVibrationEnabled] = useState(() => {
-    const saved = localStorage.getItem('nearbyVibrationEnabled');
-    return saved !== null ? saved === 'true' : true;
-  });
-  const [voiceEnabled, setVoiceEnabled] = useState(() => {
-    const saved = localStorage.getItem('nearbyVoiceEnabled');
-    return saved !== null ? saved === 'true' : true;
-  });
-  const [pushEnabled, setPushEnabled] = useState(() => {
-    const saved = localStorage.getItem('nearbyPushEnabled');
-    return saved !== null ? saved === 'true' : true;
-  });
   const [showSettings, setShowSettings] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -128,26 +108,10 @@ export function NearbyStopsPanel({
     };
   }, [isPanelOpen, nearestStop, onHighlightStop]);
 
-  // Save notification settings
+  // Save notification distance
   useEffect(() => {
     localStorage.setItem('nearbyNotificationDistance', notificationDistance.toString());
   }, [notificationDistance]);
-
-  useEffect(() => {
-    localStorage.setItem('nearbySoundEnabled', soundEnabled.toString());
-  }, [soundEnabled]);
-
-  useEffect(() => {
-    localStorage.setItem('nearbyVibrationEnabled', vibrationEnabled.toString());
-  }, [vibrationEnabled]);
-
-  useEffect(() => {
-    localStorage.setItem('nearbyVoiceEnabled', voiceEnabled.toString());
-  }, [voiceEnabled]);
-
-  useEffect(() => {
-    localStorage.setItem('nearbyPushEnabled', pushEnabled.toString());
-  }, [pushEnabled]);
 
   // Get user location
   const getLocation = useCallback(() => {
@@ -270,23 +234,17 @@ export function NearbyStopsPanel({
       : arrival.routeId;
 
     // Sound
-    if (soundEnabled) {
-      playNotificationSound();
-    }
+    playNotificationSound();
     
     // Vibration
-    if (vibrationEnabled) {
-      triggerVibration();
-    }
+    triggerVibration();
     
     // Voice announcement
-    if (voiceEnabled) {
-      const message = `Προσοχή! Γραμμή ${routeName} πλησιάζει στη στάση ${stopName}. Ετοιμαστείτε για επιβίβαση.`;
-      speakAnnouncement(message);
-    }
+    const message = `Προσοχή! Γραμμή ${routeName} πλησιάζει στη στάση ${stopName}. Ετοιμαστείτε για επιβίβαση.`;
+    speakAnnouncement(message);
     
     // Push notification
-    if (pushEnabled && 'Notification' in window && Notification.permission === 'granted') {
+    if ('Notification' in window && Notification.permission === 'granted') {
       new Notification(`🚌 ${routeName} πλησιάζει!`, {
         body: `Η γραμμή πλησιάζει στη στάση: ${stopName}`,
         icon: '/pwa-192x192.png',
@@ -294,7 +252,7 @@ export function NearbyStopsPanel({
         requireInteraction: true,
       });
     }
-  }, [soundEnabled, vibrationEnabled, voiceEnabled, pushEnabled, playNotificationSound, triggerVibration, speakAnnouncement]);
+  }, [playNotificationSound, triggerVibration, speakAnnouncement]);
 
   // Monitor watched arrivals
   useEffect(() => {
@@ -445,106 +403,23 @@ export function NearbyStopsPanel({
         </div>
       </div>
 
+      {/* Settings */}
       <Collapsible open={showSettings} onOpenChange={setShowSettings}>
         <CollapsibleContent className="p-3 border-b border-border bg-muted/50">
-          <div className="space-y-4">
-            {/* Notification Types */}
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-foreground">Τύποι ειδοποίησης:</p>
-              <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Ειδοποίηση όταν το λεωφορείο είναι σε:</p>
+            <div className="flex flex-wrap gap-1">
+              {[200, 300, 500, 750, 1000].map(dist => (
                 <Button
-                  variant={soundEnabled ? "default" : "outline"}
+                  key={dist}
+                  variant={notificationDistance === dist ? "default" : "outline"}
                   size="sm"
-                  className="h-8 text-xs gap-1.5 justify-start"
-                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  className="h-7 text-xs px-2"
+                  onClick={() => setNotificationDistance(dist)}
                 >
-                  {soundEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-                  Ήχος
+                  {dist < 1000 ? `${dist}μ` : `${dist/1000}χλμ`}
                 </Button>
-                <Button
-                  variant={vibrationEnabled ? "default" : "outline"}
-                  size="sm"
-                  className="h-8 text-xs gap-1.5 justify-start"
-                  onClick={() => setVibrationEnabled(!vibrationEnabled)}
-                >
-                  <Vibrate className="h-3.5 w-3.5" />
-                  Δόνηση
-                </Button>
-                <Button
-                  variant={voiceEnabled ? "default" : "outline"}
-                  size="sm"
-                  className="h-8 text-xs gap-1.5 justify-start"
-                  onClick={() => setVoiceEnabled(!voiceEnabled)}
-                >
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  Φωνή
-                </Button>
-                <Button
-                  variant={pushEnabled ? "default" : "outline"}
-                  size="sm"
-                  className="h-8 text-xs gap-1.5 justify-start"
-                  onClick={() => {
-                    setPushEnabled(!pushEnabled);
-                    if (!pushEnabled) {
-                      requestNotificationPermission();
-                    }
-                  }}
-                >
-                  <Smartphone className="h-3.5 w-3.5" />
-                  Push
-                </Button>
-                </div>
-              
-              {/* Test Button */}
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full h-8 text-xs"
-                onClick={() => {
-                  if (soundEnabled) playNotificationSound();
-                  if (vibrationEnabled) triggerVibration();
-                  if (voiceEnabled) speakAnnouncement('Δοκιμή ειδοποίησης. Η γραμμή 101 πλησιάζει στη στάση.');
-                  if (pushEnabled) {
-                    if ('Notification' in window) {
-                      if (Notification.permission === 'granted') {
-                        new Notification('🚌 Δοκιμή ειδοποίησης', {
-                          body: 'Οι ειδοποιήσεις λειτουργούν κανονικά!',
-                          icon: '/pwa-192x192.png',
-                        });
-                      } else if (Notification.permission === 'default') {
-                        Notification.requestPermission().then(p => {
-                          if (p === 'granted') {
-                            new Notification('🚌 Δοκιμή ειδοποίησης', {
-                              body: 'Οι ειδοποιήσεις λειτουργούν κανονικά!',
-                              icon: '/pwa-192x192.png',
-                            });
-                          }
-                        });
-                      }
-                    }
-                  }
-                }}
-              >
-                🔔 Δοκιμή Ειδοποιήσεων
-              </Button>
-            </div>
-
-            {/* Distance Setting */}
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-foreground">Απόσταση ειδοποίησης:</p>
-              <div className="flex flex-wrap gap-1">
-                {[200, 300, 500, 750, 1000].map(dist => (
-                  <Button
-                    key={dist}
-                    variant={notificationDistance === dist ? "default" : "outline"}
-                    size="sm"
-                    className="h-7 text-xs px-2"
-                    onClick={() => setNotificationDistance(dist)}
-                  >
-                    {dist < 1000 ? `${dist}μ` : `${dist/1000}χλμ`}
-                  </Button>
-                ))}
-              </div>
+              ))}
             </div>
           </div>
         </CollapsibleContent>
