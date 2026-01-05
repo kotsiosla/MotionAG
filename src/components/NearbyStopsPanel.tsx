@@ -330,12 +330,20 @@ export function NearbyStopsPanel({
     watchLocation();
   }, [onStopSelect, watchLocation]);
 
-  // Track vehicle
+  // Track vehicle - close panel and follow vehicle
   const handleTrackVehicle = useCallback((arrival: StopArrival) => {
     if (arrival.vehicleId && onSelectVehicle) {
+      // Close the panel first for unobstructed view
+      setIsPanelOpen(false);
+      setIsMinimized(false);
+      setSelectedStop(null);
+      if (onHighlightStop) {
+        onHighlightStop(null);
+      }
+      // Then trigger vehicle tracking
       onSelectVehicle(arrival.vehicleId, arrival.tripId, arrival.routeId);
     }
-  }, [onSelectVehicle]);
+  }, [onSelectVehicle, onHighlightStop]);
 
   // Handle panel open
   const handleOpenPanel = useCallback(() => {
