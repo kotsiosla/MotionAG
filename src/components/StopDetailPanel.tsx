@@ -1,11 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { X, Bell, BellOff, Volume2, Vibrate, Mic, Send, Clock, Bus, Eye, Navigation } from "lucide-react";
+import { X, Bell, BellOff, Volume2, Vibrate, Mic, Send, Clock, Bus, Eye, Navigation, Signal, SignalHigh, SignalMedium, SignalLow } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { StopNotificationSettings } from "@/hooks/useStopNotifications";
 import type { Trip, Vehicle, RouteInfo } from "@/types/gtfs";
 
@@ -19,7 +20,38 @@ interface ArrivalInfo {
   arrivalDelay?: number;
   vehicleId?: string;
   vehicleLabel?: string;
+  confidence?: 'high' | 'medium' | 'low';
+  source?: 'gtfs' | 'siri' | 'merged';
 }
+
+// Confidence indicator component
+const ConfidenceIndicator = ({ confidence, source }: { confidence?: 'high' | 'medium' | 'low'; source?: string }) => {
+  if (!confidence) return null;
+  
+  const config = {
+    high: { color: 'text-green-500', bg: 'bg-green-500/20', label: 'Υψηλή ακρίβεια', icon: '●●●' },
+    medium: { color: 'text-yellow-500', bg: 'bg-yellow-500/20', label: 'Μέτρια ακρίβεια', icon: '●●○' },
+    low: { color: 'text-red-500', bg: 'bg-red-500/20', label: 'Χαμηλή ακρίβεια', icon: '●○○' },
+  };
+  
+  const { color, bg, label, icon } = config[confidence];
+  const sourceLabel = source === 'siri' ? ' (SIRI)' : source === 'merged' ? ' (Συνδυασμός)' : ' (GPS)';
+  
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold ${color} ${bg}`}>
+            {icon}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          <p>{label}{sourceLabel}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
 interface StopDetailPanelProps {
   stopId: string;
@@ -337,6 +369,7 @@ export function StopDetailPanel({
                       className="flex items-center justify-between p-2 hover:bg-muted/20 transition-colors"
                     >
                       <div className="flex items-center gap-2">
+                        <ConfidenceIndicator confidence={arrival.confidence} source={arrival.source} />
                         <div className="text-sm font-mono font-semibold text-primary">
                           {formatETA(arrival.arrivalTime)}
                         </div>
