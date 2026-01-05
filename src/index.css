@@ -207,9 +207,7 @@
 }
 
 /* Vehicle cluster styling - single clean circle */
-.leaflet-marker-icon.marker-cluster-small,
-.leaflet-marker-icon.marker-cluster-medium,
-.leaflet-marker-icon.marker-cluster-large {
+.vehicle-cluster {
   background-color: hsl(var(--primary)) !important;
   border: 3px solid white !important;
   border-radius: 50% !important;
@@ -219,55 +217,87 @@
   justify-content: center !important;
 }
 
-.leaflet-marker-icon.marker-cluster-small div,
-.leaflet-marker-icon.marker-cluster-medium div,
-.leaflet-marker-icon.marker-cluster-large div {
-  background-color: transparent !important;
-  color: white !important;
-  font-weight: 700 !important;
-  font-size: 14px !important;
-  width: 100% !important;
-  height: 100% !important;
+.vehicle-cluster div {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  margin: 0 !important;
-  line-height: 1 !important;
-  text-align: center !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
-/* Size variations */
-.leaflet-marker-icon.marker-cluster-small {
+.vehicle-cluster span {
+  color: white !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+}
+
+.vehicle-cluster-small {
   width: 36px !important;
   height: 36px !important;
-  margin-left: -18px !important;
-  margin-top: -18px !important;
 }
 
-.leaflet-marker-icon.marker-cluster-medium {
-  width: 44px !important;
-  height: 44px !important;
-  margin-left: -22px !important;
-  margin-top: -22px !important;
-}
-
-.leaflet-marker-icon.marker-cluster-large {
-  width: 52px !important;
-  height: 52px !important;
-  margin-left: -26px !important;
-  margin-top: -26px !important;
-}
-
-.leaflet-marker-icon.marker-cluster-small div {
+.vehicle-cluster-small span {
   font-size: 12px !important;
 }
 
-.leaflet-marker-icon.marker-cluster-medium div {
+.vehicle-cluster-medium {
+  width: 44px !important;
+  height: 44px !important;
+}
+
+.vehicle-cluster-medium span {
   font-size: 14px !important;
 }
 
-.leaflet-marker-icon.marker-cluster-large div {
+.vehicle-cluster-large {
+  width: 52px !important;
+  height: 52px !important;
+}
+
+.vehicle-cluster-large span {
   font-size: 16px !important;
+}
+
+/* Stop cluster styling - orange single circle */
+.stop-cluster {
+  background-color: hsl(25 95% 53%) !important;
+  border: 2px solid white !important;
+  border-radius: 50% !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.stop-cluster div {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.stop-cluster span {
+  color: white !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
+}
+
+.stop-cluster-small {
+  width: 28px !important;
+  height: 28px !important;
+}
+
+.stop-cluster-medium {
+  width: 34px !important;
+  height: 34px !important;
+}
+
+.stop-cluster-large {
+  width: 40px !important;
+  height: 40px !important;
 }
 
 /* Animated bus on route */

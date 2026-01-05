@@ -703,10 +703,13 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       maxClusterRadius: 50,
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
+        const size = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
+        const sizeMap = { small: 36, medium: 44, large: 52 };
+        const iconSize = sizeMap[size];
         return L.divIcon({
-          html: `<div class="marker-cluster"><div>${count}</div></div>`,
-          className: 'marker-cluster-container',
-          iconSize: L.point(40, 40),
+          html: `<div><span>${count}</span></div>`,
+          className: `vehicle-cluster vehicle-cluster-${size}`,
+          iconSize: L.point(iconSize, iconSize),
         });
       },
     });
@@ -719,10 +722,13 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       disableClusteringAtZoom: 15,
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
+        const size = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
+        const sizeMap = { small: 28, medium: 34, large: 40 };
+        const iconSize = sizeMap[size];
         return L.divIcon({
-          html: `<div class="stop-cluster"><div>${count}</div></div>`,
-          className: 'stop-cluster-container',
-          iconSize: L.point(30, 30),
+          html: `<div><span>${count}</span></div>`,
+          className: `stop-cluster stop-cluster-${size}`,
+          iconSize: L.point(iconSize, iconSize),
         });
       },
     });
