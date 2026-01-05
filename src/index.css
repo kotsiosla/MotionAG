@@ -303,7 +303,7 @@
 /* Smooth vehicle movement on map */
 .leaflet-marker-icon.vehicle-marker,
 .leaflet-marker-icon.route-vehicle-marker {
-  transition: transform 8s linear !important;
+  transition: transform 4s linear !important;
   will-change: transform;
 }
 

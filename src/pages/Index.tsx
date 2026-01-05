@@ -19,7 +19,7 @@ import { toast } from "sonner";
 
 const Index = () => {
   const [isDark, setIsDark] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState(10);
+  const [refreshInterval, setRefreshInterval] = useState(5);
   const [activeTab, setActiveTab] = useState("map");
   const [selectedOperator, setSelectedOperator] = useState("all");
   const [selectedRoute, setSelectedRoute] = useState("all");

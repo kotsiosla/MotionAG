@@ -950,9 +950,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           // Get the marker's DOM element and add transition for smooth movement
           const markerElement = existingMarker.getElement();
           if (markerElement) {
-            // Use a smooth transition that matches the refresh interval
-            // This creates continuous smooth movement between updates
-            markerElement.style.transition = 'transform 8s linear';
+            // Use a smooth transition - 4s linear for fluid movement
+            markerElement.style.transition = 'transform 4s linear';
             markerElement.style.willChange = 'transform';
           }
           existingMarker.setLatLng(newLatLng);
