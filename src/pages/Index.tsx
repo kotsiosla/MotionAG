@@ -492,6 +492,7 @@ const Index = () => {
                 stops={staticStopsQuery.data?.data || []}
                 routeNamesMap={routeNamesMap}
                 isLoading={tripsQuery.isLoading}
+                selectedOperator={selectedOperator}
               />
             </TabsContent>
 

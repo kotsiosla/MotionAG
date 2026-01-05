@@ -1674,6 +1674,153 @@ serve(async (req) => {
       );
     }
     
+    // Handle stop-routes endpoint - returns all routes that pass through a specific stop
+    if (path === '/stop-routes') {
+      const stopId = url.searchParams.get('stop');
+      
+      if (!stopId) {
+        return new Response(
+          JSON.stringify({ error: 'Missing stop parameter' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      console.log(`Stop routes request for stop: ${stopId}, operator: ${operatorId}`);
+      
+      try {
+        // Determine which operators to query
+        const operators = operatorId && operatorId !== 'all' 
+          ? [operatorId] 
+          : ['2', '4', '5', '6', '9', '10', '11'];
+        
+        const routesAtStop: Array<{
+          route_id: string;
+          route_short_name: string;
+          route_long_name: string;
+          route_color?: string;
+        }> = [];
+        
+        const seenRoutes = new Set<string>();
+        
+        for (const opId of operators) {
+          const gtfsUrl = `http://20.19.98.194:8328/Api/gtfs-static/${opId}.zip`;
+          
+          try {
+            const response = await fetch(gtfsUrl);
+            if (!response.ok) continue;
+            
+            const arrayBuffer = await response.arrayBuffer();
+            const zipData = new Uint8Array(arrayBuffer);
+            
+            // Load stop_times.txt - we need to find trips that stop at this stop
+            const stopTimesContent = await unzipAndParseFile(zipData, 'stop_times.txt');
+            if (!stopTimesContent) continue;
+            
+            const stopTimesLines = stopTimesContent.split('\n');
+            const stopTimesHeader = stopTimesLines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+            const stopIdIdx = stopTimesHeader.indexOf('stop_id');
+            const tripIdIdx = stopTimesHeader.indexOf('trip_id');
+            
+            if (stopIdIdx === -1 || tripIdIdx === -1) continue;
+            
+            // Find all trips that stop at this stop
+            const tripIds = new Set<string>();
+            for (let i = 1; i < stopTimesLines.length; i++) {
+              const line = stopTimesLines[i];
+              if (!line.trim()) continue;
+              
+              const parts = line.split(',').map(p => p.trim().replace(/"/g, ''));
+              if (parts[stopIdIdx] === stopId) {
+                tripIds.add(parts[tripIdIdx]);
+              }
+            }
+            
+            if (tripIds.size === 0) continue;
+            
+            // Load trips.txt to find route_ids for these trips
+            const tripsContent = await unzipAndParseFile(zipData, 'trips.txt');
+            if (!tripsContent) continue;
+            
+            const tripsLines = tripsContent.split('\n');
+            const tripsHeader = tripsLines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+            const tripIdIdxTrips = tripsHeader.indexOf('trip_id');
+            const routeIdIdx = tripsHeader.indexOf('route_id');
+            
+            if (tripIdIdxTrips === -1 || routeIdIdx === -1) continue;
+            
+            const routeIds = new Set<string>();
+            for (let i = 1; i < tripsLines.length; i++) {
+              const line = tripsLines[i];
+              if (!line.trim()) continue;
+              
+              const parts = line.split(',').map(p => p.trim().replace(/"/g, ''));
+              if (tripIds.has(parts[tripIdIdxTrips])) {
+                routeIds.add(parts[routeIdIdx]);
+              }
+            }
+            
+            if (routeIds.size === 0) continue;
+            
+            // Load routes.txt to get route info
+            const routesContent = await unzipAndParseFile(zipData, 'routes.txt');
+            if (!routesContent) continue;
+            
+            const routesLines = routesContent.split('\n');
+            const routesHeader = routesLines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+            const routeIdIdxRoutes = routesHeader.indexOf('route_id');
+            const shortNameIdx = routesHeader.indexOf('route_short_name');
+            const longNameIdx = routesHeader.indexOf('route_long_name');
+            const colorIdx = routesHeader.indexOf('route_color');
+            
+            for (let i = 1; i < routesLines.length; i++) {
+              const line = routesLines[i];
+              if (!line.trim()) continue;
+              
+              const parts = line.split(',').map(p => p.trim().replace(/"/g, ''));
+              const routeId = parts[routeIdIdxRoutes];
+              
+              if (routeIds.has(routeId) && !seenRoutes.has(routeId)) {
+                seenRoutes.add(routeId);
+                routesAtStop.push({
+                  route_id: routeId,
+                  route_short_name: parts[shortNameIdx] || routeId,
+                  route_long_name: parts[longNameIdx] || '',
+                  route_color: parts[colorIdx] || undefined,
+                });
+              }
+            }
+            
+            console.log(`Found ${routeIds.size} routes at stop ${stopId} for operator ${opId}`);
+          } catch (error) {
+            console.error(`Error fetching stop routes for operator ${opId}:`, error);
+          }
+        }
+        
+        return new Response(
+          JSON.stringify({
+            data: {
+              stop_id: stopId,
+              routes: routesAtStop.sort((a, b) => a.route_short_name.localeCompare(b.route_short_name)),
+            },
+            timestamp: Date.now(),
+          }),
+          { 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json',
+              'Cache-Control': 'public, max-age=3600',
+            } 
+          }
+        );
+      } catch (error) {
+        console.error('Error in stop-routes endpoint:', error);
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch stop routes' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Handle static trips endpoint
     if (path === '/trips-static') {
       const tripsStatic = await fetchStaticTrips(operatorId);
