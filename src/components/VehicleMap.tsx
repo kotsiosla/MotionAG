@@ -459,10 +459,26 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       const highlightIcon = L.divIcon({
         className: 'highlighted-stop-marker',
         html: `
-          <div class="relative">
-            <div class="absolute -inset-3 rounded-full bg-green-500 opacity-30 animate-ping"></div>
-            <div class="absolute -inset-2 rounded-full bg-green-500 opacity-50 animate-pulse"></div>
-            <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center shadow-lg border-3 border-white">
+          <style>
+            @keyframes nearbyPing {
+              0% { transform: scale(1); opacity: 0.8; }
+              75%, 100% { transform: scale(2); opacity: 0; }
+            }
+            @keyframes nearbyPulse {
+              0%, 100% { transform: scale(1); opacity: 0.6; }
+              50% { transform: scale(1.3); opacity: 0.3; }
+            }
+            .nearby-ping {
+              animation: nearbyPing 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+            }
+            .nearby-pulse {
+              animation: nearbyPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            }
+          </style>
+          <div style="position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+            <div class="nearby-ping" style="position: absolute; inset: -8px; border-radius: 50%; background: #22c55e;"></div>
+            <div class="nearby-pulse" style="position: absolute; inset: -4px; border-radius: 50%; background: #22c55e;"></div>
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #22c55e; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(34, 197, 94, 0.5); border: 3px solid white;">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                 <circle cx="12" cy="10" r="3"></circle>
@@ -470,8 +486,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             </div>
           </div>
         `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
       });
 
       highlightedStopMarkerRef.current = L.marker(
