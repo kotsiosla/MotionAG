@@ -155,6 +155,27 @@ const formatTimestamp = (timestamp?: number) => {
   });
 };
 
+const getRelativeTime = (timestamp?: number): { text: string; color: string; isLive: boolean } => {
+  if (!timestamp) return { text: 'Άγνωστο', color: '#888', isLive: false };
+  
+  const now = Date.now() / 1000;
+  const diff = now - timestamp;
+  
+  if (diff < 30) {
+    return { text: 'Τώρα', color: '#22c55e', isLive: true }; // green
+  } else if (diff < 60) {
+    return { text: `πριν ${Math.floor(diff)} δευτ.`, color: '#22c55e', isLive: true }; // green
+  } else if (diff < 120) {
+    return { text: 'πριν 1 λεπτό', color: '#eab308', isLive: true }; // yellow
+  } else if (diff < 300) {
+    return { text: `πριν ${Math.floor(diff / 60)} λεπτά`, color: '#eab308', isLive: true }; // yellow
+  } else if (diff < 600) {
+    return { text: `πριν ${Math.floor(diff / 60)} λεπτά`, color: '#f97316', isLive: false }; // orange
+  } else {
+    return { text: `πριν ${Math.floor(diff / 60)} λεπτά`, color: '#ef4444', isLive: false }; // red
+  }
+};
+
 const formatSpeed = (speed?: number) => {
   if (speed === undefined || speed === null) return 'Άγνωστο';
   return `${(speed * 3.6).toFixed(1)} km/h`;
@@ -784,7 +805,16 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
               <div class="flex justify-between"><span class="text-muted-foreground">Ταχύτητα:</span><span>${formatSpeed(vehicle.speed)}</span></div>
               ${vehicle.bearing !== undefined ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατεύθυνση:</span><span>${vehicle.bearing.toFixed(0)}°</span></div>` : ''}
               ${vehicle.currentStatus ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατάσταση:</span><span>${vehicle.currentStatus}</span></div>` : ''}
-              <div class="flex justify-between pt-1 border-t border-border mt-2"><span class="text-muted-foreground">Ενημέρωση:</span><span class="text-xs">${formatTimestamp(vehicle.timestamp)}</span></div>
+              <div class="flex justify-between items-center pt-1 border-t border-border mt-2">
+                <span class="text-muted-foreground">Ενημέρωση:</span>
+                <span class="flex items-center gap-1.5">
+                  ${(() => {
+                    const relTime = getRelativeTime(vehicle.timestamp);
+                    return `<span class="inline-block w-2 h-2 rounded-full ${relTime.isLive ? 'animate-pulse' : ''}" style="background: ${relTime.color}"></span>
+                    <span class="text-xs" style="color: ${relTime.color}">${relTime.text}</span>`;
+                  })()}
+                </span>
+              </div>
             </div>
             ${etaHtml}
           </div>
@@ -857,7 +887,16 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
               <div class="flex justify-between"><span class="text-muted-foreground">Ταχύτητα:</span><span>${formatSpeed(vehicle.speed)}</span></div>
               ${vehicle.bearing !== undefined ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατεύθυνση:</span><span>${vehicle.bearing.toFixed(0)}°</span></div>` : ''}
               ${vehicle.currentStatus ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατάσταση:</span><span>${vehicle.currentStatus}</span></div>` : ''}
-              <div class="flex justify-between pt-1 border-t border-border mt-2"><span class="text-muted-foreground">Ενημέρωση:</span><span class="text-xs">${formatTimestamp(vehicle.timestamp)}</span></div>
+              <div class="flex justify-between items-center pt-1 border-t border-border mt-2">
+                <span class="text-muted-foreground">Ενημέρωση:</span>
+                <span class="flex items-center gap-1.5">
+                  ${(() => {
+                    const relTime = getRelativeTime(vehicle.timestamp);
+                    return `<span class="inline-block w-2 h-2 rounded-full ${relTime.isLive ? 'animate-pulse' : ''}" style="background: ${relTime.color}"></span>
+                    <span class="text-xs" style="color: ${relTime.color}">${relTime.text}</span>`;
+                  })()}
+                </span>
+              </div>
             </div>
             ${etaHtml}
           </div>
