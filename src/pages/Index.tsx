@@ -13,6 +13,7 @@ import { SmartTripResults } from "@/components/SmartTripResults";
 import { NearbyStopsPanel } from "@/components/NearbyStopsPanel";
 import { SavedTripsPanel } from "@/components/SavedTripsPanel";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import { useSavedTrips } from "@/hooks/useSavedTrips";
 import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } from "@/hooks/useGtfsData";
 import { useSmartTripPlan } from "@/hooks/useSmartTripPlan";
@@ -381,6 +382,17 @@ const Index = () => {
     alertsQuery.refetch();
   }, [vehiclesQuery, tripsQuery, alertsQuery]);
 
+  // Pull-to-refresh handler
+  const handlePullRefresh = useCallback(async () => {
+    toast.info('Ανανέωση δεδομένων...');
+    await Promise.all([
+      vehiclesQuery.refetch(),
+      tripsQuery.refetch(),
+      alertsQuery.refetch(),
+    ]);
+    toast.success('Τα δεδομένα ανανεώθηκαν');
+  }, [vehiclesQuery, tripsQuery, alertsQuery]);
+
   // Auto-retry when there's an error
   useEffect(() => {
     if (hasError && !isLoading) {
@@ -572,35 +584,39 @@ const Index = () => {
               />
             </TabsContent>
 
-            <TabsContent value="trips" className="h-full m-0 overflow-auto">
-              <TripsTable
-                trips={filteredTrips}
-                isLoading={tripsQuery.isLoading}
-                routeNames={routeNamesMap}
-                stops={staticStopsQuery.data?.data || []}
-                onTripSelect={(trip) => {
-                  // Set the route
-                  if (trip.routeId) {
-                    setSelectedRoute(trip.routeId);
-                  }
-                  // Set the followed vehicle
-                  if (trip.vehicleId) {
-                    setFollowVehicleId(trip.vehicleId);
-                  }
-                  // Switch to map tab
-                  setActiveTab("map");
-                }}
-              />
+            <TabsContent value="trips" className="h-full m-0">
+              <PullToRefresh onRefresh={handlePullRefresh} className="h-full">
+                <TripsTable
+                  trips={filteredTrips}
+                  isLoading={tripsQuery.isLoading}
+                  routeNames={routeNamesMap}
+                  stops={staticStopsQuery.data?.data || []}
+                  onTripSelect={(trip) => {
+                    // Set the route
+                    if (trip.routeId) {
+                      setSelectedRoute(trip.routeId);
+                    }
+                    // Set the followed vehicle
+                    if (trip.vehicleId) {
+                      setFollowVehicleId(trip.vehicleId);
+                    }
+                    // Switch to map tab
+                    setActiveTab("map");
+                  }}
+                />
+              </PullToRefresh>
             </TabsContent>
 
-            <TabsContent value="stops" className="h-full m-0 overflow-auto">
-              <StopsView
-                trips={filteredTrips}
-                stops={staticStopsQuery.data?.data || []}
-                routeNamesMap={routeNamesMap}
-                isLoading={tripsQuery.isLoading}
-                selectedOperator={selectedOperator}
-              />
+            <TabsContent value="stops" className="h-full m-0">
+              <PullToRefresh onRefresh={handlePullRefresh} className="h-full">
+                <StopsView
+                  trips={filteredTrips}
+                  stops={staticStopsQuery.data?.data || []}
+                  routeNamesMap={routeNamesMap}
+                  isLoading={tripsQuery.isLoading}
+                  selectedOperator={selectedOperator}
+                />
+              </PullToRefresh>
             </TabsContent>
 
             <TabsContent value="schedule" className="h-full m-0 overflow-auto">
@@ -610,13 +626,15 @@ const Index = () => {
               />
             </TabsContent>
 
-            <TabsContent value="alerts" className="h-full m-0 overflow-auto">
-              <AlertsList
-                alerts={effectiveAlertsData?.data || []}
-                trips={filteredTrips}
-                routeNamesMap={routeNamesMap}
-                isLoading={alertsQuery.isLoading}
-              />
+            <TabsContent value="alerts" className="h-full m-0">
+              <PullToRefresh onRefresh={handlePullRefresh} className="h-full">
+                <AlertsList
+                  alerts={effectiveAlertsData?.data || []}
+                  trips={filteredTrips}
+                  routeNamesMap={routeNamesMap}
+                  isLoading={alertsQuery.isLoading}
+                />
+              </PullToRefresh>
             </TabsContent>
           </div>
         </Tabs>
