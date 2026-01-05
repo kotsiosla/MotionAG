@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Search, ChevronDown, ChevronUp, Clock, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
+import { Search, ChevronDown, ChevronUp, Clock, ArrowUpDown, ArrowDown, ArrowUp, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,7 @@ interface TripsTableProps {
   isLoading: boolean;
   routeNames?: Map<string, RouteInfo>;
   stops?: StaticStop[];
+  onTripSelect?: (trip: Trip) => void;
 }
 
 const formatDelay = (seconds?: number) => {
@@ -43,7 +44,7 @@ const formatTimestamp = (timestamp?: number) => {
   });
 };
 
-export function TripsTable({ trips, isLoading, routeNames, stops = [] }: TripsTableProps) {
+export function TripsTable({ trips, isLoading, routeNames, stops = [], onTripSelect }: TripsTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedTrips, setExpandedTrips] = useState<Set<string>>(new Set());
   const [sortOption, setSortOption] = useState<SortOption>('delay-desc');
@@ -316,53 +317,68 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [] }: TripsTa
 
                                   <CollapsibleContent>
                                     <div className="px-4 pb-4">
-                      <div className="bg-muted/30 rounded-lg p-3">
-                        <h4 className="text-xs font-medium mb-2 text-muted-foreground">
-                          Ενημερώσεις Στάσεων ({trip.stopTimeUpdates.length})
-                        </h4>
-                        {trip.stopTimeUpdates.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">
-                            Δεν υπάρχουν ενημερώσεις στάσεων
-                          </p>
-                        ) : (
-                          <div className="space-y-2 max-h-48 overflow-auto scrollbar-thin">
-                            {trip.stopTimeUpdates.map((stu, idx) => {
-                              const arrDelay = formatDelay(stu.arrivalDelay);
-                              const depDelay = formatDelay(stu.departureDelay);
+                                      {/* View on Map Button */}
+                                      {trip.vehicleId && onTripSelect && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="w-full mb-3 gap-2"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onTripSelect(trip);
+                                          }}
+                                        >
+                                          <MapPin className="h-4 w-4" />
+                                          Δες στον Χάρτη
+                                        </Button>
+                                      )}
+                                      <div className="bg-muted/30 rounded-lg p-3">
+                                        <h4 className="text-xs font-medium mb-2 text-muted-foreground">
+                                          Ενημερώσεις Στάσεων ({trip.stopTimeUpdates.length})
+                                        </h4>
+                                        {trip.stopTimeUpdates.length === 0 ? (
+                                          <p className="text-sm text-muted-foreground">
+                                            Δεν υπάρχουν ενημερώσεις στάσεων
+                                          </p>
+                                        ) : (
+                                          <div className="space-y-2 max-h-48 overflow-auto scrollbar-thin">
+                                            {trip.stopTimeUpdates.map((stu, idx) => {
+                                              const arrDelay = formatDelay(stu.arrivalDelay);
+                                              const depDelay = formatDelay(stu.departureDelay);
 
-                              return (
-                                <div
-                                  key={idx}
-                                  className="flex items-center justify-between text-sm py-1 border-b border-border/50 last:border-0"
-                                >
-                                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <span className="w-6 h-6 bg-primary/20 text-primary rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0">
-                                      {stu.stopSequence || idx + 1}
-                                    </span>
-                                    <span className="text-xs truncate">
-                                      {getStopName(stu.stopId)}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    {arrDelay && (
-                                      <span className={`text-xs ${arrDelay.className.replace('status-', 'text-transit-')}`}>
-                                        Άφ: {arrDelay.text}
-                                      </span>
-                                    )}
-                                    {depDelay && (
-                                      <span className={`text-xs ${depDelay.className.replace('status-', 'text-transit-')}`}>
-                                        Αν: {depDelay.text}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </CollapsibleContent>
+                                              return (
+                                                <div
+                                                  key={idx}
+                                                  className="flex items-center justify-between text-sm py-1 border-b border-border/50 last:border-0"
+                                                >
+                                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                    <span className="w-6 h-6 bg-primary/20 text-primary rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0">
+                                                      {stu.stopSequence || idx + 1}
+                                                    </span>
+                                                    <span className="text-xs truncate">
+                                                      {getStopName(stu.stopId)}
+                                                    </span>
+                                                  </div>
+                                                  <div className="flex items-center gap-2">
+                                                    {arrDelay && (
+                                                      <span className={`text-xs ${arrDelay.className.replace('status-', 'text-transit-')}`}>
+                                                        Άφ: {arrDelay.text}
+                                                      </span>
+                                                    )}
+                                                    {depDelay && (
+                                                      <span className={`text-xs ${depDelay.className.replace('status-', 'text-transit-')}`}>
+                                                        Αν: {depDelay.text}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </CollapsibleContent>
                 </Collapsible>
               );
             })}

@@ -274,6 +274,18 @@ const Index = () => {
                 isLoading={tripsQuery.isLoading}
                 routeNames={routeNamesMap}
                 stops={staticStopsQuery.data?.data || []}
+                onTripSelect={(trip) => {
+                  // Set the route
+                  if (trip.routeId) {
+                    setSelectedRoute(trip.routeId);
+                  }
+                  // Set the followed vehicle
+                  if (trip.vehicleId) {
+                    setFollowVehicleId(trip.vehicleId);
+                  }
+                  // Switch to map tab
+                  setActiveTab("map");
+                }}
               />
             </TabsContent>
 
