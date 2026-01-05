@@ -9,10 +9,10 @@ import { TripsTable } from "@/components/TripsTable";
 import { StopsView } from "@/components/StopsView";
 import { AlertsList } from "@/components/AlertsList";
 import { ScheduleView } from "@/components/ScheduleView";
-import { TripPlanResults, type WalkingInfo, type LocationInfo } from "@/components/TripPlanResults";
+import { SmartTripResults } from "@/components/SmartTripResults";
 import { NearbyStopsPanel } from "@/components/NearbyStopsPanel";
 import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } from "@/hooks/useGtfsData";
-import { useEnhancedTripPlan } from "@/hooks/useTripPlan";
+import { useSmartTripPlan } from "@/hooks/useSmartTripPlan";
 import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
 import { useDelayNotifications } from "@/hooks/useDelayNotifications";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
@@ -39,9 +39,8 @@ const Index = () => {
   const [tripDepartureTime, setTripDepartureTime] = useState<string>("now");
   const [tripDepartureDate, setTripDepartureDate] = useState<Date>(new Date());
   const [showTripResults, setShowTripResults] = useState(false);
-  const [tripOriginLocation, setTripOriginLocation] = useState<LocationInfo | undefined>(undefined);
-  const [tripDestLocation, setTripDestLocation] = useState<LocationInfo | undefined>(undefined);
-  const [tripWalkingInfo, setTripWalkingInfo] = useState<WalkingInfo | undefined>(undefined);
+  const [tripOriginLocation, setTripOriginLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [tripDestLocation, setTripDestLocation] = useState<{ lat: number; lon: number } | null>(null);
   
   // Highlighted stop (for nearby stops panel)
   const [highlightedStop, setHighlightedStop] = useState<StaticStop | null>(null);
@@ -187,11 +186,12 @@ const Index = () => {
     return alertsQuery.data;
   }, [alertsQuery.data, alertsQuery.isError, cachedAlerts]);
   
-  // Enhanced trip planning query with transfer routes
-  const tripPlanQuery = useEnhancedTripPlan(
-    tripOrigin?.stop_id || null,
-    tripDestination?.stop_id || null,
-    selectedOperator !== 'all' ? selectedOperator : undefined,
+  // Smart trip planning query with route combinations
+  const tripPlanQuery = useSmartTripPlan(
+    tripOrigin,
+    tripDestination,
+    tripOriginLocation,
+    tripDestLocation,
     tripDepartureTime,
     tripDepartureDate
   );
@@ -431,14 +431,21 @@ const Index = () => {
         liveRoutesCount={liveRoutes.size}
         stops={staticStopsQuery.data?.data || []}
         stopsLoading={staticStopsQuery.isLoading}
-        onTripSearch={(origin, destination, departureTime, departureDate, originLocation, destLocation, walkingInfo) => {
+        onTripSearch={(origin, destination, departureTime, departureDate, originLocation, destLocation) => {
           setTripOrigin(origin);
           setTripDestination(destination);
           setTripDepartureTime(departureTime);
           setTripDepartureDate(departureDate);
-          setTripOriginLocation(originLocation);
-          setTripDestLocation(destLocation);
-          setTripWalkingInfo(walkingInfo);
+          if (originLocation) {
+            setTripOriginLocation({ lat: originLocation.lat, lon: originLocation.lon });
+          } else {
+            setTripOriginLocation(null);
+          }
+          if (destLocation) {
+            setTripDestLocation({ lat: destLocation.lat, lon: destLocation.lon });
+          } else {
+            setTripDestLocation(null);
+          }
           setShowTripResults(true);
         }}
         favorites={favorites}
@@ -452,14 +459,14 @@ const Index = () => {
         isUsingCachedData={isUsingCachedData}
       />
       
-      {/* Trip Plan Results Modal */}
+      {/* Smart Trip Plan Results Modal */}
       {showTripResults && (
-        <TripPlanResults
+        <SmartTripResults
           origin={tripOrigin}
           destination={tripDestination}
           departureTime={tripDepartureTime}
           departureDate={tripDepartureDate}
-          results={tripPlanQuery.data?.directRoutes || []}
+          data={tripPlanQuery.data}
           isLoading={tripPlanQuery.isLoading}
           error={tripPlanQuery.error}
           onClose={() => setShowTripResults(false)}
@@ -476,13 +483,6 @@ const Index = () => {
               }
             }
           }}
-          originLocation={tripOriginLocation}
-          destLocation={tripDestLocation}
-          walkingInfo={tripWalkingInfo}
-          transferRoutes={tripPlanQuery.data?.transferRoutes}
-          originStopRoutes={tripPlanQuery.data?.originStopRoutes}
-          destinationStopRoutes={tripPlanQuery.data?.destinationStopRoutes}
-          interCityJourney={tripPlanQuery.data?.interCityJourney}
         />
       )}
 
