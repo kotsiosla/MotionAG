@@ -467,11 +467,11 @@ export function NearbyStopsPanel({
       <Button
         variant="default"
         size="lg"
-        className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg"
+        className="fixed bottom-24 sm:bottom-20 right-4 z-40 h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-lg hover:scale-105 transition-transform"
         onClick={handleOpenPanel}
         title="Κοντινότερη Στάση"
       >
-        <LocateFixed className="h-6 w-6" />
+        <LocateFixed className="h-5 w-5 sm:h-6 sm:w-6" />
       </Button>
     );
   }
@@ -479,16 +479,16 @@ export function NearbyStopsPanel({
   // Minimized view
   if (isMinimized) {
     return (
-      <div className="fixed bottom-20 right-4 z-50 md:hidden">
+      <div className="fixed bottom-24 sm:bottom-20 right-4 z-40 md:hidden">
         <Button
           variant="default"
           size="lg"
-          className="h-14 px-4 rounded-full shadow-lg flex items-center gap-2"
+          className="h-12 sm:h-14 px-3 sm:px-4 rounded-full shadow-lg flex items-center gap-2 hover:scale-105 transition-transform"
           onClick={() => setIsMinimized(false)}
         >
-          <MapPin className="h-5 w-5" />
+          <MapPin className="h-4 w-4 sm:h-5 sm:w-5" />
           {nearestStop && (
-            <span className="text-sm max-w-[120px] truncate">
+            <span className="text-xs sm:text-sm max-w-[100px] sm:max-w-[120px] truncate">
               {nearestStop.stop_name}
             </span>
           )}
