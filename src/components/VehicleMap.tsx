@@ -28,6 +28,8 @@ interface VehicleMapProps {
   highlightedStop?: StaticStop | null;
   followVehicleId?: string | null;
   onFollowVehicle?: (vehicleId: string | null) => void;
+  refreshInterval?: number;
+  lastUpdate?: number | null;
 }
 
 const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: string, isOnSelectedRoute?: boolean, routeShortName?: string) => {
@@ -199,7 +201,79 @@ const formatDelay = (delay?: number) => {
   return `(${minutes} λεπτά)`;
 };
 
-export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, selectedRoute = 'all', selectedOperator, onRouteClose, isLoading, highlightedStop, followVehicleId, onFollowVehicle }: VehicleMapProps) {
+// Auto-refresh indicator component
+const RefreshIndicator = ({ 
+  refreshInterval, 
+  lastUpdate, 
+  isLoading 
+}: { 
+  refreshInterval: number; 
+  lastUpdate?: number | null; 
+  isLoading: boolean; 
+}) => {
+  const [countdown, setCountdown] = useState(refreshInterval);
+  const [progress, setProgress] = useState(100);
+
+  useEffect(() => {
+    if (!lastUpdate) return;
+    
+    const updateCountdown = () => {
+      const now = Date.now();
+      const lastUpdateMs = lastUpdate * 1000;
+      const elapsed = (now - lastUpdateMs) / 1000;
+      const remaining = Math.max(0, refreshInterval - elapsed);
+      const progressPct = (remaining / refreshInterval) * 100;
+      
+      setCountdown(Math.ceil(remaining));
+      setProgress(progressPct);
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 100);
+    return () => clearInterval(interval);
+  }, [lastUpdate, refreshInterval]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <span>Ανανέωση...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground" title={`Επόμενη ανανέωση σε ${countdown} δευτ.`}>
+      <div className="relative w-4 h-4">
+        <svg className="w-4 h-4 -rotate-90" viewBox="0 0 20 20">
+          <circle
+            cx="10"
+            cy="10"
+            r="8"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            opacity="0.2"
+          />
+          <circle
+            cx="10"
+            cy="10"
+            r="8"
+            fill="none"
+            stroke="hsl(var(--primary))"
+            strokeWidth="2"
+            strokeDasharray={`${(progress / 100) * 50.265} 50.265`}
+            strokeLinecap="round"
+            className="transition-all duration-100"
+          />
+        </svg>
+      </div>
+      <span>{countdown}δ</span>
+    </div>
+  );
+};
+
+export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, selectedRoute = 'all', selectedOperator, onRouteClose, isLoading, highlightedStop, followVehicleId, onFollowVehicle, refreshInterval = 10, lastUpdate }: VehicleMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const vehicleMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
   const stopMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
@@ -1835,8 +1909,17 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       )}
       
       <div className="absolute bottom-4 left-4 glass-card rounded-lg px-3 py-2 text-sm">
-        <span className="font-medium">{vehicles.filter(v => v.latitude && v.longitude).length}</span>
-        <span className="text-muted-foreground ml-1">οχήματα</span>
+        <div className="flex items-center gap-3">
+          <div>
+            <span className="font-medium">{vehicles.filter(v => v.latitude && v.longitude).length}</span>
+            <span className="text-muted-foreground ml-1">οχήματα</span>
+          </div>
+          <RefreshIndicator 
+            refreshInterval={refreshInterval} 
+            lastUpdate={lastUpdate} 
+            isLoading={isLoading} 
+          />
+        </div>
       </div>
     </div>
   );
