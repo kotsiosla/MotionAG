@@ -15,6 +15,7 @@ import { RouteStopsPanel } from "@/components/RouteStopsPanel";
 import { RoutePlannerPanel } from "@/components/RoutePlannerPanel";
 import { StopDetailPanel } from "@/components/StopDetailPanel";
 import { NearestStopPanel } from "@/components/NearestStopPanel";
+import { DataSourceHealthIndicator } from "@/components/DataSourceHealthIndicator";
 import { useRouteShape } from "@/hooks/useGtfsData";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import type { Vehicle, StaticStop, Trip, RouteInfo } from "@/types/gtfs";
@@ -2164,6 +2165,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           <div>
             <span className="font-medium">{vehicles.filter(v => v.latitude && v.longitude).length}</span>
             <span className="text-muted-foreground ml-1">οχήματα</span>
+          </div>
+          <div className="border-l border-border pl-3">
+            <DataSourceHealthIndicator />
           </div>
           <RefreshIndicator 
             refreshInterval={refreshInterval} 
