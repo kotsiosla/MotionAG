@@ -89,7 +89,7 @@ export function PWAInstallBanner() {
   if (isIOS) {
     return (
       <div className={cn(
-        "fixed bottom-0 left-0 right-0 z-50 p-4 safe-area-bottom",
+        "fixed bottom-0 left-0 right-0 z-30 p-3 sm:p-4 safe-area-bottom",
         "animate-in slide-in-from-bottom duration-500"
       )}>
         <div className="bg-card border border-border rounded-2xl shadow-2xl overflow-hidden max-w-md mx-auto">
@@ -149,7 +149,7 @@ export function PWAInstallBanner() {
   // Android/Desktop banner
   return (
     <div className={cn(
-      "fixed bottom-0 left-0 right-0 z-50 p-4 safe-area-bottom",
+      "fixed bottom-0 left-0 right-0 z-30 p-3 sm:p-4 safe-area-bottom",
       "animate-in slide-in-from-bottom duration-500"
     )}>
       <div className="bg-card border border-border rounded-2xl shadow-2xl overflow-hidden max-w-md mx-auto">
