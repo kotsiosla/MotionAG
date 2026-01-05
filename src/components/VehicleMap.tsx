@@ -1337,7 +1337,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     });
   }, [stops, showStops, stopsWithVehicles, trips, vehicles, routeNamesMap, mapReady]);
 
-  // Draw route shape when route changes (only fit bounds on route change)
+  // Draw route shape when route changes or when following a vehicle
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -1349,16 +1349,25 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     routeArrowsRef.current.forEach(arrow => mapRef.current?.removeLayer(arrow));
     routeArrowsRef.current = [];
 
-    // If no route selected or no data, reset ref and exit
-    if (selectedRoute === 'all' || !routeShapeData) {
+    // Determine which route shape to use: followed vehicle's route or selected route
+    const shapeDataToUse = effectiveRouteShapeData || routeShapeData;
+    const routeIdToUse = followedVehicleRouteId || selectedRoute;
+    
+    // Get route info for coloring
+    const routeInfoToUse = routeIdToUse && routeIdToUse !== 'all' && routeNamesMap 
+      ? routeNamesMap.get(routeIdToUse) 
+      : selectedRouteInfo;
+
+    // If no route or no data, reset ref and exit
+    if ((!followedVehicleId && selectedRoute === 'all') || !shapeDataToUse) {
       lastDrawnRouteRef.current = null;
       return;
     }
 
-    const routeColor = selectedRouteInfo?.route_color || '0ea5e9';
+    const routeColor = routeInfoToUse?.route_color || '0ea5e9';
     
     // Use first direction for now
-    const direction = routeShapeData.directions[0];
+    const direction = shapeDataToUse.directions[0];
     if (!direction) return;
 
     // Draw the route polyline if we have shape data
@@ -1404,14 +1413,15 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         routeArrowsRef.current.push(arrowMarker);
       }
 
-      // Only fit bounds when route changes, not on every update
-      if (lastDrawnRouteRef.current !== selectedRoute) {
+      // Only fit bounds when route changes (not when following vehicle - that's handled separately)
+      const currentRouteId = followedVehicleRouteId || selectedRoute;
+      if (!followedVehicleId && lastDrawnRouteRef.current !== currentRouteId) {
         const bounds = L.latLngBounds(shapePoints);
         mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
-        lastDrawnRouteRef.current = selectedRoute;
+        lastDrawnRouteRef.current = currentRouteId;
       }
     }
-  }, [selectedRoute, routeShapeData, selectedRouteInfo]);
+  }, [selectedRoute, routeShapeData, selectedRouteInfo, effectiveRouteShapeData, followedVehicleId, followedVehicleRouteId, routeNamesMap]);
 
   // Update route stop markers with ETA info (separate from shape drawing)
   useEffect(() => {
