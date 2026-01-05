@@ -730,26 +730,31 @@ export function SmartTripPlanner({
                   
                   <div className="border-t border-border pt-2">
                     <div className="text-xs text-muted-foreground mb-1.5 px-1">Συγκεκριμένη ώρα:</div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="time"
-                        value={specificTime}
-                        onChange={(e) => {
-                          setSpecificTime(e.target.value);
-                          setTimeMode('specific');
-                        }}
-                        className="flex-1 h-9 px-3 rounded-md border border-input bg-background text-sm"
-                      />
-                      <Button
-                        size="sm"
-                        variant={timeMode === 'specific' ? 'default' : 'outline'}
-                        onClick={() => {
-                          setTimeMode('specific');
-                          setTimePickerOpen(false);
-                        }}
-                      >
-                        OK
-                      </Button>
+                    <div className="grid grid-cols-4 gap-1 max-h-[200px] overflow-y-auto">
+                      {Array.from({ length: 24 }, (_, hour) => 
+                        ['00', '30'].map(minutes => {
+                          const timeValue = `${hour.toString().padStart(2, '0')}:${minutes}`;
+                          const isSelected = timeMode === 'specific' && specificTime === timeValue;
+                          return (
+                            <button
+                              key={timeValue}
+                              onClick={() => {
+                                setSpecificTime(timeValue);
+                                setTimeMode('specific');
+                                setTimePickerOpen(false);
+                              }}
+                              className={cn(
+                                "px-2 py-1.5 rounded text-xs font-medium transition-colors",
+                                isSelected 
+                                  ? "bg-primary text-primary-foreground" 
+                                  : "hover:bg-accent"
+                              )}
+                            >
+                              {timeValue}
+                            </button>
+                          );
+                        })
+                      ).flat()}
                     </div>
                   </div>
                 </div>
