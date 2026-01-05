@@ -1072,35 +1072,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           zIndexOffset: isOnSelectedRoute ? 2000 : (isFollowed ? 1000 : 0),
         });
 
-        // Bind tooltip for hover (all details)
-        const tooltipContent = `
-          <div class="p-2 min-w-[180px]">
-            <div class="font-semibold text-sm mb-1 flex items-center gap-2">
-              <span class="inline-block w-2 h-2 rounded-full" style="background: ${routeColor ? `#${routeColor}` : 'hsl(var(--primary))'}"></span>
-              ${routeName || `Όχημα ${vehicleId}`}
-            </div>
-            <div class="space-y-1 text-xs">
-              ${vehicle.label ? `<div><span class="text-muted-foreground">Ετικέτα:</span> ${vehicle.label}</div>` : ''}
-              <div><span class="text-muted-foreground">Ταχύτητα:</span> ${formatSpeed(vehicle.speed)}</div>
-              ${vehicle.currentStatus ? `<div><span class="text-muted-foreground">Κατάσταση:</span> ${vehicle.currentStatus}</div>` : ''}
-              ${nextStop ? `<div class="pt-1 border-t border-border mt-1"><span class="text-muted-foreground">Επόμενη:</span> ${nextStop.stopName}${nextStop.arrivalTime ? ` (${formatETA(nextStop.arrivalTime)})` : ''}</div>` : ''}
-            </div>
-          </div>
-        `;
-        
-        marker.bindTooltip(tooltipContent, {
-          direction: 'top',
-          offset: [0, -15],
-          className: 'vehicle-tooltip',
-          permanent: false,
-        });
-
+        // Click handler - opens route planner panel
         marker.on('click', () => {
-          // Close all popups first
+          // Close any existing popups
           if (mapRef.current) {
             mapRef.current.closePopup();
           }
-          marker.closeTooltip();
           
           setFollowedVehicleId(vehicleId);
           // Open route planner with this vehicle's trip info
@@ -1126,48 +1103,6 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             
             setShowRoutePlanner(true);
           }
-        });
-
-        const etaHtml = nextStop ? `
-          <div class="mt-2 pt-2 border-t border-border">
-            <div class="flex items-center gap-1 text-primary font-medium mb-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              Επόμενη στάση
-            </div>
-            <div class="text-sm">
-              <div class="font-medium">${nextStop.stopName}</div>
-              ${nextStop.arrivalTime ? `<div class="text-muted-foreground">Άφιξη: <span class="text-foreground font-mono">${formatETA(nextStop.arrivalTime)}</span> ${formatDelay(nextStop.arrivalDelay)}</div>` : ''}
-            </div>
-          </div>
-        ` : '';
-
-        marker.bindPopup(`
-          <div class="p-3 min-w-[220px]">
-            <div class="font-semibold text-base mb-2 flex items-center gap-2">
-              <span class="inline-block w-3 h-3 rounded-full" style="background: ${routeColor ? `#${routeColor}` : 'hsl(var(--primary))'}"></span>
-              Όχημα ${vehicleId}
-            </div>
-            <div class="space-y-1.5 text-sm">
-              ${vehicle.label ? `<div class="flex justify-between"><span class="text-muted-foreground">Ετικέτα:</span><span class="font-mono">${vehicle.label}</span></div>` : ''}
-              ${routeName ? `<div class="flex justify-between gap-2"><span class="text-muted-foreground">Γραμμή:</span><span class="text-right font-medium" style="color: ${routeColor ? `#${routeColor}` : 'inherit'}">${routeName}</span></div>` : ''}
-              <div class="flex justify-between"><span class="text-muted-foreground">Ταχύτητα:</span><span>${formatSpeed(vehicle.speed)}</span></div>
-              ${vehicle.bearing !== undefined ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατεύθυνση:</span><span>${vehicle.bearing.toFixed(0)}°</span></div>` : ''}
-              ${vehicle.currentStatus ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατάσταση:</span><span>${vehicle.currentStatus}</span></div>` : ''}
-              <div class="flex justify-between items-center pt-1 border-t border-border mt-2">
-                <span class="text-muted-foreground">Ενημέρωση:</span>
-                <span class="flex items-center gap-1.5">
-                  ${(() => {
-                    const relTime = getRelativeTime(vehicle.timestamp);
-                    return `<span class="inline-block w-2 h-2 rounded-full ${relTime.isLive ? 'animate-pulse' : ''}" style="background: ${relTime.color}"></span>
-                    <span class="text-xs" style="color: ${relTime.color}">${relTime.text}</span>`;
-                  })()}
-                </span>
-              </div>
-            </div>
-            ${etaHtml}
-          </div>
-        `, {
-          className: 'vehicle-popup',
         });
 
         markerMapRef.current.set(vehicleId, marker);
