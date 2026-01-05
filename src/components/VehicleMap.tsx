@@ -1423,7 +1423,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     }
   }, [selectedRoute, routeShapeData, selectedRouteInfo, effectiveRouteShapeData, followedVehicleId, followedVehicleRouteId, routeNamesMap]);
 
-  // Update route stop markers with ETA info (separate from shape drawing)
+  // Update route stop markers with ETA info (for selected route or followed vehicle's route)
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -1431,11 +1431,20 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     routeStopMarkersRef.current.forEach(marker => mapRef.current?.removeLayer(marker));
     routeStopMarkersRef.current = [];
 
-    // If no route selected or no data, exit
-    if (selectedRoute === 'all' || !routeShapeData) return;
+    // Determine which route shape to use: followed vehicle's route or selected route
+    const shapeDataToUse = effectiveRouteShapeData || routeShapeData;
+    const routeIdToUse = followedVehicleRouteId || selectedRoute;
+    
+    // Get route info for coloring
+    const routeInfoToUse = routeIdToUse && routeIdToUse !== 'all' && routeNamesMap 
+      ? routeNamesMap.get(routeIdToUse) 
+      : selectedRouteInfo;
 
-    const routeColor = selectedRouteInfo?.route_color || '0ea5e9';
-    const direction = routeShapeData.directions[0];
+    // If no route or no data, exit
+    if ((!followedVehicleId && selectedRoute === 'all') || !shapeDataToUse) return;
+
+    const routeColor = routeInfoToUse?.route_color || '0ea5e9';
+    const direction = shapeDataToUse.directions[0];
     if (!direction) return;
 
     // Add numbered stop markers with ETA info
@@ -1447,7 +1456,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       
       // Find ETA info from realtime trip updates for this stop on this route
       const stopEtaInfo = trips
-        .filter(trip => trip.routeId === selectedRoute && trip.stopTimeUpdates?.length)
+        .filter(trip => trip.routeId === routeIdToUse && trip.stopTimeUpdates?.length)
         .map(trip => {
           const stopUpdate = trip.stopTimeUpdates?.find(stu => stu.stopId === stop.stop_id);
           if (!stopUpdate || !stopUpdate.arrivalTime) return null;
@@ -1530,7 +1539,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       routeStopMarkersRef.current.push(marker);
     });
 
-  }, [selectedRoute, routeShapeData, selectedRouteInfo, stopsWithVehicles, trips, vehicles]);
+  }, [selectedRoute, routeShapeData, selectedRouteInfo, stopsWithVehicles, trips, vehicles, effectiveRouteShapeData, followedVehicleId, followedVehicleRouteId, routeNamesMap]);
 
   // Follow the selected vehicle in realtime - respects view mode
   // Use panTo for smooth following without shaking
