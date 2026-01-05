@@ -1877,19 +1877,11 @@ serve(async (req) => {
     // Handle route-shape endpoint - returns shape and stop sequence for a specific route
     if (path === '/route-shape' && routeId) {
       // Extract operator from route ID to avoid loading all operators
-      // Route IDs have format like "50030011" where first digits indicate operator
-      // We'll try to infer the operator from the route ID prefix
+      // Route IDs have format like "4050042" where first digit(s) indicate operator
       let effectiveOperatorId = operatorId;
       
       if (!operatorId || operatorId === 'all') {
         // Try to extract operator from route ID
-        // Common patterns: 
-        // - "5XXXXXXX" -> operator 5 (Intercity)
-        // - "6XXXXXXX" -> operator 6 (EMEL)
-        // - "9XXXXXXX" -> operator 9 (NPT)
-        // - "10XXXXXX" -> operator 10 (LPT)
-        // - "2XXXXXXX" -> operator 2
-        // - "4XXXXXXX" -> operator 4 (OSEA)
         const validOperators = ['2', '4', '5', '6', '9', '10', '11'];
         
         // Check for 2-digit operator first (10, 11)
@@ -1907,7 +1899,25 @@ serve(async (req) => {
             console.log(`Inferred operator ${effectiveOperatorId} from route ID ${routeId} (1-digit prefix)`);
           }
         }
+        
+        // If we still couldn't infer operator, return error instead of loading all
+        if (!effectiveOperatorId || effectiveOperatorId === 'all') {
+          console.log(`Could not infer operator from route ID ${routeId}, returning empty`);
+          return new Response(
+            JSON.stringify({ 
+              data: null, 
+              error: 'Could not determine operator from route ID. Please provide operator parameter.',
+              routeId 
+            }),
+            { 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 400
+            }
+          );
+        }
       }
+      
+      console.log(`Loading route-shape for operator ${effectiveOperatorId}, route ${routeId}`);
       
       const [tripsStatic, shapes, stops] = await Promise.all([
         fetchStaticTrips(effectiveOperatorId),
