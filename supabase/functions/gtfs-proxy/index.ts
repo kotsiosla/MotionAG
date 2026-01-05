@@ -6,6 +6,20 @@ const corsHeaders = {
 };
 
 const GTFS_RT_BASE_URL = "http://20.19.98.194:8328/Api/api/gtfs-realtime";
+const SIRI_WS_URL = "http://20.19.98.194:8313/SiriWS.asmx";
+
+// Track data source health for intelligent fallback
+interface DataSourceHealth {
+  lastSuccess: number;
+  lastFailure: number;
+  consecutiveFailures: number;
+  avgResponseTime: number;
+}
+
+const dataSourceHealth: Record<string, DataSourceHealth> = {
+  gtfs: { lastSuccess: 0, lastFailure: 0, consecutiveFailures: 0, avgResponseTime: 0 },
+  siri: { lastSuccess: 0, lastFailure: 0, consecutiveFailures: 0, avgResponseTime: 0 },
+};
 
 // GTFS-Realtime Protocol Buffer Parser
 // Based on the GTFS-RT specification: https://gtfs.org/realtime/reference/
@@ -620,6 +634,285 @@ async function fetchGtfsData(operatorId?: string): Promise<GtfsRealtimeFeed> {
     console.error("Error fetching GTFS data:", error);
     throw error;
   }
+}
+
+// ========== SIRI API SUPPORT FOR FALLBACK/VERIFICATION ==========
+interface SiriEstimatedCall {
+  stopId: string;
+  stopName?: string;
+  aimedArrivalTime?: number;
+  expectedArrivalTime?: number;
+  aimedDepartureTime?: number;
+  expectedDepartureTime?: number;
+}
+
+interface SiriVehicleJourney {
+  lineRef: string;
+  directionName?: string;
+  vehicleJourneyRef?: string;
+  vehicleRef?: string;
+  publishedLineName?: string;
+  operatorRef?: string;
+  estimatedCalls: SiriEstimatedCall[];
+}
+
+// Parse SIRI XML response
+function parseSiriDateTime(dateStr: string | undefined): number | undefined {
+  if (!dateStr) return undefined;
+  try {
+    return Math.floor(new Date(dateStr).getTime() / 1000);
+  } catch {
+    return undefined;
+  }
+}
+
+function extractXmlValue(xml: string, tagName: string): string | undefined {
+  const regex = new RegExp(`<${tagName}[^>]*>([^<]*)</${tagName}>`, 'i');
+  const match = xml.match(regex);
+  return match ? match[1].trim() : undefined;
+}
+
+function extractAllXmlBlocks(xml: string, tagName: string): string[] {
+  const blocks: string[] = [];
+  const regex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)</${tagName}>`, 'gi');
+  let match;
+  while ((match = regex.exec(xml)) !== null) {
+    blocks.push(match[0]);
+  }
+  return blocks;
+}
+
+async function fetchSiriData(stopId?: string, lineRef?: string): Promise<SiriVehicleJourney[]> {
+  const startTime = Date.now();
+  
+  try {
+    // Build SOAP request for SIRI GetEstimatedTimetable
+    const soapEnvelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <GetEstimatedTimetable xmlns="http://20.19.98.194:8313/">
+      <operatorRefField></operatorRefField>
+      <linesField>${lineRef ? `<LineDirectionStructure><lineRefField><value>${lineRef}</value></lineRefField></LineDirectionStructure>` : ''}</linesField>
+      <extensionsField>${stopId ? `<value>${stopId}</value>` : ''}</extensionsField>
+    </GetEstimatedTimetable>
+  </soap:Body>
+</soap:Envelope>`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000); // 20s timeout for SIRI
+
+    const response = await fetch(SIRI_WS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/xml; charset=utf-8',
+        'SOAPAction': 'http://20.19.98.194:8313/GetEstimatedTimetable',
+      },
+      body: soapEnvelope,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      throw new Error(`SIRI HTTP error: ${response.status}`);
+    }
+
+    const xmlText = await response.text();
+    const journeys: SiriVehicleJourney[] = [];
+
+    // Parse vehicle journeys from XML
+    const vehicleJourneyBlocks = extractAllXmlBlocks(xmlText, 'EstimatedVehicleJourney');
+    
+    for (const journeyXml of vehicleJourneyBlocks) {
+      const lineRefValue = extractXmlValue(journeyXml, 'LineRef') || extractXmlValue(journeyXml, 'lineRefField');
+      const vehicleRef = extractXmlValue(journeyXml, 'VehicleRef') || extractXmlValue(journeyXml, 'vehicleRefField');
+      const vehicleJourneyRef = extractXmlValue(journeyXml, 'VehicleJourneyRef') || extractXmlValue(journeyXml, 'vehicleJourneyRefField');
+      
+      const estimatedCalls: SiriEstimatedCall[] = [];
+      const callBlocks = extractAllXmlBlocks(journeyXml, 'EstimatedCall');
+      
+      for (const callXml of callBlocks) {
+        const stopIdValue = extractXmlValue(callXml, 'StopPointRef') || extractXmlValue(callXml, 'stopPointNameField');
+        const aimedArrival = extractXmlValue(callXml, 'AimedArrivalTime') || extractXmlValue(callXml, 'aimedArrivalTimeField');
+        const expectedArrival = extractXmlValue(callXml, 'ExpectedArrivalTime') || extractXmlValue(callXml, 'expectedArrivalTimeField');
+        const aimedDeparture = extractXmlValue(callXml, 'AimedDepartureTime') || extractXmlValue(callXml, 'aimedDepartureTimeField');
+        const expectedDeparture = extractXmlValue(callXml, 'ExpectedDepartureTime') || extractXmlValue(callXml, 'expectedDepartureTimeField');
+        
+        if (stopIdValue) {
+          estimatedCalls.push({
+            stopId: stopIdValue,
+            aimedArrivalTime: parseSiriDateTime(aimedArrival),
+            expectedArrivalTime: parseSiriDateTime(expectedArrival),
+            aimedDepartureTime: parseSiriDateTime(aimedDeparture),
+            expectedDepartureTime: parseSiriDateTime(expectedDeparture),
+          });
+        }
+      }
+      
+      if (lineRefValue && estimatedCalls.length > 0) {
+        journeys.push({
+          lineRef: lineRefValue,
+          vehicleRef,
+          vehicleJourneyRef,
+          estimatedCalls,
+        });
+      }
+    }
+
+    // Update health metrics
+    const responseTime = Date.now() - startTime;
+    dataSourceHealth.siri.lastSuccess = Date.now();
+    dataSourceHealth.siri.consecutiveFailures = 0;
+    dataSourceHealth.siri.avgResponseTime = (dataSourceHealth.siri.avgResponseTime + responseTime) / 2;
+    
+    console.log(`SIRI: Parsed ${journeys.length} vehicle journeys in ${responseTime}ms`);
+    
+    return journeys;
+  } catch (error) {
+    dataSourceHealth.siri.lastFailure = Date.now();
+    dataSourceHealth.siri.consecutiveFailures++;
+    console.error("SIRI fetch error:", error);
+    return [];
+  }
+}
+
+// Merge GTFS-RT and SIRI data for best accuracy
+interface MergedArrival {
+  stopId: string;
+  routeId: string;
+  tripId?: string;
+  vehicleId?: string;
+  // Times from different sources
+  gtfsArrivalTime?: number;
+  gtfsArrivalDelay?: number;
+  siriExpectedArrivalTime?: number;
+  siriAimedArrivalTime?: number;
+  // Best estimated arrival (uses algorithm to pick most accurate)
+  bestArrivalTime: number;
+  confidence: 'high' | 'medium' | 'low';
+  source: 'gtfs' | 'siri' | 'merged';
+}
+
+function mergeTripDataWithSiri(
+  gtfsTrips: ReturnType<typeof extractTrips>,
+  siriJourneys: SiriVehicleJourney[],
+  stopId?: string
+): MergedArrival[] {
+  const mergedArrivals: MergedArrival[] = [];
+  const now = Math.floor(Date.now() / 1000);
+  
+  // Create SIRI lookup by route/line
+  const siriByRoute = new Map<string, SiriVehicleJourney[]>();
+  for (const journey of siriJourneys) {
+    const existing = siriByRoute.get(journey.lineRef) || [];
+    existing.push(journey);
+    siriByRoute.set(journey.lineRef, existing);
+  }
+  
+  // Process GTFS trips
+  for (const trip of gtfsTrips) {
+    if (!trip.routeId || !trip.stopTimeUpdates) continue;
+    
+    const siriMatches = siriByRoute.get(trip.routeId) || [];
+    
+    for (const stu of trip.stopTimeUpdates) {
+      if (!stu.stopId || !stu.arrivalTime) continue;
+      if (stopId && stu.stopId !== stopId) continue;
+      
+      // Find matching SIRI data
+      let siriMatch: SiriEstimatedCall | undefined;
+      for (const sj of siriMatches) {
+        const call = sj.estimatedCalls.find(c => c.stopId === stu.stopId);
+        if (call) {
+          siriMatch = call;
+          break;
+        }
+      }
+      
+      // Calculate best arrival time using intelligent algorithm
+      let bestTime = stu.arrivalTime;
+      let confidence: 'high' | 'medium' | 'low' = 'medium';
+      let source: 'gtfs' | 'siri' | 'merged' = 'gtfs';
+      
+      if (siriMatch?.expectedArrivalTime) {
+        // SIRI has real-time expected time - this is usually most accurate
+        const siriTime = siriMatch.expectedArrivalTime;
+        const gtfsTime = stu.arrivalTime;
+        
+        // If times differ by less than 2 minutes, prefer SIRI
+        const diff = Math.abs(siriTime - gtfsTime);
+        
+        if (diff < 120) {
+          // Times are close - high confidence, use average weighted towards SIRI
+          bestTime = Math.round((siriTime * 0.7 + gtfsTime * 0.3));
+          confidence = 'high';
+          source = 'merged';
+        } else if (diff < 300) {
+          // Medium difference - use SIRI but medium confidence
+          bestTime = siriTime;
+          confidence = 'medium';
+          source = 'siri';
+        } else {
+          // Large difference - something is off, use most recent data
+          // Prefer GTFS as it's from vehicle GPS
+          confidence = 'low';
+          source = 'gtfs';
+        }
+      } else if (stu.arrivalDelay !== undefined && stu.arrivalDelay !== 0) {
+        // GTFS has delay info - apply it for better accuracy
+        confidence = 'medium';
+      } else {
+        // Only scheduled time available
+        confidence = 'low';
+      }
+      
+      // Only include future arrivals
+      if (bestTime > now) {
+        mergedArrivals.push({
+          stopId: stu.stopId,
+          routeId: trip.routeId,
+          tripId: trip.tripId,
+          vehicleId: trip.vehicleId,
+          gtfsArrivalTime: stu.arrivalTime,
+          gtfsArrivalDelay: stu.arrivalDelay,
+          siriExpectedArrivalTime: siriMatch?.expectedArrivalTime,
+          siriAimedArrivalTime: siriMatch?.aimedArrivalTime,
+          bestArrivalTime: bestTime,
+          confidence,
+          source,
+        });
+      }
+    }
+  }
+  
+  // Add any SIRI arrivals that weren't in GTFS
+  for (const journey of siriJourneys) {
+    for (const call of journey.estimatedCalls) {
+      if (stopId && call.stopId !== stopId) continue;
+      
+      const alreadyMerged = mergedArrivals.some(
+        a => a.stopId === call.stopId && a.routeId === journey.lineRef
+      );
+      
+      if (!alreadyMerged && call.expectedArrivalTime && call.expectedArrivalTime > now) {
+        mergedArrivals.push({
+          stopId: call.stopId,
+          routeId: journey.lineRef,
+          vehicleId: journey.vehicleRef,
+          siriExpectedArrivalTime: call.expectedArrivalTime,
+          siriAimedArrivalTime: call.aimedArrivalTime,
+          bestArrivalTime: call.expectedArrivalTime,
+          confidence: 'high',
+          source: 'siri',
+        });
+      }
+    }
+  }
+  
+  // Sort by best arrival time
+  mergedArrivals.sort((a, b) => a.bestArrivalTime - b.bestArrivalTime);
+  
+  return mergedArrivals;
 }
 
 function extractVehicles(feed: GtfsRealtimeFeed) {
@@ -2173,9 +2466,73 @@ serve(async (req) => {
       case '/alerts':
         data = extractAlerts(feed);
         break;
+      case '/arrivals': {
+        // High-accuracy arrivals endpoint - merges GTFS-RT and SIRI
+        const stopIdParam = url.searchParams.get('stopId') || undefined;
+        const routeIdParam = url.searchParams.get('routeId') || undefined;
+        
+        console.log(`Fetching high-accuracy arrivals for stop: ${stopIdParam}, route: ${routeIdParam}`);
+        
+        const gtfsTrips = extractTrips(feed);
+        
+        // Try to get SIRI data in parallel for better accuracy
+        let siriJourneys: SiriVehicleJourney[] = [];
+        try {
+          // Only fetch SIRI if we have a specific stop or route (to avoid overload)
+          if (stopIdParam || routeIdParam) {
+            siriJourneys = await fetchSiriData(stopIdParam, routeIdParam);
+          }
+        } catch (e) {
+          console.warn('SIRI fetch failed, using GTFS only:', e);
+        }
+        
+        const mergedArrivals = mergeTripDataWithSiri(gtfsTrips, siriJourneys, stopIdParam);
+        
+        // Filter by route if specified
+        const filteredArrivals = routeIdParam 
+          ? mergedArrivals.filter(a => a.routeId === routeIdParam)
+          : mergedArrivals;
+        
+        return new Response(
+          JSON.stringify({
+            data: filteredArrivals,
+            sources: {
+              gtfs: { 
+                healthy: dataSourceHealth.gtfs.consecutiveFailures < 3,
+                lastSuccess: dataSourceHealth.gtfs.lastSuccess,
+              },
+              siri: { 
+                healthy: dataSourceHealth.siri.consecutiveFailures < 3,
+                lastSuccess: dataSourceHealth.siri.lastSuccess,
+                available: siriJourneys.length > 0,
+              },
+            },
+            timestamp: Date.now(),
+            feedTimestamp: (feed.header?.timestamp as number) || undefined,
+          }),
+          { 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache',
+            } 
+          }
+        );
+      }
+      case '/health': {
+        // Health check endpoint for data sources
+        return new Response(
+          JSON.stringify({
+            gtfs: dataSourceHealth.gtfs,
+            siri: dataSourceHealth.siri,
+            timestamp: Date.now(),
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       default:
         return new Response(
-          JSON.stringify({ error: 'Not found', availableEndpoints: ['/feed', '/vehicles', '/trips', '/alerts', '/routes', '/stops', '/shapes', '/stop-times', '/trips-static', '/route-shape'] }),
+          JSON.stringify({ error: 'Not found', availableEndpoints: ['/feed', '/vehicles', '/trips', '/alerts', '/arrivals', '/health', '/routes', '/stops', '/shapes', '/stop-times', '/trips-static', '/route-shape'] }),
           { 
             status: 404, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
