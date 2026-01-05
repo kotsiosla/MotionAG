@@ -99,6 +99,20 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
   });
 };
 
+// Calculate bearing between two points (in degrees, 0 = North, 90 = East)
+const calculateBearing = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const toDeg = (rad: number) => (rad * 180) / Math.PI;
+  
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - 
+            Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  
+  let bearing = toDeg(Math.atan2(y, x));
+  return (bearing + 360) % 360; // Normalize to 0-360
+};
+
 const createStopIcon = (hasVehicleStopped?: boolean, sequenceNumber?: number, routeColor?: string) => {
   const bgColor = hasVehicleStopped ? '#22c55e' : (sequenceNumber !== undefined ? (routeColor ? `#${routeColor}` : '#0ea5e9') : '#f97316');
   const size = sequenceNumber !== undefined ? 'w-6 h-6' : 'w-5 h-5';
@@ -310,6 +324,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const trailPolylinesRef = useRef<Map<string, L.Polyline[]>>(new Map());
   const trailParticlesRef = useRef<Map<string, L.Marker[]>>(new Map());
   const particleAnimationRef = useRef<number | null>(null);
+  
+  // Store previous positions for bearing calculation
+  const previousPositionsRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
 
   // Fetch route shape data when a route is selected
   const { data: routeShapeData } = useRouteShape(
@@ -811,6 +828,24 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         const currentLatLng = existingMarker.getLatLng();
         const newLatLng = L.latLng(vehicle.latitude!, vehicle.longitude!);
         
+        // Calculate bearing from previous position if not provided by data
+        let effectiveBearing = vehicle.bearing;
+        const prevPos = previousPositionsRef.current.get(vehicleId);
+        
+        if (effectiveBearing === undefined && prevPos) {
+          // Only calculate if position changed significantly (avoid jittery rotation)
+          const distanceMoved = Math.sqrt(
+            Math.pow(newLatLng.lat - prevPos.lat, 2) + 
+            Math.pow(newLatLng.lng - prevPos.lng, 2)
+          );
+          if (distanceMoved > 0.00005) { // ~5 meters threshold
+            effectiveBearing = calculateBearing(prevPos.lat, prevPos.lng, newLatLng.lat, newLatLng.lng);
+          }
+        }
+        
+        // Store current position for next bearing calculation
+        previousPositionsRef.current.set(vehicleId, { lat: newLatLng.lat, lng: newLatLng.lng });
+        
         // Only animate if position actually changed
         if (currentLatLng.lat !== newLatLng.lat || currentLatLng.lng !== newLatLng.lng) {
           // Get the marker's DOM element and add transition class for smooth movement
@@ -822,7 +857,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         }
         
         // Update icon if needed (for rotation/bearing changes)
-        existingMarker.setIcon(createVehicleIcon(vehicle.bearing, isFollowed, routeColor, isOnSelectedRoute, routeInfo?.route_short_name));
+        existingMarker.setIcon(createVehicleIcon(effectiveBearing, isFollowed, routeColor, isOnSelectedRoute, routeInfo?.route_short_name));
         existingMarker.setZIndexOffset(isOnSelectedRoute ? 2000 : (isFollowed ? 1000 : 0));
         
         // Update tooltip content for hover
@@ -895,6 +930,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         `);
       } else {
         // Create new marker for new vehicles
+        // Store initial position for future bearing calculation
+        previousPositionsRef.current.set(vehicleId, { lat: vehicle.latitude!, lng: vehicle.longitude! });
+        
         const marker = L.marker([vehicle.latitude!, vehicle.longitude!], {
           icon: createVehicleIcon(vehicle.bearing, isFollowed, routeColor, isOnSelectedRoute, routeInfo?.route_short_name),
           zIndexOffset: isOnSelectedRoute ? 2000 : (isFollowed ? 1000 : 0),
