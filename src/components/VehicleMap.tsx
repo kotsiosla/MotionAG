@@ -2068,8 +2068,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </div>
       </div>
 
-      {/* Right side controls toolbar */}
-      <div className="absolute top-2 right-2 z-[1000] flex flex-col gap-1">
+      {/* Right side controls toolbar - moves up when panel is visible */}
+      <div className={`absolute right-2 z-[1000] flex flex-col gap-1 transition-all duration-300 ${nearestStopWithArrivals && userLocation && !notificationModalStop ? 'bottom-[280px]' : 'top-2'}`}>
 
         {/* Control buttons - smaller circular */}
         <Button
