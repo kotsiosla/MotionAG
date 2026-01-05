@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RouteStopsPanel } from "@/components/RouteStopsPanel";
 import { RoutePlannerPanel } from "@/components/RoutePlannerPanel";
-import { StopNotificationModal } from "@/components/StopNotificationModal";
+import { StopDetailPanel } from "@/components/StopDetailPanel";
 import { useRouteShape } from "@/hooks/useGtfsData";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import type { Vehicle, StaticStop, Trip, RouteInfo } from "@/types/gtfs";
@@ -2104,15 +2104,30 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </div>
       </div>
       
-      {/* Stop Notification Modal */}
+      {/* Stop Detail Panel - Draggable with routes */}
       {notificationModalStop && (
-        <StopNotificationModal
+        <StopDetailPanel
           stopId={notificationModalStop.stopId}
           stopName={notificationModalStop.stopName}
+          arrivals={getArrivalsForStop(notificationModalStop.stopId)}
           currentSettings={getNotification(notificationModalStop.stopId)}
           onSave={setStopNotification}
           onRemove={removeStopNotification}
           onClose={() => setNotificationModalStop(null)}
+          onFollowRoute={(routeId) => {
+            // Close the panel and set the selected route
+            setNotificationModalStop(null);
+            if (onRouteClose) {
+              // First close any existing route
+              onRouteClose();
+            }
+            // Dispatch event to change route in parent
+            window.dispatchEvent(new CustomEvent('selectRoute', { detail: { routeId } }));
+          }}
+          onTrackVehicle={(vehicleId) => {
+            setNotificationModalStop(null);
+            setFollowedVehicleId(vehicleId);
+          }}
         />
       )}
     </div>
