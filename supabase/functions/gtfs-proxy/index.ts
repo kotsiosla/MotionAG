@@ -1876,10 +1876,43 @@ serve(async (req) => {
     
     // Handle route-shape endpoint - returns shape and stop sequence for a specific route
     if (path === '/route-shape' && routeId) {
+      // Extract operator from route ID to avoid loading all operators
+      // Route IDs have format like "50030011" where first digits indicate operator
+      // We'll try to infer the operator from the route ID prefix
+      let effectiveOperatorId = operatorId;
+      
+      if (!operatorId || operatorId === 'all') {
+        // Try to extract operator from route ID
+        // Common patterns: 
+        // - "5XXXXXXX" -> operator 5 (Intercity)
+        // - "6XXXXXXX" -> operator 6 (EMEL)
+        // - "9XXXXXXX" -> operator 9 (NPT)
+        // - "10XXXXXX" -> operator 10 (LPT)
+        // - "2XXXXXXX" -> operator 2
+        // - "4XXXXXXX" -> operator 4 (OSEA)
+        const validOperators = ['2', '4', '5', '6', '9', '10', '11'];
+        
+        // Check for 2-digit operator first (10, 11)
+        if (routeId.startsWith('10') || routeId.startsWith('11')) {
+          const prefix = routeId.substring(0, 2);
+          if (validOperators.includes(prefix)) {
+            effectiveOperatorId = prefix;
+            console.log(`Inferred operator ${effectiveOperatorId} from route ID ${routeId} (2-digit prefix)`);
+          }
+        } else {
+          // Check single digit prefix
+          const firstDigit = routeId.charAt(0);
+          if (validOperators.includes(firstDigit)) {
+            effectiveOperatorId = firstDigit;
+            console.log(`Inferred operator ${effectiveOperatorId} from route ID ${routeId} (1-digit prefix)`);
+          }
+        }
+      }
+      
       const [tripsStatic, shapes, stops] = await Promise.all([
-        fetchStaticTrips(operatorId),
-        fetchStaticShapes(operatorId),
-        fetchStaticStops(operatorId),
+        fetchStaticTrips(effectiveOperatorId),
+        fetchStaticShapes(effectiveOperatorId),
+        fetchStaticStops(effectiveOperatorId),
       ]);
       
       // Find trips for this route
@@ -1903,7 +1936,7 @@ serve(async (req) => {
       
       // Collect all trip IDs for stop times fetching
       const allRouteTripIds = new Set(routeTrips.map((t: TripStaticInfo) => t.trip_id));
-      const stopTimes = await fetchStaticStopTimesForTrips(operatorId, allRouteTripIds);
+      const stopTimes = await fetchStaticStopTimesForTrips(effectiveOperatorId, allRouteTripIds);
       
       // Build response for each direction
       const directions: Array<{
