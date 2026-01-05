@@ -2039,10 +2039,31 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
       {/* Nearest stop info */}
       {nearestStop && userLocation && (
-        <div className="absolute bottom-4 right-4 glass-card rounded-lg p-3 z-[1000] max-w-[280px]">
-          <div className="flex items-center gap-2 mb-2">
-            <MapPin className="h-4 w-4 text-blue-500 flex-shrink-0" />
-            <span className="text-xs font-medium text-muted-foreground">Κοντινότερη στάση</span>
+        <div 
+          className="absolute bottom-4 right-4 glass-card rounded-lg p-3 z-[1000] max-w-[280px] cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+          onClick={() => {
+            setNotificationModalStop({
+              stopId: nearestStop.stop.stop_id,
+              stopName: nearestStop.stop.stop_name || nearestStop.stop.stop_id,
+            });
+          }}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-blue-500 flex-shrink-0" />
+              <span className="text-xs font-medium text-muted-foreground">Κοντινότερη στάση</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 -mr-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                setUserLocation(null);
+              }}
+            >
+              <X className="h-3 w-3" />
+            </Button>
           </div>
           <div className="font-medium text-sm mb-1">{nearestStop.stop.stop_name || nearestStop.stop.stop_id}</div>
           <div className="text-xs text-muted-foreground mb-2">
@@ -2078,7 +2099,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             variant="ghost"
             size="sm"
             className="w-full mt-2 text-xs h-7"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               if (nearestStop.stop.stop_lat && nearestStop.stop.stop_lon) {
                 mapRef.current?.setView([nearestStop.stop.stop_lat, nearestStop.stop.stop_lon], 17, { animate: true });
               }
