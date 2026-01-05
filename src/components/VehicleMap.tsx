@@ -1708,46 +1708,70 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </div>
       )}
       
-      {/* Compact vehicle tracking bar - minimal floating UI */}
+      {/* Compact vehicle tracking bar - minimal floating UI like reference */}
       {followedVehicle && (
         <div 
-          className="absolute top-2 left-1/2 -translate-x-1/2 z-[1001] flex items-center gap-2 px-3 py-2 rounded-full shadow-lg border border-border/50 backdrop-blur-md"
+          className="absolute top-3 left-1/2 -translate-x-1/2 z-[1001] flex items-center gap-3 pl-3 pr-2 py-2.5 rounded-full shadow-xl"
           style={{ 
             backgroundColor: followedRouteInfo?.route_color 
-              ? `rgba(${parseInt(followedRouteInfo.route_color.slice(0,2), 16)}, ${parseInt(followedRouteInfo.route_color.slice(2,4), 16)}, ${parseInt(followedRouteInfo.route_color.slice(4,6), 16)}, 0.9)` 
-              : 'hsl(var(--primary) / 0.9)' 
+              ? `#${followedRouteInfo.route_color}` 
+              : 'hsl(var(--primary))' 
           }}
         >
-          <Navigation className="h-4 w-4 animate-pulse text-white" />
-          <span className="text-sm font-semibold text-white">
+          {/* Navigation direction indicator */}
+          <div 
+            className="flex-shrink-0"
+            style={{ 
+              transform: `rotate(${followedVehicle.bearing || 0}deg)`,
+              transition: 'transform 0.5s ease-out'
+            }}
+          >
+            <Navigation className="h-4 w-4 text-white fill-white" />
+          </div>
+          
+          {/* Vehicle ID */}
+          <span className="text-sm font-bold text-white tracking-wide">
             {followedVehicle.label || followedVehicle.vehicleId || followedVehicle.id}
           </span>
-          <span className="text-xs text-white/80">
-            {followedVehicle.speed !== undefined ? formatSpeed(followedVehicle.speed) : ''}
-          </span>
-          {followedNextStop && (
+          
+          {/* Speed */}
+          {followedVehicle.speed !== undefined && (
             <>
-              <span className="text-white/50">•</span>
-              <MapPin className="h-3 w-3 text-white/80" />
-              <span className="text-xs text-white/90 max-w-[120px] truncate">
-                {followedNextStop.stopName}
+              <span className="text-white/60 text-xs">•</span>
+              <span className="text-sm text-white/90">
+                {formatSpeed(followedVehicle.speed)}
               </span>
             </>
           )}
-          <div className="flex items-center gap-1 ml-1">
+          
+          {/* Next stop location */}
+          {followedNextStop && (
+            <>
+              <span className="text-white/60 text-xs">•</span>
+              <div className="flex items-center gap-1.5 max-w-[160px]">
+                <MapPin className="h-3.5 w-3.5 text-white/90 flex-shrink-0" />
+                <span className="text-sm text-white/95 truncate">
+                  {followedNextStop.stopName}
+                </span>
+              </div>
+            </>
+          )}
+          
+          {/* Action buttons */}
+          <div className="flex items-center gap-0.5 ml-1">
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-white hover:bg-white/20 rounded-full"
+              className="h-7 w-7 text-white hover:bg-white/20 rounded-full transition-colors"
               onClick={viewMode === 'street' ? switchToOverview : switchToStreetView}
               title={viewMode === 'street' ? 'Overview' : 'Street View'}
             >
-              {viewMode === 'street' ? <Maximize2 className="h-3.5 w-3.5" /> : <Focus className="h-3.5 w-3.5" />}
+              {viewMode === 'street' ? <Maximize2 className="h-4 w-4" /> : <Focus className="h-4 w-4" />}
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-white hover:bg-white/20 rounded-full"
+              className="h-7 w-7 text-white hover:bg-white/20 rounded-full transition-colors"
               onClick={() => {
                 setFollowedVehicleId(null);
                 setViewMode('street');
@@ -1756,7 +1780,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
                 if (onFollowVehicle) onFollowVehicle(null);
               }}
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
