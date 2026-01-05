@@ -1,4 +1,5 @@
-import { X, Bus, Clock, MapPin, ArrowDown, Loader2, Star, CalendarIcon, Printer, Footprints, Map, AlertCircle, Navigation, ChevronRight, Settings2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { X, Bus, Clock, MapPin, ArrowDown, Loader2, Star, CalendarIcon, Printer, Footprints, Map, AlertCircle, Navigation, ChevronRight, Settings2, ArrowUpDown, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,20 @@ const WALKING_DISTANCE_OPTIONS = [
   { value: 600, label: '600μ' },
   { value: 800, label: '800μ' },
   { value: 1000, label: '1χλμ' },
+];
+
+const SORT_OPTIONS = [
+  { value: 'recommended', label: 'Προτεινόμενες' },
+  { value: 'fastest', label: 'Ταχύτερες' },
+  { value: 'least_walking', label: 'Λιγότερο περπάτημα' },
+  { value: 'least_transfers', label: 'Λιγότερες αλλαγές' },
+];
+
+const TRANSFER_FILTER_OPTIONS = [
+  { value: -1, label: 'Όλες' },
+  { value: 0, label: 'Απευθείας' },
+  { value: 1, label: 'Μέχρι 1' },
+  { value: 2, label: 'Μέχρι 2' },
 ];
 
 // Format distance nicely
@@ -301,9 +316,43 @@ export function SmartTripResults({
   maxWalkingDistance = 500,
   onWalkingDistanceChange,
 }: SmartTripResultsProps) {
+  const [sortBy, setSortBy] = useState<string>('recommended');
+  const [maxTransfersFilter, setMaxTransfersFilter] = useState<number>(-1);
+  
   if (!origin || !destination) return null;
 
   const isToday = departureDate ? departureDate.toDateString() === new Date().toDateString() : true;
+  
+  // Filter and sort journeys
+  const filteredJourneys = useMemo(() => {
+    if (!data?.journeyOptions) return [];
+    
+    let journeys = [...data.journeyOptions];
+    
+    // Filter by max transfers
+    if (maxTransfersFilter >= 0) {
+      journeys = journeys.filter(j => j.transferCount <= maxTransfersFilter);
+    }
+    
+    // Sort
+    switch (sortBy) {
+      case 'fastest':
+        journeys.sort((a, b) => a.totalDurationMinutes - b.totalDurationMinutes);
+        break;
+      case 'least_walking':
+        journeys.sort((a, b) => a.totalWalkingMinutes - b.totalWalkingMinutes);
+        break;
+      case 'least_transfers':
+        journeys.sort((a, b) => a.transferCount - b.transferCount);
+        break;
+      case 'recommended':
+      default:
+        // Already sorted by score
+        break;
+    }
+    
+    return journeys;
+  }, [data?.journeyOptions, sortBy, maxTransfersFilter]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -343,7 +392,7 @@ export function SmartTripResults({
             </div>
           </div>
 
-          {/* Date/Time and Walking Distance */}
+          {/* Date/Time and Filters */}
           <div className="flex items-center gap-2 flex-wrap pt-2">
             <div className="flex items-center gap-1 bg-secondary/50 px-2 py-1 rounded text-xs">
               <CalendarIcon className="h-3 w-3" />
@@ -376,7 +425,47 @@ export function SmartTripResults({
                   ))}
                 </SelectContent>
               </Select>
-              <span className="text-xs text-muted-foreground">περπάτημα</span>
+            </div>
+            
+            {/* Transfers Filter */}
+            <div className="flex items-center gap-1">
+              <Bus className="h-3 w-3 text-blue-600" />
+              <Select 
+                value={maxTransfersFilter.toString()} 
+                onValueChange={(v) => setMaxTransfersFilter(parseInt(v, 10))}
+              >
+                <SelectTrigger className="h-6 w-[80px] text-xs border-blue-200 dark:border-blue-800">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TRANSFER_FILTER_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value.toString()}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground">αλλαγές</span>
+            </div>
+            
+            {/* Sort Selector */}
+            <div className="flex items-center gap-1">
+              <ArrowUpDown className="h-3 w-3 text-primary" />
+              <Select 
+                value={sortBy} 
+                onValueChange={setSortBy}
+              >
+                <SelectTrigger className="h-6 w-[110px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
@@ -410,13 +499,28 @@ export function SmartTripResults({
                 </Button>
               </div>
             </div>
+          ) : filteredJourneys.length === 0 && data?.journeyOptions && data.journeyOptions.length > 0 ? (
+            <div className="text-center py-12">
+              <Filter className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-30" />
+              <p className="font-medium">Καμία διαδρομή με αυτά τα φίλτρα</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Δοκιμάστε να αλλάξετε τα φίλτρα (αλλαγές: {maxTransfersFilter === -1 ? 'Όλες' : maxTransfersFilter})
+              </p>
+              <Button 
+                variant="outline" 
+                className="mt-3"
+                onClick={() => setMaxTransfersFilter(-1)}
+              >
+                Εμφάνιση όλων
+              </Button>
+            </div>
           ) : (
             <>
               <p className="text-sm text-muted-foreground">
-                Βρέθηκαν {data?.journeyOptions.length || 0} διαδρομές
+                Εμφανίζονται {filteredJourneys.length} από {data?.journeyOptions.length || 0} διαδρομές
               </p>
               
-              {data?.journeyOptions.map((journey, idx) => (
+              {filteredJourneys.map((journey, idx) => (
                 <JourneyOptionCard key={idx} journey={journey} index={idx} />
               ))}
             </>
