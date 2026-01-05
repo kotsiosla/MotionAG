@@ -14,6 +14,8 @@ import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } fro
 import { useTripPlan } from "@/hooks/useTripPlan";
 import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
 import { useDelayNotifications } from "@/hooks/useDelayNotifications";
+import { useStopNotifications } from "@/hooks/useStopNotifications";
+import { useStopArrivalNotifications } from "@/hooks/useStopArrivalNotifications";
 import type { RouteInfo, StaticStop } from "@/types/gtfs";
 import { toast } from "sonner";
 
@@ -199,6 +201,15 @@ const Index = () => {
     effectiveTripsData?.data || [],
     routeNamesMap,
     delayNotificationsEnabled
+  );
+
+  // Stop notifications - monitors arrivals at user's favorite stops
+  const { notifications: stopNotificationSettings } = useStopNotifications();
+  useStopArrivalNotifications(
+    effectiveTripsData?.data || [],
+    routeNamesMap,
+    stopNotificationSettings,
+    true
   );
 
   // Get routes with active vehicles/trips
