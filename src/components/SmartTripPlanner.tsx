@@ -2,7 +2,8 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { 
   MapPin, ArrowDownUp, Search, Navigation, Loader2, Clock, 
   Star, ChevronDown, Trash2, CalendarIcon, Building2, 
-  Footprints, ExternalLink, Route as RouteIcon, MapPinned
+  Footprints, ExternalLink, Route as RouteIcon, MapPinned,
+  Mic, MicOff, X
 } from "lucide-react";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
@@ -36,6 +37,7 @@ import {
   type GeocodedLocation,
   type NearestStopInfo 
 } from "@/hooks/useGeocode";
+import { useVoiceSearch } from "@/hooks/useVoiceSearch";
 import { CYPRUS_POI, getCategoryIcon, type PointOfInterest } from "@/data/cyprusPOI";
 import type { StaticStop } from "@/types/gtfs";
 import type { FavoriteRoute } from "@/hooks/useFavoriteRoutes";
@@ -83,7 +85,7 @@ const generateTimeOptions = () => {
 
 const TIME_OPTIONS = generateTimeOptions();
 
-// Location search input component with geocoding
+// Location search input component with geocoding and voice search
 function LocationSearchInput({
   value,
   onChange,
@@ -92,6 +94,7 @@ function LocationSearchInput({
   icon,
   iconColor,
   onLocationSelect,
+  enableVoice = true,
 }: {
   value: SelectedLocation | null;
   onChange: (location: SelectedLocation | null) => void;
@@ -100,11 +103,31 @@ function LocationSearchInput({
   icon: React.ReactNode;
   iconColor: string;
   onLocationSelect?: (location: SelectedLocation) => void;
+  enableVoice?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { searchAddress, results: geocodeResults, isSearching, clearResults } = useGeocode();
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  
+  // Voice search
+  const {
+    isListening,
+    transcript,
+    interimTranscript,
+    error: voiceError,
+    isSupported: voiceSupported,
+    startListening,
+    stopListening,
+    resetTranscript,
+  } = useVoiceSearch('el-GR');
+
+  // Update search query when voice transcript changes
+  useEffect(() => {
+    if (transcript) {
+      setSearchQuery(transcript);
+    }
+  }, [transcript]);
 
   // Debounce search query
   useEffect(() => {
@@ -220,21 +243,82 @@ function LocationSearchInput({
       </PopoverTrigger>
       <PopoverContent className="w-[340px] p-0 z-[100]" align="start">
         <div className="flex flex-col">
-          {/* Search Input */}
+          {/* Search Input with Voice */}
           <div className="p-2 border-b border-border">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Αναζήτηση οδού, σημείου ή στάσης..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9"
-                autoFocus
-              />
-              {isSearching && (
-                <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+            <div className="relative flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={isListening ? "Μιλήστε τώρα..." : "Αναζήτηση οδού, σημείου ή στάσης..."}
+                  value={isListening ? (interimTranscript || transcript || searchQuery) : searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={cn("pl-9 pr-8 h-9", isListening && "bg-primary/5 border-primary")}
+                  autoFocus={!isListening}
+                  readOnly={isListening}
+                />
+                {isSearching && !isListening && (
+                  <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+                {searchQuery && !isListening && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      resetTranscript();
+                      clearResults();
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              
+              {/* Voice Search Button */}
+              {enableVoice && voiceSupported && (
+                <Button
+                  variant={isListening ? "default" : "outline"}
+                  size="icon"
+                  className={cn(
+                    "h-9 w-9 flex-shrink-0 transition-all",
+                    isListening && "bg-primary animate-pulse"
+                  )}
+                  onClick={() => {
+                    if (isListening) {
+                      stopListening();
+                    } else {
+                      resetTranscript();
+                      setSearchQuery('');
+                      startListening();
+                    }
+                  }}
+                  title={isListening ? "Διακοπή ηχογράφησης" : "Φωνητική αναζήτηση"}
+                >
+                  {isListening ? (
+                    <MicOff className="h-4 w-4" />
+                  ) : (
+                    <Mic className="h-4 w-4" />
+                  )}
+                </Button>
               )}
             </div>
+            
+            {/* Voice feedback */}
+            {isListening && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-primary animate-pulse">
+                <div className="flex gap-0.5">
+                  <span className="w-1 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+                <span>Ακούω...</span>
+              </div>
+            )}
+            
+            {voiceError && (
+              <div className="mt-2 text-xs text-destructive">
+                {voiceError}
+              </div>
+            )}
           </div>
 
           {/* Results */}
