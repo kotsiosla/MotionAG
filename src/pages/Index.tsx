@@ -429,7 +429,7 @@ const Index = () => {
   const alertCount = alertsQuery.data?.data?.length || 0;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
       <Header
         isDark={isDark}
         onToggleTheme={() => setIsDark(!isDark)}
@@ -518,30 +518,30 @@ const Index = () => {
         <ErrorBanner message={errorMessage || "Αποτυχία σύνδεσης"} onRetry={handleRetry} />
       )}
 
-      <main className="flex-1 container mx-auto px-2 sm:px-4 py-2">
+      <main className="flex-1 min-h-0 container mx-auto px-1 sm:px-4 py-1 sm:py-2 flex flex-col">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-5 mb-2 h-auto">
-            <TabsTrigger value="map" className="flex flex-col sm:flex-row items-center gap-1 py-2 px-1 sm:px-3">
-              <MapIcon className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="text-[10px] sm:text-sm">Χάρτης</span>
+          <TabsList className="grid w-full grid-cols-5 mb-1 sm:mb-2 h-auto flex-shrink-0">
+            <TabsTrigger value="map" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-1.5 sm:py-2 px-0.5 sm:px-3">
+              <MapIcon className="h-4 w-4" />
+              <span className="text-[9px] sm:text-sm leading-tight">Χάρτης</span>
             </TabsTrigger>
-            <TabsTrigger value="trips" className="flex flex-col sm:flex-row items-center gap-1 py-2 px-1 sm:px-3">
-              <Route className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="text-[10px] sm:text-sm">Δρομολόγια</span>
+            <TabsTrigger value="trips" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-1.5 sm:py-2 px-0.5 sm:px-3">
+              <Route className="h-4 w-4" />
+              <span className="text-[9px] sm:text-sm leading-tight">Δρομολόγια</span>
             </TabsTrigger>
-            <TabsTrigger value="stops" className="flex flex-col sm:flex-row items-center gap-1 py-2 px-1 sm:px-3">
-              <MapPin className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="text-[10px] sm:text-sm">Στάσεις</span>
+            <TabsTrigger value="stops" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-1.5 sm:py-2 px-0.5 sm:px-3">
+              <MapPin className="h-4 w-4" />
+              <span className="text-[9px] sm:text-sm leading-tight">Στάσεις</span>
             </TabsTrigger>
-            <TabsTrigger value="schedule" className="flex flex-col sm:flex-row items-center gap-1 py-2 px-1 sm:px-3">
-              <Calendar className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="text-[10px] sm:text-sm">Πρόγραμμα</span>
+            <TabsTrigger value="schedule" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-1.5 sm:py-2 px-0.5 sm:px-3">
+              <Calendar className="h-4 w-4" />
+              <span className="text-[9px] sm:text-sm leading-tight">Πρόγραμμα</span>
             </TabsTrigger>
-            <TabsTrigger value="alerts" className="flex flex-col sm:flex-row items-center gap-1 py-2 px-1 sm:px-3 relative">
-              <Bell className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="text-[10px] sm:text-sm">Ειδοποιήσεις</span>
+            <TabsTrigger value="alerts" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-1.5 sm:py-2 px-0.5 sm:px-3 relative">
+              <Bell className="h-4 w-4" />
+              <span className="text-[9px] sm:text-sm leading-tight">Ειδοποιήσεις</span>
               {alertCount > 0 && (
-                <span className="absolute top-0.5 right-0.5 sm:-top-1 sm:-right-1 w-4 h-4 sm:w-5 sm:h-5 bg-destructive text-destructive-foreground text-[10px] sm:text-xs rounded-full flex items-center justify-center">
+                <span className="absolute top-0 right-0 w-4 h-4 bg-destructive text-destructive-foreground text-[9px] rounded-full flex items-center justify-center">
                   {alertCount}
                 </span>
               )}
@@ -549,7 +549,7 @@ const Index = () => {
           </TabsList>
 
           <div className="flex-1 min-h-0 glass-card rounded-lg overflow-hidden">
-            <TabsContent value="map" className="h-[calc(100vh-200px)] sm:h-[calc(100vh-180px)] m-0">
+            <TabsContent value="map" className="h-full m-0">
               <VehicleMap
                 vehicles={filteredVehicles}
                 trips={filteredTrips}
@@ -572,7 +572,7 @@ const Index = () => {
               />
             </TabsContent>
 
-            <TabsContent value="trips" className="h-[calc(100vh-240px)] sm:h-[calc(100vh-220px)] m-0">
+            <TabsContent value="trips" className="h-full m-0 overflow-auto">
               <TripsTable
                 trips={filteredTrips}
                 isLoading={tripsQuery.isLoading}
@@ -593,7 +593,7 @@ const Index = () => {
               />
             </TabsContent>
 
-            <TabsContent value="stops" className="h-[calc(100vh-240px)] sm:h-[calc(100vh-220px)] m-0">
+            <TabsContent value="stops" className="h-full m-0 overflow-auto">
               <StopsView
                 trips={filteredTrips}
                 stops={staticStopsQuery.data?.data || []}
@@ -603,14 +603,14 @@ const Index = () => {
               />
             </TabsContent>
 
-            <TabsContent value="schedule" className="h-[calc(100vh-240px)] sm:h-[calc(100vh-220px)] m-0">
+            <TabsContent value="schedule" className="h-full m-0 overflow-auto">
               <ScheduleView
                 selectedOperator={selectedOperator}
                 onOperatorChange={setSelectedOperator}
               />
             </TabsContent>
 
-            <TabsContent value="alerts" className="h-[calc(100vh-240px)] sm:h-[calc(100vh-220px)] m-0 overflow-auto">
+            <TabsContent value="alerts" className="h-full m-0 overflow-auto">
               <AlertsList
                 alerts={effectiveAlertsData?.data || []}
                 trips={filteredTrips}
