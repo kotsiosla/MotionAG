@@ -214,7 +214,7 @@ export function SchedulePanel({
       minSize={{ width: 320, height: 400 }}
       maxSize={{ width: 500, height: 800 }}
       className="rounded-lg overflow-hidden border border-border bg-card/95 backdrop-blur-sm"
-      zIndex={1000}
+      zIndex={1200}
       title="Πρόγραμμα"
     >
       <div className="h-full flex flex-col overflow-hidden">

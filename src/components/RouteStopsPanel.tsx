@@ -194,7 +194,7 @@ export function RouteStopsPanel({
   // Mobile layout - full-width bottom panel
   if (isMobile) {
     return (
-      <div className="fixed bottom-0 left-0 right-0 z-[1000] bg-card border-t border-border shadow-lg rounded-t-xl max-h-[60vh] flex flex-col">
+      <div className="fixed bottom-0 left-0 right-0 z-[1200] bg-card border-t border-border shadow-lg rounded-t-xl max-h-[60vh] flex flex-col">
         {/* Header with route color */}
         <div 
           className="flex items-center gap-2 p-3 cursor-pointer transition-colors rounded-t-xl"
@@ -419,7 +419,7 @@ export function RouteStopsPanel({
       minSize={{ width: 300, height: 200 }}
       maxSize={{ width: 500, height: 700 }}
       className="rounded-lg overflow-hidden border border-border bg-card/95 backdrop-blur-sm"
-      zIndex={1000}
+      zIndex={1200}
       title={routeInfo?.route_short_name || selectedRoute}
     >
       <div className="h-full flex flex-col">
