@@ -267,6 +267,7 @@ export function NearbyStopsPanel({
         const updatedStops = [...existingStops, newStop];
 
         console.log('[NearbyStopsPanel] Adding stop to notifications:', nearestStop.stop_id, 'Total:', updatedStops.length);
+        console.log('[NearbyStopsPanel] Update attempt - endpoint:', subscription.endpoint.substring(0, 50) + '...');
 
         const { error, data } = await supabase
           .from('stop_notification_subscriptions')
@@ -278,9 +279,15 @@ export function NearbyStopsPanel({
           .select();
 
         if (error) {
-          console.error('[NearbyStopsPanel] Failed to add stop:', error);
+          console.error('[NearbyStopsPanel] ❌ Failed to add stop:', error);
+          console.error('[NearbyStopsPanel] Error code:', error.code);
+          console.error('[NearbyStopsPanel] Error message:', error.message);
         } else {
           console.log('[NearbyStopsPanel] ✅ Added stop:', nearestStop.stop_id, 'Total stops:', updatedStops.length);
+          console.log('[NearbyStopsPanel] Update result:', data);
+          if (!data || data.length === 0) {
+            console.warn('[NearbyStopsPanel] ⚠️ Update returned no data - row may not exist');
+          }
           toast({
             title: "🔔 Στάση προστέθηκε",
             description: `${nearestStop.stop_name} - ${updatedStops.length} στάσεις συνολικά`,
