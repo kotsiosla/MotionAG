@@ -22,8 +22,24 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
+import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import type { StaticStop, Trip, Vehicle, RouteInfo } from "@/types/gtfs";
 import { useNearbyArrivals, useStopArrivals, type StopArrival, type NearbyStop } from "@/hooks/useNearbyArrivals";
+
+// VAPID public key for push subscriptions
+const VAPID_PUBLIC_KEY = 'BOY7TtDjqW97iKphI_H198l6XVX5_JV2msRrSPs8yz7JsVyJmyTTQh1sX8D43CyUpEzEktYTfsiC238Vi2QGjJ0';
+
+function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray.buffer as ArrayBuffer;
+}
 
 interface NearbyStopsPanelProps {
   stops: StaticStop[];
@@ -135,13 +151,130 @@ export function NearbyStopsPanel({
     localStorage.setItem('nearbyNotificationSettings', JSON.stringify(notificationSettings));
   }, [notificationSettings]);
 
-  // Toggle notification setting
-  const toggleNotificationSetting = useCallback((key: keyof typeof notificationSettings) => {
-    setNotificationSettings((prev: typeof notificationSettings) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  }, []);
+  // Toggle notification setting - with push subscription handling
+  const toggleNotificationSetting = useCallback(async (key: keyof typeof notificationSettings) => {
+    // If toggling push ON, create push subscription
+    if (key === 'push' && !notificationSettings.push) {
+      try {
+        // Check support
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+          toast({
+            title: "Μη υποστηριζόμενο",
+            description: "Οι push ειδοποιήσεις δεν υποστηρίζονται σε αυτή τη συσκευή",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Request permission
+        const permission = await Notification.requestPermission();
+        console.log('[NearbyStopsPanel] Push permission:', permission);
+        
+        if (permission !== 'granted') {
+          toast({
+            title: "⚠️ Απαιτείται άδεια",
+            description: "Παρακαλώ επιτρέψτε τις ειδοποιήσεις",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Register service worker and get subscription
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.ready;
+        
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+          });
+        }
+
+        console.log('[NearbyStopsPanel] Push subscription created:', subscription.endpoint.substring(0, 50));
+
+        // Extract keys
+        const p256dhKey = subscription.getKey('p256dh');
+        const authKey = subscription.getKey('auth');
+        
+        if (!p256dhKey || !authKey) {
+          throw new Error('Failed to get subscription keys');
+        }
+        
+        const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
+        const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
+
+        // Save to database - for nearby stops, save with a generic "nearby" stop setting
+        const stopSettings = [{
+          stopId: 'nearby_mode',
+          stopName: 'Κοντινότερη Στάση (Auto)',
+          enabled: true,
+          sound: notificationSettings.sound,
+          vibration: notificationSettings.vibration,
+          voice: notificationSettings.voice,
+          push: true,
+          beforeMinutes: Math.round(notificationDistance / 100), // Convert distance to approximate minutes
+        }];
+
+        // Upsert to database
+        const { data: existing } = await supabase
+          .from('stop_notification_subscriptions')
+          .select('id')
+          .eq('endpoint', subscription.endpoint)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from('stop_notification_subscriptions')
+            .update({
+              p256dh,
+              auth,
+              stop_notifications: stopSettings as any,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('endpoint', subscription.endpoint);
+
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('stop_notification_subscriptions')
+            .insert([{
+              endpoint: subscription.endpoint,
+              p256dh,
+              auth,
+              stop_notifications: stopSettings as any,
+            }]);
+
+          if (error) throw error;
+        }
+
+        console.log('[NearbyStopsPanel] Saved push subscription to database');
+        
+        toast({
+          title: "✅ Push ειδοποιήσεις ενεργοποιήθηκαν",
+          description: "Θα λαμβάνετε ειδοποιήσεις ακόμα και με κλειστή εφαρμογή",
+        });
+
+        setNotificationSettings((prev: typeof notificationSettings) => ({
+          ...prev,
+          push: true,
+        }));
+      } catch (error) {
+        console.error('[NearbyStopsPanel] Push subscription error:', error);
+        toast({
+          title: "Σφάλμα",
+          description: "Δεν ήταν δυνατή η ενεργοποίηση push ειδοποιήσεων",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // For other settings, just toggle
+      setNotificationSettings((prev: typeof notificationSettings) => ({
+        ...prev,
+        [key]: !prev[key],
+      }));
+    }
+  }, [notificationSettings, notificationDistance]);
 
   // Get user location
   const getLocation = useCallback(() => {
