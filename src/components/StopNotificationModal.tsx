@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Bell, BellOff, Volume2, Vibrate, Mic, Send, X, Clock, AlertCircle, Smartphone } from "lucide-react";
+import { Bell, BellOff, Volume2, Vibrate, Mic, Send, X, Clock, Smartphone, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import type { StopNotificationSettings } from "@/hooks/useStopNotifications";
 import { unlockAudio, playSound, vibrate } from "@/hooks/useStopArrivalNotifications";
 
@@ -15,6 +16,20 @@ interface StopNotificationModalProps {
   onSave: (settings: StopNotificationSettings) => void;
   onRemove: (stopId: string) => void;
   onClose: () => void;
+}
+
+// VAPID public key
+const VAPID_PUBLIC_KEY = 'BOY7TtDjqW97iKphI_H198l6XVX5_JV2msRrSPs8yz7JsVyJmyTTQh1sX8D43CyUpEzEktYTfsiC238Vi2QGjJ0';
+
+function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray.buffer as ArrayBuffer;
 }
 
 // Detect iOS
@@ -41,19 +56,30 @@ export function StopNotificationModal({
   const [pushSupported, setPushSupported] = useState(true);
   const [isSubscribingPush, setIsSubscribingPush] = useState(false);
   const [showIOSWarning, setShowIOSWarning] = useState(false);
+  const [hasExistingSubscription, setHasExistingSubscription] = useState(false);
 
-  // Check push support and iOS on mount
+  // Check push support and existing subscription on mount
   useEffect(() => {
-    const checkPushSupport = () => {
+    const checkPushSupport = async () => {
       const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
       setPushSupported(supported);
+      
+      if (supported) {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          const subscription = await registration.pushManager.getSubscription();
+          setHasExistingSubscription(!!subscription);
+          console.log('[StopNotificationModal] Existing subscription:', !!subscription);
+        } catch (e) {
+          console.error('[StopNotificationModal] Error checking subscription:', e);
+        }
+      }
     };
     checkPushSupport();
     
     // Show iOS warning
     if (isIOS()) {
       setShowIOSWarning(true);
-      // Disable vibration on iOS since it's not supported
       if (!vibrationSupported) {
         setVibration(false);
       }
@@ -63,32 +89,81 @@ export function StopNotificationModal({
     unlockAudio();
   }, []);
 
-  // Handle push toggle - request permission when enabled
+  // Create or get push subscription and save to database
+  const createPushSubscription = async (): Promise<boolean> => {
+    try {
+      console.log('[StopNotificationModal] Creating push subscription...');
+      
+      // Request permission first
+      const permission = await Notification.requestPermission();
+      console.log('[StopNotificationModal] Permission:', permission);
+      
+      if (permission !== 'granted') {
+        toast({
+          title: "⚠️ Απαιτείται άδεια",
+          description: "Παρακαλώ επιτρέψτε τις ειδοποιήσεις από τις ρυθμίσεις του browser",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Register service worker
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+      console.log('[StopNotificationModal] Service Worker ready');
+
+      // Get or create subscription
+      let subscription = await registration.pushManager.getSubscription();
+      
+      if (!subscription) {
+        console.log('[StopNotificationModal] Creating new subscription...');
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+        console.log('[StopNotificationModal] Created new subscription:', subscription.endpoint);
+      } else {
+        console.log('[StopNotificationModal] Using existing subscription:', subscription.endpoint);
+      }
+
+      // Extract keys
+      const p256dhKey = subscription.getKey('p256dh');
+      const authKey = subscription.getKey('auth');
+      
+      if (!p256dhKey || !authKey) {
+        throw new Error('Failed to get subscription keys');
+      }
+      
+      const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
+      const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
+
+      console.log('[StopNotificationModal] Keys extracted, endpoint:', subscription.endpoint.substring(0, 50) + '...');
+
+      return true;
+    } catch (error) {
+      console.error('[StopNotificationModal] Error creating subscription:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Δεν ήταν δυνατή η ενεργοποίηση ειδοποιήσεων: " + (error as Error).message,
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  // Handle push toggle
   const handlePushToggle = async (checked: boolean) => {
     if (checked && pushSupported) {
       setIsSubscribingPush(true);
       try {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
+        const success = await createPushSubscription();
+        if (success) {
           setPush(true);
           toast({
-            title: "✅ Ειδοποιήσεις ενεργοποιήθηκαν",
-            description: "Θα λαμβάνετε push notifications όταν πλησιάζει το λεωφορείο",
-          });
-        } else {
-          toast({
-            title: "⚠️ Απαιτείται άδεια",
-            description: "Παρακαλώ επιτρέψτε τις ειδοποιήσεις από τις ρυθμίσεις του browser",
-            variant: "destructive",
+            title: "✅ Push ειδοποιήσεις ενεργοποιήθηκαν",
+            description: "Θα λαμβάνετε ειδοποιήσεις ακόμα και με κλειστή εφαρμογή",
           });
         }
-      } catch (error) {
-        console.error('Error requesting notification permission:', error);
-        toast({
-          title: "Σφάλμα",
-          description: "Δεν ήταν δυνατή η ενεργοποίηση ειδοποιήσεων",
-          variant: "destructive",
-        });
       } finally {
         setIsSubscribingPush(false);
       }
@@ -97,8 +172,8 @@ export function StopNotificationModal({
     }
   };
 
-  const handleSave = () => {
-    onSave({
+  const handleSave = async () => {
+    const settings: StopNotificationSettings = {
       stopId,
       stopName,
       enabled,
@@ -107,11 +182,132 @@ export function StopNotificationModal({
       voice,
       push,
       beforeMinutes,
-    });
+    };
+
+    // If push is enabled, sync to server immediately
+    if (push && enabled) {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        
+        if (subscription) {
+          const p256dhKey = subscription.getKey('p256dh');
+          const authKey = subscription.getKey('auth');
+          
+          if (p256dhKey && authKey) {
+            const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
+            const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
+
+            // Get all existing notifications from localStorage
+            const stored = localStorage.getItem('stop_notifications');
+            let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
+            
+            // Update or add the current notification
+            const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
+            if (existingIndex >= 0) {
+              allNotifications[existingIndex] = settings;
+            } else {
+              allNotifications.push(settings);
+            }
+
+            // Filter only push-enabled notifications
+            const pushNotifications = allNotifications.filter(n => n.enabled && n.push);
+
+            console.log('[StopNotificationModal] Saving to server:', pushNotifications.length, 'notifications');
+            console.log('[StopNotificationModal] Endpoint:', subscription.endpoint.substring(0, 50) + '...');
+
+            // Check if subscription exists
+            const { data: existing } = await supabase
+              .from('stop_notification_subscriptions')
+              .select('id')
+              .eq('endpoint', subscription.endpoint)
+              .maybeSingle();
+
+            if (existing) {
+              const { error } = await supabase
+                .from('stop_notification_subscriptions')
+                .update({
+                  p256dh,
+                  auth,
+                  stop_notifications: pushNotifications as any,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('endpoint', subscription.endpoint);
+
+              if (error) {
+                console.error('[StopNotificationModal] Update error:', error);
+                throw error;
+              }
+              console.log('[StopNotificationModal] Updated subscription in database');
+            } else {
+              const { error } = await supabase
+                .from('stop_notification_subscriptions')
+                .insert([{
+                  endpoint: subscription.endpoint,
+                  p256dh,
+                  auth,
+                  stop_notifications: pushNotifications as any,
+                }]);
+
+              if (error) {
+                console.error('[StopNotificationModal] Insert error:', error);
+                throw error;
+              }
+              console.log('[StopNotificationModal] Inserted new subscription in database');
+            }
+
+            toast({
+              title: "✅ Αποθηκεύτηκε",
+              description: "Οι ρυθμίσεις ειδοποιήσεων αποθηκεύτηκαν στον server",
+            });
+          }
+        }
+      } catch (error) {
+        console.error('[StopNotificationModal] Error saving to server:', error);
+        toast({
+          title: "⚠️ Προσοχή",
+          description: "Οι ρυθμίσεις αποθηκεύτηκαν τοπικά αλλά όχι στον server",
+          variant: "destructive",
+        });
+      }
+    }
+
+    onSave(settings);
     onClose();
   };
 
-  const handleRemove = () => {
+  const handleRemove = async () => {
+    // Remove from server if push was enabled
+    if (currentSettings?.push) {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        
+        if (subscription) {
+          // Get remaining notifications
+          const stored = localStorage.getItem('stop_notifications');
+          let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
+          const remaining = allNotifications.filter(n => n.stopId !== stopId && n.enabled && n.push);
+
+          if (remaining.length > 0) {
+            // Update with remaining notifications
+            await supabase
+              .from('stop_notification_subscriptions')
+              .update({ stop_notifications: remaining as any })
+              .eq('endpoint', subscription.endpoint);
+          } else {
+            // Delete subscription entirely
+            await supabase
+              .from('stop_notification_subscriptions')
+              .delete()
+              .eq('endpoint', subscription.endpoint);
+          }
+        }
+      } catch (error) {
+        console.error('[StopNotificationModal] Error removing from server:', error);
+      }
+    }
+
     onRemove(stopId);
     onClose();
   };
@@ -252,24 +448,31 @@ export function StopNotificationModal({
                   <Switch checked={voice} onCheckedChange={setVoice} />
                 </div>
 
-                <div className="flex items-center justify-between py-2 bg-primary/5 -mx-1 px-3 rounded-lg border border-primary/20">
+                {/* PUSH NOTIFICATION - HIGHLIGHTED */}
+                <div className={`flex items-center justify-between py-3 px-3 rounded-lg border ${push ? 'bg-green-500/10 border-green-500/30' : 'bg-primary/5 border-primary/20'}`}>
                   <div className="flex items-center gap-3">
-                    <Send className={`h-4 w-4 ${push ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <Send className={`h-4 w-4 ${push ? 'text-green-500' : 'text-muted-foreground'}`} />
                     <div>
                       <span className="text-sm font-medium">Push notification</span>
                       <p className="text-xs text-muted-foreground">
-                        {pushSupported 
-                          ? "Λαμβάνετε ειδοποιήσεις ακόμα και με κλειστή εφαρμογή" 
-                          : "Μη διαθέσιμο σε αυτή τη συσκευή"
+                        {!pushSupported 
+                          ? "Μη διαθέσιμο σε αυτή τη συσκευή"
+                          : push 
+                            ? "✅ Ενεργό - θα λαμβάνετε ειδοποιήσεις"
+                            : "Λαμβάνετε ειδοποιήσεις ακόμα και με κλειστή εφαρμογή"
                         }
                       </p>
                     </div>
                   </div>
-                  <Switch 
-                    checked={push} 
-                    onCheckedChange={handlePushToggle}
-                    disabled={!pushSupported || isSubscribingPush}
-                  />
+                  {isSubscribingPush ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  ) : (
+                    <Switch 
+                      checked={push} 
+                      onCheckedChange={handlePushToggle}
+                      disabled={!pushSupported}
+                    />
+                  )}
                 </div>
               </div>
             </>
