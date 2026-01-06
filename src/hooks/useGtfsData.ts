@@ -80,6 +80,9 @@ export function useRouteShape(routeId: string | null, operatorId?: string) {
     queryKey: ['route-shape', routeId, operatorId],
     queryFn: async () => {
       if (!routeId || routeId === 'all') return null;
+      
+      console.log('[useRouteShape] Fetching route shape for:', { routeId, operatorId });
+      
       const params = new URLSearchParams();
       params.set('route', routeId);
       if (operatorId && operatorId !== 'all') params.set('operator', operatorId);
@@ -90,13 +93,20 @@ export function useRouteShape(routeId: string | null, operatorId?: string) {
         },
       });
       
-      if (!response.ok) throw new Error('Failed to fetch route shape');
       const result = await response.json();
+      
+      if (!response.ok) {
+        console.error('[useRouteShape] Error:', result);
+        throw new Error(result.error || 'Failed to fetch route shape');
+      }
+      
+      console.log('[useRouteShape] Success, directions:', result.data?.directions?.length || 0);
       return result.data as RouteShapeData;
     },
     enabled: !!routeId && routeId !== 'all',
     staleTime: 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
+    retry: 2,
   });
 }
 
