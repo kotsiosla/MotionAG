@@ -143,7 +143,18 @@ export function usePushSubscription() {
 
       const registration = await navigator.serviceWorker.ready;
       
-      // Subscribe to push
+      // First, unsubscribe from any existing subscription (important when VAPID key changes)
+      const existingSubscription = await registration.pushManager.getSubscription();
+      if (existingSubscription) {
+        console.log('Removing existing subscription before creating new one');
+        try {
+          await existingSubscription.unsubscribe();
+        } catch (e) {
+          console.log('Failed to unsubscribe existing, continuing anyway:', e);
+        }
+      }
+      
+      // Subscribe to push with new VAPID key
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
@@ -187,11 +198,12 @@ export function usePushSubscription() {
       });
 
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error subscribing to push:', error);
+      console.error('Error details:', error?.message, error?.code, error?.name);
       toast({
         title: 'Σφάλμα',
-        description: 'Αποτυχία εγγραφής για ειδοποιήσεις',
+        description: error?.message || 'Αποτυχία εγγραφής για ειδοποιήσεις',
         variant: 'destructive',
       });
       return false;
