@@ -865,22 +865,23 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     };
   }, [mapClickMode]);
 
-  // Add Esri satellite layer
+  // Add Carto Positron light basemap (clean, transit-friendly)
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Use Esri World Imagery (free, no API key required)
-    const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Map data © <a href="https://www.esri.com/">Esri</a> | MapLibre',
-      maxZoom: 19,
+    // Use Carto Positron - clean, minimal, high-contrast for transit
+    const cartoPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 20,
     });
 
-    tileLayerRef.current = esriSatellite;
-    esriSatellite.addTo(mapRef.current);
+    tileLayerRef.current = cartoPositron;
+    cartoPositron.addTo(mapRef.current);
 
     return () => {
-      if (mapRef.current && esriSatellite) {
-        mapRef.current.removeLayer(esriSatellite);
+      if (mapRef.current && cartoPositron) {
+        mapRef.current.removeLayer(cartoPositron);
       }
     };
   }, []);
