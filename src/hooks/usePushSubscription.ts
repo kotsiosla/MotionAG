@@ -174,15 +174,17 @@ export function usePushSubscription() {
       const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
 
       // Save to database
-      const { error } = await supabase.from('push_subscriptions').upsert({
+      console.log('Saving subscription to database:', subscription.endpoint.substring(0, 50) + '...');
+      const { data, error } = await supabase.from('push_subscriptions').upsert({
         endpoint: subscription.endpoint,
         p256dh,
         auth,
         route_ids: routeIds,
       }, {
         onConflict: 'endpoint',
-      });
+      }).select();
 
+      console.log('Database save result:', { data, error });
       if (error) throw error;
 
       setIsSubscribed(true);
