@@ -547,7 +547,15 @@ export function NearbyStopsPanel({
         });
         
         console.log('[NearbyStopsPanel] 📤 Calling supabase.upsert...');
-        const { error, data } = await supabase
+        console.log('[NearbyStopsPanel] Upsert payload:', {
+          endpoint: subscription.endpoint,
+          p256dh_length: p256dh.length,
+          auth_length: auth.length,
+          stop_notifications: stopSettings
+        });
+        
+        // Add timeout to detect if upsert hangs
+        const upsertPromise = supabase
           .from('stop_notification_subscriptions')
           .upsert({
             endpoint: subscription.endpoint,
@@ -558,9 +566,26 @@ export function NearbyStopsPanel({
           }, { onConflict: 'endpoint' })
           .select();
         
-        console.log('[NearbyStopsPanel] 📥 Upsert response received');
-        console.log('[NearbyStopsPanel] Error:', error);
-        console.log('[NearbyStopsPanel] Data:', data);
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Upsert timeout after 10 seconds')), 10000);
+        });
+        
+        let error, data;
+        try {
+          const result = await Promise.race([upsertPromise, timeoutPromise]) as any;
+          error = result.error;
+          data = result.data;
+          console.log('[NearbyStopsPanel] 📥 Upsert response received');
+          console.log('[NearbyStopsPanel] Error:', error);
+          console.log('[NearbyStopsPanel] Data:', data);
+        } catch (raceError) {
+          console.error('[NearbyStopsPanel] ❌ Upsert promise error:', raceError);
+          if (raceError instanceof Error && raceError.message.includes('timeout')) {
+            console.error('[NearbyStopsPanel] ⏱️ Upsert timed out - request may be stuck');
+          }
+          error = raceError;
+          data = null;
+        }
         
         if (error) {
           console.error('[NearbyStopsPanel] ❌ Upsert error:', error);
