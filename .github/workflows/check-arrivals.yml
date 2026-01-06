@@ -1,0 +1,40 @@
+name: Check Stop Arrivals
+
+on:
+  schedule:
+    # Run every 30 seconds is not possible with GitHub Actions (minimum is 5 minutes)
+    # So we'll run every 2 minutes for better coverage
+    - cron: '*/2 * * * *'  # Every 2 minutes
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  check-arrivals:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call check-stop-arrivals function
+        run: |
+          SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
+          SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+          
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SERVICE_ROLE_KEY" ]; then
+            echo "❌ Missing Supabase credentials. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY secrets."
+            exit 1
+          fi
+          
+          echo "🔄 Calling check-stop-arrivals function..."
+          response=$(curl -s -w "\n%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            "$SUPABASE_URL/functions/v1/check-stop-arrivals")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ Success: $body"
+          else
+            echo "❌ Error ($http_code): $body"
+            exit 1
+          fi
+
