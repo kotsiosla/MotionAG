@@ -2,7 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import type { StaticStop, RouteInfo } from "@/types/gtfs";
 import { OPERATORS, REGION_KEYWORDS, INTERCITY_STATIONS } from "@/types/gtfs";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://jftthfniwfarxyisszjh.supabase.co';
+
+const getSupabaseKey = () => {
+  return import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 
+    (typeof window !== 'undefined' ? localStorage.getItem('supabase_anon_key') || '' : '');
+};
 
 interface StopTimeInfo {
   trip_id: string;
@@ -84,7 +89,7 @@ async function fetchStopTimes(operatorId?: string): Promise<StopTimeInfo[]> {
   const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
   const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-times${params}`, {
     headers: {
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      'Authorization': `Bearer ${getSupabaseKey()}`,
     },
   });
   if (!response.ok) throw new Error('Failed to fetch stop times');
@@ -96,7 +101,7 @@ async function fetchTripsStatic(operatorId?: string): Promise<TripStaticInfo[]> 
   const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
   const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/trips-static${params}`, {
     headers: {
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      'Authorization': `Bearer ${getSupabaseKey()}`,
     },
   });
   if (!response.ok) throw new Error('Failed to fetch static trips');
@@ -108,7 +113,7 @@ async function fetchRoutes(operatorId?: string): Promise<RouteInfo[]> {
   const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
   const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/routes${params}`, {
     headers: {
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      'Authorization': `Bearer ${getSupabaseKey()}`,
     },
   });
   if (!response.ok) throw new Error('Failed to fetch routes');
@@ -120,7 +125,7 @@ async function fetchStops(operatorId?: string): Promise<StaticStop[]> {
   const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
   const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stops${params}`, {
     headers: {
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      'Authorization': `Bearer ${getSupabaseKey()}`,
     },
   });
   if (!response.ok) throw new Error('Failed to fetch stops');

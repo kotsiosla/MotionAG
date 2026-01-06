@@ -1,16 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Vehicle, Trip, Alert, GtfsResponse, RouteInfo, StaticStop } from "@/types/gtfs";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://jftthfniwfarxyisszjh.supabase.co';
 
 async function fetchFromProxy<T>(endpoint: string, operatorId?: string): Promise<GtfsResponse<T>> {
   const params = operatorId && operatorId !== 'all' 
     ? `?operator=${operatorId}` 
     : '';
   
+  const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || (() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('supabase_anon_key') || '';
+    }
+    return '';
+  })();
+  
+  if (!SUPABASE_KEY) {
+    throw new Error('Supabase API key is missing. Please set VITE_SUPABASE_PUBLISHABLE_KEY in .env file.');
+  }
+  
   const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy${endpoint}${params}`, {
     headers: {
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
     },
   });
 
@@ -87,9 +98,12 @@ export function useRouteShape(routeId: string | null, operatorId?: string) {
       params.set('route', routeId);
       if (operatorId && operatorId !== 'all') params.set('operator', operatorId);
       
+      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('supabase_anon_key') || '' : '');
+      if (!SUPABASE_KEY) throw new Error('Supabase API key is missing');
+      
       const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/route-shape?${params}`, {
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
         },
       });
       
@@ -163,9 +177,12 @@ export function useRouteSchedule(routeId: string | null, operatorId?: string) {
       
       console.log(`Fetching schedule for route ${routeId}, operator ${operatorId}`);
       
+      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('supabase_anon_key') || '' : '');
+      if (!SUPABASE_KEY) throw new Error('Supabase API key is missing');
+      
       const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/schedule?${params}`, {
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
         },
       });
       
@@ -206,9 +223,12 @@ export function useStopRoutes(stopId: string | null, operatorId?: string) {
       params.set('stop', stopId);
       if (operatorId && operatorId !== 'all') params.set('operator', operatorId);
       
+      const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('supabase_anon_key') || '' : '');
+      if (!SUPABASE_KEY) throw new Error('Supabase API key is missing');
+      
       const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-routes?${params}`, {
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
         },
       });
       

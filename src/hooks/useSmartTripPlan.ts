@@ -1,7 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import type { StaticStop, RouteInfo } from "@/types/gtfs";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://jftthfniwfarxyisszjh.supabase.co';
+
+const getSupabaseKey = () => {
+  return import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 
+    (typeof window !== 'undefined' ? localStorage.getItem('supabase_anon_key') || '' : '');
+};
 
 interface StopTimeInfo {
   trip_id: string;
@@ -110,7 +115,7 @@ function findNearbyStops(
 async function fetchStopTimes(): Promise<StopTimeInfo[]> {
   const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-times`, {
     headers: {
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      'Authorization': `Bearer ${getSupabaseKey()}`,
     },
   });
   if (!response.ok) throw new Error('Failed to fetch stop times');
@@ -121,7 +126,7 @@ async function fetchStopTimes(): Promise<StopTimeInfo[]> {
 async function fetchTripsStatic(): Promise<TripStaticInfo[]> {
   const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/trips-static`, {
     headers: {
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      'Authorization': `Bearer ${getSupabaseKey()}`,
     },
   });
   if (!response.ok) throw new Error('Failed to fetch static trips');
@@ -132,7 +137,7 @@ async function fetchTripsStatic(): Promise<TripStaticInfo[]> {
 async function fetchRoutes(): Promise<RouteInfo[]> {
   const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/routes`, {
     headers: {
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      'Authorization': `Bearer ${getSupabaseKey()}`,
     },
   });
   if (!response.ok) throw new Error('Failed to fetch routes');
@@ -143,7 +148,7 @@ async function fetchRoutes(): Promise<RouteInfo[]> {
 async function fetchStops(): Promise<StaticStop[]> {
   const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stops`, {
     headers: {
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      'Authorization': `Bearer ${getSupabaseKey()}`,
     },
   });
   if (!response.ok) throw new Error('Failed to fetch stops');
