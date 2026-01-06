@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
+import { ApplicationServerKeys, generatePushHTTPRequest } from 'https://esm.sh/webpush-webcrypto@1.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,34 +27,36 @@ interface StopSubscription {
   last_notified: Record<string, number>;
 }
 
-// Send push notification - simplified version
+// Send push notification using webpush-webcrypto
 async function sendPushNotification(
   endpoint: string,
-  _p256dh: string,
-  _auth: string,
+  p256dh: string,
+  auth: string,
   payload: string,
-  vapidPublicKey: string,
-  _vapidPrivateKey: string
+  applicationServerKeys: Awaited<ReturnType<typeof ApplicationServerKeys.generate>>
 ): Promise<{ success: boolean; statusCode?: number; error?: string }> {
   try {
-    const url = new URL(endpoint);
-    
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'TTL': '86400',
-      'Urgency': 'high',
-    };
+    console.log(`Sending push to: ${new URL(endpoint).hostname}`);
 
-    if (endpoint.includes('fcm.googleapis.com') || endpoint.includes('push.services.mozilla.com')) {
-      headers['Authorization'] = `key=${vapidPublicKey.substring(0, 40)}`;
-    }
+    const { headers, body, endpoint: targetEndpoint } = await generatePushHTTPRequest({
+      applicationServerKeys,
+      payload,
+      target: {
+        endpoint,
+        keys: {
+          p256dh,
+          auth,
+        },
+      },
+      adminContact: 'mailto:info@motionbus.cy',
+      ttl: 86400,
+      urgency: 'high',
+    });
 
-    console.log(`Attempting push to: ${url.hostname}`);
-
-    const response = await fetch(endpoint, {
+    const response = await fetch(targetEndpoint, {
       method: 'POST',
       headers,
-      body: payload,
+      body,
     });
 
     const responseText = await response.text();
@@ -67,7 +70,7 @@ async function sendPushNotification(
     return { success: true, statusCode: response.status };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('Push network error:', errorMessage);
+    console.error('Push error:', errorMessage);
     return { success: false, error: errorMessage };
   }
 }
@@ -86,6 +89,22 @@ serve(async (req) => {
     if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
       console.error('VAPID keys not configured');
       return new Response(JSON.stringify({ error: 'VAPID keys not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Create ApplicationServerKeys from VAPID keys
+    let applicationServerKeys: Awaited<ReturnType<typeof ApplicationServerKeys.generate>>;
+    try {
+      applicationServerKeys = await ApplicationServerKeys.fromJSON({
+        publicKey: VAPID_PUBLIC_KEY,
+        privateKey: VAPID_PRIVATE_KEY,
+      });
+      console.log('ApplicationServerKeys loaded successfully');
+    } catch (keyError) {
+      console.error('Failed to load VAPID keys:', keyError);
+      return new Response(JSON.stringify({ error: 'Invalid VAPID key format' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -201,8 +220,7 @@ serve(async (req) => {
                   sub.p256dh,
                   sub.auth,
                   payload,
-                  VAPID_PUBLIC_KEY,
-                  VAPID_PRIVATE_KEY
+                  applicationServerKeys
                 );
 
                 if (result.success) {
