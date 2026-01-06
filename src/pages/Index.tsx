@@ -82,16 +82,20 @@ const Index = () => {
   
   // Apply theme to document
   useEffect(() => {
+    console.log('[Theme] Applying theme, isDark:', isDark);
     if (isDark) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
+    console.log('[Theme] Document classes:', document.documentElement.className);
   }, [isDark]);
 
   // Sync theme and map style
   const handleThemeToggle = useCallback(() => {
+    console.log('[Theme] Toggle clicked, current isDark:', isDark);
     const newIsDark = !isDark;
+    console.log('[Theme] Setting new isDark:', newIsDark);
     setIsDark(newIsDark);
     localStorage.setItem('motionbus_theme', newIsDark ? 'dark' : 'light');
     // Sync map style with theme
