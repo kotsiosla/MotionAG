@@ -518,6 +518,13 @@ export function NearbyStopsPanel({
           beforeMinutes: Math.round(notificationDistance / 100),
         }];
         
+        console.log('[NearbyStopsPanel] Attempting upsert with:', {
+          endpoint: subscription.endpoint.substring(0, 50) + '...',
+          p256dh: p256dh ? p256dh.substring(0, 20) + '...' : 'MISSING',
+          auth: auth ? auth.substring(0, 20) + '...' : 'MISSING',
+          stopSettings: stopSettings.length
+        });
+        
         const { error, data } = await supabase
           .from('stop_notification_subscriptions')
           .upsert({
@@ -526,15 +533,28 @@ export function NearbyStopsPanel({
             auth,
             stop_notifications: stopSettings as any,
             updated_at: new Date().toISOString(),
-          }, { onConflict: 'endpoint' });
+          }, { onConflict: 'endpoint' })
+          .select();
         
         if (error) {
-          console.error('[NearbyStopsPanel] Upsert error:', error);
+          console.error('[NearbyStopsPanel] ❌ Upsert error:', error);
           console.error('[NearbyStopsPanel] Error details:', JSON.stringify(error, null, 2));
+          console.error('[NearbyStopsPanel] Error code:', error.code);
+          console.error('[NearbyStopsPanel] Error message:', error.message);
         } else {
           lastSyncedStopRef.current = stopToSync.stopId;
           console.log('[NearbyStopsPanel] ✅ Synced tracked stop:', stopToSync.stopName, '(mode:', trackingMode, ')');
           console.log('[NearbyStopsPanel] Upsert result:', data);
+          if (!data || data.length === 0) {
+            console.warn('[NearbyStopsPanel] ⚠️ Upsert returned no data - checking if row exists...');
+            // Check if row was actually created
+            const { data: checkData } = await supabase
+              .from('stop_notification_subscriptions')
+              .select('id, endpoint')
+              .eq('endpoint', subscription.endpoint)
+              .maybeSingle();
+            console.log('[NearbyStopsPanel] Row exists check:', checkData);
+          }
         }
       } catch (e) {
         console.error('[NearbyStopsPanel] Error syncing stop:', e);
