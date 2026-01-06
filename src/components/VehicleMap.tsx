@@ -848,20 +848,37 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
     // Mark map as ready after layers are fully initialized
     // Use requestAnimationFrame to ensure DOM is updated, then a short delay for cluster initialization
-    const readyTimeout = setTimeout(() => {
-      requestAnimationFrame(() => {
-        // Double-check map is still valid before marking ready
-        if (mapRef.current && vehicleMarkersRef.current && stopMarkersRef.current) {
-          try {
-            // Verify zoom is accessible
-            mapRef.current.getZoom();
+    const checkMapReady = () => {
+      if (mapRef.current && vehicleMarkersRef.current && stopMarkersRef.current) {
+        try {
+          // Verify zoom is accessible
+          const zoom = mapRef.current.getZoom();
+          
+          // Also verify cluster groups have map reference
+          const vehicleCluster = vehicleMarkersRef.current as any;
+          const stopCluster = stopMarkersRef.current as any;
+          
+          if (typeof zoom === 'number' && 
+              vehicleCluster._map && 
+              stopCluster._map &&
+              typeof vehicleCluster._map._zoom === 'number') {
+            console.log('[VehicleMap] Map fully ready with zoom:', zoom);
             setMapReady(true);
-          } catch {
-            // Map not ready yet, retry
-            setTimeout(() => setMapReady(true), 200);
+          } else {
+            // Not ready yet, retry
+            console.log('[VehicleMap] Map not fully ready, retrying...');
+            setTimeout(checkMapReady, 100);
           }
+        } catch (e) {
+          // Map not ready yet, retry
+          console.log('[VehicleMap] Map getZoom failed, retrying...', e);
+          setTimeout(checkMapReady, 100);
         }
-      });
+      }
+    };
+    
+    const readyTimeout = setTimeout(() => {
+      requestAnimationFrame(checkMapReady);
     }, 150);
 
     return () => {
