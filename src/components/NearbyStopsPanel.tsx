@@ -30,6 +30,18 @@ import { useNearbyArrivals, useStopArrivals, type StopArrival, type NearbyStop }
 // VAPID public key for push subscriptions
 const VAPID_PUBLIC_KEY = 'BOY7TtDjqW97iKphI_H198l6XVX5_JV2msRrSPs8yz7JsVyJmyTTQh1sX8D43CyUpEzEktYTfsiC238Vi2QGjJ0';
 
+// Detect iOS
+const isIOS = () => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+};
+
+// Check if running as installed PWA
+const isStandalonePWA = () => {
+  return window.matchMedia('(display-mode: standalone)').matches || 
+    (window.navigator as any).standalone === true;
+};
+
 function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -161,17 +173,31 @@ export function NearbyStopsPanel({
         return false;
       }
 
-      // Request permission
-      const permission = await Notification.requestPermission();
-      console.log('[NearbyStopsPanel] Push permission:', permission);
+      // Request permission - handle iOS PWA differently
+      let permission = Notification.permission;
       
+      if (permission === 'default') {
+        permission = await Notification.requestPermission();
+      }
+      
+      console.log('[NearbyStopsPanel] Push permission:', permission, 'iOS:', isIOS(), 'PWA:', isStandalonePWA());
+      
+      // On iOS PWA, permission might still show as default even when granted via iOS settings
+      // We'll try to proceed anyway if we're in a standalone PWA on iOS
       if (permission !== 'granted') {
-        toast({
-          title: "⚠️ Απαιτείται άδεια",
-          description: "Παρακαλώ επιτρέψτε τις ειδοποιήσεις",
-          variant: "destructive",
-        });
-        return false;
+        if (isIOS() && isStandalonePWA()) {
+          console.log('[NearbyStopsPanel] iOS PWA - trying to proceed despite permission state');
+          // On iOS PWA, try to proceed - if it fails, it will throw an error
+        } else {
+          toast({
+            title: "⚠️ Απαιτείται άδεια",
+            description: isIOS() 
+              ? "Ανοίξτε Ρυθμίσεις → Ειδοποιήσεις → [Εφαρμογή] και ενεργοποιήστε τις ειδοποιήσεις"
+              : "Παρακαλώ επιτρέψτε τις ειδοποιήσεις",
+            variant: "destructive",
+          });
+          return false;
+        }
       }
 
       // Register service worker and get subscription
