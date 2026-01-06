@@ -320,17 +320,38 @@ export function useStopArrivalNotifications(
       return true;
     }
     
-    // Progressive notifications: notify at key intervals
-    // At beforeMinutes, at 2 minutes, at 1 minute
-    const intervals = [settings.beforeMinutes, 2, 1];
+    // Progressive notifications: notify at key intervals (5, 3, 2, 1 minutes)
+    // This ensures no bus is missed
+    const maxBeforeMinutes = Math.max(settings.beforeMinutes, 5);
+    const intervals = [5, 3, 2, 1].filter(i => i <= maxBeforeMinutes);
     
+    // Check if we're at any notification interval
     for (const interval of intervals) {
-      if (minutesUntil <= interval) {
+      // Check if we're within this interval (with 10 second window for accuracy)
+      if (minutesUntil <= interval && minutesUntil > interval - 0.17) {
         const intervalKey = `${notificationKey}-${interval}`;
         if (!notifiedArrivals.has(intervalKey)) {
           notifiedArrivals.set(intervalKey, { timestamp: now, arrivalTime });
+          console.log(`[Notification] Progressive notification at ${interval} min interval`);
           return true;
         }
+      }
+    }
+    
+    // Fallback: if we haven't sent any notification yet and we're within the window
+    const hasSentAny = intervals.some(interval => {
+      const intervalKey = `${notificationKey}-${interval}`;
+      return notifiedArrivals.has(intervalKey);
+    });
+    
+    if (!hasSentAny && minutesUntil > 0 && minutesUntil <= maxBeforeMinutes) {
+      // Send catch-up notification
+      const catchUpInterval = Math.min(Math.ceil(minutesUntil), maxBeforeMinutes);
+      const catchUpKey = `${notificationKey}-${catchUpInterval}`;
+      if (!notifiedArrivals.has(catchUpKey)) {
+        notifiedArrivals.set(catchUpKey, { timestamp: now, arrivalTime });
+        console.log(`[Notification] Catch-up notification at ${catchUpInterval} min`);
+        return true;
       }
     }
     
@@ -415,12 +436,16 @@ export function useStopArrivalNotifications(
       });
     });
     
-    // Adjust check interval based on nearest arrival
+    // Adjust check interval based on nearest arrival - more aggressive checking
     let newInterval: number;
-    if (nearestMinutes <= 2) {
-      newInterval = 3000; // Check every 3 seconds when very close
+    if (nearestMinutes <= 1) {
+      newInterval = 2000; // Check every 2 seconds when very close (1 min or less)
+    } else if (nearestMinutes <= 2) {
+      newInterval = 3000; // Check every 3 seconds when close (2 min)
+    } else if (nearestMinutes <= 3) {
+      newInterval = 4000; // Check every 4 seconds when approaching (3 min)
     } else if (nearestMinutes <= 5) {
-      newInterval = 5000; // Check every 5 seconds when approaching
+      newInterval = 5000; // Check every 5 seconds when approaching (5 min)
     } else if (nearestMinutes <= 10) {
       newInterval = 8000; // Check every 8 seconds
     } else {

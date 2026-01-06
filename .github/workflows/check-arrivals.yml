@@ -2,9 +2,9 @@ name: Check Stop Arrivals
 
 on:
   schedule:
-    # Run every 30 seconds is not possible with GitHub Actions (minimum is 5 minutes)
-    # So we'll run every 2 minutes for better coverage
-    - cron: '*/2 * * * *'  # Every 2 minutes
+    # GitHub Actions minimum is 5 minutes, so we run every 5 minutes
+    # This is the best we can do with free GitHub Actions
+    - cron: '*/5 * * * *'  # Every 5 minutes
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
@@ -37,4 +37,5 @@ jobs:
             echo "❌ Error ($http_code): $body"
             exit 1
           fi
+
 

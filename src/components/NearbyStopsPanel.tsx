@@ -280,13 +280,16 @@ export function NearbyStopsPanel({
         const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
         const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
 
+        // Ensure stop_notifications is properly formatted as JSONB
+        const updatedStopsJson = JSON.parse(JSON.stringify(updatedStops));
+
         const { error, data } = await supabase
           .from('stop_notification_subscriptions')
           .upsert({
             endpoint: subscription.endpoint,
             p256dh,
             auth,
-            stop_notifications: updatedStops as any,
+            stop_notifications: updatedStopsJson,
             updated_at: new Date().toISOString(),
           }, { onConflict: 'endpoint' })
           .select();
@@ -401,6 +404,10 @@ export function NearbyStopsPanel({
       const actualStopId = nearestStop?.stop_id || 'nearby_mode';
       const actualStopName = nearestStop?.stop_name || 'Κοντινότερη Στάση (Auto)';
       
+      // Ensure minimum 5 minutes for progressive notifications (5, 3, 2, 1)
+      const calculatedBeforeMinutes = Math.round(notificationDistance / 100);
+      const beforeMinutes = Math.max(calculatedBeforeMinutes, 5); // Minimum 5 for progressive notifications
+      
       const stopSettings = [{
         stopId: actualStopId,
         stopName: actualStopName,
@@ -409,10 +416,13 @@ export function NearbyStopsPanel({
         vibration: notificationSettings.vibration,
         voice: notificationSettings.voice,
         push: true,
-        beforeMinutes: Math.round(notificationDistance / 100),
+        beforeMinutes: beforeMinutes,
       }];
 
       // Upsert to database (use upsert instead of update/insert)
+      // Ensure stop_notifications is properly formatted as JSONB
+      const stopSettingsJson = JSON.parse(JSON.stringify(stopSettings));
+      
       console.log('[NearbyStopsPanel] Upserting subscription to database...');
       const { data: upsertData, error: upsertError } = await supabase
         .from('stop_notification_subscriptions')
@@ -420,7 +430,7 @@ export function NearbyStopsPanel({
           endpoint: subscription.endpoint,
           p256dh,
           auth,
-          stop_notifications: stopSettings as any,
+          stop_notifications: stopSettingsJson,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'endpoint' })
         .select();
@@ -516,6 +526,10 @@ export function NearbyStopsPanel({
         const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
         
         // Only ONE stop - the tracked one, always replaced
+        // Ensure minimum 5 minutes for progressive notifications (5, 3, 2, 1)
+        const calculatedBeforeMinutes = Math.round(notificationDistance / 100);
+        const beforeMinutes = Math.max(calculatedBeforeMinutes, 5); // Minimum 5 for progressive notifications
+        
         const stopSettings = [{
           stopId: stopToSync.stopId,
           stopName: stopToSync.stopName,
@@ -524,7 +538,7 @@ export function NearbyStopsPanel({
           vibration: notificationSettings.vibration,
           voice: notificationSettings.voice,
           push: true,
-          beforeMinutes: Math.round(notificationDistance / 100),
+          beforeMinutes: beforeMinutes,
         }];
         
         // Log Supabase URL for debugging
@@ -565,13 +579,16 @@ export function NearbyStopsPanel({
         console.log('[NearbyStopsPanel] ⏱️ Starting upsert with 10s timeout...');
         const startTime = Date.now();
         
+        // Ensure stop_notifications is properly formatted as JSONB
+        const stopNotificationsJson = JSON.parse(JSON.stringify(stopSettings));
+        
         const upsertPromise = supabase
           .from('stop_notification_subscriptions')
           .upsert({
             endpoint: subscription.endpoint,
             p256dh,
             auth,
-            stop_notifications: stopSettings as any,
+            stop_notifications: stopNotificationsJson,
             updated_at: new Date().toISOString(),
           }, { onConflict: 'endpoint' })
           .select();

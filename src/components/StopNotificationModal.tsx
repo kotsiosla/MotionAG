@@ -148,13 +148,16 @@ export function StopNotificationModal({
       });
 
       // Use upsert instead of update/insert to handle both cases
+      // Ensure stop_notifications is properly formatted as JSONB
+      const pushNotificationsJson = JSON.parse(JSON.stringify(pushNotifications));
+      
       const { data: upsertData, error: upsertError } = await supabase
         .from('stop_notification_subscriptions')
         .upsert({
           endpoint: subscription.endpoint,
           p256dh,
           auth,
-          stop_notifications: pushNotifications as any,
+          stop_notifications: pushNotificationsJson,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'endpoint' })
         .select();
@@ -209,9 +212,11 @@ export function StopNotificationModal({
           const remaining = allNotifications.filter(n => n.enabled && n.push);
           
           if (remaining.length > 0) {
+            // Ensure stop_notifications is properly formatted as JSONB
+            const remainingJson = JSON.parse(JSON.stringify(remaining));
             await supabase
               .from('stop_notification_subscriptions')
-              .update({ stop_notifications: remaining as any })
+              .update({ stop_notifications: remainingJson })
               .eq('endpoint', subscription.endpoint);
           } else {
             await supabase
