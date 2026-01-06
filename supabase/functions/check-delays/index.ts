@@ -6,292 +6,29 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const GTFS_RT_BASE_URL = "http://20.19.98.194:8328/Api/api/gtfs-realtime";
 const MIN_DELAY_MINUTES = 5; // Minimum delay to notify
 const NOTIFY_COOLDOWN_MINUTES = 30; // Don't re-notify about same route within this time
 
 // Store last notification times per route (in-memory, resets on function restart)
 const lastNotified = new Map<string, number>();
 
-// Simple protobuf varint reader
-function readVarint(data: Uint8Array, offset: number): { value: number; bytesRead: number } {
-  let result = 0;
-  let shift = 0;
-  let bytesRead = 0;
-  
-  while (offset + bytesRead < data.length) {
-    const byte = data[offset + bytesRead];
-    result |= (byte & 0x7F) << shift;
-    bytesRead++;
-    if ((byte & 0x80) === 0) break;
-    shift += 7;
-  }
-  
-  return { value: result, bytesRead };
-}
-
-function readString(data: Uint8Array, offset: number, length: number): string {
-  const decoder = new TextDecoder();
-  return decoder.decode(data.slice(offset, offset + length));
+interface TripUpdate {
+  tripId?: string;
+  routeId?: string;
+  vehicleId?: string;
+  stopTimeUpdates?: Array<{
+    stopId?: string;
+    arrivalTime?: number;
+    arrivalDelay?: number;
+    departureTime?: number;
+    departureDelay?: number;
+  }>;
 }
 
 interface DelayInfo {
   routeId: string;
   tripId: string;
-  delaySeconds: number;
-  stopId?: string;
-}
-
-// Parse GTFS-RT protobuf to extract delays
-function parseGtfsRtForDelays(data: Uint8Array): DelayInfo[] {
-  const delays: DelayInfo[] = [];
-  
-  try {
-    let offset = 0;
-    
-    while (offset < data.length) {
-      const { value: tag, bytesRead: tagBytes } = readVarint(data, offset);
-      offset += tagBytes;
-      
-      const fieldNumber = tag >> 3;
-      const wireType = tag & 0x7;
-      
-      if (wireType === 2) {
-        const { value: length, bytesRead: lenBytes } = readVarint(data, offset);
-        offset += lenBytes;
-        
-        if (fieldNumber === 1) { // entity
-          const entityData = data.slice(offset, offset + length);
-          const delayInfo = parseEntity(entityData);
-          if (delayInfo) {
-            delays.push(delayInfo);
-          }
-        }
-        
-        offset += length;
-      } else if (wireType === 0) {
-        const { bytesRead } = readVarint(data, offset);
-        offset += bytesRead;
-      } else if (wireType === 5) {
-        offset += 4;
-      } else if (wireType === 1) {
-        offset += 8;
-      } else {
-        break;
-      }
-    }
-  } catch (e) {
-    console.error('Error parsing GTFS-RT:', e);
-  }
-  
-  return delays;
-}
-
-function parseEntity(data: Uint8Array): DelayInfo | null {
-  let offset = 0;
-  let tripId = '';
-  let routeId = '';
-  let maxDelay = 0;
-  
-  try {
-    while (offset < data.length) {
-      const { value: tag, bytesRead: tagBytes } = readVarint(data, offset);
-      offset += tagBytes;
-      
-      const fieldNumber = tag >> 3;
-      const wireType = tag & 0x7;
-      
-      if (wireType === 2) {
-        const { value: length, bytesRead: lenBytes } = readVarint(data, offset);
-        offset += lenBytes;
-        
-        if (fieldNumber === 3) { // trip_update
-          const tripUpdateData = data.slice(offset, offset + length);
-          const result = parseTripUpdate(tripUpdateData);
-          tripId = result.tripId;
-          routeId = result.routeId;
-          maxDelay = result.maxDelay;
-        }
-        
-        offset += length;
-      } else if (wireType === 0) {
-        const { bytesRead } = readVarint(data, offset);
-        offset += bytesRead;
-      } else if (wireType === 5) {
-        offset += 4;
-      } else if (wireType === 1) {
-        offset += 8;
-      } else {
-        break;
-      }
-    }
-  } catch (e) {
-    // Ignore parsing errors
-  }
-  
-  if (routeId && maxDelay >= MIN_DELAY_MINUTES * 60) {
-    return { routeId, tripId, delaySeconds: maxDelay };
-  }
-  
-  return null;
-}
-
-function parseTripUpdate(data: Uint8Array): { tripId: string; routeId: string; maxDelay: number } {
-  let offset = 0;
-  let tripId = '';
-  let routeId = '';
-  let maxDelay = 0;
-  
-  try {
-    while (offset < data.length) {
-      const { value: tag, bytesRead: tagBytes } = readVarint(data, offset);
-      offset += tagBytes;
-      
-      const fieldNumber = tag >> 3;
-      const wireType = tag & 0x7;
-      
-      if (wireType === 2) {
-        const { value: length, bytesRead: lenBytes } = readVarint(data, offset);
-        offset += lenBytes;
-        
-        if (fieldNumber === 1) { // trip descriptor
-          const tripDesc = parseTripDescriptor(data.slice(offset, offset + length));
-          tripId = tripDesc.tripId;
-          routeId = tripDesc.routeId;
-        } else if (fieldNumber === 2) { // stop_time_update
-          const delay = parseStopTimeUpdate(data.slice(offset, offset + length));
-          if (delay > maxDelay) {
-            maxDelay = delay;
-          }
-        }
-        
-        offset += length;
-      } else if (wireType === 0) {
-        const { bytesRead } = readVarint(data, offset);
-        offset += bytesRead;
-      } else if (wireType === 5) {
-        offset += 4;
-      } else if (wireType === 1) {
-        offset += 8;
-      } else {
-        break;
-      }
-    }
-  } catch (e) {
-    // Ignore
-  }
-  
-  return { tripId, routeId, maxDelay };
-}
-
-function parseTripDescriptor(data: Uint8Array): { tripId: string; routeId: string } {
-  let offset = 0;
-  let tripId = '';
-  let routeId = '';
-  
-  try {
-    while (offset < data.length) {
-      const { value: tag, bytesRead: tagBytes } = readVarint(data, offset);
-      offset += tagBytes;
-      
-      const fieldNumber = tag >> 3;
-      const wireType = tag & 0x7;
-      
-      if (wireType === 2) {
-        const { value: length, bytesRead: lenBytes } = readVarint(data, offset);
-        offset += lenBytes;
-        
-        if (fieldNumber === 1) { // trip_id
-          tripId = readString(data, offset, length);
-        } else if (fieldNumber === 5) { // route_id
-          routeId = readString(data, offset, length);
-        }
-        
-        offset += length;
-      } else if (wireType === 0) {
-        const { bytesRead } = readVarint(data, offset);
-        offset += bytesRead;
-      } else {
-        break;
-      }
-    }
-  } catch (e) {
-    // Ignore
-  }
-  
-  return { tripId, routeId };
-}
-
-function parseStopTimeUpdate(data: Uint8Array): number {
-  let offset = 0;
-  let maxDelay = 0;
-  
-  try {
-    while (offset < data.length) {
-      const { value: tag, bytesRead: tagBytes } = readVarint(data, offset);
-      offset += tagBytes;
-      
-      const fieldNumber = tag >> 3;
-      const wireType = tag & 0x7;
-      
-      if (wireType === 2) {
-        const { value: length, bytesRead: lenBytes } = readVarint(data, offset);
-        offset += lenBytes;
-        
-        if (fieldNumber === 2 || fieldNumber === 3) { // arrival or departure
-          const delay = parseStopTimeEvent(data.slice(offset, offset + length));
-          if (delay > maxDelay) {
-            maxDelay = delay;
-          }
-        }
-        
-        offset += length;
-      } else if (wireType === 0) {
-        const { bytesRead } = readVarint(data, offset);
-        offset += bytesRead;
-      } else {
-        break;
-      }
-    }
-  } catch (e) {
-    // Ignore
-  }
-  
-  return maxDelay;
-}
-
-function parseStopTimeEvent(data: Uint8Array): number {
-  let offset = 0;
-  let delay = 0;
-  
-  try {
-    while (offset < data.length) {
-      const { value: tag, bytesRead: tagBytes } = readVarint(data, offset);
-      offset += tagBytes;
-      
-      const fieldNumber = tag >> 3;
-      const wireType = tag & 0x7;
-      
-      if (wireType === 0) {
-        const { value, bytesRead } = readVarint(data, offset);
-        offset += bytesRead;
-        
-        if (fieldNumber === 1) { // delay
-          // Handle signed varint (zigzag decoding)
-          delay = (value >> 1) ^ -(value & 1);
-        }
-      } else if (wireType === 2) {
-        const { value: length, bytesRead: lenBytes } = readVarint(data, offset);
-        offset += lenBytes + length;
-      } else {
-        break;
-      }
-    }
-  } catch (e) {
-    // Ignore
-  }
-  
-  return delay;
+  delayMinutes: number;
 }
 
 serve(async (req) => {
@@ -302,27 +39,66 @@ serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
     
     console.log('[check-delays] Starting delay check...');
     
-    // Fetch GTFS-RT trip updates
-    const response = await fetch(`${GTFS_RT_BASE_URL}/TripUpdates?operatorIds=1,2,3`, {
-      headers: { 'Accept': 'application/x-protobuf' },
+    // Fetch trip updates via gtfs-proxy (which handles the protobuf parsing)
+    const proxyUrl = `${SUPABASE_URL}/functions/v1/gtfs-proxy/trips`;
+    console.log('[check-delays] Fetching from:', proxyUrl);
+    
+    const response = await fetch(proxyUrl, {
+      headers: { 
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
     });
     
     if (!response.ok) {
-      console.error('[check-delays] Failed to fetch GTFS-RT data:', response.status);
-      return new Response(JSON.stringify({ error: 'Failed to fetch GTFS-RT data' }), {
+      console.error('[check-delays] Failed to fetch trips:', response.status);
+      return new Response(JSON.stringify({ error: 'Failed to fetch trip data', status: response.status }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     
-    const data = new Uint8Array(await response.arrayBuffer());
-    console.log('[check-delays] Received', data.length, 'bytes of GTFS-RT data');
+    const tripData = await response.json();
+    const trips: TripUpdate[] = tripData.data || [];
     
-    // Parse delays from protobuf
-    const delays = parseGtfsRtForDelays(data);
+    console.log('[check-delays] Received', trips.length, 'trips');
+    
+    if (trips.length === 0) {
+      return new Response(JSON.stringify({ message: 'No trip data available', checked: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // Find significant delays
+    const delays: DelayInfo[] = [];
+    
+    for (const trip of trips) {
+      if (!trip.routeId || !trip.stopTimeUpdates?.length) continue;
+      
+      // Find max delay for this trip
+      let maxDelaySeconds = 0;
+      for (const stu of trip.stopTimeUpdates) {
+        const delay = stu.arrivalDelay || stu.departureDelay || 0;
+        if (delay > maxDelaySeconds) {
+          maxDelaySeconds = delay;
+        }
+      }
+      
+      const delayMinutes = Math.round(maxDelaySeconds / 60);
+      
+      if (delayMinutes >= MIN_DELAY_MINUTES) {
+        delays.push({
+          routeId: trip.routeId,
+          tripId: trip.tripId || '',
+          delayMinutes,
+        });
+      }
+    }
+    
     console.log('[check-delays] Found', delays.length, 'significant delays');
     
     if (delays.length === 0) {
@@ -335,8 +111,8 @@ serve(async (req) => {
     const routeDelays = new Map<string, number>();
     for (const delay of delays) {
       const current = routeDelays.get(delay.routeId) || 0;
-      if (delay.delaySeconds > current) {
-        routeDelays.set(delay.routeId, delay.delaySeconds);
+      if (delay.delayMinutes > current) {
+        routeDelays.set(delay.routeId, delay.delayMinutes);
       }
     }
     
@@ -346,13 +122,10 @@ serve(async (req) => {
     // Filter routes that haven't been notified recently
     const routesToNotify: Array<{ routeId: string; delayMinutes: number }> = [];
     
-    for (const [routeId, delaySeconds] of routeDelays) {
+    for (const [routeId, delayMinutes] of routeDelays) {
       const lastTime = lastNotified.get(routeId) || 0;
       if (now - lastTime > cooldownMs) {
-        routesToNotify.push({
-          routeId,
-          delayMinutes: Math.round(delaySeconds / 60),
-        });
+        routesToNotify.push({ routeId, delayMinutes });
         lastNotified.set(routeId, now);
       }
     }
@@ -368,7 +141,7 @@ serve(async (req) => {
       });
     }
     
-    // Get push subscriptions that match these routes
+    // Get push subscriptions
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
     const { data: subscriptions, error: subError } = await supabase
@@ -477,7 +250,7 @@ serve(async (req) => {
     
   } catch (error) {
     console.error('[check-delays] Error:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: 'Internal server error', details: String(error) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
