@@ -28,12 +28,16 @@ const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   
   const [isDark, setIsDark] = useState(() => {
-    // Sync initial theme with saved map style
+    // Check saved preference or default to light
     try {
+      const savedTheme = localStorage.getItem('motionbus_theme');
+      if (savedTheme !== null) {
+        return savedTheme === 'dark';
+      }
       const savedMapStyle = localStorage.getItem('motionbus_map_style');
       return savedMapStyle === 'dark' || savedMapStyle === 'satellite';
     } catch {}
-    return true;
+    return false;
   });
   const [mapStyle, setMapStyle] = useState<MapStyleType>(() => {
     try {
@@ -89,11 +93,14 @@ const Index = () => {
   const handleThemeToggle = useCallback(() => {
     const newIsDark = !isDark;
     setIsDark(newIsDark);
+    localStorage.setItem('motionbus_theme', newIsDark ? 'dark' : 'light');
     // Sync map style with theme
     if (newIsDark && mapStyle === 'light') {
       setMapStyle('dark');
+      localStorage.setItem('motionbus_map_style', 'dark');
     } else if (!newIsDark && mapStyle === 'dark') {
       setMapStyle('light');
+      localStorage.setItem('motionbus_map_style', 'light');
     }
   }, [isDark, mapStyle]);
   
