@@ -81,15 +81,20 @@ const playSound = (urgency: 'low' | 'medium' | 'high' = 'medium') => {
   }
 };
 
-// Vibrate device - pattern based on urgency
+// Vibrate device - pattern based on urgency (Note: Not supported on iOS Safari)
 const vibrate = (urgency: 'low' | 'medium' | 'high' = 'medium') => {
-  if ('vibrate' in navigator) {
-    const patterns = {
-      low: [200],
-      medium: [200, 100, 200],
-      high: [200, 100, 200, 100, 300, 100, 300],
-    };
-    navigator.vibrate(patterns[urgency]);
+  try {
+    if ('vibrate' in navigator && typeof navigator.vibrate === 'function') {
+      const patterns = {
+        low: [200],
+        medium: [200, 100, 200],
+        high: [200, 100, 200, 100, 300, 100, 300],
+      };
+      navigator.vibrate(patterns[urgency]);
+    }
+  } catch (error) {
+    // Vibration not supported (e.g., iOS)
+    console.log('[Notification] Vibration not supported on this device');
   }
 };
 
@@ -121,22 +126,25 @@ export function useStopArrivalNotifications(
     }
   }, []);
 
-  // Send push notification for a stop
+  // Send push notification for a stop - uses browser Notification API for foreground
+  // Push notifications for background require server-side triggering
   const sendPushNotification = useCallback(async (arrival: ArrivalInfo, settings: StopNotificationSettings) => {
     if (!settings.push) return;
     
     try {
-      const urgencyEmoji = arrival.minutesUntil <= 1 ? '🚨' : arrival.minutesUntil <= 2 ? '⚠️' : '🚌';
-      
-      await supabase.functions.invoke('send-push-notification', {
-        body: {
-          title: `${urgencyEmoji} ${arrival.routeShortName || arrival.routeId} - ${arrival.minutesUntil}'`,
+      // Use browser Notification API if permission granted and app is in foreground
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const urgencyEmoji = arrival.minutesUntil <= 1 ? '🚨' : arrival.minutesUntil <= 2 ? '⚠️' : '🚌';
+        
+        new Notification(`${urgencyEmoji} ${arrival.routeShortName || arrival.routeId} - ${arrival.minutesUntil}'`, {
           body: `Φτάνει στη στάση "${arrival.stopName}"${arrival.confidence === 'high' ? ' (ακριβής πρόβλεψη)' : ''}`,
-          url: '/',
-        },
-      });
+          icon: '/pwa-192x192.png',
+          tag: `arrival-${arrival.stopId}-${arrival.routeId}`,
+          requireInteraction: arrival.minutesUntil <= 2,
+        });
+      }
     } catch (error) {
-      console.error('Error sending push notification:', error);
+      console.error('Error sending notification:', error);
     }
   }, []);
 
