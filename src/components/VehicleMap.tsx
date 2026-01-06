@@ -398,8 +398,21 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [mapClickLocation, setMapClickLocation] = useState<{ type: 'origin' | 'destination'; lat: number; lng: number } | null>(null);
   const [viewMode, setViewMode] = useState<'street' | 'overview'>('street');
   const [mapReady, setMapReady] = useState(false);
-  const [mapStyle, setMapStyle] = useState<'light' | 'dark' | 'satellite'>('light');
+  const [mapStyle, setMapStyle] = useState<'light' | 'dark' | 'satellite'>(() => {
+    try {
+      const saved = localStorage.getItem('motionbus_map_style');
+      if (saved === 'light' || saved === 'dark' || saved === 'satellite') return saved;
+    } catch {}
+    return 'light';
+  });
   const highlightedStopMarkerRef = useRef<L.Marker | null>(null);
+  
+  // Persist map style to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('motionbus_map_style', mapStyle);
+    } catch {}
+  }, [mapStyle]);
   
   // Stop notification state
   const [notificationModalStop, setNotificationModalStop] = useState<{ stopId: string; stopName: string } | null>(null);
