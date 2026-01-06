@@ -21,6 +21,8 @@ import { useRouteShape } from "@/hooks/useGtfsData";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import type { Vehicle, StaticStop, Trip, RouteInfo } from "@/types/gtfs";
 
+export type MapStyleType = 'light' | 'dark' | 'satellite';
+
 interface VehicleMapProps {
   vehicles: Vehicle[];
   trips?: Trip[];
@@ -37,6 +39,8 @@ interface VehicleMapProps {
   lastUpdate?: number | null;
   deepLinkStopId?: string | null;
   onStopPanelChange?: (stopId: string | null) => void;
+  mapStyle?: MapStyleType;
+  onMapStyleChange?: (style: MapStyleType) => void;
 }
 
 const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: string, isOnSelectedRoute?: boolean, routeShortName?: string) => {
@@ -366,7 +370,7 @@ const RefreshIndicator = ({
   );
 };
 
-export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, selectedRoute = 'all', selectedOperator, onRouteClose, isLoading, highlightedStop, followVehicleId, onFollowVehicle, refreshInterval = 10, lastUpdate, deepLinkStopId, onStopPanelChange }: VehicleMapProps) {
+export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, selectedRoute = 'all', selectedOperator, onRouteClose, isLoading, highlightedStop, followVehicleId, onFollowVehicle, refreshInterval = 10, lastUpdate, deepLinkStopId, onStopPanelChange, mapStyle: externalMapStyle, onMapStyleChange }: VehicleMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const vehicleMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
   const stopMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
@@ -398,13 +402,25 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [mapClickLocation, setMapClickLocation] = useState<{ type: 'origin' | 'destination'; lat: number; lng: number } | null>(null);
   const [viewMode, setViewMode] = useState<'street' | 'overview'>('street');
   const [mapReady, setMapReady] = useState(false);
-  const [mapStyle, setMapStyle] = useState<'light' | 'dark' | 'satellite'>(() => {
+  
+  // Use external map style if provided, otherwise use internal state
+  const [internalMapStyle, setInternalMapStyle] = useState<MapStyleType>(() => {
     try {
       const saved = localStorage.getItem('motionbus_map_style');
       if (saved === 'light' || saved === 'dark' || saved === 'satellite') return saved;
     } catch {}
     return 'light';
   });
+  
+  const mapStyle = externalMapStyle ?? internalMapStyle;
+  const setMapStyle = (style: MapStyleType) => {
+    if (onMapStyleChange) {
+      onMapStyleChange(style);
+    } else {
+      setInternalMapStyle(style);
+    }
+  };
+  
   const highlightedStopMarkerRef = useRef<L.Marker | null>(null);
   
   // Persist map style to localStorage
@@ -413,6 +429,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       localStorage.setItem('motionbus_map_style', mapStyle);
     } catch {}
   }, [mapStyle]);
+
   
   // Stop notification state
   const [notificationModalStop, setNotificationModalStop] = useState<{ stopId: string; stopName: string } | null>(null);
@@ -2211,7 +2228,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             mapStyle !== 'light' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-card/90 hover:bg-card'
           }`}
           title={mapStyle === 'light' ? 'Νυχτερινός χάρτης' : mapStyle === 'dark' ? 'Δορυφορικός χάρτης' : 'Κανονικός χάρτης'}
-          onClick={() => setMapStyle(prev => prev === 'light' ? 'dark' : prev === 'dark' ? 'satellite' : 'light')}
+          onClick={() => setMapStyle(mapStyle === 'light' ? 'dark' : mapStyle === 'dark' ? 'satellite' : 'light')}
         >
           {mapStyle === 'light' ? <Sun className="h-3.5 w-3.5" /> : 
            mapStyle === 'dark' ? <Moon className="h-3.5 w-3.5" /> : 
