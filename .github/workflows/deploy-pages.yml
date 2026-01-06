@@ -31,11 +31,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check secrets
+        run: |
+          if [ -z "${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}" ]; then
+            echo "⚠️ Warning: VITE_SUPABASE_PUBLISHABLE_KEY secret is not set"
+            echo "Build will continue but may fail if key is required"
+          else
+            echo "✅ VITE_SUPABASE_PUBLISHABLE_KEY is set"
+          fi
+
       - name: Build
         run: npm run build
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://jftthfniwfarxyisszjh.supabase.co' }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || '' }}
+        continue-on-error: false
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
