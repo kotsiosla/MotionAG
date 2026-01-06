@@ -167,15 +167,34 @@ export function NearbyStopsPanel({
   // Update push subscription when nearest stop changes
   useEffect(() => {
     const updateNearestStopInDB = async () => {
-      if (!nearestStop || !notificationSettings.push) return;
+      console.log('[NearbyStopsPanel] Update check - nearestStop:', nearestStop?.stop_id, 'push:', notificationSettings.push);
+      
+      if (!nearestStop || !notificationSettings.push) {
+        console.log('[NearbyStopsPanel] Skipping update - no nearest stop or push disabled');
+        return;
+      }
       
       try {
+        // Check if service worker is supported
+        if (!('serviceWorker' in navigator)) {
+          console.log('[NearbyStopsPanel] Service worker not supported');
+          return;
+        }
+        
         // Get current subscription
         const registration = await navigator.serviceWorker.getRegistration('/sw.js');
-        if (!registration) return;
+        if (!registration) {
+          console.log('[NearbyStopsPanel] No service worker registration');
+          return;
+        }
         
         const subscription = await registration.pushManager.getSubscription();
-        if (!subscription) return;
+        if (!subscription) {
+          console.log('[NearbyStopsPanel] No push subscription');
+          return;
+        }
+
+        console.log('[NearbyStopsPanel] Updating DB with stop:', nearestStop.stop_id, nearestStop.stop_name);
 
         // Update the stop settings in database with actual stop ID
         const stopSettings = [{
@@ -189,18 +208,19 @@ export function NearbyStopsPanel({
           beforeMinutes: Math.round(notificationDistance / 100),
         }];
 
-        const { error } = await supabase
+        const { error, data } = await supabase
           .from('stop_notification_subscriptions')
           .update({
             stop_notifications: stopSettings as any,
             updated_at: new Date().toISOString(),
           })
-          .eq('endpoint', subscription.endpoint);
+          .eq('endpoint', subscription.endpoint)
+          .select();
 
         if (error) {
           console.error('[NearbyStopsPanel] Failed to update nearest stop:', error);
         } else {
-          console.log('[NearbyStopsPanel] Updated nearest stop to:', nearestStop.stop_id);
+          console.log('[NearbyStopsPanel] ✅ Updated nearest stop to:', nearestStop.stop_id, 'result:', data);
         }
       } catch (e) {
         console.error('[NearbyStopsPanel] Error updating nearest stop:', e);
