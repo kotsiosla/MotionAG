@@ -2404,9 +2404,9 @@ serve(async (req) => {
       if (!operatorId || operatorId === 'all') {
         // Try to extract operator from route ID
         // Route IDs have format like "4050042" where first digit(s) indicate operator
-        // Known operators: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, etc.
+        // Known operators: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 50, etc.
         const singleDigitOperators = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
-        const twoDigitOperators = ['10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'];
+        const twoDigitOperators = ['10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '50', '51', '52', '53', '54', '55'];
         
         // Check for 2-digit operator first
         const twoDigitPrefix = routeId.substring(0, 2);

@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Bell, BellOff, Volume2, Vibrate, Mic, Send, X, Clock } from "lucide-react";
+import { Bell, BellOff, Volume2, Vibrate, Mic, Send, X, Clock, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { toast } from "@/hooks/use-toast";
 import type { StopNotificationSettings } from "@/hooks/useStopNotifications";
 
 interface StopNotificationModalProps {
@@ -29,6 +30,51 @@ export function StopNotificationModal({
   const [voice, setVoice] = useState(currentSettings?.voice ?? false);
   const [push, setPush] = useState(currentSettings?.push ?? false);
   const [beforeMinutes, setBeforeMinutes] = useState(currentSettings?.beforeMinutes ?? 3);
+  const [pushSupported, setPushSupported] = useState(true);
+  const [isSubscribingPush, setIsSubscribingPush] = useState(false);
+
+  // Check push support on mount
+  useEffect(() => {
+    const checkPushSupport = () => {
+      const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+      setPushSupported(supported);
+    };
+    checkPushSupport();
+  }, []);
+
+  // Handle push toggle - request permission when enabled
+  const handlePushToggle = async (checked: boolean) => {
+    if (checked && pushSupported) {
+      setIsSubscribingPush(true);
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          setPush(true);
+          toast({
+            title: "✅ Ειδοποιήσεις ενεργοποιήθηκαν",
+            description: "Θα λαμβάνετε push notifications όταν πλησιάζει το λεωφορείο",
+          });
+        } else {
+          toast({
+            title: "⚠️ Απαιτείται άδεια",
+            description: "Παρακαλώ επιτρέψτε τις ειδοποιήσεις από τις ρυθμίσεις του browser",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Error requesting notification permission:', error);
+        toast({
+          title: "Σφάλμα",
+          description: "Δεν ήταν δυνατή η ενεργοποίηση ειδοποιήσεων",
+          variant: "destructive",
+        });
+      } finally {
+        setIsSubscribingPush(false);
+      }
+    } else {
+      setPush(checked);
+    }
+  };
 
   const handleSave = () => {
     onSave({
@@ -139,10 +185,22 @@ export function StopNotificationModal({
 
                 <div className="flex items-center justify-between py-2">
                   <div className="flex items-center gap-3">
-                    <Send className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">Push notification</span>
+                    <Send className={`h-4 w-4 ${push ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <div>
+                      <span className="text-sm">Push notification</span>
+                      {!pushSupported && (
+                        <p className="text-xs text-destructive flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          Μη διαθέσιμο
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <Switch checked={push} onCheckedChange={setPush} />
+                  <Switch 
+                    checked={push} 
+                    onCheckedChange={handlePushToggle}
+                    disabled={!pushSupported || isSubscribingPush}
+                  />
                 </div>
               </div>
             </>
