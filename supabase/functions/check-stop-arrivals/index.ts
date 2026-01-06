@@ -270,6 +270,7 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Get all subscriptions with stop notifications
+    console.log('Fetching subscriptions from stop_notification_subscriptions...');
     const { data: subscriptions, error: subError } = await supabase
       .from('stop_notification_subscriptions')
       .select('*')
@@ -277,15 +278,53 @@ serve(async (req) => {
 
     if (subError) {
       console.error('Error fetching subscriptions:', subError);
-      return new Response(JSON.stringify({ error: 'Database error' }), {
+      console.error('Error details:', JSON.stringify(subError, null, 2));
+      return new Response(JSON.stringify({ error: 'Database error', details: subError }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    console.log(`Found ${subscriptions?.length || 0} subscriptions (before filtering)`);
+    
+    // Debug: Log all subscriptions
+    if (subscriptions && subscriptions.length > 0) {
+      subscriptions.forEach((sub, idx) => {
+        console.log(`Subscription ${idx + 1}:`, {
+          id: sub.id,
+          endpoint: sub.endpoint?.substring(0, 50) + '...',
+          stop_notifications_count: Array.isArray(sub.stop_notifications) ? sub.stop_notifications.length : 'not array',
+          stop_notifications: Array.isArray(sub.stop_notifications) ? sub.stop_notifications.map((s: any) => ({
+            stopId: s?.stopId,
+            stopName: s?.stopName,
+            enabled: s?.enabled,
+            push: s?.push,
+            beforeMinutes: s?.beforeMinutes
+          })) : sub.stop_notifications
+        });
+      });
+    }
+
     if (!subscriptions || subscriptions.length === 0) {
       console.log('No stop notification subscriptions found');
-      return new Response(JSON.stringify({ checked: 0, sent: 0 }), {
+      // Also check if there are any subscriptions at all (even without stop_notifications)
+      const { data: allSubs } = await supabase
+        .from('stop_notification_subscriptions')
+        .select('id, endpoint, stop_notifications');
+      console.log(`Total subscriptions in table (including null): ${allSubs?.length || 0}`);
+      if (allSubs && allSubs.length > 0) {
+        allSubs.forEach((sub, idx) => {
+          console.log(`All subscription ${idx + 1}:`, {
+            id: sub.id,
+            endpoint: sub.endpoint?.substring(0, 50) + '...',
+            has_stop_notifications: !!sub.stop_notifications,
+            stop_notifications_type: typeof sub.stop_notifications,
+            stop_notifications_is_array: Array.isArray(sub.stop_notifications),
+            stop_notifications_length: Array.isArray(sub.stop_notifications) ? sub.stop_notifications.length : 'N/A'
+          });
+        });
+      }
+      return new Response(JSON.stringify({ checked: 0, sent: 0, debug: { totalInTable: allSubs?.length || 0 } }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
