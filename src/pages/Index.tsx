@@ -76,6 +76,15 @@ const Index = () => {
     return saved !== null ? JSON.parse(saved) : true;
   });
   
+  // Apply theme to document
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDark]);
+
   // Sync theme and map style
   const handleThemeToggle = useCallback(() => {
     const newIsDark = !isDark;
