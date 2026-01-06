@@ -83,8 +83,17 @@ WITH CHECK (true);
 -- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_stop_notification_subscriptions_endpoint ON public.stop_notification_subscriptions(endpoint);
 
--- Enable realtime for this table
-ALTER PUBLICATION supabase_realtime ADD TABLE public.stop_notification_subscriptions;
+-- Enable realtime for this table (ignore error if already exists)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' 
+    AND tablename = 'stop_notification_subscriptions'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.stop_notification_subscriptions;
+  END IF;
+END $$;
 
 -- Create trigger for updated_at
 DROP TRIGGER IF EXISTS update_stop_notification_subscriptions_updated_at ON public.stop_notification_subscriptions;
