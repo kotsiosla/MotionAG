@@ -164,6 +164,52 @@ export function NearbyStopsPanel({
     localStorage.setItem('nearbyNotificationSettings', JSON.stringify(notificationSettings));
   }, [notificationSettings]);
 
+  // Update push subscription when nearest stop changes
+  useEffect(() => {
+    const updateNearestStopInDB = async () => {
+      if (!nearestStop || !notificationSettings.push) return;
+      
+      try {
+        // Get current subscription
+        const registration = await navigator.serviceWorker.getRegistration('/sw.js');
+        if (!registration) return;
+        
+        const subscription = await registration.pushManager.getSubscription();
+        if (!subscription) return;
+
+        // Update the stop settings in database with actual stop ID
+        const stopSettings = [{
+          stopId: nearestStop.stop_id,
+          stopName: nearestStop.stop_name,
+          enabled: true,
+          sound: notificationSettings.sound,
+          vibration: notificationSettings.vibration,
+          voice: notificationSettings.voice,
+          push: true,
+          beforeMinutes: Math.round(notificationDistance / 100),
+        }];
+
+        const { error } = await supabase
+          .from('stop_notification_subscriptions')
+          .update({
+            stop_notifications: stopSettings as any,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('endpoint', subscription.endpoint);
+
+        if (error) {
+          console.error('[NearbyStopsPanel] Failed to update nearest stop:', error);
+        } else {
+          console.log('[NearbyStopsPanel] Updated nearest stop to:', nearestStop.stop_id);
+        }
+      } catch (e) {
+        console.error('[NearbyStopsPanel] Error updating nearest stop:', e);
+      }
+    };
+
+    updateNearestStopInDB();
+  }, [nearestStop?.stop_id, notificationSettings.push, notificationSettings.sound, notificationSettings.vibration, notificationSettings.voice, notificationDistance]);
+
   // Ensure push subscription exists and is synced to database
   const ensurePushSubscription = useCallback(async (silent: boolean = false) => {
     try {
@@ -246,10 +292,14 @@ export function NearbyStopsPanel({
       const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
       const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
 
-      // Save to database - for nearby stops, save with a generic "nearby" stop setting
+      // Save to database - use the actual nearest stop ID if available
+      // This allows the edge function to match arrivals correctly
+      const actualStopId = nearestStop?.stop_id || 'nearby_mode';
+      const actualStopName = nearestStop?.stop_name || 'Κοντινότερη Στάση (Auto)';
+      
       const stopSettings = [{
-        stopId: 'nearby_mode',
-        stopName: 'Κοντινότερη Στάση (Auto)',
+        stopId: actualStopId,
+        stopName: actualStopName,
         enabled: true,
         sound: notificationSettings.sound,
         vibration: notificationSettings.vibration,
@@ -305,7 +355,7 @@ export function NearbyStopsPanel({
       console.error('[NearbyStopsPanel] Push subscription error:', error);
       return false;
     }
-  }, [notificationSettings, notificationDistance]);
+  }, [notificationSettings, notificationDistance, nearestStop]);
 
   // Toggle notification setting - with push subscription handling
   const toggleNotificationSetting = useCallback(async (key: keyof typeof notificationSettings) => {
