@@ -33,33 +33,65 @@ const notifiedArrivals = new Map<string, { timestamp: number; arrivalTime: numbe
 // Audio context for notification sounds
 let audioContext: AudioContext | null = null;
 let audioUnlocked = false;
+let lastUserInteraction = 0;
+
+// Pre-loaded audio element for iOS fallback
+let fallbackAudio: HTMLAudioElement | null = null;
 
 // iOS Audio unlock - must be called from user interaction
 export const unlockAudio = () => {
-  if (audioUnlocked) return;
+  lastUserInteraction = Date.now();
   
   try {
-    // Create silent audio context to unlock
+    // Create and unlock audio context
     if (!audioContext) {
       audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     
     // Resume if suspended (iOS requirement)
     if (audioContext.state === 'suspended') {
-      audioContext.resume();
+      audioContext.resume().then(() => {
+        console.log('[Audio] AudioContext resumed via user interaction');
+      });
     }
     
-    // Play a silent buffer to unlock
+    // Play a silent buffer to unlock - this is required on iOS
     const buffer = audioContext.createBuffer(1, 1, 22050);
     const source = audioContext.createBufferSource();
     source.buffer = buffer;
     source.connect(audioContext.destination);
     source.start(0);
     
+    // Pre-load and unlock HTML5 Audio for iOS fallback
+    if (!fallbackAudio) {
+      fallbackAudio = new Audio();
+      // Short beep as data URI
+      fallbackAudio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQg6l9PCqYhMOq+7l4xiLm7Sw8FnHQMqpd3wgiwCJYjj9rVRAnXL/dZJBQBzyv7UUAdtt/vPXAsqfOb61FgGOobx/M1PDFqR7/20SBR1mvP9rj0Yb5/49qQrHHem+/qXIx51r/76jBYle7789IANMorr+e1nAkqU5/rmWwBUl+f74lMEXZnq/tlKCWmb7P/TPhBxoPL/yjMVeqf1/8YmGH6v+P/BHxyFtvr/uhYhir78/7IPJo/A/v+pCyuUxv//nAYwmcv//44CNp7Q//+BATuh1f//cwE+ptv/+2MARKvg//dTAkqw5f/ySgNPs+n/7UEEVLbt/+g4BVq58P/jMAZfvPP/3ygHZL/2/9kgCWnC+P/VGApuwfr/0RAMcr/8/8wJDnW9/f/IARN3uv7/xAEWebr//78BF3q5//+8AB56uf//uQAhfLn//7UAJH65//+yACd/uv//sAApgLr//68ALIC5//+uAC6Auf//rQAwgbn//6wAMoG5//+rADSBuf//qgA2gbr//6kAOIK6//+oADqCuv//qAA8grr//6cAPYO6//+mAD+Du///pgBBg7v//6UAQ4S7//+kAESEu///pABGhLv//6MASISbm5ubm5trbW9vcHBva2pqampnZWRiYF5cWldVU1BOTEM/Ozk3NDIwLSwpJyQhHx0aGBUSEA4MCggGBAIAAQMFBwkLDQ8RExUXGRsdHyEkJiopLC4wMjQ2ODo8P0FFR0tOUFRXWV1gYmRmZ2lrbG1ub29wcG9ubWxqaGVhXVhTTkdAOTIrJB0XEQsGAQD/';
+      fallbackAudio.load();
+      // Play and immediately pause to unlock
+      fallbackAudio.volume = 0.01;
+      fallbackAudio.play().then(() => {
+        fallbackAudio?.pause();
+        fallbackAudio!.currentTime = 0;
+        fallbackAudio!.volume = 0.7;
+        console.log('[Audio] HTML5 Audio unlocked for iOS');
+      }).catch(() => {
+        // Ignore - will try again on next interaction
+      });
+    }
+    
     audioUnlocked = true;
     console.log('[Audio] iOS audio unlocked');
   } catch (e) {
     console.log('[Audio] Could not unlock audio:', e);
+  }
+};
+
+// Keep audio context alive - call this periodically when monitoring
+export const keepAudioAlive = () => {
+  if (audioContext && audioContext.state === 'suspended') {
+    // Cannot resume without user interaction, but we can try
+    audioContext.resume().catch(() => {});
   }
 };
 
@@ -80,26 +112,64 @@ export const speak = (text: string) => {
 
 // Play notification sound - more urgent as time approaches
 export const playSound = (urgency: 'low' | 'medium' | 'high' = 'medium') => {
+  console.log('[Audio] Attempting to play sound, urgency:', urgency);
+  
+  // On iOS, if the audio context is suspended, we need user interaction
+  // Try HTML5 Audio fallback first as it's more reliable on iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  
+  if (isIOS && fallbackAudio) {
+    // Use pre-loaded HTML5 Audio for iOS
+    playWithHTML5Audio(urgency);
+    return;
+  }
+  
   try {
-    // Try Web Audio API first
+    // Try Web Audio API
     if (!audioContext) {
       audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     
     // Resume audio context if suspended (iOS)
     if (audioContext.state === 'suspended') {
+      console.log('[Audio] AudioContext suspended, trying to resume...');
       audioContext.resume().then(() => {
         console.log('[Audio] AudioContext resumed');
         playSoundWithContext(audioContext!, urgency);
+      }).catch(() => {
+        console.log('[Audio] Could not resume, using fallback');
+        playFallbackSound(urgency);
       });
     } else {
       playSoundWithContext(audioContext, urgency);
     }
   } catch (error) {
     console.error('[Audio] Error playing sound:', error);
-    // Fallback: try HTML5 Audio with a simple beep URL
     playFallbackSound(urgency);
   }
+};
+
+// Play using pre-loaded HTML5 Audio (more reliable on iOS)
+const playWithHTML5Audio = (urgency: 'low' | 'medium' | 'high') => {
+  const beepCount = urgency === 'high' ? 3 : urgency === 'medium' ? 2 : 1;
+  
+  const playBeep = (index: number) => {
+    if (index >= beepCount || !fallbackAudio) return;
+    
+    try {
+      fallbackAudio.currentTime = 0;
+      fallbackAudio.play().then(() => {
+        setTimeout(() => playBeep(index + 1), 300);
+      }).catch(e => {
+        console.log('[Audio] HTML5 play failed:', e);
+      });
+    } catch (e) {
+      console.log('[Audio] HTML5 Audio error:', e);
+    }
+  };
+  
+  playBeep(0);
 };
 
 const playSoundWithContext = (ctx: AudioContext, urgency: 'low' | 'medium' | 'high') => {

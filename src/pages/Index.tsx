@@ -20,7 +20,7 @@ import { useSmartTripPlan } from "@/hooks/useSmartTripPlan";
 import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
 import { useDelayNotifications } from "@/hooks/useDelayNotifications";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
-import { useStopArrivalNotifications } from "@/hooks/useStopArrivalNotifications";
+import { useStopArrivalNotifications, unlockAudio } from "@/hooks/useStopArrivalNotifications";
 import type { RouteInfo, StaticStop } from "@/types/gtfs";
 import { toast } from "sonner";
 
@@ -88,6 +88,22 @@ const Index = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [isDark]);
+
+  // Unlock audio on any user interaction (required for iOS)
+  useEffect(() => {
+    const handleInteraction = () => {
+      unlockAudio();
+    };
+    
+    // Listen for various interaction events
+    document.addEventListener('touchstart', handleInteraction, { passive: true });
+    document.addEventListener('click', handleInteraction, { passive: true });
+    
+    return () => {
+      document.removeEventListener('touchstart', handleInteraction);
+      document.removeEventListener('click', handleInteraction);
+    };
+  }, []);
 
   // Sync theme and map style
   const handleThemeToggle = useCallback(() => {
