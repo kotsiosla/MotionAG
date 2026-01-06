@@ -277,12 +277,12 @@ const Index = () => {
     return routeMap;
   }, [staticRoutesQuery.data]);
   
-  // Delay notifications - monitors trips for delays and shows browser notifications
-  useDelayNotifications(
-    effectiveTripsData?.data || [],
-    routeNamesMap,
-    delayNotificationsEnabled
-  );
+  // Delay notifications disabled - users can view delays in the dedicated "Καθυστερήσεις" tab
+  // useDelayNotifications(
+  //   effectiveTripsData?.data || [],
+  //   routeNamesMap,
+  //   delayNotificationsEnabled
+  // );
 
   // Stop notifications - monitors arrivals at user's favorite stops
   const { notifications: stopNotificationSettings } = useStopNotifications();
