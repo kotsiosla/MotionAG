@@ -16,6 +16,7 @@ import { RouteStopsPanel } from "@/components/RouteStopsPanel";
 import { RoutePlannerPanel } from "@/components/RoutePlannerPanel";
 import { StopDetailPanel } from "@/components/StopDetailPanel";
 import { NearestStopPanel } from "@/components/NearestStopPanel";
+import { VehicleFollowPanel } from "@/components/VehicleFollowPanel";
 import { DataSourceHealthIndicator } from "@/components/DataSourceHealthIndicator";
 import { useRouteShape } from "@/hooks/useGtfsData";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
@@ -2114,6 +2115,27 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         />
       )}
       
+      {/* Vehicle Follow Panel - shows when following a vehicle */}
+      {followedVehicleId && followedVehicle && (
+        <VehicleFollowPanel
+          vehicle={followedVehicle}
+          routeInfo={followedRouteInfo || undefined}
+          nextStop={followedNextStop}
+          viewMode={viewMode}
+          onClose={() => {
+            setFollowedVehicleId(null);
+            onFollowVehicle?.(null);
+            // Clear the trail when unfollowing
+            trailPolylinesRef.current.forEach(polylines => {
+              polylines.forEach(p => mapRef.current?.removeLayer(p));
+            });
+            trailPolylinesRef.current.clear();
+          }}
+          onSwitchToStreet={switchToStreetView}
+          onSwitchToOverview={switchToOverview}
+        />
+      )}
+      
       {isLoading && (
         <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center">
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -2123,7 +2145,6 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </div>
       )}
       
-
 
       {/* Right side controls toolbar - moves up when panel is visible */}
       <div className={`absolute right-2 z-[1000] flex flex-col gap-1 transition-all duration-300 ${nearestStopWithArrivals && userLocation && !notificationModalStop ? 'bottom-[280px]' : 'top-2'}`}>
