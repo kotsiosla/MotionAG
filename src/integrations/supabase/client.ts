@@ -2,17 +2,34 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// Fallback to hardcoded values if env vars are missing (for development)
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://mhlyndipnpwpcydjukig.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || (() => {
+  // Try to get from localStorage (if user has set it manually)
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('supabase_anon_key');
+    if (stored) return stored;
+  }
+  // Return empty string - will show error in console
+  return '';
+})();
 
 // Debug: Log Supabase configuration
 if (typeof window !== 'undefined') {
+  const hasKey = !!SUPABASE_PUBLISHABLE_KEY && SUPABASE_PUBLISHABLE_KEY.length > 0;
   console.log('[Supabase Client] Configuration:', {
     url: SUPABASE_URL ? SUPABASE_URL.substring(0, 50) + '...' : 'MISSING',
-    key: SUPABASE_PUBLISHABLE_KEY ? SUPABASE_PUBLISHABLE_KEY.substring(0, 20) + '...' : 'MISSING',
+    key: hasKey ? SUPABASE_PUBLISHABLE_KEY.substring(0, 20) + '...' : 'MISSING',
     urlExists: !!SUPABASE_URL,
-    keyExists: !!SUPABASE_PUBLISHABLE_KEY,
+    keyExists: hasKey,
   });
+  
+  if (!hasKey) {
+    console.error('[Supabase Client] ❌ VITE_SUPABASE_PUBLISHABLE_KEY is missing!');
+    console.error('[Supabase Client] Please set it in .env file or run:');
+    console.error('[Supabase Client] localStorage.setItem("supabase_anon_key", "YOUR_KEY_HERE")');
+    console.error('[Supabase Client] Get your key from: https://supabase.com/dashboard/project/mhlyndipnpwpcydjukig/settings/api');
+  }
 }
 
 // Import the supabase client like this:
