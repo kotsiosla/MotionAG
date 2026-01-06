@@ -151,122 +151,138 @@ export function NearbyStopsPanel({
     localStorage.setItem('nearbyNotificationSettings', JSON.stringify(notificationSettings));
   }, [notificationSettings]);
 
+  // Ensure push subscription exists and is synced to database
+  const ensurePushSubscription = useCallback(async () => {
+    try {
+      // Check support
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.log('[NearbyStopsPanel] Push not supported');
+        return false;
+      }
+
+      // Request permission
+      const permission = await Notification.requestPermission();
+      console.log('[NearbyStopsPanel] Push permission:', permission);
+      
+      if (permission !== 'granted') {
+        toast({
+          title: "⚠️ Απαιτείται άδεια",
+          description: "Παρακαλώ επιτρέψτε τις ειδοποιήσεις",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Register service worker and get subscription
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+      
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+      }
+
+      console.log('[NearbyStopsPanel] Push subscription:', subscription.endpoint.substring(0, 50));
+
+      // Extract keys
+      const p256dhKey = subscription.getKey('p256dh');
+      const authKey = subscription.getKey('auth');
+      
+      if (!p256dhKey || !authKey) {
+        throw new Error('Failed to get subscription keys');
+      }
+      
+      const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
+      const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
+
+      // Save to database - for nearby stops, save with a generic "nearby" stop setting
+      const stopSettings = [{
+        stopId: 'nearby_mode',
+        stopName: 'Κοντινότερη Στάση (Auto)',
+        enabled: true,
+        sound: notificationSettings.sound,
+        vibration: notificationSettings.vibration,
+        voice: notificationSettings.voice,
+        push: true,
+        beforeMinutes: Math.round(notificationDistance / 100),
+      }];
+
+      // Upsert to database
+      const { data: existing } = await supabase
+        .from('stop_notification_subscriptions')
+        .select('id')
+        .eq('endpoint', subscription.endpoint)
+        .maybeSingle();
+
+      console.log('[NearbyStopsPanel] Existing subscription:', existing);
+
+      if (existing) {
+        const { error } = await supabase
+          .from('stop_notification_subscriptions')
+          .update({
+            p256dh,
+            auth,
+            stop_notifications: stopSettings as any,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('endpoint', subscription.endpoint);
+
+        if (error) {
+          console.error('[NearbyStopsPanel] Update error:', error);
+          throw error;
+        }
+        console.log('[NearbyStopsPanel] Updated subscription in database');
+      } else {
+        const { error } = await supabase
+          .from('stop_notification_subscriptions')
+          .insert([{
+            endpoint: subscription.endpoint,
+            p256dh,
+            auth,
+            stop_notifications: stopSettings as any,
+          }]);
+
+        if (error) {
+          console.error('[NearbyStopsPanel] Insert error:', error);
+          throw error;
+        }
+        console.log('[NearbyStopsPanel] Inserted new subscription in database');
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[NearbyStopsPanel] Push subscription error:', error);
+      return false;
+    }
+  }, [notificationSettings, notificationDistance]);
+
   // Toggle notification setting - with push subscription handling
   const toggleNotificationSetting = useCallback(async (key: keyof typeof notificationSettings) => {
     // If toggling push ON, create push subscription
     if (key === 'push' && !notificationSettings.push) {
-      try {
-        // Check support
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-          toast({
-            title: "Μη υποστηριζόμενο",
-            description: "Οι push ειδοποιήσεις δεν υποστηρίζονται σε αυτή τη συσκευή",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // Request permission
-        const permission = await Notification.requestPermission();
-        console.log('[NearbyStopsPanel] Push permission:', permission);
-        
-        if (permission !== 'granted') {
-          toast({
-            title: "⚠️ Απαιτείται άδεια",
-            description: "Παρακαλώ επιτρέψτε τις ειδοποιήσεις",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // Register service worker and get subscription
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        await navigator.serviceWorker.ready;
-        
-        let subscription = await registration.pushManager.getSubscription();
-        if (!subscription) {
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-          });
-        }
-
-        console.log('[NearbyStopsPanel] Push subscription created:', subscription.endpoint.substring(0, 50));
-
-        // Extract keys
-        const p256dhKey = subscription.getKey('p256dh');
-        const authKey = subscription.getKey('auth');
-        
-        if (!p256dhKey || !authKey) {
-          throw new Error('Failed to get subscription keys');
-        }
-        
-        const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
-        const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
-
-        // Save to database - for nearby stops, save with a generic "nearby" stop setting
-        const stopSettings = [{
-          stopId: 'nearby_mode',
-          stopName: 'Κοντινότερη Στάση (Auto)',
-          enabled: true,
-          sound: notificationSettings.sound,
-          vibration: notificationSettings.vibration,
-          voice: notificationSettings.voice,
-          push: true,
-          beforeMinutes: Math.round(notificationDistance / 100), // Convert distance to approximate minutes
-        }];
-
-        // Upsert to database
-        const { data: existing } = await supabase
-          .from('stop_notification_subscriptions')
-          .select('id')
-          .eq('endpoint', subscription.endpoint)
-          .maybeSingle();
-
-        if (existing) {
-          const { error } = await supabase
-            .from('stop_notification_subscriptions')
-            .update({
-              p256dh,
-              auth,
-              stop_notifications: stopSettings as any,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('endpoint', subscription.endpoint);
-
-          if (error) throw error;
-        } else {
-          const { error } = await supabase
-            .from('stop_notification_subscriptions')
-            .insert([{
-              endpoint: subscription.endpoint,
-              p256dh,
-              auth,
-              stop_notifications: stopSettings as any,
-            }]);
-
-          if (error) throw error;
-        }
-
-        console.log('[NearbyStopsPanel] Saved push subscription to database');
-        
+      const success = await ensurePushSubscription();
+      if (success) {
         toast({
           title: "✅ Push ειδοποιήσεις ενεργοποιήθηκαν",
           description: "Θα λαμβάνετε ειδοποιήσεις ακόμα και με κλειστή εφαρμογή",
         });
-
         setNotificationSettings((prev: typeof notificationSettings) => ({
           ...prev,
           push: true,
         }));
-      } catch (error) {
-        console.error('[NearbyStopsPanel] Push subscription error:', error);
-        toast({
-          title: "Σφάλμα",
-          description: "Δεν ήταν δυνατή η ενεργοποίηση push ειδοποιήσεων",
-          variant: "destructive",
-        });
       }
+    } else if (key === 'push' && notificationSettings.push) {
+      // Turning push OFF
+      setNotificationSettings((prev: typeof notificationSettings) => ({
+        ...prev,
+        push: false,
+      }));
+      toast({
+        title: "Push ειδοποιήσεις απενεργοποιήθηκαν",
+      });
     } else {
       // For other settings, just toggle
       setNotificationSettings((prev: typeof notificationSettings) => ({
@@ -274,7 +290,14 @@ export function NearbyStopsPanel({
         [key]: !prev[key],
       }));
     }
-  }, [notificationSettings, notificationDistance]);
+  }, [notificationSettings, ensurePushSubscription]);
+
+  // Auto-sync push subscription when panel opens with push enabled
+  useEffect(() => {
+    if (isPanelOpen && notificationSettings.push) {
+      ensurePushSubscription();
+    }
+  }, [isPanelOpen, notificationSettings.push, ensurePushSubscription]);
 
   // Get user location
   const getLocation = useCallback(() => {
