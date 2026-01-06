@@ -20,6 +20,7 @@ import { VehicleFollowPanel } from "@/components/VehicleFollowPanel";
 import { DataSourceHealthIndicator } from "@/components/DataSourceHealthIndicator";
 import { useRouteShape } from "@/hooks/useGtfsData";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
+import { useStopArrivalNotifications } from "@/hooks/useStopArrivalNotifications";
 import type { Vehicle, StaticStop, Trip, RouteInfo } from "@/types/gtfs";
 
 export type MapStyleType = 'light' | 'dark' | 'satellite';
@@ -415,6 +416,14 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   // Stop notification state
   const [notificationModalStop, setNotificationModalStop] = useState<{ stopId: string; stopName: string } | null>(null);
   const { notifications: stopNotifications, setNotification: setStopNotification, removeNotification: removeStopNotification, getNotification, hasNotification } = useStopNotifications();
+  
+  // Enable arrival notifications monitoring - this actually triggers the notifications when buses approach
+  useStopArrivalNotifications(
+    trips || [],
+    routeNamesMap,
+    stopNotifications,
+    true // enabled
+  );
   
   // Handle opening stop panel and notify parent for URL update
   const openStopPanel = useCallback((stopId: string, stopName: string) => {

@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { unlockAudio } from "@/hooks/useStopArrivalNotifications";
 import type { StopNotificationSettings } from "@/hooks/useStopNotifications";
 
 interface StopNotificationModalProps {
@@ -46,6 +47,9 @@ export function StopNotificationModal({
   const handleEnable = async () => {
     setIsSaving(true);
     try {
+      // Unlock audio for notifications (required on iOS)
+      unlockAudio();
+      
       // Check support
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         toast({
