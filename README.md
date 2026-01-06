@@ -1,8 +1,32 @@
-# Welcome to your Lovable project
+# MotionBus_AI
+
+A React + TypeScript project built with Vite, shadcn-ui, and Tailwind CSS.
+
+## 🔗 Repository
+
+**GitHub:** https://github.com/kotsiosla/MotionBus_AI
+
+## 🚀 Quick Start
+
+### Sync Changes to GitHub
+
+Use the sync script for easy synchronization:
+
+**PowerShell:**
+```powershell
+.\sync.ps1 "Your commit message"
+```
+
+**Bash:**
+```bash
+./sync.sh "Your commit message"
+```
+
+See [WORKFLOW.md](./WORKFLOW.md) for detailed workflow guide.
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+**Lovable URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
 
 ## How can I edit this code?
 
