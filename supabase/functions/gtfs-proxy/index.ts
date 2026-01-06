@@ -2403,20 +2403,19 @@ serve(async (req) => {
       
       if (!operatorId || operatorId === 'all') {
         // Try to extract operator from route ID
-        // Route IDs have format like "4050042" where first digit(s) indicate operator
-        // Known operators: 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 50, etc.
-        const singleDigitOperators = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
-        const twoDigitOperators = ['10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '50', '51', '52', '53', '54', '55'];
+        // Route IDs have format like "5030012" where first digit(s) indicate operator
+        // Available operators: 2, 4, 5, 6, 9, 10, 11 (from GTFS_STATIC_URLS)
+        const validOperators = ['2', '4', '5', '6', '9', '10', '11'];
         
-        // Check for 2-digit operator first
+        // Check for 2-digit operator first (10, 11)
         const twoDigitPrefix = routeId.substring(0, 2);
-        if (twoDigitOperators.includes(twoDigitPrefix)) {
+        if (validOperators.includes(twoDigitPrefix)) {
           effectiveOperatorId = twoDigitPrefix;
           console.log(`Inferred operator ${effectiveOperatorId} from route ID ${routeId} (2-digit prefix)`);
         } else {
           // Check single digit prefix
           const firstDigit = routeId.charAt(0);
-          if (singleDigitOperators.includes(firstDigit)) {
+          if (validOperators.includes(firstDigit)) {
             effectiveOperatorId = firstDigit;
             console.log(`Inferred operator ${effectiveOperatorId} from route ID ${routeId} (1-digit prefix)`);
           }

@@ -483,17 +483,22 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     if (selectedOperator !== 'all') return selectedOperator;
     if (!followedVehicleRouteId) return undefined;
     
-    // Route IDs have operator prefix: single digit (e.g., 1, 2) or double digit (e.g., 50, 15)
-    // Check for known double-digit operators first
+    // Route IDs have operator prefix - use ONLY valid operators from GTFS_STATIC_URLS
+    // Valid operators: 2, 4, 5, 6, 9, 10, 11
     const routeIdStr = String(followedVehicleRouteId);
-    const twoDigitPrefix = routeIdStr.substring(0, 2);
-    const knownTwoDigitOperators = ['10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '50'];
+    const validOperators = ['2', '4', '5', '6', '9', '10', '11'];
     
-    if (knownTwoDigitOperators.includes(twoDigitPrefix)) {
+    // Check for 2-digit operator first (10, 11)
+    const twoDigitPrefix = routeIdStr.substring(0, 2);
+    if (validOperators.includes(twoDigitPrefix)) {
       return twoDigitPrefix;
     }
-    // Otherwise use single digit
-    return routeIdStr.substring(0, 1);
+    // Otherwise check single digit
+    const firstDigit = routeIdStr.substring(0, 1);
+    if (validOperators.includes(firstDigit)) {
+      return firstDigit;
+    }
+    return undefined;
   }, [selectedOperator, followedVehicleRouteId]);
   
   // Fetch route shape for followed vehicle
