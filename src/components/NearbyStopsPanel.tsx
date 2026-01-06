@@ -552,19 +552,40 @@ export function NearbyStopsPanel({
           console.error('[NearbyStopsPanel] Error details:', JSON.stringify(error, null, 2));
           console.error('[NearbyStopsPanel] Error code:', error.code);
           console.error('[NearbyStopsPanel] Error message:', error.message);
+          console.error('[NearbyStopsPanel] Error hint:', error.hint);
         } else {
           lastSyncedStopRef.current = stopToSync.stopId;
           console.log('[NearbyStopsPanel] ✅ Synced tracked stop:', stopToSync.stopName, '(mode:', trackingMode, ')');
           console.log('[NearbyStopsPanel] Upsert result:', data);
+          console.log('[NearbyStopsPanel] Upsert result length:', data?.length || 0);
+          
           if (!data || data.length === 0) {
             console.warn('[NearbyStopsPanel] ⚠️ Upsert returned no data - checking if row exists...');
             // Check if row was actually created
-            const { data: checkData } = await supabase
+            const { data: checkData, error: checkError } = await supabase
               .from('stop_notification_subscriptions')
-              .select('id, endpoint')
+              .select('id, endpoint, stop_notifications')
               .eq('endpoint', subscription.endpoint)
               .maybeSingle();
             console.log('[NearbyStopsPanel] Row exists check:', checkData);
+            console.log('[NearbyStopsPanel] Row exists check error:', checkError);
+            
+            // Also try to count all rows
+            const { count, error: countError } = await supabase
+              .from('stop_notification_subscriptions')
+              .select('*', { count: 'exact', head: true });
+            console.log('[NearbyStopsPanel] Total rows in table:', count);
+            console.log('[NearbyStopsPanel] Count error:', countError);
+          } else {
+            // Verify the data was actually saved
+            console.log('[NearbyStopsPanel] ✅ Upsert returned data, verifying save...');
+            const { data: verifyData, error: verifyError } = await supabase
+              .from('stop_notification_subscriptions')
+              .select('id, endpoint, stop_notifications')
+              .eq('endpoint', subscription.endpoint)
+              .maybeSingle();
+            console.log('[NearbyStopsPanel] Verification result:', verifyData);
+            console.log('[NearbyStopsPanel] Verification error:', verifyError);
           }
         }
       } catch (e) {
