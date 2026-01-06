@@ -518,7 +518,7 @@ export function NearbyStopsPanel({
           beforeMinutes: Math.round(notificationDistance / 100),
         }];
         
-        const { error } = await supabase
+        const { error, data } = await supabase
           .from('stop_notification_subscriptions')
           .upsert({
             endpoint: subscription.endpoint,
@@ -528,9 +528,13 @@ export function NearbyStopsPanel({
             updated_at: new Date().toISOString(),
           }, { onConflict: 'endpoint' });
         
-        if (!error) {
+        if (error) {
+          console.error('[NearbyStopsPanel] Upsert error:', error);
+          console.error('[NearbyStopsPanel] Error details:', JSON.stringify(error, null, 2));
+        } else {
           lastSyncedStopRef.current = stopToSync.stopId;
-          console.log('[NearbyStopsPanel] Synced tracked stop:', stopToSync.stopName, '(mode:', trackingMode, ')');
+          console.log('[NearbyStopsPanel] ✅ Synced tracked stop:', stopToSync.stopName, '(mode:', trackingMode, ')');
+          console.log('[NearbyStopsPanel] Upsert result:', data);
         }
       } catch (e) {
         console.error('[NearbyStopsPanel] Error syncing stop:', e);
