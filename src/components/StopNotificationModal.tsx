@@ -147,41 +147,26 @@ export function StopNotificationModal({
         isUpdate: !!existing,
       });
 
-      if (existing) {
-        const { data: updateData, error: updateError } = await supabase
-          .from('stop_notification_subscriptions')
-          .update({
-            p256dh,
-            auth,
-            stop_notifications: pushNotifications as any,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('endpoint', subscription.endpoint)
-          .select();
+      // Use upsert instead of update/insert to handle both cases
+      const { data: upsertData, error: upsertError } = await supabase
+        .from('stop_notification_subscriptions')
+        .upsert({
+          endpoint: subscription.endpoint,
+          p256dh,
+          auth,
+          stop_notifications: pushNotifications as any,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'endpoint' })
+        .select();
 
-        if (updateError) {
-          console.error('[StopNotificationModal] Update error:', updateError);
-          console.error('[StopNotificationModal] Update error details:', JSON.stringify(updateError, null, 2));
-        } else {
-          console.log('[StopNotificationModal] ✅ Update successful:', updateData);
-        }
+      if (upsertError) {
+        console.error('[StopNotificationModal] ❌ Upsert error:', upsertError);
+        console.error('[StopNotificationModal] Upsert error details:', JSON.stringify(upsertError, null, 2));
+        console.error('[StopNotificationModal] Error code:', upsertError.code);
+        console.error('[StopNotificationModal] Error message:', upsertError.message);
       } else {
-        const { data: insertData, error: insertError } = await supabase
-          .from('stop_notification_subscriptions')
-          .insert([{
-            endpoint: subscription.endpoint,
-            p256dh,
-            auth,
-            stop_notifications: pushNotifications as any,
-          }])
-          .select();
-
-        if (insertError) {
-          console.error('[StopNotificationModal] Insert error:', insertError);
-          console.error('[StopNotificationModal] Insert error details:', JSON.stringify(insertError, null, 2));
-        } else {
-          console.log('[StopNotificationModal] ✅ Insert successful:', insertData);
-        }
+        console.log('[StopNotificationModal] ✅ Upsert successful:', upsertData);
+        console.log('[StopNotificationModal] Upsert result length:', upsertData?.length || 0);
       }
 
       // Call parent callback
