@@ -488,10 +488,28 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     return vehicle?.routeId || null;
   }, [followedVehicleId, vehicles]);
   
+  // Infer operator from route ID when selectedOperator is 'all'
+  const followedVehicleOperatorId = useMemo(() => {
+    if (selectedOperator !== 'all') return selectedOperator;
+    if (!followedVehicleRouteId) return undefined;
+    
+    // Route IDs have operator prefix: single digit (e.g., 1, 2) or double digit (e.g., 50, 15)
+    // Check for known double-digit operators first
+    const routeIdStr = String(followedVehicleRouteId);
+    const twoDigitPrefix = routeIdStr.substring(0, 2);
+    const knownTwoDigitOperators = ['10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '50'];
+    
+    if (knownTwoDigitOperators.includes(twoDigitPrefix)) {
+      return twoDigitPrefix;
+    }
+    // Otherwise use single digit
+    return routeIdStr.substring(0, 1);
+  }, [selectedOperator, followedVehicleRouteId]);
+  
   // Fetch route shape for followed vehicle
   const { data: followedRouteShapeData } = useRouteShape(
     followedVehicleRouteId,
-    selectedOperator !== 'all' ? selectedOperator : undefined
+    followedVehicleOperatorId
   );
   
   // Use followed vehicle's route shape when following, otherwise selected route
