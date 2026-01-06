@@ -96,6 +96,7 @@ export function NearbyStopsPanel({
   });
   const [showSettings, setShowSettings] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [isSyncingPush, setIsSyncingPush] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(70); // percentage of viewport height
   const [mobilePosition, setMobilePosition] = useState({ x: 0, y: 0 }); // for free dragging
@@ -291,6 +292,25 @@ export function NearbyStopsPanel({
       }));
     }
   }, [notificationSettings, ensurePushSubscription]);
+
+  // Manual sync push subscription
+  const handleSyncPush = useCallback(async () => {
+    setIsSyncingPush(true);
+    const success = await ensurePushSubscription();
+    setIsSyncingPush(false);
+    if (success) {
+      toast({
+        title: "✅ Συγχρονισμός επιτυχής",
+        description: "Το push subscription αποθηκεύτηκε στη βάση δεδομένων",
+      });
+    } else {
+      toast({
+        title: "❌ Αποτυχία συγχρονισμού",
+        description: "Ελέγξτε τα δικαιώματα ειδοποιήσεων",
+        variant: "destructive",
+      });
+    }
+  }, [ensurePushSubscription]);
 
   // Auto-sync push subscription when panel opens with push enabled
   useEffect(() => {
@@ -810,6 +830,24 @@ export function NearbyStopsPanel({
                   {notificationSettings.push && <span className="ml-auto text-green-400">✓</span>}
                 </button>
               </div>
+              
+              {/* Sync button for push */}
+              {notificationSettings.push && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={handleSyncPush}
+                  disabled={isSyncingPush}
+                >
+                  {isSyncingPush ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Bell className="h-4 w-4 mr-2" />
+                  )}
+                  Συγχρονισμός Push στη Βάση
+                </Button>
+              )}
             </div>
 
             {/* Distance settings */}
