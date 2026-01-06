@@ -4,7 +4,7 @@ import { toast } from '@/hooks/use-toast';
 import { setPushEndpoint } from '@/hooks/useSavedTrips';
 
 // VAPID public key for push notifications
-const VAPID_PUBLIC_KEY = 'BEm2RZO1u3EWq0uPcd4FN0WesVxXMh9jnOMf90XGfABjFwiJRU7LPHaY2RGfV2omEYrGBbhRHMMjtzdFXa9GmXA';
+const VAPID_PUBLIC_KEY = 'BNlIFS3RpWV16zeQx6sa5RxNW9-DxcbupCwL_rmjiqDtyCzzjN7rufJcu1Zpc2c1gQztiKXNXTfe-0OaSzEaQJY';
 
 function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
