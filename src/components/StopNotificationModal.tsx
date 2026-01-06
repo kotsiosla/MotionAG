@@ -252,17 +252,17 @@ export function StopNotificationModal({
                   <Switch checked={voice} onCheckedChange={setVoice} />
                 </div>
 
-                <div className="flex items-center justify-between py-2">
+                <div className="flex items-center justify-between py-2 bg-primary/5 -mx-1 px-3 rounded-lg border border-primary/20">
                   <div className="flex items-center gap-3">
                     <Send className={`h-4 w-4 ${push ? 'text-primary' : 'text-muted-foreground'}`} />
                     <div>
-                      <span className="text-sm">Push notification</span>
-                      {!pushSupported && (
-                        <p className="text-xs text-destructive flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" />
-                          Μη διαθέσιμο
-                        </p>
-                      )}
+                      <span className="text-sm font-medium">Push notification</span>
+                      <p className="text-xs text-muted-foreground">
+                        {pushSupported 
+                          ? "Λαμβάνετε ειδοποιήσεις ακόμα και με κλειστή εφαρμογή" 
+                          : "Μη διαθέσιμο σε αυτή τη συσκευή"
+                        }
+                      </p>
                     </div>
                   </div>
                   <Switch 
