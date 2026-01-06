@@ -45,17 +45,35 @@ export function useDelayNotifications(
     return false;
   }, []);
 
-  // Send browser notification
+  // Send browser notification with fallback
   const sendBrowserNotification = useCallback((delay: DelayNotification) => {
-    if (Notification.permission === 'granted') {
+    // Try Service Worker notification first (works better on mobile)
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then(registration => {
+        registration.showNotification('🚌 Καθυστέρηση Λεωφορείου', {
+          body: `${delay.routeName}: +${delay.delayMinutes} λεπτά καθυστέρηση`,
+          icon: '/pwa-192x192.png',
+          badge: '/pwa-192x192.png',
+          tag: `delay-${delay.routeId}`,
+          requireInteraction: false,
+        } as NotificationOptions);
+      }).catch(() => {
+        // Fallback to regular notification
+        if (Notification.permission === 'granted') {
+          new Notification('🚌 Καθυστέρηση Λεωφορείου', {
+            body: `${delay.routeName}: +${delay.delayMinutes} λεπτά καθυστέρηση`,
+            icon: '/pwa-192x192.png',
+            tag: `delay-${delay.routeId}`,
+          });
+        }
+      });
+    } else if (Notification.permission === 'granted') {
       const notification = new Notification('🚌 Καθυστέρηση Λεωφορείου', {
         body: `${delay.routeName}: +${delay.delayMinutes} λεπτά καθυστέρηση`,
-        icon: '/favicon.ico',
+        icon: '/pwa-192x192.png',
         tag: `delay-${delay.routeId}`,
         requireInteraction: false,
       });
-
-      // Auto close after 10 seconds
       setTimeout(() => notification.close(), 10000);
     }
   }, []);

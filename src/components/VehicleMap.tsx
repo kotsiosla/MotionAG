@@ -1613,8 +1613,13 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       ? routeNamesMap.get(routeIdToUse) 
       : selectedRouteInfo;
 
-    // If no route or no data, reset ref and exit
-    if ((!followedVehicleId && selectedRoute === 'all') || !shapeDataToUse) {
+    // If no route selected AND not following a vehicle, or no shape data, exit
+    if (!followedVehicleId && selectedRoute === 'all') {
+      lastDrawnRouteRef.current = null;
+      return;
+    }
+    
+    if (!shapeDataToUse) {
       lastDrawnRouteRef.current = null;
       return;
     }
@@ -1695,7 +1700,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       ? routeNamesMap.get(routeIdToUse) 
       : selectedRouteInfo;
 
-    // If no route or no data, exit
+    // If no route selected AND not following a vehicle, or no shape data, exit
     if ((!followedVehicleId && selectedRoute === 'all') || !shapeDataToUse) return;
 
     const routeColor = routeInfoToUse?.route_color || '0ea5e9';
@@ -1826,22 +1831,21 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
     if (followedVehicle?.latitude && followedVehicle?.longitude) {
       if (viewMode === 'street') {
-        // Use panTo for smooth following without zoom changes that cause shaking
         const currentZoom = mapRef.current.getZoom();
-        const targetZoom = Math.max(currentZoom, 17); // Don't zoom out, but allow staying at current zoom
         
-        // Check if we need to zoom first (initial follow)
+        // Initial follow - zoom in with animation
         if (currentZoom < 15) {
           mapRef.current.flyTo(
             [followedVehicle.latitude, followedVehicle.longitude],
-            targetZoom,
-            { animate: true, duration: 1.2, easeLinearity: 0.25 }
+            17,
+            { animate: true, duration: 1 }
           );
         } else {
-          // Smooth pan without zoom changes
-          mapRef.current.panTo(
+          // Continuous following - NO animation for instant response
+          mapRef.current.setView(
             [followedVehicle.latitude, followedVehicle.longitude],
-            { animate: true, duration: 0.5, easeLinearity: 0.5 }
+            currentZoom,
+            { animate: false }
           );
         }
       }
