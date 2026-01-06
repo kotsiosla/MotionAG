@@ -165,12 +165,31 @@ export function NearbyStopsPanel({
   }, [notificationSettings]);
 
   // Ensure push subscription exists and is synced to database
-  const ensurePushSubscription = useCallback(async () => {
+  const ensurePushSubscription = useCallback(async (silent: boolean = false) => {
     try {
       // Check support
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         console.log('[NearbyStopsPanel] Push not supported');
         return false;
+      }
+
+      // First, check if we already have a valid subscription in browser
+      const existingRegistration = await navigator.serviceWorker.getRegistration('/sw.js');
+      if (existingRegistration) {
+        const existingSub = await existingRegistration.pushManager.getSubscription();
+        if (existingSub) {
+          // Check if this subscription exists in database
+          const { data: dbSub } = await supabase
+            .from('stop_notification_subscriptions')
+            .select('id, endpoint')
+            .eq('endpoint', existingSub.endpoint)
+            .maybeSingle();
+          
+          if (dbSub) {
+            console.log('[NearbyStopsPanel] Already have valid subscription in DB');
+            return true; // Already subscribed, no need to do anything
+          }
+        }
       }
 
       // Request permission - handle iOS PWA differently
@@ -189,13 +208,15 @@ export function NearbyStopsPanel({
           console.log('[NearbyStopsPanel] iOS PWA - trying to proceed despite permission state');
           // On iOS PWA, try to proceed - if it fails, it will throw an error
         } else {
-          toast({
-            title: "⚠️ Απαιτείται άδεια",
-            description: isIOS() 
-              ? "Ανοίξτε Ρυθμίσεις → Ειδοποιήσεις → [Εφαρμογή] και ενεργοποιήστε τις ειδοποιήσεις"
-              : "Παρακαλώ επιτρέψτε τις ειδοποιήσεις",
-            variant: "destructive",
-          });
+          if (!silent) {
+            toast({
+              title: "⚠️ Απαιτείται άδεια",
+              description: isIOS() 
+                ? "Ανοίξτε Ρυθμίσεις → Ειδοποιήσεις → [Εφαρμογή] και ενεργοποιήστε τις ειδοποιήσεις"
+                : "Παρακαλώ επιτρέψτε τις ειδοποιήσεις",
+              variant: "destructive",
+            });
+          }
           return false;
         }
       }
