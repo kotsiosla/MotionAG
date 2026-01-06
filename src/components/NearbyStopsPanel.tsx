@@ -890,7 +890,52 @@ export function NearbyStopsPanel({
               </button>
             </div>
 
-            {/* Distance slider */}
+            {/* Extra notification types - shown when push is on */}
+            {notificationSettings.push && (
+              <div className="flex gap-2">
+                <button
+                  className={`flex-1 h-9 text-xs flex items-center justify-center gap-1.5 rounded-md border transition-all ${
+                    notificationSettings.sound 
+                      ? 'bg-green-500/20 border-green-500 text-green-400' 
+                      : 'bg-muted/30 border-muted-foreground/20 text-muted-foreground'
+                  }`}
+                  onClick={() => toggleNotificationSetting('sound')}
+                >
+                  <Volume2 className="h-3.5 w-3.5" />
+                  Ήχος
+                </button>
+                <button
+                  className={`flex-1 h-9 text-xs flex items-center justify-center gap-1.5 rounded-md border transition-all ${
+                    notificationSettings.vibration 
+                      ? 'bg-green-500/20 border-green-500 text-green-400' 
+                      : 'bg-muted/30 border-muted-foreground/20 text-muted-foreground'
+                  }`}
+                  onClick={() => toggleNotificationSetting('vibration')}
+                >
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <rect x="5" y="2" width="14" height="20" rx="2" />
+                    <path d="M2 8v8M22 8v8" strokeLinecap="round" />
+                  </svg>
+                  Δόνηση
+                </button>
+                <button
+                  className={`flex-1 h-9 text-xs flex items-center justify-center gap-1.5 rounded-md border transition-all ${
+                    notificationSettings.voice 
+                      ? 'bg-green-500/20 border-green-500 text-green-400' 
+                      : 'bg-muted/30 border-muted-foreground/20 text-muted-foreground'
+                  }`}
+                  onClick={() => toggleNotificationSetting('voice')}
+                >
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
+                  </svg>
+                  Φωνή
+                </button>
+              </div>
+            )}
+
+            {/* Distance settings */}
             {notificationSettings.push && (
               <div>
                 <div className="flex items-center justify-between mb-2">
