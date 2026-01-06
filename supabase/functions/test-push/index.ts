@@ -50,20 +50,25 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get all subscriptions from stop_notification_subscriptions
-    const { data: subscriptions, error: fetchError } = await supabase
+    // Get subscriptions from BOTH tables
+    const { data: stopSubs, error: stopError } = await supabase
       .from('stop_notification_subscriptions')
       .select('endpoint, p256dh, auth');
 
-    if (fetchError) {
-      console.error('Error fetching subscriptions:', fetchError);
-      return new Response(JSON.stringify({ error: 'Failed to fetch subscriptions' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const { data: pushSubs, error: pushError } = await supabase
+      .from('push_subscriptions')
+      .select('endpoint, p256dh, auth');
 
-    console.log(`Found ${subscriptions?.length || 0} subscriptions`);
+    if (stopError) console.error('Error fetching stop subscriptions:', stopError);
+    if (pushError) console.error('Error fetching push subscriptions:', pushError);
+
+    // Merge subscriptions, avoiding duplicates by endpoint
+    const allSubs = [...(stopSubs || []), ...(pushSubs || [])];
+    const uniqueEndpoints = new Map();
+    allSubs.forEach(sub => uniqueEndpoints.set(sub.endpoint, sub));
+    const subscriptions = Array.from(uniqueEndpoints.values());
+
+    console.log(`Found ${stopSubs?.length || 0} stop subs, ${pushSubs?.length || 0} push subs, ${subscriptions.length} unique total`);
 
     if (!subscriptions || subscriptions.length === 0) {
       return new Response(JSON.stringify({ sent: 0, message: 'No subscriptions found' }), {
