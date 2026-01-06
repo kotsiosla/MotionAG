@@ -32,9 +32,39 @@ const notifiedArrivals = new Map<string, { timestamp: number; arrivalTime: numbe
 
 // Audio context for notification sounds
 let audioContext: AudioContext | null = null;
+let audioUnlocked = false;
+
+// iOS Audio unlock - must be called from user interaction
+export const unlockAudio = () => {
+  if (audioUnlocked) return;
+  
+  try {
+    // Create silent audio context to unlock
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    
+    // Resume if suspended (iOS requirement)
+    if (audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+    
+    // Play a silent buffer to unlock
+    const buffer = audioContext.createBuffer(1, 1, 22050);
+    const source = audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioContext.destination);
+    source.start(0);
+    
+    audioUnlocked = true;
+    console.log('[Audio] iOS audio unlocked');
+  } catch (e) {
+    console.log('[Audio] Could not unlock audio:', e);
+  }
+};
 
 // Speak text using Web Speech API
-const speak = (text: string) => {
+export const speak = (text: string) => {
   if ('speechSynthesis' in window) {
     // Cancel any ongoing speech
     speechSynthesis.cancel();
@@ -49,52 +79,99 @@ const speak = (text: string) => {
 };
 
 // Play notification sound - more urgent as time approaches
-const playSound = (urgency: 'low' | 'medium' | 'high' = 'medium') => {
+export const playSound = (urgency: 'low' | 'medium' | 'high' = 'medium') => {
   try {
+    // Try Web Audio API first
     if (!audioContext) {
       audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     
-    const baseFreq = urgency === 'high' ? 1000 : urgency === 'medium' ? 800 : 600;
-    const beepCount = urgency === 'high' ? 3 : urgency === 'medium' ? 2 : 1;
-    
-    for (let i = 0; i < beepCount; i++) {
-      setTimeout(() => {
-        const oscillator = audioContext!.createOscillator();
-        const gainNode = audioContext!.createGain();
+    // Resume audio context if suspended (iOS)
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().then(() => {
+        console.log('[Audio] AudioContext resumed');
+        playSoundWithContext(audioContext!, urgency);
+      });
+    } else {
+      playSoundWithContext(audioContext, urgency);
+    }
+  } catch (error) {
+    console.error('[Audio] Error playing sound:', error);
+    // Fallback: try HTML5 Audio with a simple beep URL
+    playFallbackSound(urgency);
+  }
+};
+
+const playSoundWithContext = (ctx: AudioContext, urgency: 'low' | 'medium' | 'high') => {
+  const baseFreq = urgency === 'high' ? 1000 : urgency === 'medium' ? 800 : 600;
+  const beepCount = urgency === 'high' ? 3 : urgency === 'medium' ? 2 : 1;
+  
+  for (let i = 0; i < beepCount; i++) {
+    setTimeout(() => {
+      try {
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
         
         oscillator.connect(gainNode);
-        gainNode.connect(audioContext!.destination);
+        gainNode.connect(ctx.destination);
         
         oscillator.frequency.value = baseFreq + (i * 100);
         oscillator.type = 'sine';
         
-        gainNode.gain.setValueAtTime(0.4, audioContext!.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext!.currentTime + 0.3);
+        gainNode.gain.setValueAtTime(0.5, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
         
-        oscillator.start(audioContext!.currentTime);
-        oscillator.stop(audioContext!.currentTime + 0.3);
-      }, i * 200);
-    }
-  } catch (error) {
-    console.error('Error playing sound:', error);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.3);
+      } catch (e) {
+        console.error('[Audio] Error creating oscillator:', e);
+      }
+    }, i * 200);
   }
 };
 
-// Vibrate device - pattern based on urgency (Note: Not supported on iOS Safari)
-const vibrate = (urgency: 'low' | 'medium' | 'high' = 'medium') => {
+// Fallback audio for iOS when AudioContext doesn't work
+const playFallbackSound = (urgency: 'low' | 'medium' | 'high') => {
+  // Generate a data URI for a short beep (WAV format)
+  const beepCount = urgency === 'high' ? 3 : urgency === 'medium' ? 2 : 1;
+  
+  for (let i = 0; i < beepCount; i++) {
+    setTimeout(() => {
+      try {
+        // Use a simple audio element with base64 encoded beep
+        const audio = new Audio();
+        // Short sine wave beep as data URI
+        audio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQg6l9PCqYhMOq+7l4xiLm7Sw8FnHQMqpd3wgiwCJYjj9rVRAnXL/dZJBQBzyv7UUAdtt/vPXAsqfOb61FgGOobx/M1PDFqR7/20SBR1mvP9rj0Yb5/49qQrHHem+/qXIx51r/76jBYle7789IANMorr+e1nAkqU5/rmWwBUl+f74lMEXZnq/tlKCWmb7P/TPhBxoPL/yjMVeqf1/8YmGH6v+P/BHxyFtvr/uhYhir78/7IPJo/A/v+pCyuUxv//nAYwmcv//44CNp7Q//+BATuh1f//cwE+ptv/+2MARKvg//dTAkqw5f/ySgNPs+n/7UEEVLbt/+g4BVq58P/jMAZfvPP/3ygHZL/2/9kgCWnC+P/VGApuwfr/0RAMcr/8/8wJDnW9/f/IARN3uv7/xAEWebr//78BF3q5//+8AB56uf//uQAhfLn//7UAJH65//+yACd/uv//sAApgLr//68ALIC5//+uAC6Auf//rQAwgbn//6wAMoG5//+rADSBuf//qgA2gbr//6kAOIK6//+oADqCuv//qAA8grr//6cAPYO6//+mAD+Du///pgBBg7v//6UAQ4S7//+kAESEu///pABGhLv//6MASISbm5ubm5trbW9vcHBva2pqampnZWRiYF5cWldVU1BOTEM/Ozk3NDIwLSwpJyQhHx0aGBUSEA4MCggGBAIAAQMFBwkLDQ8RExUXGRsdHyEkJiopLC4wMjQ2ODo8P0FFR0tOUFRXWV1gYmRmZ2lrbG1ub29wcG9ubWxqaGVhXVhTTkdAOTIrJB0XEQsGAQD/';
+        audio.volume = 0.7;
+        audio.play().catch(e => console.log('[Audio] Fallback play failed:', e));
+      } catch (e) {
+        console.log('[Audio] Fallback audio failed:', e);
+      }
+    }, i * 300);
+  }
+};
+
+// Vibrate device - pattern based on urgency
+// Note: NOT supported on iOS Safari - there is no workaround for this
+export const vibrate = (urgency: 'low' | 'medium' | 'high' = 'medium') => {
+  // Check if vibration is actually supported
+  if (!('vibrate' in navigator) || typeof navigator.vibrate !== 'function') {
+    console.log('[Vibration] Not supported on this device (iOS does not support vibration API)');
+    return false;
+  }
+  
   try {
-    if ('vibrate' in navigator && typeof navigator.vibrate === 'function') {
-      const patterns = {
-        low: [200],
-        medium: [200, 100, 200],
-        high: [200, 100, 200, 100, 300, 100, 300],
-      };
-      navigator.vibrate(patterns[urgency]);
-    }
+    const patterns = {
+      low: [200],
+      medium: [200, 100, 200],
+      high: [200, 100, 200, 100, 300, 100, 300],
+    };
+    const result = navigator.vibrate(patterns[urgency]);
+    console.log('[Vibration] Triggered:', result);
+    return result;
   } catch (error) {
-    // Vibration not supported (e.g., iOS)
-    console.log('[Notification] Vibration not supported on this device');
+    console.log('[Vibration] Error:', error);
+    return false;
   }
 };
 
