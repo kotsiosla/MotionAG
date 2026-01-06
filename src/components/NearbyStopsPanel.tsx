@@ -164,9 +164,9 @@ export function NearbyStopsPanel({
     localStorage.setItem('nearbyNotificationSettings', JSON.stringify(notificationSettings));
   }, [notificationSettings]);
 
-  // Update push subscription when nearest stop changes
+  // Update push subscription when nearest stop changes - ADD to existing stops, don't replace
   useEffect(() => {
-    const updateNearestStopInDB = async () => {
+    const addStopToNotifications = async () => {
       console.log('[NearbyStopsPanel] Update check - nearestStop:', nearestStop?.stop_id, 'push:', notificationSettings.push);
       
       if (!nearestStop || !notificationSettings.push) {
@@ -194,10 +194,28 @@ export function NearbyStopsPanel({
           return;
         }
 
-        console.log('[NearbyStopsPanel] Updating DB with stop:', nearestStop.stop_id, nearestStop.stop_name);
+        // First, get existing stop notifications from database
+        const { data: existing } = await supabase
+          .from('stop_notification_subscriptions')
+          .select('stop_notifications')
+          .eq('endpoint', subscription.endpoint)
+          .maybeSingle();
 
-        // Update the stop settings in database with actual stop ID
-        const stopSettings = [{
+        // Get existing stops or empty array
+        let existingStops: any[] = Array.isArray(existing?.stop_notifications) 
+          ? existing.stop_notifications 
+          : [];
+        
+        // Check if this stop already exists
+        const stopExists = existingStops.some((s: any) => s.stopId === nearestStop.stop_id);
+        
+        if (stopExists) {
+          console.log('[NearbyStopsPanel] Stop already in notifications:', nearestStop.stop_id);
+          return;
+        }
+
+        // Create new stop settings
+        const newStop = {
           stopId: nearestStop.stop_id,
           stopName: nearestStop.stop_name,
           enabled: true,
@@ -206,28 +224,37 @@ export function NearbyStopsPanel({
           voice: notificationSettings.voice,
           push: true,
           beforeMinutes: Math.round(notificationDistance / 100),
-        }];
+        };
+
+        // Add new stop to existing stops
+        const updatedStops = [...existingStops, newStop];
+
+        console.log('[NearbyStopsPanel] Adding stop to notifications:', nearestStop.stop_id, 'Total:', updatedStops.length);
 
         const { error, data } = await supabase
           .from('stop_notification_subscriptions')
           .update({
-            stop_notifications: stopSettings as any,
+            stop_notifications: updatedStops as any,
             updated_at: new Date().toISOString(),
           })
           .eq('endpoint', subscription.endpoint)
           .select();
 
         if (error) {
-          console.error('[NearbyStopsPanel] Failed to update nearest stop:', error);
+          console.error('[NearbyStopsPanel] Failed to add stop:', error);
         } else {
-          console.log('[NearbyStopsPanel] ✅ Updated nearest stop to:', nearestStop.stop_id, 'result:', data);
+          console.log('[NearbyStopsPanel] ✅ Added stop:', nearestStop.stop_id, 'Total stops:', updatedStops.length);
+          toast({
+            title: "🔔 Στάση προστέθηκε",
+            description: `${nearestStop.stop_name} - ${updatedStops.length} στάσεις συνολικά`,
+          });
         }
       } catch (e) {
-        console.error('[NearbyStopsPanel] Error updating nearest stop:', e);
+        console.error('[NearbyStopsPanel] Error adding stop:', e);
       }
     };
 
-    updateNearestStopInDB();
+    addStopToNotifications();
   }, [nearestStop?.stop_id, notificationSettings.push, notificationSettings.sound, notificationSettings.vibration, notificationSettings.voice, notificationDistance]);
 
   // Ensure push subscription exists and is synced to database
