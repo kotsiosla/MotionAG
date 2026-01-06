@@ -2159,6 +2159,17 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         >
           <Route className="h-3.5 w-3.5" />
         </Button>
+
+        {/* Stops toggle button */}
+        <Button
+          variant="secondary"
+          size="icon"
+          className={`h-8 w-8 rounded-full shadow-md transition-all duration-150 active:scale-90 ${showStops ? 'bg-orange-500 text-white hover:bg-orange-600' : 'bg-card/90 backdrop-blur-sm hover:bg-card hover:scale-105'}`}
+          onClick={() => setShowStops(!showStops)}
+          title={showStops ? `Απόκρυψη στάσεων (${stops.length})` : `Εμφάνιση στάσεων (${stops.length})`}
+        >
+          <MapPin className="h-3.5 w-3.5" />
+        </Button>
         
         <Button
           variant="secondary"
