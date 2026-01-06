@@ -49,6 +49,9 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
   
   // Professional bus marker for followed/selected vehicles - with rotation
   if (isOnSelectedRoute || isFollowed) {
+    const markerSize = isFollowed ? 44 : 36;
+    const labelSize = isFollowed ? '12px' : '10px';
+    
     return L.divIcon({
       className: 'route-vehicle-marker',
       html: `
@@ -62,34 +65,43 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
             <div style="
               background: ${bgColor};
               color: white;
-              font-size: 10px;
+              font-size: ${labelSize};
               font-weight: 700;
-              padding: 2px 5px;
-              border-radius: 3px;
-              margin-bottom: 1px;
+              padding: 3px 6px;
+              border-radius: 4px;
+              margin-bottom: 2px;
               white-space: nowrap;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-              border: 1px solid rgba(255,255,255,0.4);
+              box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+              border: 2px solid white;
+              z-index: 10;
             ">${routeShortName}</div>
           ` : ''}
           <div style="
             transform: rotate(${rotation}deg);
-            width: 32px;
-            height: 32px;
+            width: ${markerSize}px;
+            height: ${markerSize}px;
+            background: ${bgColor};
+            border-radius: 50% 50% 50% 0;
+            transform-origin: center center;
+            transform: rotate(${rotation - 45}deg);
             display: flex;
             align-items: center;
             justify-content: center;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+            box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+            border: 3px solid white;
           ">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="${bgColor}" stroke="white" stroke-width="1">
-              <path d="M12 2L4 8v8l8 6 8-6V8l-8-6z"/>
-              <circle cx="12" cy="8" r="2" fill="white"/>
+            <svg xmlns="http://www.w3.org/2000/svg" width="${markerSize * 0.5}" height="${markerSize * 0.5}" viewBox="0 0 24 24" fill="white" stroke="none" style="transform: rotate(${45 - rotation}deg);">
+              <rect x="4" y="4" width="16" height="14" rx="3"/>
+              <rect x="6" y="6" width="5" height="4" rx="1" fill="${bgColor}"/>
+              <rect x="13" y="6" width="5" height="4" rx="1" fill="${bgColor}"/>
+              <circle cx="7" cy="18" r="2"/>
+              <circle cx="17" cy="18" r="2"/>
             </svg>
           </div>
         </div>
       `,
-      iconSize: [36, routeShortName ? 52 : 36],
-      iconAnchor: [18, routeShortName ? 52 : 18],
+      iconSize: [markerSize + 8, routeShortName ? markerSize + 30 : markerSize + 8],
+      iconAnchor: [(markerSize + 8) / 2, routeShortName ? markerSize + 30 : markerSize + 8],
     });
   }
   
