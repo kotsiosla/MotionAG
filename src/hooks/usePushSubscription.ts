@@ -203,9 +203,20 @@ export function usePushSubscription() {
     } catch (error: any) {
       console.error('Error subscribing to push:', error);
       console.error('Error details:', error?.message, error?.code, error?.name);
+      
+      // Determine specific error message
+      let errorMessage = 'Αποτυχία εγγραφής για ειδοποιήσεις';
+      if (error?.message?.includes('permission') || error?.name === 'NotAllowedError') {
+        errorMessage = 'Πρέπει να επιτρέψετε τις ειδοποιήσεις στις ρυθμίσεις του browser';
+      } else if (error?.code === '42501' || error?.message?.includes('RLS')) {
+        errorMessage = 'Σφάλμα βάσης δεδομένων - παρακαλώ δοκιμάστε ξανά';
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: 'Σφάλμα',
-        description: error?.message || 'Αποτυχία εγγραφής για ειδοποιήσεις',
+        description: errorMessage,
         variant: 'destructive',
       });
       return false;
