@@ -798,12 +798,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
     vehicleMarkersRef.current = L.markerClusterGroup({
       chunkedLoading: true,
-      spiderfyOnMaxZoom: false, // Disable spider animation
+      spiderfyOnMaxZoom: false,
       showCoverageOnHover: false,
       maxClusterRadius: 50,
-      zoomToBoundsOnClick: true, // Zoom in instead of spiderfy
-      animate: true,
-      animateAddingMarkers: false, // Disable adding animation for performance
+      zoomToBoundsOnClick: true,
+      animate: false, // Disable all cluster animations
+      animateAddingMarkers: false,
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
         const size = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
@@ -819,12 +819,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
     stopMarkersRef.current = L.markerClusterGroup({
       chunkedLoading: true,
-      spiderfyOnMaxZoom: false, // Disable spider animation
+      spiderfyOnMaxZoom: false,
       showCoverageOnHover: false,
       maxClusterRadius: 60,
       disableClusteringAtZoom: 15,
-      zoomToBoundsOnClick: true, // Zoom in instead of spiderfy
-      animate: true,
+      zoomToBoundsOnClick: true,
+      animate: false, // Disable all cluster animations
       animateAddingMarkers: false,
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
