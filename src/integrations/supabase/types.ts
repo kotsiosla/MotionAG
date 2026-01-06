@@ -95,6 +95,39 @@ export type Database = {
         }
         Relationships: []
       }
+      stop_notification_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_notified: Json | null
+          p256dh: string
+          stop_notifications: Json | null
+          updated_at: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_notified?: Json | null
+          p256dh: string
+          stop_notifications?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_notified?: Json | null
+          p256dh?: string
+          stop_notifications?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
