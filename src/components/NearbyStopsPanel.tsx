@@ -552,7 +552,7 @@ export function NearbyStopsPanel({
           console.error('[NearbyStopsPanel] ❌ Supabase key is missing!');
           console.error('[NearbyStopsPanel] Please set VITE_SUPABASE_PUBLISHABLE_KEY in .env or run:');
           console.error('[NearbyStopsPanel] localStorage.setItem("supabase_anon_key", "YOUR_KEY")');
-          console.error('[NearbyStopsPanel] Get key from: https://supabase.com/dashboard/project/mhlyndipnpwpcydjukig/settings/api');
+          console.error('[NearbyStopsPanel] Get key from: https://supabase.com/dashboard/project/jftthfniwfarxyisszjh/settings/api');
           toast({
             title: "❌ Supabase Key Missing",
             description: "Please set VITE_SUPABASE_PUBLISHABLE_KEY. Check console for details.",

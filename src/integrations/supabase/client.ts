@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
 // Fallback to hardcoded values if env vars are missing (for development)
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://mhlyndipnpwpcydjukig.supabase.co';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://jftthfniwfarxyisszjh.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || (() => {
   // Try to get from localStorage (if user has set it manually)
   if (typeof window !== 'undefined') {
@@ -28,7 +28,7 @@ if (typeof window !== 'undefined') {
     console.error('[Supabase Client] ❌ VITE_SUPABASE_PUBLISHABLE_KEY is missing!');
     console.error('[Supabase Client] Please set it in .env file or run:');
     console.error('[Supabase Client] localStorage.setItem("supabase_anon_key", "YOUR_KEY_HERE")');
-    console.error('[Supabase Client] Get your key from: https://supabase.com/dashboard/project/mhlyndipnpwpcydjukig/settings/api');
+    console.error('[Supabase Client] Get your key from: https://supabase.com/dashboard/project/jftthfniwfarxyisszjh/settings/api');
   }
 }
 
