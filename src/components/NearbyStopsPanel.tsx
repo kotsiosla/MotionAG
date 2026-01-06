@@ -868,104 +868,59 @@ export function NearbyStopsPanel({
         </div>
       </div>
 
-      {/* Settings */}
+      {/* Simplified Settings */}
       <Collapsible open={showSettings} onOpenChange={setShowSettings}>
         <CollapsibleContent className="p-3 border-b border-border bg-muted/50">
           <div className="space-y-3">
-            {/* Notification types */}
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">Τύποι ειδοποίησης:</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  className={`h-10 text-xs flex items-center justify-start px-3 rounded-md border-2 transition-all ${
-                    notificationSettings.sound 
-                      ? 'bg-green-500/20 border-green-500 text-green-400' 
-                      : 'bg-muted/30 border-muted-foreground/20 text-muted-foreground'
-                  }`}
-                  onClick={() => toggleNotificationSetting('sound')}
-                >
-                  <div className={`w-5 h-5 rounded-full mr-2 flex items-center justify-center ${
-                    notificationSettings.sound ? 'bg-green-500' : 'bg-muted-foreground/30'
-                  }`}>
-                    <Volume2 className="h-3 w-3 text-white" />
-                  </div>
-                  <span className="font-medium">Ήχος</span>
-                  {notificationSettings.sound && <span className="ml-auto text-green-400">✓</span>}
-                </button>
-                <button
-                  className={`h-10 text-xs flex items-center justify-start px-3 rounded-md border-2 transition-all ${
-                    notificationSettings.vibration 
-                      ? 'bg-green-500/20 border-green-500 text-green-400' 
-                      : 'bg-muted/30 border-muted-foreground/20 text-muted-foreground'
-                  }`}
-                  onClick={() => toggleNotificationSetting('vibration')}
-                >
-                  <div className={`w-5 h-5 rounded-full mr-2 flex items-center justify-center ${
-                    notificationSettings.vibration ? 'bg-green-500' : 'bg-muted-foreground/30'
-                  }`}>
-                    <svg className="h-3 w-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <rect x="5" y="2" width="14" height="20" rx="2" />
-                      <path d="M2 8v8M22 8v8" strokeLinecap="round" />
-                    </svg>
-                  </div>
-                  <span className="font-medium">Δόνηση</span>
-                  {notificationSettings.vibration && <span className="ml-auto text-green-400">✓</span>}
-                </button>
-                <button
-                  className={`h-10 text-xs flex items-center justify-start px-3 rounded-md border-2 transition-all ${
-                    notificationSettings.voice 
-                      ? 'bg-green-500/20 border-green-500 text-green-400' 
-                      : 'bg-muted/30 border-muted-foreground/20 text-muted-foreground'
-                  }`}
-                  onClick={() => toggleNotificationSetting('voice')}
-                >
-                  <div className={`w-5 h-5 rounded-full mr-2 flex items-center justify-center ${
-                    notificationSettings.voice ? 'bg-green-500' : 'bg-muted-foreground/30'
-                  }`}>
-                    <svg className="h-3 w-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                      <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
-                    </svg>
-                  </div>
-                  <span className="font-medium">Φωνή</span>
-                  {notificationSettings.voice && <span className="ml-auto text-green-400">✓</span>}
-                </button>
-                <button
-                  className={`h-10 text-xs flex items-center justify-start px-3 rounded-md border-2 transition-all ${
-                    notificationSettings.push 
-                      ? 'bg-green-500/20 border-green-500 text-green-400' 
-                      : 'bg-muted/30 border-muted-foreground/20 text-muted-foreground'
-                  }`}
-                  onClick={() => toggleNotificationSetting('push')}
-                >
-                  <div className={`w-5 h-5 rounded-full mr-2 flex items-center justify-center ${
-                    notificationSettings.push ? 'bg-green-500' : 'bg-muted-foreground/30'
-                  }`}>
-                    <Bell className="h-3 w-3 text-white" />
-                  </div>
-                  <span className="font-medium">Push</span>
-                  {notificationSettings.push && <span className="ml-auto text-green-400">✓</span>}
-                </button>
+            {/* Push notification toggle */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell className={`h-4 w-4 ${notificationSettings.push ? 'text-green-500' : 'text-muted-foreground'}`} />
+                <span className="text-sm font-medium">Push Ειδοποιήσεις</span>
               </div>
+              <button
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  notificationSettings.push ? 'bg-green-500' : 'bg-muted-foreground/30'
+                }`}
+                onClick={() => toggleNotificationSetting('push')}
+              >
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                  notificationSettings.push ? 'translate-x-7' : 'translate-x-1'
+                }`} />
+              </button>
             </div>
 
-            {/* Distance settings */}
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">Ειδοποίηση όταν το λεωφορείο είναι σε:</p>
-              <div className="flex flex-wrap gap-1">
-                {[200, 300, 500, 750, 1000, 2000].map(dist => (
-                  <Button
-                    key={dist}
-                    variant={notificationDistance === dist ? "default" : "outline"}
-                    size="sm"
-                    className="h-7 text-xs px-2"
-                    onClick={() => setNotificationDistance(dist)}
-                  >
-                    {dist < 1000 ? `${dist}μ` : `${dist/1000}χλμ`}
-                  </Button>
-                ))}
+            {/* Distance slider */}
+            {notificationSettings.push && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-muted-foreground">Ειδοποίηση όταν το λεωφορείο είναι σε:</span>
+                  <span className="text-sm font-bold text-primary">
+                    {notificationDistance < 1000 ? `${notificationDistance}μ` : `${notificationDistance/1000}χλμ`}
+                  </span>
+                </div>
+                <div className="flex gap-1">
+                  {[200, 500, 1000, 2000].map(dist => (
+                    <Button
+                      key={dist}
+                      variant={notificationDistance === dist ? "default" : "outline"}
+                      size="sm"
+                      className="flex-1 h-8 text-xs"
+                      onClick={() => setNotificationDistance(dist)}
+                    >
+                      {dist < 1000 ? `${dist}μ` : `${dist/1000}χλμ`}
+                    </Button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {notificationSettings.push && nearestStop && (
+              <p className="text-xs text-green-500 flex items-center gap-1">
+                <span>✓</span>
+                Ενεργό για: {nearestStop.stop_name}
+              </p>
+            )}
           </div>
         </CollapsibleContent>
       </Collapsible>
