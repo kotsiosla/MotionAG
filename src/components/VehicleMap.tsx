@@ -215,8 +215,8 @@ const snapToRouteLine = (
     }
   }
   
-  // Only snap if within ~50 meters of the route
-  const thresholdSq = Math.pow(0.0005, 2); // ~50m
+  // Only snap if within ~200 meters of the route (increased for GPS inaccuracy)
+  const thresholdSq = Math.pow(0.002, 2); // ~200m
   if (minDistance > thresholdSq) return null;
   
   return { ...closestPoint, bearing, index: closestIndex };
