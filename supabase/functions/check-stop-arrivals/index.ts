@@ -26,6 +26,52 @@ interface StopSubscription {
   last_notified: Record<string, number>;
 }
 
+// Send push notification - simplified version
+async function sendPushNotification(
+  endpoint: string,
+  _p256dh: string,
+  _auth: string,
+  payload: string,
+  vapidPublicKey: string,
+  _vapidPrivateKey: string
+): Promise<{ success: boolean; statusCode?: number; error?: string }> {
+  try {
+    const url = new URL(endpoint);
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'TTL': '86400',
+      'Urgency': 'high',
+    };
+
+    if (endpoint.includes('fcm.googleapis.com') || endpoint.includes('push.services.mozilla.com')) {
+      headers['Authorization'] = `key=${vapidPublicKey.substring(0, 40)}`;
+    }
+
+    console.log(`Attempting push to: ${url.hostname}`);
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: payload,
+    });
+
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      console.log(`Push failed with status ${response.status}: ${responseText}`);
+      return { success: false, statusCode: response.status, error: responseText };
+    }
+
+    console.log(`Push succeeded with status ${response.status}`);
+    return { success: true, statusCode: response.status };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Push network error:', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -46,18 +92,6 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    // Fetch GTFS trip updates to get real-time arrivals
-    const gtfsResponse = await fetch('https://transitfeeds.com/api/proxy?apiKey=bda6c6c0-7f75-4c59-99c6-e8b6c6f3d56b&feedId=1040&type=tripUpdates', {
-      headers: { 'Accept': 'application/x-protobuf' }
-    }).catch(() => null);
-
-    if (!gtfsResponse || !gtfsResponse.ok) {
-      console.log('Could not fetch GTFS data');
-      return new Response(JSON.stringify({ checked: 0, sent: 0, error: 'GTFS unavailable' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
     // Get all subscriptions with stop notifications
     const { data: subscriptions, error: subError } = await supabase
@@ -82,12 +116,11 @@ serve(async (req) => {
 
     console.log(`Checking ${subscriptions.length} subscriptions for stop arrivals`);
 
-    // Parse GTFS data (simplified - in production use proper protobuf parsing)
-    const tripUpdates: any[] = [];
+    // Fetch trip updates from gtfs-proxy
+    let tripUpdates: unknown[] = [];
     
     try {
-      // Use the gtfs-proxy function instead for parsed data
-      const proxyResponse = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy?type=tripUpdates&operator=all`, {
+      const proxyResponse = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/trips?operator=all`, {
         headers: {
           'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
         }
@@ -95,99 +128,105 @@ serve(async (req) => {
       
       if (proxyResponse.ok) {
         const proxyData = await proxyResponse.json();
-        if (proxyData.data) {
-          tripUpdates.push(...proxyData.data);
+        if (proxyData.data && Array.isArray(proxyData.data)) {
+          tripUpdates = proxyData.data;
+          console.log(`Got ${tripUpdates.length} trip updates from gtfs-proxy`);
         }
+      } else {
+        console.log('gtfs-proxy returned:', proxyResponse.status);
       }
     } catch (e) {
       console.error('Error fetching from gtfs-proxy:', e);
     }
 
+    if (tripUpdates.length === 0) {
+      console.log('No trip updates available');
+      return new Response(JSON.stringify({ checked: subscriptions.length, sent: 0, reason: 'no_trips' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const nowSeconds = Math.floor(Date.now() / 1000);
     const notificationsSent: string[] = [];
-
-    // Import web-push
-    const { default: webpush } = await import('https://esm.sh/web-push@3.6.7');
-    
-    webpush.setVapidDetails(
-      'mailto:noreply@motionbus.cy',
-      VAPID_PUBLIC_KEY,
-      VAPID_PRIVATE_KEY
-    );
 
     // Check each subscription
     for (const sub of subscriptions as StopSubscription[]) {
       const stopSettings = sub.stop_notifications || [];
-      const enabledSettings = stopSettings.filter(s => s.enabled && s.push);
+      const enabledSettings = Array.isArray(stopSettings) 
+        ? stopSettings.filter(s => s && s.enabled && s.push)
+        : [];
       
       if (enabledSettings.length === 0) continue;
 
       const lastNotified = sub.last_notified || {};
 
       for (const settings of enabledSettings) {
-        // Find arrivals at this stop
-        for (const trip of tripUpdates) {
-          if (!trip.stopTimeUpdates) continue;
+        for (const trip of tripUpdates as Record<string, unknown>[]) {
+          const stopTimeUpdates = (trip.stopTimeUpdates || trip.stop_time_updates || []) as Record<string, unknown>[];
+          if (!Array.isArray(stopTimeUpdates)) continue;
 
-          for (const stu of trip.stopTimeUpdates) {
-            if (stu.stopId !== settings.stopId || !stu.arrivalTime) continue;
+          for (const stu of stopTimeUpdates) {
+            const stuStopId = stu.stopId || stu.stop_id;
+            const arrival = stu.arrival as Record<string, unknown> | undefined;
+            const arrivalTime = (stu.arrivalTime || stu.arrival_time || (arrival && arrival.time)) as number | undefined;
+            
+            if (stuStopId !== settings.stopId || !arrivalTime) continue;
 
-            const secondsUntil = stu.arrivalTime - nowSeconds;
+            const secondsUntil = arrivalTime - nowSeconds;
             const minutesUntil = Math.round(secondsUntil / 60);
 
-            // Check if within notification window
             if (minutesUntil > 0 && minutesUntil <= settings.beforeMinutes) {
-              const notifKey = `${settings.stopId}-${trip.routeId}-${Math.floor(stu.arrivalTime / 60)}`;
+              const routeId = (trip.routeId || trip.route_id || 'unknown') as string;
+              const notifKey = `${settings.stopId}-${routeId}-${Math.floor(arrivalTime / 60)}`;
               const lastNotifTime = lastNotified[notifKey] || 0;
               
-              // Only notify once per arrival (with 2 minute grace period)
               if (nowSeconds - lastNotifTime < 120) continue;
 
-              // Send push notification
               try {
                 const urgencyEmoji = minutesUntil <= 1 ? '🚨' : minutesUntil <= 2 ? '⚠️' : '🚌';
-                const routeName = trip.routeShortName || trip.routeId || 'Λεωφορείο';
+                const routeName = (trip.routeShortName || trip.route_short_name || routeId) as string;
 
                 const payload = JSON.stringify({
                   title: `${urgencyEmoji} ${routeName} σε ${minutesUntil}'`,
                   body: `Φτάνει στη στάση "${settings.stopName}"`,
                   icon: '/pwa-192x192.png',
                   url: `/?stop=${settings.stopId}`,
-                  tag: `arrival-${settings.stopId}-${trip.routeId}`,
+                  tag: `arrival-${settings.stopId}-${routeId}`,
                   vibrate: [200, 100, 200, 100, 200],
                   requireInteraction: minutesUntil <= 2,
                 });
 
-                const subscription = {
-                  endpoint: sub.endpoint,
-                  keys: {
-                    p256dh: sub.p256dh,
-                    auth: sub.auth,
-                  },
-                };
+                const result = await sendPushNotification(
+                  sub.endpoint,
+                  sub.p256dh,
+                  sub.auth,
+                  payload,
+                  VAPID_PUBLIC_KEY,
+                  VAPID_PRIVATE_KEY
+                );
 
-                await webpush.sendNotification(subscription, payload);
-                console.log(`Push sent for stop ${settings.stopId}, route ${trip.routeId}, ${minutesUntil} min`);
-                
-                // Update last notified
-                lastNotified[notifKey] = nowSeconds;
-                notificationsSent.push(notifKey);
-              } catch (pushError: any) {
-                console.error('Push error:', pushError.statusCode || pushError.message);
-                
-                // Remove invalid subscriptions
-                if (pushError.statusCode === 410 || pushError.statusCode === 404) {
-                  await supabase.from('stop_notification_subscriptions').delete().eq('id', sub.id);
-                  console.log('Removed invalid subscription');
+                if (result.success) {
+                  console.log(`Push sent for stop ${settings.stopId}, route ${routeId}, ${minutesUntil} min`);
+                  lastNotified[notifKey] = nowSeconds;
+                  notificationsSent.push(notifKey);
+                } else {
+                  console.error('Push error:', result.statusCode, result.error);
+                  
+                  if (result.statusCode === 410 || result.statusCode === 404) {
+                    await supabase.from('stop_notification_subscriptions').delete().eq('id', sub.id);
+                    console.log('Removed invalid subscription');
+                  }
                 }
+              } catch (pushError: unknown) {
+                const errorMessage = pushError instanceof Error ? pushError.message : String(pushError);
+                console.error('Push error:', errorMessage);
               }
             }
           }
         }
       }
 
-      // Update last_notified in database
-      if (notificationsSent.length > 0) {
+      if (Object.keys(lastNotified).length > 0) {
         await supabase
           .from('stop_notification_subscriptions')
           .update({ last_notified: lastNotified })
@@ -205,7 +244,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Error in check-stop-arrivals:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: 'Internal server error', details: String(error) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

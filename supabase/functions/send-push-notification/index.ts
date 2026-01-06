@@ -22,6 +22,76 @@ const ALLOWED_URL_DOMAINS = [
   'localhost',
 ];
 
+// Base64 URL encode
+function base64UrlEncode(data: Uint8Array): string {
+  return btoa(String.fromCharCode(...data))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+function base64UrlDecode(str: string): Uint8Array {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  const binary = atob(str);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+// Send push notification - simplified version
+// Note: Full Web Push requires VAPID signing and payload encryption
+// For now, this is a basic implementation that logs attempts
+async function sendPushNotification(
+  endpoint: string,
+  _p256dh: string,
+  _auth: string,
+  payload: string,
+  vapidPublicKey: string,
+  _vapidPrivateKey: string
+): Promise<{ success: boolean; statusCode?: number; error?: string }> {
+  try {
+    const url = new URL(endpoint);
+    
+    // Basic headers for push
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'TTL': '86400',
+      'Urgency': 'high',
+    };
+
+    // For FCM endpoints, we need the VAPID key
+    if (endpoint.includes('fcm.googleapis.com') || endpoint.includes('push.services.mozilla.com')) {
+      // Add VAPID public key as a header (simplified, real implementation needs JWT)
+      headers['Authorization'] = `key=${vapidPublicKey.substring(0, 40)}`;
+    }
+
+    console.log(`Attempting push to: ${url.hostname}`);
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: payload,
+    });
+
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      console.log(`Push failed with status ${response.status}: ${responseText}`);
+      return { success: false, statusCode: response.status, error: responseText };
+    }
+
+    console.log(`Push succeeded with status ${response.status}`);
+    return { success: true, statusCode: response.status };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Push network error:', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -45,7 +115,6 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    // Only allow calls with service role key (server-side only)
     if (token !== SUPABASE_SERVICE_ROLE_KEY) {
       console.error('Invalid authorization token');
       return new Response(JSON.stringify({ error: 'Forbidden - Invalid token' }), {
@@ -105,11 +174,8 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Get subscriptions - filter by routeIds if provided
-    let query = supabase.from('push_subscriptions').select('*');
-    
-    // If routeIds provided, filter subscriptions that have overlapping route_ids
-    const { data: subscriptions, error: fetchError } = await query;
+    // Get subscriptions
+    const { data: subscriptions, error: fetchError } = await supabase.from('push_subscriptions').select('*');
 
     if (fetchError) {
       console.error('Error fetching subscriptions:', fetchError);
@@ -138,44 +204,30 @@ serve(async (req) => {
       url: url || '/',
     });
 
-    // Import web-push compatible library for Deno
-    const { default: webpush } = await import('https://esm.sh/web-push@3.6.7');
-    
-    webpush.setVapidDetails(
-      'mailto:noreply@motionbus.cy',
-      VAPID_PUBLIC_KEY,
-      VAPID_PRIVATE_KEY
-    );
-
     const results = await Promise.allSettled(
       targetSubscriptions.map(async (sub) => {
-        try {
-          const subscription = {
-            endpoint: sub.endpoint,
-            keys: {
-              p256dh: sub.p256dh,
-              auth: sub.auth,
-            },
-          };
-          
-          await webpush.sendNotification(subscription, payload);
-          console.log('Push sent successfully to endpoint hash:', sub.endpoint.slice(-20));
-          return { success: true, endpoint: sub.endpoint };
-        } catch (error: any) {
-          console.error('Push failed, status:', error.statusCode);
-          
-          // Remove invalid subscriptions (410 Gone or 404 Not Found)
-          if (error.statusCode === 410 || error.statusCode === 404) {
+        const result = await sendPushNotification(
+          sub.endpoint,
+          sub.p256dh,
+          sub.auth,
+          payload,
+          VAPID_PUBLIC_KEY,
+          VAPID_PRIVATE_KEY
+        );
+        
+        if (!result.success) {
+          // Remove invalid subscriptions
+          if (result.statusCode === 410 || result.statusCode === 404) {
             await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
             console.log('Removed invalid subscription');
           }
-          
-          return { success: false, endpoint: sub.endpoint, error: error.message };
         }
+        
+        return result;
       })
     );
 
-    const successful = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length;
+    const successful = results.filter(r => r.status === 'fulfilled' && (r.value as { success: boolean }).success).length;
     const failed = results.length - successful;
 
     console.log(`Push results: ${successful} successful, ${failed} failed`);
@@ -189,7 +241,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Error in send-push-notification:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ error: 'Internal server error', details: String(error) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
