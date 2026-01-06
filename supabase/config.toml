@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.check-trip-reminders]
 verify_jwt = false
+
+[functions.check-delays]
+verify_jwt = false
