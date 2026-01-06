@@ -2299,6 +2299,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           userLocation={userLocation}
           walkingRoute={walkingRoute}
           isLoadingRoute={isLoadingWalkingRoute}
+          currentNotificationSettings={getNotification(nearestStopWithArrivals.stop.stop_id)}
           onClose={() => {
             setUserLocation(null);
             setWalkingRoute(null);
@@ -2318,6 +2319,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
               mapRef.current?.setView([nearestStopWithArrivals.stop.stop_lat, nearestStopWithArrivals.stop.stop_lon], 17, { animate: true });
             }
           }}
+          onSaveNotification={setStopNotification}
+          onRemoveNotification={removeStopNotification}
         />
       )}
       
