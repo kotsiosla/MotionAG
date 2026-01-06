@@ -2397,42 +2397,40 @@ serve(async (req) => {
     
     // Handle route-shape endpoint - returns shape and stop sequence for a specific route
     if (path === '/route-shape' && routeId) {
-      // Extract operator from route ID to avoid loading all operators
-      // Route IDs have format like "4050042" where first digit(s) indicate operator
       let effectiveOperatorId = operatorId;
       
+      // If no operator specified, search ALL operators to find which one has this route
       if (!operatorId || operatorId === 'all') {
-        // Try to extract operator from route ID
-        // Route IDs have format like "5030012" where first digit(s) indicate operator
-        // Available operators: 2, 4, 5, 6, 9, 10, 11 (from GTFS_STATIC_URLS)
-        const validOperators = ['2', '4', '5', '6', '9', '10', '11'];
+        console.log(`No operator specified for route ${routeId}, searching all operators...`);
         
-        // Check for 2-digit operator first (10, 11)
-        const twoDigitPrefix = routeId.substring(0, 2);
-        if (validOperators.includes(twoDigitPrefix)) {
-          effectiveOperatorId = twoDigitPrefix;
-          console.log(`Inferred operator ${effectiveOperatorId} from route ID ${routeId} (2-digit prefix)`);
-        } else {
-          // Check single digit prefix
-          const firstDigit = routeId.charAt(0);
-          if (validOperators.includes(firstDigit)) {
-            effectiveOperatorId = firstDigit;
-            console.log(`Inferred operator ${effectiveOperatorId} from route ID ${routeId} (1-digit prefix)`);
+        const allOperators = Object.keys(GTFS_STATIC_URLS);
+        let foundOperator: string | null = null;
+        
+        // Search each operator's trips to find the route
+        for (const opId of allOperators) {
+          const trips = await fetchStaticTrips(opId);
+          const hasRoute = trips.some((t: TripStaticInfo) => t.route_id === routeId);
+          
+          if (hasRoute) {
+            foundOperator = opId;
+            console.log(`Found route ${routeId} in operator ${opId}`);
+            break;
           }
         }
         
-        // If we still couldn't infer operator, return error instead of loading all
-        if (!effectiveOperatorId || effectiveOperatorId === 'all') {
-          console.log(`Could not infer operator from route ID ${routeId}, returning empty`);
+        if (foundOperator) {
+          effectiveOperatorId = foundOperator;
+        } else {
+          console.log(`Route ${routeId} not found in any operator`);
           return new Response(
             JSON.stringify({ 
               data: null, 
-              error: 'Could not determine operator from route ID. Please provide operator parameter.',
+              error: 'Route not found in any operator',
               routeId 
             }),
             { 
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              status: 400
+              status: 404
             }
           );
         }

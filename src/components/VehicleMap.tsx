@@ -479,27 +479,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   }, [followedVehicleId, vehicles]);
   
   // Infer operator from route ID when selectedOperator is 'all'
+  // NOTE: When operator is 'all', we pass undefined and let the edge function search all operators
   const followedVehicleOperatorId = useMemo(() => {
     if (selectedOperator !== 'all') return selectedOperator;
-    if (!followedVehicleRouteId) return undefined;
-    
-    // Route IDs have operator prefix - use ONLY valid operators from GTFS_STATIC_URLS
-    // Valid operators: 2, 4, 5, 6, 9, 10, 11
-    const routeIdStr = String(followedVehicleRouteId);
-    const validOperators = ['2', '4', '5', '6', '9', '10', '11'];
-    
-    // Check for 2-digit operator first (10, 11)
-    const twoDigitPrefix = routeIdStr.substring(0, 2);
-    if (validOperators.includes(twoDigitPrefix)) {
-      return twoDigitPrefix;
-    }
-    // Otherwise check single digit
-    const firstDigit = routeIdStr.substring(0, 1);
-    if (validOperators.includes(firstDigit)) {
-      return firstDigit;
-    }
+    // Let the edge function search for the correct operator
     return undefined;
-  }, [selectedOperator, followedVehicleRouteId]);
+  }, [selectedOperator]);
   
   // Fetch route shape for followed vehicle
   const { data: followedRouteShapeData } = useRouteShape(
