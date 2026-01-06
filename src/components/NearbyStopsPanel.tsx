@@ -319,12 +319,7 @@ export function NearbyStopsPanel({
     }
   }, [notificationSettings, ensurePushSubscription]);
 
-  // Auto-sync push subscription when panel opens with push enabled
-  useEffect(() => {
-    if (isPanelOpen && notificationSettings.push) {
-      ensurePushSubscription();
-    }
-  }, [isPanelOpen, notificationSettings.push, ensurePushSubscription]);
+  // Note: Removed auto-sync that was showing permission toast repeatedly
 
   // Get user location
   const getLocation = useCallback(() => {
