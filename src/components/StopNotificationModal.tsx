@@ -122,16 +122,31 @@ export function StopNotificationModal({
       localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
 
       // Save to server - upsert based on endpoint
-      const { data: existing } = await supabase
+      console.log('[StopNotificationModal] Checking for existing subscription...');
+      const { data: existing, error: checkError } = await supabase
         .from('stop_notification_subscriptions')
         .select('id')
         .eq('endpoint', subscription.endpoint)
         .maybeSingle();
 
+      if (checkError) {
+        console.error('[StopNotificationModal] Error checking existing subscription:', checkError);
+      } else {
+        console.log('[StopNotificationModal] Existing subscription found:', !!existing);
+      }
+
       const pushNotifications = allNotifications.filter(n => n.enabled && n.push);
+      
+      console.log('[StopNotificationModal] Attempting to save subscription:', {
+        endpoint: subscription.endpoint,
+        p256dh: p256dh.substring(0, 10) + '...',
+        auth: auth.substring(0, 10) + '...',
+        stop_notifications: pushNotifications,
+        isUpdate: !!existing,
+      });
 
       if (existing) {
-        await supabase
+        const { data: updateData, error: updateError } = await supabase
           .from('stop_notification_subscriptions')
           .update({
             p256dh,
@@ -139,16 +154,32 @@ export function StopNotificationModal({
             stop_notifications: pushNotifications as any,
             updated_at: new Date().toISOString(),
           })
-          .eq('endpoint', subscription.endpoint);
+          .eq('endpoint', subscription.endpoint)
+          .select();
+
+        if (updateError) {
+          console.error('[StopNotificationModal] Update error:', updateError);
+          console.error('[StopNotificationModal] Update error details:', JSON.stringify(updateError, null, 2));
+        } else {
+          console.log('[StopNotificationModal] ✅ Update successful:', updateData);
+        }
       } else {
-        await supabase
+        const { data: insertData, error: insertError } = await supabase
           .from('stop_notification_subscriptions')
           .insert([{
             endpoint: subscription.endpoint,
             p256dh,
             auth,
             stop_notifications: pushNotifications as any,
-          }]);
+          }])
+          .select();
+
+        if (insertError) {
+          console.error('[StopNotificationModal] Insert error:', insertError);
+          console.error('[StopNotificationModal] Insert error details:', JSON.stringify(insertError, null, 2));
+        } else {
+          console.log('[StopNotificationModal] ✅ Insert successful:', insertData);
+        }
       }
 
       // Call parent callback
