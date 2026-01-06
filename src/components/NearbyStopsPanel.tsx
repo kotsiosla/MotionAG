@@ -109,6 +109,15 @@ export function NearbyStopsPanel({
   const [showSettings, setShowSettings] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   
+  // Fixed stop mode vs auto-track
+  const [trackingMode, setTrackingMode] = useState<'auto' | 'fixed'>(() => {
+    return localStorage.getItem('stopTrackingMode') as 'auto' | 'fixed' || 'auto';
+  });
+  const [fixedStop, setFixedStop] = useState<{ stopId: string; stopName: string } | null>(() => {
+    const saved = localStorage.getItem('fixedStop');
+    return saved ? JSON.parse(saved) : null;
+  });
+  
   const [isMinimized, setIsMinimized] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(70); // percentage of viewport height
   const [mobilePosition, setMobilePosition] = useState({ x: 0, y: 0 }); // for free dragging
@@ -163,6 +172,34 @@ export function NearbyStopsPanel({
   useEffect(() => {
     localStorage.setItem('nearbyNotificationSettings', JSON.stringify(notificationSettings));
   }, [notificationSettings]);
+
+  // Save tracking mode and fixed stop
+  useEffect(() => {
+    localStorage.setItem('stopTrackingMode', trackingMode);
+  }, [trackingMode]);
+
+  useEffect(() => {
+    if (fixedStop) {
+      localStorage.setItem('fixedStop', JSON.stringify(fixedStop));
+    } else {
+      localStorage.removeItem('fixedStop');
+    }
+  }, [fixedStop]);
+
+  // Get the active stop for notifications (either nearest or fixed)
+  const activeTrackedStop = trackingMode === 'fixed' && fixedStop
+    ? { stop_id: fixedStop.stopId, stop_name: fixedStop.stopName }
+    : nearestStop;
+
+  // Function to set a stop as fixed
+  const setAsFixedStop = useCallback((stop: { stop_id: string; stop_name: string }) => {
+    setFixedStop({ stopId: stop.stop_id, stopName: stop.stop_name });
+    setTrackingMode('fixed');
+    toast({
+      title: "📍 Σταθερή στάση ορίστηκε",
+      description: stop.stop_name,
+    });
+  }, []);
 
   // Update push subscription when nearest stop changes - ADD to existing stops, don't replace
   useEffect(() => {
@@ -437,17 +474,24 @@ export function NearbyStopsPanel({
     }
   }, [notificationSettings, ensurePushSubscription]);
 
-  // Automatically update nearest stop in database when it changes
+  // Automatically update tracked stop in database when it changes
   const lastSyncedStopRef = useRef<string | null>(null);
   
   useEffect(() => {
-    // Only sync if push is enabled and we have a nearest stop
-    if (!notificationSettings.push || !nearestStop) return;
+    // Only sync if push is enabled and we have an active stop
+    if (!notificationSettings.push || !activeTrackedStop) return;
+    
+    // In fixed mode, always use fixed stop; in auto mode, use nearest
+    const stopToSync = trackingMode === 'fixed' && fixedStop 
+      ? fixedStop 
+      : nearestStop ? { stopId: nearestStop.stop_id, stopName: nearestStop.stop_name } : null;
+    
+    if (!stopToSync) return;
     
     // Skip if we already synced this stop
-    if (lastSyncedStopRef.current === nearestStop.stop_id) return;
+    if (lastSyncedStopRef.current === stopToSync.stopId) return;
     
-    const syncNearestStop = async () => {
+    const syncTrackedStop = async () => {
       try {
         const registration = await navigator.serviceWorker.getRegistration('/sw.js');
         if (!registration) return;
@@ -462,10 +506,10 @@ export function NearbyStopsPanel({
         const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
         const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
         
-        // Only ONE stop - the nearest one, always replaced
+        // Only ONE stop - the tracked one, always replaced
         const stopSettings = [{
-          stopId: nearestStop.stop_id,
-          stopName: nearestStop.stop_name,
+          stopId: stopToSync.stopId,
+          stopName: stopToSync.stopName,
           enabled: true,
           sound: notificationSettings.sound,
           vibration: notificationSettings.vibration,
@@ -485,16 +529,16 @@ export function NearbyStopsPanel({
           }, { onConflict: 'endpoint' });
         
         if (!error) {
-          lastSyncedStopRef.current = nearestStop.stop_id;
-          console.log('[NearbyStopsPanel] Synced nearest stop:', nearestStop.stop_name);
+          lastSyncedStopRef.current = stopToSync.stopId;
+          console.log('[NearbyStopsPanel] Synced tracked stop:', stopToSync.stopName, '(mode:', trackingMode, ')');
         }
       } catch (e) {
         console.error('[NearbyStopsPanel] Error syncing stop:', e);
       }
     };
     
-    syncNearestStop();
-  }, [nearestStop?.stop_id, notificationSettings.push, notificationSettings.sound, notificationSettings.vibration, notificationSettings.voice, notificationDistance]);
+    syncTrackedStop();
+  }, [activeTrackedStop?.stop_id, trackingMode, fixedStop, nearestStop, notificationSettings.push, notificationSettings.sound, notificationSettings.vibration, notificationSettings.voice, notificationDistance]);
 
   // Note: Removed auto-sync that was showing permission toast repeatedly
 
@@ -1046,12 +1090,67 @@ export function NearbyStopsPanel({
               </div>
             )}
 
-            {/* Status indicator - show current tracked stop */}
-            {notificationSettings.push && nearestStop && (
-              <p className="text-xs text-green-500 flex items-center gap-1">
-                <span>✓</span>
-                Ενεργό για: {nearestStop.stop_name.substring(0, 30)}
-              </p>
+            {/* Tracking mode toggle */}
+            {notificationSettings.push && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Λειτουργία παρακολούθησης:</span>
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    variant={trackingMode === 'auto' ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1 h-8 text-xs"
+                    onClick={() => {
+                      setTrackingMode('auto');
+                      lastSyncedStopRef.current = null; // Force re-sync
+                    }}
+                  >
+                    <Navigation className="h-3 w-3 mr-1" />
+                    Αυτόματα (πλησιέστερη)
+                  </Button>
+                  <Button
+                    variant={trackingMode === 'fixed' ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1 h-8 text-xs"
+                    onClick={() => {
+                      if (nearestStop) {
+                        setAsFixedStop(nearestStop);
+                      }
+                    }}
+                  >
+                    <MapPin className="h-3 w-3 mr-1" />
+                    Σταθερή
+                  </Button>
+                </div>
+                
+                {/* Show current tracked stop */}
+                {activeTrackedStop && (
+                  <div className={`text-xs flex items-center justify-between p-2 rounded-md ${
+                    trackingMode === 'fixed' ? 'bg-primary/10 text-primary' : 'bg-green-500/10 text-green-500'
+                  }`}>
+                    <span className="flex items-center gap-1">
+                      {trackingMode === 'fixed' ? <MapPin className="h-3 w-3" /> : <Navigation className="h-3 w-3" />}
+                      {activeTrackedStop.stop_name.substring(0, 25)}
+                    </span>
+                    {trackingMode === 'fixed' && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-5 px-1 text-[10px]"
+                        onClick={() => {
+                          setTrackingMode('auto');
+                          setFixedStop(null);
+                          lastSyncedStopRef.current = null;
+                          toast({ title: "Αλλαγή σε αυτόματη λειτουργία" });
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </CollapsibleContent>
@@ -1196,11 +1295,14 @@ export function NearbyStopsPanel({
                 </div>
               )}
 
-              {nearbyStops.map((nearbyStop, index) => (
+              {nearbyStops.map((nearbyStop, index) => {
+                const isFixed = trackingMode === 'fixed' && fixedStop?.stopId === nearbyStop.stop.stop_id;
+                return (
                 <Card 
                   key={nearbyStop.stop.stop_id}
                   className={`cursor-pointer hover:bg-accent/50 transition-colors ${
-                    index === 0 ? 'ring-2 ring-green-500 bg-green-500/10' : ''
+                    isFixed ? 'ring-2 ring-primary bg-primary/10' : 
+                    index === 0 && trackingMode === 'auto' ? 'ring-2 ring-green-500 bg-green-500/10' : ''
                   }`}
                   onClick={() => handleStopSelect(nearbyStop.stop)}
                 >
@@ -1208,16 +1310,41 @@ export function NearbyStopsPanel({
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start gap-2">
-                          <MapPin className={`h-4 w-4 shrink-0 mt-0.5 ${index === 0 ? 'text-green-500' : 'text-primary'}`} />
+                          <MapPin className={`h-4 w-4 shrink-0 mt-0.5 ${
+                            isFixed ? 'text-primary' : 
+                            index === 0 && trackingMode === 'auto' ? 'text-green-500' : 'text-muted-foreground'
+                          }`} />
                           <div className="min-w-0">
                             <p className="font-medium text-sm leading-tight">{nearbyStop.stop.stop_name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatDistance(nearbyStop.distance)}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs text-muted-foreground">
+                                {formatDistance(nearbyStop.distance)}
+                              </p>
+                              {isFixed && (
+                                <span className="text-[10px] text-primary font-medium">📍 Σταθερή</span>
+                              )}
+                              {index === 0 && trackingMode === 'auto' && (
+                                <span className="text-[10px] text-green-500 font-medium">✓ Πλησιέστερη</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
+                        {/* Set as fixed button */}
+                        {notificationSettings.push && !isFixed && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-1.5 text-[10px]"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAsFixedStop(nearbyStop.stop);
+                            }}
+                          >
+                            <MapPin className="h-3 w-3" />
+                          </Button>
+                        )}
                         {nearbyStop.arrivals.length > 0 && (
                           <Badge variant="secondary" className="text-xs">
                             {nearbyStop.arrivals.length}
@@ -1254,7 +1381,7 @@ export function NearbyStopsPanel({
                     )}
                   </CardContent>
                 </Card>
-              ))}
+              )})}
             </>
           )}
         </div>
