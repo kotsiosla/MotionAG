@@ -5,6 +5,16 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+// Debug: Log Supabase configuration
+if (typeof window !== 'undefined') {
+  console.log('[Supabase Client] Configuration:', {
+    url: SUPABASE_URL ? SUPABASE_URL.substring(0, 50) + '...' : 'MISSING',
+    key: SUPABASE_PUBLISHABLE_KEY ? SUPABASE_PUBLISHABLE_KEY.substring(0, 20) + '...' : 'MISSING',
+    urlExists: !!SUPABASE_URL,
+    keyExists: !!SUPABASE_PUBLISHABLE_KEY,
+  });
+}
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
@@ -15,3 +25,17 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   }
 });
+
+// Debug: Test connection on client side
+if (typeof window !== 'undefined' && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
+  // Test connection by trying to read from a table
+  supabase.from('stop_notification_subscriptions').select('id').limit(1).then(({ error }) => {
+    if (error) {
+      console.error('[Supabase Client] ❌ Connection test failed:', error);
+    } else {
+      console.log('[Supabase Client] ✅ Connection test successful');
+    }
+  }).catch((err) => {
+    console.error('[Supabase Client] ❌ Connection test error:', err);
+  });
+}
