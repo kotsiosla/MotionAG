@@ -1861,7 +1861,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   }, [selectedRoute, routeShapeData, selectedRouteInfo, stopsWithVehicles, trips, vehicles, effectiveRouteShapeData, followedVehicleId, followedVehicleRouteId, routeNamesMap]);
 
   // Follow the selected vehicle in realtime - respects view mode
-  // Use panTo for smooth following without shaking
+  // Use setView for instant response without jarring animations
   useEffect(() => {
     if (!followedVehicleId || !mapRef.current) return;
 
@@ -1873,21 +1873,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       if (viewMode === 'street') {
         const currentZoom = mapRef.current.getZoom();
         
-        // Initial follow - zoom in with animation
-        if (currentZoom < 15) {
-          mapRef.current.flyTo(
-            [followedVehicle.latitude, followedVehicle.longitude],
-            17,
-            { animate: true, duration: 1 }
-          );
-        } else {
-          // Continuous following - NO animation for instant response
-          mapRef.current.setView(
-            [followedVehicle.latitude, followedVehicle.longitude],
-            currentZoom,
-            { animate: false }
-          );
-        }
+        // Always use setView without animation for smooth tracking
+        mapRef.current.setView(
+          [followedVehicle.latitude, followedVehicle.longitude],
+          currentZoom < 15 ? 17 : currentZoom,
+          { animate: false }
+        );
       }
       // In overview mode, don't auto-pan - user controls the view
     }
