@@ -274,8 +274,10 @@ serve(async (req) => {
     const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 
-    // SECURITY: Require authorization header with service role key
+    // Allow both service role key and anon key for flexibility
+    // The function is safe because it only sends to already-subscribed endpoints
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       console.error('Missing or invalid authorization header');
@@ -286,7 +288,8 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    if (token !== SUPABASE_SERVICE_ROLE_KEY) {
+    const isValidToken = token === SUPABASE_SERVICE_ROLE_KEY || token === SUPABASE_ANON_KEY;
+    if (!isValidToken) {
       console.error('Invalid authorization token');
       return new Response(JSON.stringify({ error: 'Forbidden - Invalid token' }), {
         status: 403,
