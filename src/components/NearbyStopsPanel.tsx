@@ -546,6 +546,21 @@ export function NearbyStopsPanel({
           stop_notifications: stopSettings
         });
         
+        // Check if Supabase key is configured
+        const supabaseKey = (supabase as any).supabaseKey || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || localStorage.getItem('supabase_anon_key');
+        if (!supabaseKey || supabaseKey.length === 0) {
+          console.error('[NearbyStopsPanel] ❌ Supabase key is missing!');
+          console.error('[NearbyStopsPanel] Please set VITE_SUPABASE_PUBLISHABLE_KEY in .env or run:');
+          console.error('[NearbyStopsPanel] localStorage.setItem("supabase_anon_key", "YOUR_KEY")');
+          console.error('[NearbyStopsPanel] Get key from: https://supabase.com/dashboard/project/mhlyndipnpwpcydjukig/settings/api');
+          toast({
+            title: "❌ Supabase Key Missing",
+            description: "Please set VITE_SUPABASE_PUBLISHABLE_KEY. Check console for details.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         // Add timeout to detect if upsert hangs
         console.log('[NearbyStopsPanel] ⏱️ Starting upsert with 10s timeout...');
         const startTime = Date.now();
