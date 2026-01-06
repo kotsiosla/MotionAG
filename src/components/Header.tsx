@@ -162,16 +162,6 @@ export function Header({
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
 
-            {/* Delay notifications toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleDelayNotifications}
-              className="h-7 w-7 sm:h-8 sm:w-8"
-              title={delayNotificationsEnabled ? "Απενεργοποίηση ειδοποιήσεων καθυστερήσεων" : "Ενεργοποίηση ειδοποιήσεων καθυστερήσεων"}
-            >
-              {delayNotificationsEnabled ? <Bell className="h-4 w-4 text-primary" /> : <BellOff className="h-4 w-4 text-muted-foreground" />}
-            </Button>
 
             {/* Saved trips button */}
             <Button
@@ -347,16 +337,6 @@ export function Header({
               title={tripPlannerVisible ? "Απόκρυψη αναζήτησης" : "Εμφάνιση αναζήτησης"}
             >
               {tripPlannerVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-            {/* Delay notifications toggle - Desktop */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleDelayNotifications}
-              className="h-7 w-7"
-              title={delayNotificationsEnabled ? "Απενεργοποίηση ειδοποιήσεων καθυστερήσεων" : "Ενεργοποίηση ειδοποιήσεων καθυστερήσεων"}
-            >
-              {delayNotificationsEnabled ? <Bell className="h-4 w-4 text-primary" /> : <BellOff className="h-4 w-4 text-muted-foreground" />}
             </Button>
             {/* Saved trips button - Desktop */}
             <Button
