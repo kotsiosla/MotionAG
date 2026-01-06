@@ -412,7 +412,7 @@ export function NearbyStopsPanel({
 
   // Note: Removed auto-sync that was showing permission toast repeatedly
 
-  // Get user location
+  // Get user location with retry logic
   const getLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setLocationError("Η τοποθεσία δεν υποστηρίζεται");
@@ -422,30 +422,54 @@ export function NearbyStopsPanel({
     setIsLocating(true);
     setLocationError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setUserLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        setIsLocating(false);
-      },
-      (error) => {
-        setIsLocating(false);
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            setLocationError("Δεν επιτρέπεται η πρόσβαση στην τοποθεσία");
-            break;
-          case error.POSITION_UNAVAILABLE:
-            setLocationError("Η τοποθεσία δεν είναι διαθέσιμη");
-            break;
-          case error.TIMEOUT:
-            setLocationError("Η αναζήτηση τοποθεσίας έληξε");
-            break;
+    // Try high accuracy first, then fallback to low accuracy
+    const tryGetPosition = (highAccuracy: boolean, retryCount: number = 0) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          setIsLocating(false);
+          setLocationError(null);
+        },
+        (error) => {
+          // If high accuracy failed and we haven't tried low accuracy yet
+          if (highAccuracy && retryCount === 0) {
+            console.log('High accuracy failed, trying low accuracy...');
+            tryGetPosition(false, 1);
+            return;
+          }
+          
+          // If low accuracy also failed, retry once more with longer timeout
+          if (!highAccuracy && retryCount === 1) {
+            console.log('Low accuracy failed, final retry...');
+            tryGetPosition(false, 2);
+            return;
+          }
+
+          setIsLocating(false);
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              setLocationError("Δεν επιτρέπεται η πρόσβαση στην τοποθεσία");
+              break;
+            case error.POSITION_UNAVAILABLE:
+              setLocationError("Η τοποθεσία δεν είναι διαθέσιμη");
+              break;
+            case error.TIMEOUT:
+              setLocationError("Η αναζήτηση τοποθεσίας έληξε. Πατήστε για επανάληψη.");
+              break;
+          }
+        },
+        { 
+          enableHighAccuracy: highAccuracy, 
+          timeout: highAccuracy ? 15000 : 30000, 
+          maximumAge: 60000 
         }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-    );
+      );
+    };
+
+    tryGetPosition(true, 0);
   }, []);
 
   // Watch location continuously
