@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 export function NotificationButton() {
-  const { isSubscribed, isSupported, isLoading, subscribe, unsubscribe } = usePushSubscription();
+  const { isSubscribed, isSupported, isLoading, subscribe, unsubscribe, iosStatus } = usePushSubscription();
   const [isSendingTest, setIsSendingTest] = useState(false);
 
   const handleToggle = async () => {
@@ -20,6 +20,26 @@ export function NotificationButton() {
     } else {
       await subscribe([]);
     }
+  };
+
+  // Render iOS-specific warning message
+  const getIOSWarning = () => {
+    if (iosStatus === 'needs-update') {
+      return (
+        <p className="text-xs text-destructive">
+          ⚠️ Απαιτείται iOS 16.4 ή νεότερο για push notifications.
+        </p>
+      );
+    }
+    if (iosStatus === 'needs-install') {
+      return (
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          📱 Για να λαμβάνετε ειδοποιήσεις, εγκαταστήστε την εφαρμογή: 
+          Πατήστε το κουμπί "Κοινοποίηση" → "Προσθήκη στην Αρχική Οθόνη"
+        </p>
+      );
+    }
+    return null;
   };
 
   const handleTestNotification = async () => {
@@ -85,9 +105,11 @@ export function NotificationButton() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64" align="end">
+      <PopoverContent className="w-72" align="end">
         <div className="space-y-3">
           <div className="text-sm font-medium">Ειδοποιήσεις Push</div>
+          
+          {getIOSWarning()}
           
           <p className="text-xs text-muted-foreground">
             {isSubscribed 
@@ -95,39 +117,48 @@ export function NotificationButton() {
               : 'Ενεργοποιήστε για να λαμβάνετε ειδοποιήσεις καθυστερήσεων.'}
           </p>
 
-          <div className="flex gap-2">
-            <Button
-              onClick={handleToggle}
-              disabled={isLoading}
-              variant={isSubscribed ? 'outline' : 'default'}
-              size="sm"
-              className="flex-1"
-            >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-1" />
-              ) : isSubscribed ? (
-                <BellOff className="h-4 w-4 mr-1" />
-              ) : (
-                <Bell className="h-4 w-4 mr-1" />
-              )}
-              {isSubscribed ? 'Απενεργοποίηση' : 'Ενεργοποίηση'}
-            </Button>
-
-            {isSubscribed && (
+          {iosStatus !== 'needs-update' && (
+            <div className="flex gap-2">
               <Button
-                onClick={handleTestNotification}
-                disabled={isSendingTest}
-                variant="outline"
+                onClick={handleToggle}
+                disabled={isLoading}
+                variant={isSubscribed ? 'outline' : 'default'}
                 size="sm"
+                className="flex-1"
               >
-                {isSendingTest ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : isSubscribed ? (
+                  <BellOff className="h-4 w-4 mr-1" />
                 ) : (
-                  <Send className="h-4 w-4" />
+                  <Bell className="h-4 w-4 mr-1" />
                 )}
+                {isSubscribed ? 'Απενεργοποίηση' : 'Ενεργοποίηση'}
               </Button>
-            )}
-          </div>
+
+              {isSubscribed && (
+                <Button
+                  onClick={handleTestNotification}
+                  disabled={isSendingTest}
+                  variant="outline"
+                  size="sm"
+                  title="Αποστολή δοκιμαστικής ειδοποίησης"
+                >
+                  {isSendingTest ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
+            </div>
+          )}
+          
+          {isSubscribed && iosStatus === 'supported' && (
+            <p className="text-xs text-success">
+              ✓ iOS PWA - Ειδοποιήσεις ενεργές
+            </p>
+          )}
         </div>
       </PopoverContent>
     </Popover>

@@ -17,17 +17,67 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   return outputArray.buffer as ArrayBuffer;
 }
 
+// Helper to detect iOS and check version
+function getIOSVersion(): number | null {
+  const match = navigator.userAgent.match(/OS (\d+)_/);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+  return null;
+}
+
+function isIOS(): boolean {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function isStandalone(): boolean {
+  return (window.matchMedia('(display-mode: standalone)').matches) ||
+    ('standalone' in window.navigator && (window.navigator as any).standalone === true);
+}
+
 export function usePushSubscription() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [subscribedRoutes, setSubscribedRoutes] = useState<string[]>([]);
+  const [iosStatus, setIosStatus] = useState<'supported' | 'needs-install' | 'needs-update' | null>(null);
 
   // Check if push is supported and current subscription status
   useEffect(() => {
     const checkSubscription = async () => {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        console.log('Push notifications not supported');
+      // Check for basic requirements
+      if (!('serviceWorker' in navigator)) {
+        console.log('Service Worker not supported');
+        setIsSupported(false);
+        setIsLoading(false);
+        return;
+      }
+
+      // iOS-specific checks
+      if (isIOS()) {
+        const iosVersion = getIOSVersion();
+        console.log('iOS detected, version:', iosVersion, 'standalone:', isStandalone());
+        
+        if (iosVersion && iosVersion < 16) {
+          console.log('iOS version too old for push notifications');
+          setIsSupported(false);
+          setIosStatus('needs-update');
+          setIsLoading(false);
+          return;
+        }
+        
+        if (!isStandalone()) {
+          console.log('iOS requires PWA to be installed for push notifications');
+          // Still allow enabling but warn user
+          setIosStatus('needs-install');
+        } else {
+          setIosStatus('supported');
+        }
+      }
+
+      if (!('PushManager' in window)) {
+        console.log('PushManager not supported');
         setIsSupported(false);
         setIsLoading(false);
         return;
@@ -42,6 +92,8 @@ export function usePushSubscription() {
 
         // Check existing subscription
         const subscription = await registration.pushManager.getSubscription();
+        console.log('Existing subscription:', subscription);
+        
         if (subscription) {
           setIsSubscribed(true);
           
@@ -232,6 +284,7 @@ export function usePushSubscription() {
     isSupported,
     isLoading,
     subscribedRoutes,
+    iosStatus,
     subscribe,
     unsubscribe,
     updateRoutes,
