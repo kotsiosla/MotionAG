@@ -1,22 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { ApplicationServerKeys } from 'https://esm.sh/webpush-webcrypto@1.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Convert ArrayBuffer to base64url string
-function arrayBufferToBase64Url(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -24,46 +12,28 @@ serve(async (req) => {
   }
 
   try {
-    // Generate ECDSA key pair for VAPID
-    const keyPair = await crypto.subtle.generateKey(
-      {
-        name: 'ECDSA',
-        namedCurve: 'P-256',
-      },
-      true, // extractable
-      ['sign', 'verify']
-    );
-
-    // Export public key in raw format (uncompressed point)
-    const publicKeyRaw = await crypto.subtle.exportKey('raw', keyPair.publicKey);
-    const publicKeyBase64Url = arrayBufferToBase64Url(publicKeyRaw);
-
-    // Export private key in PKCS8 format, then extract the raw 32-byte key
-    const privateKeyPkcs8 = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
+    // Generate new VAPID keys using the library's built-in method
+    const keys = await ApplicationServerKeys.generate();
     
-    // For P-256, the raw private key is the last 32 bytes of the PKCS8 export
-    // PKCS8 structure: sequence + version + algorithm + octet string containing the key
-    const pkcs8Bytes = new Uint8Array(privateKeyPkcs8);
-    // The private key value is at offset 36 and is 32 bytes long for P-256
-    const privateKeyRaw = pkcs8Bytes.slice(-32);
-    const privateKeyBase64Url = arrayBufferToBase64Url(privateKeyRaw.buffer);
+    // Export to JSON format that the library expects
+    const keysJson = await keys.toJSON();
 
-    console.log('Generated new VAPID keys successfully');
+    console.log('Generated new VAPID keys in JWK format successfully');
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Copy these keys and add them as secrets:',
+        message: 'These keys are in the correct format for webpush-webcrypto:',
         keys: {
-          VAPID_PUBLIC_KEY: publicKeyBase64Url,
-          VAPID_PRIVATE_KEY: privateKeyBase64Url,
+          VAPID_PUBLIC_KEY: keysJson.publicKey,
+          VAPID_PRIVATE_KEY: keysJson.privateKey,
         },
         instructions: [
-          '1. Copy the VAPID_PUBLIC_KEY value',
-          '2. Add it as a secret named VAPID_PUBLIC_KEY',
-          '3. Copy the VAPID_PRIVATE_KEY value', 
-          '4. Add it as a secret named VAPID_PRIVATE_KEY',
-          '5. Also update applicationServerKey in your frontend code'
+          '1. Copy the VAPID_PUBLIC_KEY value (the entire JSON string)',
+          '2. Update the secret named VAPID_PUBLIC_KEY',
+          '3. Copy the VAPID_PRIVATE_KEY value (the entire JSON string)', 
+          '4. Update the secret named VAPID_PRIVATE_KEY',
+          '5. Update applicationServerKey in frontend with the public key'
         ]
       }, null, 2),
       { 
