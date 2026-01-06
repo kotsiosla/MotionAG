@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
-import { ApplicationServerKeys, generatePushHTTPRequest } from 'https://esm.sh/webpush-webcrypto@1.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,35 +26,207 @@ interface StopSubscription {
   last_notified: Record<string, number>;
 }
 
-// Send push notification using webpush-webcrypto
+// Base64url encode/decode utilities
+function base64UrlEncode(data: Uint8Array): string {
+  const base64 = btoa(String.fromCharCode(...data));
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function base64UrlDecode(str: string): Uint8Array {
+  const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = (4 - (base64.length % 4)) % 4;
+  const padded = base64 + '='.repeat(padding);
+  const binary = atob(padded);
+  return Uint8Array.from(binary, c => c.charCodeAt(0));
+}
+
+// Create VAPID JWT token
+async function createVapidJwt(
+  audience: string,
+  subject: string,
+  privateKeyBase64: string
+): Promise<string> {
+  const header = { alg: 'ES256', typ: 'JWT' };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    aud: audience,
+    exp: now + 86400,
+    sub: subject,
+  };
+
+  const headerB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
+  const payloadB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
+  const unsignedToken = `${headerB64}.${payloadB64}`;
+
+  // Import private key for signing
+  const privateKeyBytes = base64UrlDecode(privateKeyBase64);
+  
+  // PKCS8 header for P-256 private key
+  const pkcs8Header = new Uint8Array([
+    0x30, 0x41, 0x02, 0x01, 0x00, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48,
+    0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03,
+    0x01, 0x07, 0x04, 0x27, 0x30, 0x25, 0x02, 0x01, 0x01, 0x04, 0x20
+  ]);
+  
+  const pkcs8Key = new Uint8Array([...pkcs8Header, ...privateKeyBytes]);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    pkcs8Key,
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    cryptoKey,
+    new TextEncoder().encode(unsignedToken)
+  );
+
+  const rawSig = new Uint8Array(signature);
+  return `${unsignedToken}.${base64UrlEncode(rawSig)}`;
+}
+
+// Encrypt payload using ECDH and AES-GCM
+async function encryptPayload(
+  payload: string,
+  p256dhKey: string,
+  authSecret: string
+): Promise<{ ciphertext: Uint8Array; salt: Uint8Array; localPublicKey: Uint8Array }> {
+  // Generate local key pair
+  const localKeyPair = await crypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true,
+    ['deriveBits']
+  );
+
+  // Export local public key
+  const localPublicKeyRaw = await crypto.subtle.exportKey('raw', localKeyPair.publicKey);
+  const localPublicKey = new Uint8Array(localPublicKeyRaw);
+
+  // Import subscriber's public key
+  const subscriberKeyBytes = base64UrlDecode(p256dhKey);
+  const subscriberPublicKey = await crypto.subtle.importKey(
+    'raw',
+    subscriberKeyBytes.buffer as ArrayBuffer,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    false,
+    []
+  );
+
+  // Derive shared secret
+  const sharedSecret = await crypto.subtle.deriveBits(
+    { name: 'ECDH', public: subscriberPublicKey },
+    localKeyPair.privateKey,
+    256
+  );
+
+  // Generate salt
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const authSecretBytes = base64UrlDecode(authSecret);
+
+  // Derive encryption key using HKDF
+  const ikm = new Uint8Array(sharedSecret);
+  
+  // PRK = HKDF-Extract(auth_secret, shared_secret)
+  const prkKey = await crypto.subtle.importKey(
+    'raw',
+    authSecretBytes.buffer as ArrayBuffer,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const prk = new Uint8Array(await crypto.subtle.sign('HMAC', prkKey, ikm));
+
+  // Create info for content encryption key
+  const keyInfoStr = 'Content-Encoding: aes128gcm\0';
+  const keyInfo = new TextEncoder().encode(keyInfoStr);
+  
+  // Derive content encryption key
+  const cekKey = await crypto.subtle.importKey(
+    'raw',
+    prk,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const cekMaterial = new Uint8Array(await crypto.subtle.sign('HMAC', cekKey, new Uint8Array([...salt, ...keyInfo, 1])));
+  const cek = cekMaterial.slice(0, 16);
+
+  // Derive nonce
+  const nonceInfoStr = 'Content-Encoding: nonce\0';
+  const nonceInfo = new TextEncoder().encode(nonceInfoStr);
+  const nonceMaterial = new Uint8Array(await crypto.subtle.sign('HMAC', cekKey, new Uint8Array([...salt, ...nonceInfo, 1])));
+  const nonce = nonceMaterial.slice(0, 12);
+
+  // Encrypt with AES-GCM
+  const aesKey = await crypto.subtle.importKey(
+    'raw',
+    cek,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt']
+  );
+
+  // Add padding delimiter
+  const payloadBytes = new TextEncoder().encode(payload);
+  const paddedPayload = new Uint8Array([...payloadBytes, 2]); // 2 = final record
+
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: nonce },
+    aesKey,
+    paddedPayload
+  );
+
+  return {
+    ciphertext: new Uint8Array(encrypted),
+    salt,
+    localPublicKey,
+  };
+}
+
+// Send push notification
 async function sendPushNotification(
   endpoint: string,
   p256dh: string,
   auth: string,
   payload: string,
-  applicationServerKeys: Awaited<ReturnType<typeof ApplicationServerKeys.generate>>
+  vapidPublicKey: string,
+  vapidPrivateKey: string
 ): Promise<{ success: boolean; statusCode?: number; error?: string }> {
   try {
-    console.log(`Sending push to: ${new URL(endpoint).hostname}`);
+    const url = new URL(endpoint);
+    console.log(`Sending push to: ${url.hostname}`);
 
-    const { headers, body, endpoint: targetEndpoint } = await generatePushHTTPRequest({
-      applicationServerKeys,
-      payload,
-      target: {
-        endpoint,
-        keys: {
-          p256dh,
-          auth,
-        },
-      },
-      adminContact: 'mailto:info@motionbus.cy',
-      ttl: 86400,
-      urgency: 'high',
-    });
+    // Create VAPID authorization
+    const audience = `${url.protocol}//${url.hostname}`;
+    const vapidToken = await createVapidJwt(audience, 'mailto:info@motionbus.cy', vapidPrivateKey);
+    
+    // Encrypt the payload
+    const { ciphertext, salt, localPublicKey } = await encryptPayload(payload, p256dh, auth);
 
-    const response = await fetch(targetEndpoint, {
+    // Build body with aes128gcm format
+    const rs = new Uint8Array([0, 0, 16, 0]); // Record size: 4096
+    const idlen = new Uint8Array([65]); // Key ID length
+    
+    const body = new Uint8Array([
+      ...salt,
+      ...rs,
+      ...idlen,
+      ...localPublicKey,
+      ...ciphertext,
+    ]);
+
+    const response = await fetch(endpoint, {
       method: 'POST',
-      headers,
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Encoding': 'aes128gcm',
+        'TTL': '86400',
+        'Urgency': 'high',
+        'Authorization': `vapid t=${vapidToken}, k=${vapidPublicKey}`,
+      },
       body,
     });
 
@@ -94,21 +265,7 @@ serve(async (req) => {
       });
     }
 
-    // Create ApplicationServerKeys from VAPID keys
-    let applicationServerKeys: Awaited<ReturnType<typeof ApplicationServerKeys.generate>>;
-    try {
-      applicationServerKeys = await ApplicationServerKeys.fromJSON({
-        publicKey: VAPID_PUBLIC_KEY,
-        privateKey: VAPID_PRIVATE_KEY,
-      });
-      console.log('ApplicationServerKeys loaded successfully');
-    } catch (keyError) {
-      console.error('Failed to load VAPID keys:', keyError);
-      return new Response(JSON.stringify({ error: 'Invalid VAPID key format' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    console.log('VAPID keys loaded successfully');
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -220,7 +377,8 @@ serve(async (req) => {
                   sub.p256dh,
                   sub.auth,
                   payload,
-                  applicationServerKeys
+                  VAPID_PUBLIC_KEY,
+                  VAPID_PRIVATE_KEY
                 );
 
                 if (result.success) {
