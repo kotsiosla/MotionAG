@@ -59,8 +59,8 @@ git push
 if ($LASTEXITCODE -eq 0) {
     Write-Host "`n✅ Successfully synced with GitHub!" -ForegroundColor Green
     Write-Host "🔗 Repository: https://github.com/kotsiosla/MotionBus_AI" -ForegroundColor Cyan
-} else {
+}
+else {
     Write-Host "`n❌ Push failed!" -ForegroundColor Red
     exit 1
 }
-
