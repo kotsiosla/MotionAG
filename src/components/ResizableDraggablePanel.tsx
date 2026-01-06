@@ -23,7 +23,7 @@ export const ResizableDraggablePanel = forwardRef<HTMLDivElement, ResizableDragg
   className = '',
   onPositionChange,
   onSizeChange,
-  zIndex = 1000,
+  zIndex = 1100,
   title,
 }, ref) {
   const [position, setPosition] = useState(initialPosition);
