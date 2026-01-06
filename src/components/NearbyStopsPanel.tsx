@@ -555,6 +555,9 @@ export function NearbyStopsPanel({
         });
         
         // Add timeout to detect if upsert hangs
+        console.log('[NearbyStopsPanel] ⏱️ Starting upsert with 10s timeout...');
+        const startTime = Date.now();
+        
         const upsertPromise = supabase
           .from('stop_notification_subscriptions')
           .upsert({
@@ -566,22 +569,29 @@ export function NearbyStopsPanel({
           }, { onConflict: 'endpoint' })
           .select();
         
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Upsert timeout after 10 seconds')), 10000);
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            const elapsed = Date.now() - startTime;
+            reject(new Error(`Upsert timeout after ${elapsed}ms`));
+          }, 10000);
         });
         
         let error, data;
         try {
-          const result = await Promise.race([upsertPromise, timeoutPromise]) as any;
+          console.log('[NearbyStopsPanel] ⏳ Waiting for upsert response...');
+          const result = await Promise.race([upsertPromise, timeoutPromise]);
+          const elapsed = Date.now() - startTime;
+          console.log(`[NearbyStopsPanel] 📥 Upsert response received after ${elapsed}ms`);
           error = result.error;
           data = result.data;
-          console.log('[NearbyStopsPanel] 📥 Upsert response received');
           console.log('[NearbyStopsPanel] Error:', error);
           console.log('[NearbyStopsPanel] Data:', data);
         } catch (raceError) {
-          console.error('[NearbyStopsPanel] ❌ Upsert promise error:', raceError);
+          const elapsed = Date.now() - startTime;
+          console.error(`[NearbyStopsPanel] ❌ Upsert promise error after ${elapsed}ms:`, raceError);
           if (raceError instanceof Error && raceError.message.includes('timeout')) {
             console.error('[NearbyStopsPanel] ⏱️ Upsert timed out - request may be stuck');
+            console.error('[NearbyStopsPanel] Check Network tab for pending requests');
           }
           error = raceError;
           data = null;
