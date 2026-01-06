@@ -437,105 +437,64 @@ export function NearbyStopsPanel({
     }
   }, [notificationSettings, ensurePushSubscription]);
 
-  // Manually add current nearest stop to notifications
-  const [isAddingStop, setIsAddingStop] = useState(false);
+  // Automatically update nearest stop in database when it changes
+  const lastSyncedStopRef = useRef<string | null>(null);
   
-  const addCurrentStopToNotifications = useCallback(async () => {
-    if (!nearestStop) {
-      toast({
-        title: "Δεν βρέθηκε στάση",
-        description: "Περιμένετε να εντοπιστεί η κοντινότερη στάση",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsAddingStop(true);
+  useEffect(() => {
+    // Only sync if push is enabled and we have a nearest stop
+    if (!notificationSettings.push || !nearestStop) return;
     
-    try {
-      // Ensure we have a push subscription first
-      const hasSubscription = await ensurePushSubscription(false);
-      if (!hasSubscription) {
-        setIsAddingStop(false);
-        return;
+    // Skip if we already synced this stop
+    if (lastSyncedStopRef.current === nearestStop.stop_id) return;
+    
+    const syncNearestStop = async () => {
+      try {
+        const registration = await navigator.serviceWorker.getRegistration('/sw.js');
+        if (!registration) return;
+        
+        const subscription = await registration.pushManager.getSubscription();
+        if (!subscription) return;
+        
+        const p256dhKey = subscription.getKey('p256dh');
+        const authKey = subscription.getKey('auth');
+        if (!p256dhKey || !authKey) return;
+        
+        const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
+        const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
+        
+        // Only ONE stop - the nearest one, always replaced
+        const stopSettings = [{
+          stopId: nearestStop.stop_id,
+          stopName: nearestStop.stop_name,
+          enabled: true,
+          sound: notificationSettings.sound,
+          vibration: notificationSettings.vibration,
+          voice: notificationSettings.voice,
+          push: true,
+          beforeMinutes: Math.round(notificationDistance / 100),
+        }];
+        
+        const { error } = await supabase
+          .from('stop_notification_subscriptions')
+          .upsert({
+            endpoint: subscription.endpoint,
+            p256dh,
+            auth,
+            stop_notifications: stopSettings as any,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'endpoint' });
+        
+        if (!error) {
+          lastSyncedStopRef.current = nearestStop.stop_id;
+          console.log('[NearbyStopsPanel] Synced nearest stop:', nearestStop.stop_name);
+        }
+      } catch (e) {
+        console.error('[NearbyStopsPanel] Error syncing stop:', e);
       }
-
-      // Get current subscription
-      const registration = await navigator.serviceWorker.getRegistration('/sw.js');
-      if (!registration) {
-        throw new Error('No service worker');
-      }
-      
-      const subscription = await registration.pushManager.getSubscription();
-      if (!subscription) {
-        throw new Error('No push subscription');
-      }
-
-      // Get existing stop notifications
-      const { data: existing } = await supabase
-        .from('stop_notification_subscriptions')
-        .select('stop_notifications')
-        .eq('endpoint', subscription.endpoint)
-        .maybeSingle();
-
-      let existingStops: any[] = Array.isArray(existing?.stop_notifications) 
-        ? existing.stop_notifications 
-        : [];
-      
-      // Check if this stop already exists
-      const stopExists = existingStops.some((s: any) => s.stopId === nearestStop.stop_id);
-      
-      if (stopExists) {
-        toast({
-          title: "Η στάση υπάρχει ήδη",
-          description: nearestStop.stop_name,
-        });
-        setIsAddingStop(false);
-        return;
-      }
-
-      // Create new stop settings
-      const newStop = {
-        stopId: nearestStop.stop_id,
-        stopName: nearestStop.stop_name,
-        enabled: true,
-        sound: notificationSettings.sound,
-        vibration: notificationSettings.vibration,
-        voice: notificationSettings.voice,
-        push: true,
-        beforeMinutes: Math.round(notificationDistance / 100),
-      };
-
-      // Add new stop to existing stops
-      const updatedStops = [...existingStops, newStop];
-
-      const { error } = await supabase
-        .from('stop_notification_subscriptions')
-        .update({
-          stop_notifications: updatedStops as any,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('endpoint', subscription.endpoint);
-
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: "🔔 Στάση προστέθηκε!",
-        description: `${nearestStop.stop_name} (${updatedStops.length} στάσεις συνολικά)`,
-      });
-    } catch (e) {
-      console.error('Error adding stop:', e);
-      toast({
-        title: "Σφάλμα",
-        description: "Δεν ήταν δυνατή η προσθήκη της στάσης",
-        variant: "destructive",
-      });
-    } finally {
-      setIsAddingStop(false);
-    }
-  }, [nearestStop, notificationSettings, notificationDistance, ensurePushSubscription]);
+    };
+    
+    syncNearestStop();
+  }, [nearestStop?.stop_id, notificationSettings.push, notificationSettings.sound, notificationSettings.vibration, notificationSettings.voice, notificationDistance]);
 
   // Note: Removed auto-sync that was showing permission toast repeatedly
 
@@ -1087,20 +1046,12 @@ export function NearbyStopsPanel({
               </div>
             )}
 
-            {/* Add stop button */}
+            {/* Status indicator - show current tracked stop */}
             {notificationSettings.push && nearestStop && (
-              <Button
-                className="w-full h-10"
-                onClick={addCurrentStopToNotifications}
-                disabled={isAddingStop}
-              >
-                {isAddingStop ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Bell className="h-4 w-4 mr-2" />
-                )}
-                Προσθήκη "{nearestStop.stop_name.substring(0, 20)}..."
-              </Button>
+              <p className="text-xs text-green-500 flex items-center gap-1">
+                <span>✓</span>
+                Ενεργό για: {nearestStop.stop_name.substring(0, 30)}
+              </p>
             )}
           </div>
         </CollapsibleContent>
