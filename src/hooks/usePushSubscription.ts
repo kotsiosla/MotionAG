@@ -130,12 +130,27 @@ export function usePushSubscription() {
     try {
       setIsLoading(true);
 
+      // Check current permission status first
+      console.log('Current notification permission:', Notification.permission);
+      
+      // If already denied, we can't request again
+      if (Notification.permission === 'denied') {
+        toast({
+          title: 'Ειδοποιήσεις μπλοκαρισμένες',
+          description: 'Οι ειδοποιήσεις έχουν μπλοκαριστεί. Αλλάξτε τις ρυθμίσεις στον browser και κάντε refresh.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+
       // Request notification permission
       const permission = await Notification.requestPermission();
+      console.log('Permission result after request:', permission);
+      
       if (permission !== 'granted') {
         toast({
           title: 'Άδεια απορρίφθηκε',
-          description: 'Πρέπει να επιτρέψετε τις ειδοποιήσεις για να λαμβάνετε ενημερώσεις',
+          description: `Κατάσταση άδειας: ${permission}. Ελέγξτε τις ρυθμίσεις του browser.`,
           variant: 'destructive',
         });
         return false;
