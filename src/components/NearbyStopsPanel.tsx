@@ -500,15 +500,25 @@ export function NearbyStopsPanel({
     
     const syncTrackedStop = async () => {
       try {
+        console.log('[NearbyStopsPanel] 🔄 Starting syncTrackedStop...');
         const registration = await navigator.serviceWorker.getRegistration('/sw.js');
-        if (!registration) return;
+        if (!registration) {
+          console.log('[NearbyStopsPanel] ❌ No service worker registration');
+          return;
+        }
         
         const subscription = await registration.pushManager.getSubscription();
-        if (!subscription) return;
+        if (!subscription) {
+          console.log('[NearbyStopsPanel] ❌ No push subscription');
+          return;
+        }
         
         const p256dhKey = subscription.getKey('p256dh');
         const authKey = subscription.getKey('auth');
-        if (!p256dhKey || !authKey) return;
+        if (!p256dhKey || !authKey) {
+          console.log('[NearbyStopsPanel] ❌ Missing push keys');
+          return;
+        }
         
         const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
         const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
@@ -536,6 +546,7 @@ export function NearbyStopsPanel({
           supabaseUrl
         });
         
+        console.log('[NearbyStopsPanel] 📤 Calling supabase.upsert...');
         const { error, data } = await supabase
           .from('stop_notification_subscriptions')
           .upsert({
@@ -546,6 +557,10 @@ export function NearbyStopsPanel({
             updated_at: new Date().toISOString(),
           }, { onConflict: 'endpoint' })
           .select();
+        
+        console.log('[NearbyStopsPanel] 📥 Upsert response received');
+        console.log('[NearbyStopsPanel] Error:', error);
+        console.log('[NearbyStopsPanel] Data:', data);
         
         if (error) {
           console.error('[NearbyStopsPanel] ❌ Upsert error:', error);
@@ -589,7 +604,12 @@ export function NearbyStopsPanel({
           }
         }
       } catch (e) {
-        console.error('[NearbyStopsPanel] Error syncing stop:', e);
+        console.error('[NearbyStopsPanel] ❌ Exception in syncTrackedStop:', e);
+        console.error('[NearbyStopsPanel] Exception details:', JSON.stringify(e, null, 2));
+        if (e instanceof Error) {
+          console.error('[NearbyStopsPanel] Exception message:', e.message);
+          console.error('[NearbyStopsPanel] Exception stack:', e.stack);
+        }
       }
     };
     
