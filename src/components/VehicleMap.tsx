@@ -2230,9 +2230,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           title={mapStyle === 'light' ? 'Νυχτερινός χάρτης' : mapStyle === 'dark' ? 'Δορυφορικός χάρτης' : 'Κανονικός χάρτης'}
           onClick={() => setMapStyle(mapStyle === 'light' ? 'dark' : mapStyle === 'dark' ? 'satellite' : 'light')}
         >
-          {mapStyle === 'light' ? <Sun className="h-3.5 w-3.5" /> : 
-           mapStyle === 'dark' ? <Moon className="h-3.5 w-3.5" /> : 
-           <Satellite className="h-3.5 w-3.5" />}
+          <Layers className="h-3.5 w-3.5" />
         </Button>
 
         <Button
