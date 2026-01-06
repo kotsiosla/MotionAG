@@ -412,47 +412,26 @@ export function NearbyStopsPanel({
         beforeMinutes: Math.round(notificationDistance / 100),
       }];
 
-      // Upsert to database
-      const { data: existing } = await supabase
+      // Upsert to database (use upsert instead of update/insert)
+      console.log('[NearbyStopsPanel] Upserting subscription to database...');
+      const { data: upsertData, error: upsertError } = await supabase
         .from('stop_notification_subscriptions')
-        .select('id')
-        .eq('endpoint', subscription.endpoint)
-        .maybeSingle();
+        .upsert({
+          endpoint: subscription.endpoint,
+          p256dh,
+          auth,
+          stop_notifications: stopSettings as any,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'endpoint' })
+        .select();
 
-      console.log('[NearbyStopsPanel] Existing subscription:', existing);
-
-      if (existing) {
-        const { error } = await supabase
-          .from('stop_notification_subscriptions')
-          .update({
-            p256dh,
-            auth,
-            stop_notifications: stopSettings as any,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('endpoint', subscription.endpoint);
-
-        if (error) {
-          console.error('[NearbyStopsPanel] Update error:', error);
-          throw error;
-        }
-        console.log('[NearbyStopsPanel] Updated subscription in database');
-      } else {
-        const { error } = await supabase
-          .from('stop_notification_subscriptions')
-          .insert([{
-            endpoint: subscription.endpoint,
-            p256dh,
-            auth,
-            stop_notifications: stopSettings as any,
-          }]);
-
-        if (error) {
-          console.error('[NearbyStopsPanel] Insert error:', error);
-          throw error;
-        }
-        console.log('[NearbyStopsPanel] Inserted new subscription in database');
+      if (upsertError) {
+        console.error('[NearbyStopsPanel] ❌ Upsert error:', upsertError);
+        console.error('[NearbyStopsPanel] Upsert error details:', JSON.stringify(upsertError, null, 2));
+        throw upsertError;
       }
+      
+      console.log('[NearbyStopsPanel] ✅ Upserted subscription in database:', upsertData);
 
       return true;
     } catch (error) {
