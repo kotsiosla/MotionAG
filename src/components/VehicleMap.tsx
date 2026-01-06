@@ -488,16 +488,16 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     return vehicle?.routeId || null;
   }, [followedVehicleId, vehicles]);
   
-  // Fetch route shape for followed vehicle (when different from selected route)
+  // Fetch route shape for followed vehicle
   const { data: followedRouteShapeData } = useRouteShape(
-    followedVehicleRouteId && followedVehicleRouteId !== selectedRoute ? followedVehicleRouteId : null,
-    selectedOperator
+    followedVehicleRouteId,
+    selectedOperator !== 'all' ? selectedOperator : undefined
   );
   
-  // Use whichever route shape is relevant for the followed vehicle
-  const effectiveRouteShapeData = followedVehicleRouteId === selectedRoute 
-    ? routeShapeData 
-    : (followedRouteShapeData || routeShapeData);
+  // Use followed vehicle's route shape when following, otherwise selected route
+  const effectiveRouteShapeData = followedVehicleId 
+    ? followedRouteShapeData 
+    : routeShapeData;
 
   // Get route info for coloring
   const selectedRouteInfo = selectedRoute !== 'all' && routeNamesMap 
@@ -2188,6 +2188,27 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
       {/* Right side controls toolbar - moves up when panel is visible */}
       <div className={`absolute right-2 z-[1000] flex flex-col gap-1 transition-all duration-300 ${nearestStopWithArrivals && userLocation && !notificationModalStop ? 'bottom-[280px]' : 'top-2'}`}>
+
+        {/* Stop Following Button - show only when following a vehicle */}
+        {followedVehicleId && (
+          <Button
+            variant="destructive"
+            size="icon"
+            className="h-8 w-8 rounded-full shadow-md transition-all duration-150 active:scale-90 animate-pulse"
+            onClick={() => {
+              setFollowedVehicleId(null);
+              onFollowVehicle?.(null);
+              // Clear the trail when unfollowing
+              trailPolylinesRef.current.forEach(polylines => {
+                polylines.forEach(p => mapRef.current?.removeLayer(p));
+              });
+              trailPolylinesRef.current.clear();
+            }}
+            title="Σταμάτα παρακολούθηση"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
 
         {/* Control buttons - smaller circular */}
         <Button
