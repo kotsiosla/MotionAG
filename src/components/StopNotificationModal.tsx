@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Bell, BellOff, Volume2, Vibrate, Mic, Send, X, Clock, AlertCircle } from "lucide-react";
+import { Bell, BellOff, Volume2, Vibrate, Mic, Send, X, Clock, AlertCircle, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/hooks/use-toast";
 import type { StopNotificationSettings } from "@/hooks/useStopNotifications";
+import { unlockAudio, playSound, vibrate } from "@/hooks/useStopArrivalNotifications";
 
 interface StopNotificationModalProps {
   stopId: string;
@@ -15,6 +16,13 @@ interface StopNotificationModalProps {
   onRemove: (stopId: string) => void;
   onClose: () => void;
 }
+
+// Detect iOS
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+// Check if vibration is supported
+const vibrationSupported = 'vibrate' in navigator && typeof navigator.vibrate === 'function';
 
 export function StopNotificationModal({
   stopId,
@@ -26,20 +34,33 @@ export function StopNotificationModal({
 }: StopNotificationModalProps) {
   const [enabled, setEnabled] = useState(currentSettings?.enabled ?? true);
   const [sound, setSound] = useState(currentSettings?.sound ?? true);
-  const [vibration, setVibration] = useState(currentSettings?.vibration ?? true);
+  const [vibration, setVibration] = useState(currentSettings?.vibration ?? vibrationSupported);
   const [voice, setVoice] = useState(currentSettings?.voice ?? false);
   const [push, setPush] = useState(currentSettings?.push ?? false);
   const [beforeMinutes, setBeforeMinutes] = useState(currentSettings?.beforeMinutes ?? 3);
   const [pushSupported, setPushSupported] = useState(true);
   const [isSubscribingPush, setIsSubscribingPush] = useState(false);
+  const [showIOSWarning, setShowIOSWarning] = useState(false);
 
-  // Check push support on mount
+  // Check push support and iOS on mount
   useEffect(() => {
     const checkPushSupport = () => {
       const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
       setPushSupported(supported);
     };
     checkPushSupport();
+    
+    // Show iOS warning
+    if (isIOS()) {
+      setShowIOSWarning(true);
+      // Disable vibration on iOS since it's not supported
+      if (!vibrationSupported) {
+        setVibration(false);
+      }
+    }
+    
+    // Unlock audio on user interaction (for iOS)
+    unlockAudio();
   }, []);
 
   // Handle push toggle - request permission when enabled
@@ -153,6 +174,16 @@ export function StopNotificationModal({
                 />
               </div>
 
+              {/* iOS Warning */}
+              {showIOSWarning && (
+                <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                  <Smartphone className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div className="text-xs text-amber-700 dark:text-amber-400">
+                    <strong>iOS:</strong> Η δόνηση δεν υποστηρίζεται. Ο ήχος και οι ειδοποιήσεις λειτουργούν μόνο με την εφαρμογή ανοιχτή ή εγκατεστημένη στην Αρχική Οθόνη.
+                  </div>
+                </div>
+              )}
+
               {/* Notification types */}
               <div className="space-y-3">
                 <Label className="text-xs text-muted-foreground uppercase tracking-wider">
@@ -164,15 +195,53 @@ export function StopNotificationModal({
                     <Volume2 className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">Ήχος</span>
                   </div>
-                  <Switch checked={sound} onCheckedChange={setSound} />
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 px-2 text-xs"
+                      onClick={() => {
+                        unlockAudio();
+                        playSound('medium');
+                        toast({ title: "🔊 Δοκιμή ήχου" });
+                      }}
+                    >
+                      Δοκιμή
+                    </Button>
+                    <Switch checked={sound} onCheckedChange={setSound} />
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between py-2">
                   <div className="flex items-center gap-3">
-                    <Vibrate className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">Δόνηση</span>
+                    <Vibrate className={`h-4 w-4 ${!vibrationSupported ? 'text-muted-foreground/50' : 'text-muted-foreground'}`} />
+                    <div>
+                      <span className={`text-sm ${!vibrationSupported ? 'text-muted-foreground/50' : ''}`}>Δόνηση</span>
+                      {!vibrationSupported && (
+                        <p className="text-xs text-muted-foreground">Δεν υποστηρίζεται σε iOS</p>
+                      )}
+                    </div>
                   </div>
-                  <Switch checked={vibration} onCheckedChange={setVibration} />
+                  <div className="flex items-center gap-2">
+                    {vibrationSupported && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          vibrate('medium');
+                          toast({ title: "📳 Δοκιμή δόνησης" });
+                        }}
+                      >
+                        Δοκιμή
+                      </Button>
+                    )}
+                    <Switch 
+                      checked={vibration} 
+                      onCheckedChange={setVibration}
+                      disabled={!vibrationSupported}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between py-2">
