@@ -4,7 +4,7 @@ import { Map as MapIcon, Route, MapPin, Bell, Calendar } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Header } from "@/components/Header";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { VehicleMap } from "@/components/VehicleMap";
+import { VehicleMap, MapStyleType } from "@/components/VehicleMap";
 import { TripsTable } from "@/components/TripsTable";
 import { StopsView } from "@/components/StopsView";
 import { AlertsList } from "@/components/AlertsList";
@@ -27,7 +27,21 @@ import { toast } from "sonner";
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(() => {
+    // Sync initial theme with saved map style
+    try {
+      const savedMapStyle = localStorage.getItem('motionbus_map_style');
+      return savedMapStyle === 'dark' || savedMapStyle === 'satellite';
+    } catch {}
+    return true;
+  });
+  const [mapStyle, setMapStyle] = useState<MapStyleType>(() => {
+    try {
+      const saved = localStorage.getItem('motionbus_map_style');
+      if (saved === 'light' || saved === 'dark' || saved === 'satellite') return saved;
+    } catch {}
+    return 'light';
+  });
   const [refreshInterval, setRefreshInterval] = useState(5);
   const [activeTab, setActiveTab] = useState("map");
   const [selectedOperator, setSelectedOperator] = useState("all");
@@ -61,6 +75,29 @@ const Index = () => {
     const saved = localStorage.getItem('delayNotificationsEnabled');
     return saved !== null ? JSON.parse(saved) : true;
   });
+  
+  // Sync theme and map style
+  const handleThemeToggle = useCallback(() => {
+    const newIsDark = !isDark;
+    setIsDark(newIsDark);
+    // Sync map style with theme
+    if (newIsDark && mapStyle === 'light') {
+      setMapStyle('dark');
+    } else if (!newIsDark && mapStyle === 'dark') {
+      setMapStyle('light');
+    }
+  }, [isDark, mapStyle]);
+  
+  const handleMapStyleChange = useCallback((newStyle: MapStyleType) => {
+    setMapStyle(newStyle);
+    localStorage.setItem('motionbus_map_style', newStyle);
+    // Sync theme with map style
+    if (newStyle === 'dark' || newStyle === 'satellite') {
+      setIsDark(true);
+    } else {
+      setIsDark(false);
+    }
+  }, []);
   
   // Toggle delay notifications
   const toggleDelayNotifications = () => {
@@ -444,7 +481,7 @@ const Index = () => {
     <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
       <Header
         isDark={isDark}
-        onToggleTheme={() => setIsDark(!isDark)}
+        onToggleTheme={handleThemeToggle}
         refreshInterval={refreshInterval}
         onRefreshIntervalChange={setRefreshInterval}
         lastUpdate={lastUpdate || null}
@@ -581,6 +618,8 @@ const Index = () => {
                   updateUrlParams({ stop: stopId });
                   if (!stopId) setDeepLinkStopId(null);
                 }}
+                mapStyle={mapStyle}
+                onMapStyleChange={handleMapStyleChange}
               />
             </TabsContent>
 
