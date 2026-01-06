@@ -3,8 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { setPushEndpoint } from '@/hooks/useSavedTrips';
 
-// VAPID public key for push notifications
-const VAPID_PUBLIC_KEY = 'BNlIFS3RpWV16zeQx6sa5RxNW9-DxcbupCwL_rmjiqDtyCzzjN7rufJcu1Zpc2c1gQztiKXNXTfe-0OaSzEaQJY';
+// VAPID public key for push notifications - must match the one in Supabase secrets
+const VAPID_PUBLIC_KEY = 'BMJiK9p5Az8RiAE7ymzLtNrSkzOV4hNGmIES8swYJb5hatqImuUsmGJTO5Ql1cldnbFaMfMwAhFthpeP3Trp8jg';
 
 function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
