@@ -35,13 +35,22 @@ if (typeof window !== 'undefined') {
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-  }
-});
+// Only create client if we have a valid key, otherwise create a mock that won't crash
+export const supabase = (SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY && SUPABASE_PUBLISHABLE_KEY.length > 0)
+  ? createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: {
+        storage: localStorage,
+        persistSession: true,
+        autoRefreshToken: true,
+      }
+    })
+  : createClient<Database>(SUPABASE_URL || 'https://jftthfniwfarxyisszjh.supabase.co', 'dummy-key-for-initialization', {
+      auth: {
+        storage: localStorage,
+        persistSession: true,
+        autoRefreshToken: true,
+      }
+    });
 
 // Debug: Test connection on client side
 if (typeof window !== 'undefined' && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
