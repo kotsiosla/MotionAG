@@ -1130,18 +1130,25 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         existingMarker.setIcon(createVehicleIcon(effectiveBearing, isFollowed, routeColor, isOnSelectedRoute, routeInfo?.route_short_name));
         existingMarker.setZIndexOffset(isOnSelectedRoute ? 2000 : (isFollowed ? 1000 : 0));
         
-        // Update tooltip content for hover
+        // Update tooltip content for hover - compact for mobile
+        // Truncate long route names
+        const shortRouteName = routeName && routeName.length > 25 
+          ? routeName.substring(0, 25) + '...' 
+          : routeName;
+        const shortNextStopName = nextStop?.stopName && nextStop.stopName.length > 20
+          ? nextStop.stopName.substring(0, 20) + '...'
+          : nextStop?.stopName;
+          
         const tooltipContent = `
-          <div class="p-2 min-w-[180px]">
-            <div class="font-semibold text-sm mb-1 flex items-center gap-2">
-              <span class="inline-block w-2 h-2 rounded-full" style="background: ${routeColor ? `#${routeColor}` : 'hsl(var(--primary))'}"></span>
-              ${routeName || `Όχημα ${vehicleId}`}
+          <div class="p-1.5" style="max-width: 200px;">
+            <div class="font-semibold text-xs mb-1 flex items-center gap-1.5">
+              <span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background: ${routeColor ? `#${routeColor}` : 'hsl(var(--primary))'}"></span>
+              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${shortRouteName || `#${vehicleId.substring(0, 6)}`}</span>
             </div>
-            <div class="space-y-1 text-xs">
-              ${vehicle.label ? `<div><span class="text-muted-foreground">Ετικέτα:</span> ${vehicle.label}</div>` : ''}
+            <div class="space-y-0.5 text-xs">
+              <div><span class="text-muted-foreground">Ετικέτα:</span> ${vehicle.label || vehicleId.substring(0, 8)}</div>
               <div><span class="text-muted-foreground">Ταχύτητα:</span> ${formatSpeed(vehicle.speed)}</div>
-              ${vehicle.currentStatus ? `<div><span class="text-muted-foreground">Κατάσταση:</span> ${vehicle.currentStatus}</div>` : ''}
-              ${nextStop ? `<div class="pt-1 border-t border-border mt-1"><span class="text-muted-foreground">Επόμενη:</span> ${nextStop.stopName}${nextStop.arrivalTime ? ` (${formatETA(nextStop.arrivalTime)})` : ''}</div>` : ''}
+              ${shortNextStopName ? `<div class="pt-0.5 border-t border-border mt-0.5"><span class="text-muted-foreground">Επόμ:</span> ${shortNextStopName}${nextStop?.arrivalTime ? ` (${formatETA(nextStop.arrivalTime)})` : ''}</div>` : ''}
             </div>
           </div>
         `;
