@@ -437,6 +437,106 @@ export function NearbyStopsPanel({
     }
   }, [notificationSettings, ensurePushSubscription]);
 
+  // Manually add current nearest stop to notifications
+  const [isAddingStop, setIsAddingStop] = useState(false);
+  
+  const addCurrentStopToNotifications = useCallback(async () => {
+    if (!nearestStop) {
+      toast({
+        title: "Δεν βρέθηκε στάση",
+        description: "Περιμένετε να εντοπιστεί η κοντινότερη στάση",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAddingStop(true);
+    
+    try {
+      // Ensure we have a push subscription first
+      const hasSubscription = await ensurePushSubscription(false);
+      if (!hasSubscription) {
+        setIsAddingStop(false);
+        return;
+      }
+
+      // Get current subscription
+      const registration = await navigator.serviceWorker.getRegistration('/sw.js');
+      if (!registration) {
+        throw new Error('No service worker');
+      }
+      
+      const subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        throw new Error('No push subscription');
+      }
+
+      // Get existing stop notifications
+      const { data: existing } = await supabase
+        .from('stop_notification_subscriptions')
+        .select('stop_notifications')
+        .eq('endpoint', subscription.endpoint)
+        .maybeSingle();
+
+      let existingStops: any[] = Array.isArray(existing?.stop_notifications) 
+        ? existing.stop_notifications 
+        : [];
+      
+      // Check if this stop already exists
+      const stopExists = existingStops.some((s: any) => s.stopId === nearestStop.stop_id);
+      
+      if (stopExists) {
+        toast({
+          title: "Η στάση υπάρχει ήδη",
+          description: nearestStop.stop_name,
+        });
+        setIsAddingStop(false);
+        return;
+      }
+
+      // Create new stop settings
+      const newStop = {
+        stopId: nearestStop.stop_id,
+        stopName: nearestStop.stop_name,
+        enabled: true,
+        sound: notificationSettings.sound,
+        vibration: notificationSettings.vibration,
+        voice: notificationSettings.voice,
+        push: true,
+        beforeMinutes: Math.round(notificationDistance / 100),
+      };
+
+      // Add new stop to existing stops
+      const updatedStops = [...existingStops, newStop];
+
+      const { error } = await supabase
+        .from('stop_notification_subscriptions')
+        .update({
+          stop_notifications: updatedStops as any,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('endpoint', subscription.endpoint);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "🔔 Στάση προστέθηκε!",
+        description: `${nearestStop.stop_name} (${updatedStops.length} στάσεις συνολικά)`,
+      });
+    } catch (e) {
+      console.error('Error adding stop:', e);
+      toast({
+        title: "Σφάλμα",
+        description: "Δεν ήταν δυνατή η προσθήκη της στάσης",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingStop(false);
+    }
+  }, [nearestStop, notificationSettings, notificationDistance, ensurePushSubscription]);
+
   // Note: Removed auto-sync that was showing permission toast repeatedly
 
   // Get user location with retry logic
@@ -987,11 +1087,20 @@ export function NearbyStopsPanel({
               </div>
             )}
 
+            {/* Add stop button */}
             {notificationSettings.push && nearestStop && (
-              <p className="text-xs text-green-500 flex items-center gap-1">
-                <span>✓</span>
-                Ενεργό για: {nearestStop.stop_name}
-              </p>
+              <Button
+                className="w-full h-10"
+                onClick={addCurrentStopToNotifications}
+                disabled={isAddingStop}
+              >
+                {isAddingStop ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Bell className="h-4 w-4 mr-2" />
+                )}
+                Προσθήκη "{nearestStop.stop_name.substring(0, 20)}..."
+              </Button>
             )}
           </div>
         </CollapsibleContent>
