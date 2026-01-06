@@ -267,15 +267,28 @@ export function NearbyStopsPanel({
         const updatedStops = [...existingStops, newStop];
 
         console.log('[NearbyStopsPanel] Adding stop to notifications:', nearestStop.stop_id, 'Total:', updatedStops.length);
-        console.log('[NearbyStopsPanel] Update attempt - endpoint:', subscription.endpoint.substring(0, 50) + '...');
+        console.log('[NearbyStopsPanel] Upsert attempt - endpoint:', subscription.endpoint.substring(0, 50) + '...');
+
+        // Get keys for upsert
+        const p256dhKey = subscription.getKey('p256dh');
+        const authKey = subscription.getKey('auth');
+        if (!p256dhKey || !authKey) {
+          console.error('[NearbyStopsPanel] ❌ Missing push keys for upsert');
+          return;
+        }
+        
+        const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
+        const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
 
         const { error, data } = await supabase
           .from('stop_notification_subscriptions')
-          .update({
+          .upsert({
+            endpoint: subscription.endpoint,
+            p256dh,
+            auth,
             stop_notifications: updatedStops as any,
             updated_at: new Date().toISOString(),
-          })
-          .eq('endpoint', subscription.endpoint)
+          }, { onConflict: 'endpoint' })
           .select();
 
         if (error) {
