@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
-import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Home, ZoomIn, ZoomOut, Route, Maximize2, Focus, Share2, Layers } from "lucide-react";
+import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Home, ZoomIn, ZoomOut, Route, Maximize2, Focus, Share2, Layers, Sun, Moon, Satellite } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SchedulePanel } from "@/components/SchedulePanel";
 import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
@@ -398,7 +398,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [mapClickLocation, setMapClickLocation] = useState<{ type: 'origin' | 'destination'; lat: number; lng: number } | null>(null);
   const [viewMode, setViewMode] = useState<'street' | 'overview'>('street');
   const [mapReady, setMapReady] = useState(false);
-  const [mapStyle, setMapStyle] = useState<'light' | 'satellite'>('light');
+  const [mapStyle, setMapStyle] = useState<'light' | 'dark' | 'satellite'>('light');
   const highlightedStopMarkerRef = useRef<L.Marker | null>(null);
   
   // Stop notification state
@@ -866,7 +866,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     };
   }, [mapClickMode]);
 
-  // Add basemap layer (light or satellite)
+  // Add basemap layer (light, dark, or satellite)
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -882,6 +882,13 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       tileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         attribution: 'Map data © <a href="https://www.esri.com/">Esri</a>',
         maxZoom: 19,
+      });
+    } else if (mapStyle === 'dark') {
+      // Carto Dark Matter - dark mode for night viewing
+      tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20,
       });
     } else {
       // Carto Positron - clean, minimal, high-contrast for transit
@@ -2188,12 +2195,14 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           variant="secondary"
           size="icon"
           className={`h-8 w-8 rounded-full shadow-md backdrop-blur-sm transition-all duration-150 hover:scale-105 active:scale-90 ${
-            mapStyle === 'satellite' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-card/90 hover:bg-card'
+            mapStyle !== 'light' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-card/90 hover:bg-card'
           }`}
-          title={mapStyle === 'light' ? 'Δορυφορικός χάρτης' : 'Κανονικός χάρτης'}
-          onClick={() => setMapStyle(prev => prev === 'light' ? 'satellite' : 'light')}
+          title={mapStyle === 'light' ? 'Νυχτερινός χάρτης' : mapStyle === 'dark' ? 'Δορυφορικός χάρτης' : 'Κανονικός χάρτης'}
+          onClick={() => setMapStyle(prev => prev === 'light' ? 'dark' : prev === 'dark' ? 'satellite' : 'light')}
         >
-          <Layers className="h-3.5 w-3.5" />
+          {mapStyle === 'light' ? <Sun className="h-3.5 w-3.5" /> : 
+           mapStyle === 'dark' ? <Moon className="h-3.5 w-3.5" /> : 
+           <Satellite className="h-3.5 w-3.5" />}
         </Button>
 
         <Button
