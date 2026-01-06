@@ -179,6 +179,9 @@ export function Header({
               )}
             </Button>
 
+            {/* Push Notifications button */}
+            <NotificationButton />
+
             <Link to="/install">
               <Button
                 variant="ghost"
@@ -353,6 +356,8 @@ export function Header({
                 </span>
               )}
             </Button>
+            {/* Push Notifications button - Desktop */}
+            <NotificationButton />
             <Link to="/install">
               <Button
                 variant="ghost"
