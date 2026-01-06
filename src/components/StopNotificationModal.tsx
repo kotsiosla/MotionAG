@@ -122,6 +122,8 @@ export function StopNotificationModal({
       localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
 
       // Save to server - upsert based on endpoint
+      const supabaseUrl = (supabase as any).supabaseUrl || 'unknown';
+      console.log('[StopNotificationModal] Supabase URL:', supabaseUrl);
       console.log('[StopNotificationModal] Checking for existing subscription...');
       const { data: existing, error: checkError } = await supabase
         .from('stop_notification_subscriptions')

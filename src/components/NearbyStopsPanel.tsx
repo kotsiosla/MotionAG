@@ -525,11 +525,15 @@ export function NearbyStopsPanel({
           beforeMinutes: Math.round(notificationDistance / 100),
         }];
         
+        // Log Supabase URL for debugging
+        const supabaseUrl = (supabase as any).supabaseUrl || 'unknown';
+        console.log('[NearbyStopsPanel] Supabase URL:', supabaseUrl);
         console.log('[NearbyStopsPanel] Attempting upsert with:', {
           endpoint: subscription.endpoint.substring(0, 50) + '...',
           p256dh: p256dh ? p256dh.substring(0, 20) + '...' : 'MISSING',
           auth: auth ? auth.substring(0, 20) + '...' : 'MISSING',
-          stopSettings: stopSettings.length
+          stopSettings: stopSettings.length,
+          supabaseUrl
         });
         
         const { error, data } = await supabase
