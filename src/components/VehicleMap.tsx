@@ -45,13 +45,12 @@ interface VehicleMapProps {
 
 const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: string, isOnSelectedRoute?: boolean, routeShortName?: string) => {
   const bgColor = routeColor ? `#${routeColor}` : '#0ea5e9'; // Sky blue default
-  const rotation = bearing !== undefined ? bearing : 0;
   
-  // Professional bus marker for followed/selected vehicles - with rotation
+  // Use the uploaded bus icon image
+  const iconSize = isFollowed ? 48 : (isOnSelectedRoute ? 40 : 32);
+  
+  // Professional bus marker with image
   if (isOnSelectedRoute || isFollowed) {
-    const markerSize = isFollowed ? 44 : 36;
-    const labelSize = isFollowed ? '12px' : '10px';
-    
     return L.divIcon({
       className: 'route-vehicle-marker',
       html: `
@@ -65,7 +64,7 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
             <div style="
               background: ${bgColor};
               color: white;
-              font-size: ${labelSize};
+              font-size: ${isFollowed ? '12px' : '10px'};
               font-weight: 700;
               padding: 3px 6px;
               border-radius: 4px;
@@ -77,60 +76,39 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
             ">${routeShortName}</div>
           ` : ''}
           <div style="
-            transform: rotate(${rotation}deg);
-            width: ${markerSize}px;
-            height: ${markerSize}px;
-            background: ${bgColor};
-            border-radius: 50% 50% 50% 0;
-            transform-origin: center center;
-            transform: rotate(${rotation - 45}deg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 3px 8px rgba(0,0,0,0.5);
-            border: 3px solid white;
+            width: ${iconSize}px;
+            height: ${iconSize}px;
+            filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4));
           ">
-            <svg xmlns="http://www.w3.org/2000/svg" width="${markerSize * 0.5}" height="${markerSize * 0.5}" viewBox="0 0 24 24" fill="white" stroke="none" style="transform: rotate(${45 - rotation}deg);">
-              <rect x="4" y="4" width="16" height="14" rx="3"/>
-              <rect x="6" y="6" width="5" height="4" rx="1" fill="${bgColor}"/>
-              <rect x="13" y="6" width="5" height="4" rx="1" fill="${bgColor}"/>
-              <circle cx="7" cy="18" r="2"/>
-              <circle cx="17" cy="18" r="2"/>
-            </svg>
+            <img src="/images/bus-icon.png" 
+              style="width: 100%; height: 100%; object-fit: contain;"
+              alt="Bus"
+            />
           </div>
         </div>
       `,
-      iconSize: [markerSize + 8, routeShortName ? markerSize + 30 : markerSize + 8],
-      iconAnchor: [(markerSize + 8) / 2, routeShortName ? markerSize + 30 : markerSize + 8],
+      iconSize: [iconSize, routeShortName ? iconSize + 28 : iconSize],
+      iconAnchor: [iconSize / 2, routeShortName ? iconSize + 28 : iconSize / 2],
     });
   }
   
-  // Standard small circle for all vehicles
-  const size = 20;
+  // Standard marker for all other vehicles - also use the bus icon but smaller
   return L.divIcon({
     className: 'vehicle-marker',
     html: `
       <div style="
-        width: ${size}px; 
-        height: ${size}px; 
-        background: ${bgColor}; 
-        border: 2px solid white; 
-        border-radius: 50%; 
-        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        width: ${iconSize}px;
+        height: ${iconSize}px;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
       ">
-        <div style="
-          width: 5px; 
-          height: 5px; 
-          background: white; 
-          border-radius: 50%;
-        "></div>
+        <img src="/images/bus-icon.png" 
+          style="width: 100%; height: 100%; object-fit: contain;"
+          alt="Bus"
+        />
       </div>
     `,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    iconSize: [iconSize, iconSize],
+    iconAnchor: [iconSize / 2, iconSize / 2],
   });
 };
 
