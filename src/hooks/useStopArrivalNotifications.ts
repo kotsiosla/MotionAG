@@ -273,13 +273,14 @@ export function useStopArrivalNotifications(
     }
   }, []);
 
-  // Send push notification for a stop - uses browser Notification API for foreground
-  // Push notifications for background require server-side triggering
+  // Send browser notification - works for both push (Android) and client-side (iOS)
+  // For iOS: push=false but we still send browser Notification when app is open
+  // For Android: push=true, browser Notification works when app is open, server push works when app is closed
   const sendPushNotification = useCallback(async (arrival: ArrivalInfo, settings: StopNotificationSettings) => {
-    if (!settings.push) return;
-    
     try {
-      // Use browser Notification API if permission granted and app is in foreground
+      // Always try to send browser Notification if permission granted (works for both iOS and Android)
+      // iOS: push=false but browser Notification still works when app is open
+      // Android: push=true, browser Notification works when app is open
       if ('Notification' in window && Notification.permission === 'granted') {
         const urgencyEmoji = arrival.minutesUntil <= 1 ? '🚨' : arrival.minutesUntil <= 2 ? '⚠️' : '🚌';
         
@@ -289,6 +290,10 @@ export function useStopArrivalNotifications(
           tag: `arrival-${arrival.stopId}-${arrival.routeId}`,
           requireInteraction: arrival.minutesUntil <= 2,
         });
+        
+        console.log('[Notification] Browser notification sent (iOS client-side or Android foreground)');
+      } else {
+        console.log('[Notification] Browser notification permission not granted');
       }
     } catch (error) {
       console.error('Error sending notification:', error);
@@ -395,10 +400,10 @@ export function useStopArrivalNotifications(
       speak(message);
     }
     
-    // Push notification (for when app is in background)
-    if (settings.push) {
-      sendPushNotification(arrival, settings);
-    }
+    // Browser notification (works for both iOS client-side and Android foreground)
+    // For iOS: always send browser notification (push=false but notification still works when app is open)
+    // For Android: send browser notification when app is open, server push when app is closed
+    sendPushNotification(arrival, settings);
     
     // Always show toast when app is visible
     const toastVariant = urgency === 'high' ? 'destructive' : 'default';
