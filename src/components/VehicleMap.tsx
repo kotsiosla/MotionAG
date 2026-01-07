@@ -17,6 +17,7 @@ import { RoutePlannerPanel } from "@/components/RoutePlannerPanel";
 import { StopDetailPanel } from "@/components/StopDetailPanel";
 import { NearestStopPanel } from "@/components/NearestStopPanel";
 import { VehicleFollowPanel } from "@/components/VehicleFollowPanel";
+import { UnifiedRoutePanel } from "@/components/UnifiedRoutePanel";
 import { DataSourceHealthIndicator } from "@/components/DataSourceHealthIndicator";
 import { useRouteShape } from "@/hooks/useGtfsData";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
@@ -2087,34 +2088,37 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         }}
       />
       
-      {/* Route Stops Panel - hide when following a vehicle */}
-      {showRoutePanel && selectedRoute !== 'all' && !showRoutePlanner && !followedVehicleId && (
-        <RouteStopsPanel
-          selectedRoute={selectedRoute}
+      {/* Unified Route Panel - shows when selecting route OR following vehicle */}
+      {((selectedRoute !== 'all' && !showRoutePlanner) || followedVehicleId) && (
+        <UnifiedRoutePanel
+          routeId={followedVehicle?.routeId || selectedRoute}
+          routeInfo={followedRouteInfo || selectedRouteInfo || undefined}
           trips={trips}
           vehicles={vehicles}
           stops={stops}
-          routeInfo={selectedRouteInfo}
           selectedOperator={selectedOperator}
-          onClose={() => setShowRoutePanel(false)}
+          followedVehicle={followedVehicle || null}
+          nextStop={followedNextStop || null}
+          viewMode={viewMode}
+          onClose={() => {
+            if (followedVehicleId) {
+              setFollowedVehicleId(null);
+              onFollowVehicle?.(null);
+              // Clear the trail when unfollowing
+              trailPolylinesRef.current.forEach(polylines => {
+                polylines.forEach(p => mapRef.current?.removeLayer(p));
+              });
+              trailPolylinesRef.current.clear();
+            } else {
+              setShowRoutePanel(false);
+              setSelectedRoute('all');
+              onRouteClose?.();
+            }
+          }}
           onStopClick={handleStopClick}
-        />
-      )}
-      
-      {/* Schedule Panel - Live & Scheduled trips - positioned to the right of route panel */}
-      {selectedRoute !== 'all' && showLiveVehiclesPanel && !showRoutePlanner && !followedVehicleId && (
-        <SchedulePanel
-          selectedRoute={selectedRoute}
-          trips={trips}
-          vehicles={vehicles}
-          stops={stops}
-          routeInfo={selectedRouteInfo}
-          selectedOperator={selectedOperator}
-          initialPosition={{ x: showRoutePanel ? 410 : 16, y: 60 }}
-          onClose={() => setShowLiveVehiclesPanel(false)}
           onVehicleFollow={(vehicleId) => {
             setFollowedVehicleId(vehicleId);
-            setShowLiveVehiclesPanel(false);
+            onFollowVehicle?.(vehicleId);
           }}
           onVehicleFocus={(vehicle) => {
             if (vehicle.latitude && vehicle.longitude && mapRef.current) {
@@ -2125,25 +2129,6 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
                 easeLinearity: 0.25
               });
             }
-          }}
-        />
-      )}
-      
-      {/* Vehicle Follow Panel - shows when following a vehicle */}
-      {followedVehicleId && followedVehicle && (
-        <VehicleFollowPanel
-          vehicle={followedVehicle}
-          routeInfo={followedRouteInfo || undefined}
-          nextStop={followedNextStop}
-          viewMode={viewMode}
-          onClose={() => {
-            setFollowedVehicleId(null);
-            onFollowVehicle?.(null);
-            // Clear the trail when unfollowing
-            trailPolylinesRef.current.forEach(polylines => {
-              polylines.forEach(p => mapRef.current?.removeLayer(p));
-            });
-            trailPolylinesRef.current.clear();
           }}
           onSwitchToStreet={switchToStreetView}
           onSwitchToOverview={switchToOverview}
