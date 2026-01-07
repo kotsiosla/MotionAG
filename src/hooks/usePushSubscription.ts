@@ -106,9 +106,18 @@ export function usePushSubscription() {
       }
 
       try {
-        // Register service worker
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('Service Worker registered:', registration);
+        // Check if service worker is already registered to avoid duplicate registration
+        const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+        let registration;
+        
+        if (existingRegistrations.length > 0) {
+          registration = existingRegistrations[0];
+          console.log('Using existing service worker registration:', registration.scope);
+        } else {
+          // Register service worker only if not already registered (prevents refresh loop)
+          registration = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
+          console.log('Service Worker registered:', registration);
+        }
 
         // Check existing subscription
         const subscription = await registration.pushManager.getSubscription();
@@ -150,6 +159,17 @@ export function usePushSubscription() {
     try {
       setIsLoading(true);
 
+      // Check if Notification API is available
+      if (!('Notification' in window)) {
+        toast({
+          title: 'Δεν υποστηρίζεται',
+          description: 'Το Notification API δεν είναι διαθέσιμο σε αυτόν τον browser',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return false;
+      }
+
       // Check current permission status first
       console.log('Current notification permission:', Notification.permission);
       
@@ -160,6 +180,7 @@ export function usePushSubscription() {
           description: 'Οι ειδοποιήσεις έχουν μπλοκαριστεί. Αλλάξτε τις ρυθμίσεις στον browser και κάντε refresh.',
           variant: 'destructive',
         });
+        setIsLoading(false);
         return false;
       }
 
@@ -173,6 +194,7 @@ export function usePushSubscription() {
           description: `Κατάσταση άδειας: ${permission}. Ελέγξτε τις ρυθμίσεις του browser.`,
           variant: 'destructive',
         });
+        setIsLoading(false);
         return false;
       }
 
