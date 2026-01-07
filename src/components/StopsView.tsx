@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useStopRoutes } from "@/hooks/useGtfsData";
 import { useFavoriteStops, FavoriteStopType } from "@/hooks/useFavoriteStops";
+import { useFavoriteStopIds } from "@/hooks/useFavoriteStopIds";
+import { cn } from "@/lib/utils";
 import type { Trip, StaticStop, RouteInfo } from "@/types/gtfs";
 
 interface StopsViewProps {
@@ -49,7 +51,9 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedStopId, setExpandedStopId] = useState<string | null>(null);
   const [showFavoritePicker, setShowFavoritePicker] = useState<{ stopId: string; stop: StaticStop } | null>(null);
+  const [selectedFavoriteStopId, setSelectedFavoriteStopId] = useState<string | null>(null);
   const { favorites, setFavorite, removeFavorite, isFavorite, homeStop, workStop } = useFavoriteStops();
+  const { favoriteStopIds, toggleFavorite, isFavorite: isFavoriteStopId } = useFavoriteStopIds();
 
   // Create a map of stopId -> stop info with arrivals
   const stopsWithArrivals = useMemo(() => {
@@ -138,14 +142,33 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
   };
 
   const filteredStops = useMemo(() => {
-    if (!searchTerm) return stopsWithArrivals.slice(0, 100); // Limit to 100 for performance
-    const term = searchTerm.toLowerCase();
-    return stopsWithArrivals.filter((data) =>
-      data.stop.stop_id.toLowerCase().includes(term) ||
-      data.stop.stop_name?.toLowerCase().includes(term) ||
-      data.stop.stop_code?.toLowerCase().includes(term)
-    ).slice(0, 100);
-  }, [stopsWithArrivals, searchTerm]);
+    let filtered = stopsWithArrivals;
+    
+    // Filter by selected favorite stop
+    if (selectedFavoriteStopId) {
+      filtered = filtered.filter(data => data.stop.stop_id === selectedFavoriteStopId);
+    }
+    
+    // Filter by search term
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter((data) =>
+        data.stop.stop_id.toLowerCase().includes(term) ||
+        data.stop.stop_name?.toLowerCase().includes(term) ||
+        data.stop.stop_code?.toLowerCase().includes(term)
+      );
+    }
+    
+    return filtered.slice(0, 100); // Limit to 100 for performance
+  }, [stopsWithArrivals, searchTerm, selectedFavoriteStopId]);
+  
+  // Get favorite stops for buttons
+  const favoriteStopsForButtons = useMemo(() => {
+    return stopsWithArrivals
+      .filter(data => favoriteStopIds.includes(data.stop.stop_id))
+      .slice(0, 4)
+      .map(data => data.stop);
+  }, [stopsWithArrivals, favoriteStopIds]);
 
   // Favorite stops with arrivals data
   const favoriteStopsData = useMemo(() => {
@@ -291,7 +314,68 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-border">
+      <div className="p-4 border-b border-border space-y-3">
+        {/* Favorite Stops - Big buttons like distance selector */}
+        {favoriteStopsForButtons.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Αγαπημένες στάσεις:</span>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {favoriteStopsForButtons.map((stop) => {
+                const isSelected = selectedFavoriteStopId === stop.stop_id;
+                const stopName = stop.stop_name || stop.stop_id;
+                const displayName = stopName.length > 15 ? stopName.substring(0, 12) + '...' : stopName;
+                return (
+                  <Button
+                    key={stop.stop_id}
+                    variant={isSelected ? 'default' : 'outline'}
+                    size="lg"
+                    className={cn(
+                      "h-16 flex flex-col items-center justify-center gap-1 font-bold text-xs transition-all",
+                      isSelected && "ring-2 ring-offset-2"
+                    )}
+                    style={isSelected ? { backgroundColor: '#6B8E23' } : {}}
+                    onClick={() => setSelectedFavoriteStopId(isSelected ? null : stop.stop_id)}
+                    title={stopName}
+                  >
+                    <MapPin className="h-4 w-4" />
+                    <span className="line-clamp-2 text-center">{displayName}</span>
+                  </Button>
+                );
+              })}
+              {/* Add favorite button if less than 4 */}
+              {favoriteStopIds.length < 4 && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="h-16 flex flex-col items-center justify-center gap-1 border-dashed"
+                  onClick={() => {
+                    // Find a stop to add - show modal/picker
+                    // For now, just log
+                    console.log('Add favorite stop - implement picker');
+                  }}
+                  title="Προσθήκη αγαπημένης στάσης"
+                >
+                  <Star className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">+</span>
+                </Button>
+              )}
+            </div>
+            {selectedFavoriteStopId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setSelectedFavoriteStopId(null)}
+              >
+                <X className="h-3 w-3" />
+                Καθαρισμός φίλτρου
+              </Button>
+            )}
+          </div>
+        )}
+        
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -301,7 +385,7 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
             className="pl-10"
           />
         </div>
-        <div className="mt-3 flex items-center justify-between">
+        <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
             {filteredStops.length} στάσεις με αφίξεις
           </span>
@@ -524,8 +608,21 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
                           </button>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm truncate">
-                            {data.stop.stop_name || data.stop.stop_id}
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm truncate flex-1">
+                              {data.stop.stop_name || data.stop.stop_id}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 p-0 hover:bg-transparent"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFavorite(data.stop.stop_id);
+                              }}
+                            >
+                              <Star className={cn("h-3.5 w-3.5", isFavoriteStopId(data.stop.stop_id) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground")} />
+                            </Button>
                           </div>
                           {data.stop.stop_name && data.stop.stop_name !== data.stop.stop_id && (
                             <div className="text-xs text-muted-foreground font-mono">
