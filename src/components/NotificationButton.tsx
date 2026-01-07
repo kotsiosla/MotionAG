@@ -79,12 +79,16 @@ export function NotificationButton() {
       let responseData: any = null;
       let responseError: any = null;
       
+      console.log('[NotificationButton] Starting test notification...');
+      console.log('[NotificationButton] Supabase client:', supabase);
+      
       try {
         // Add timeout to prevent hanging (20 seconds)
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => reject(new Error('Request timeout - function took too long to respond')), 20000);
         });
         
+        console.log('[NotificationButton] Invoking test-push function...');
         const invokePromise = supabase.functions.invoke('test-push', {
           body: {
             title: '🚌 Δοκιμή Ειδοποίησης',
@@ -92,12 +96,23 @@ export function NotificationButton() {
           },
         });
         
+        console.log('[NotificationButton] Waiting for response (with 20s timeout)...');
         const response = await Promise.race([invokePromise, timeoutPromise]) as any;
         
+        console.log('[NotificationButton] Response received:', response);
         responseData = response?.data;
         responseError = response?.error;
+        
+        if (responseError) {
+          console.error('[NotificationButton] Response has error:', responseError);
+        } else {
+          console.log('[NotificationButton] Response data:', responseData);
+        }
       } catch (invokeError: any) {
-        console.error('Function invoke error:', invokeError);
+        console.error('[NotificationButton] Function invoke error:', invokeError);
+        console.error('[NotificationButton] Error type:', typeof invokeError);
+        console.error('[NotificationButton] Error message:', invokeError?.message);
+        console.error('[NotificationButton] Error stack:', invokeError?.stack);
         responseError = invokeError;
       }
 
