@@ -106,21 +106,34 @@ export function usePushSubscription() {
       }
 
       try {
-        // Check if service worker is already registered to avoid duplicate registration
+        // DON'T register service worker here - use existing registration from main.tsx
+        // This prevents refresh loops
         const existingRegistrations = await navigator.serviceWorker.getRegistrations();
-        let registration;
         
-        if (existingRegistrations.length > 0) {
-          registration = existingRegistrations[0];
-          console.log('Using existing service worker registration:', registration.scope);
-        } else {
-          // Register service worker only if not already registered (prevents refresh loop)
-          registration = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
-          console.log('Service Worker registered:', registration);
+        if (existingRegistrations.length === 0) {
+          console.log('No service worker registration found - waiting for main.tsx to register');
+          setIsLoading(false);
+          return; // Don't try to register here - main.tsx will do it
+        }
+        
+        const registration = existingRegistrations[0];
+        console.log('Using existing service worker registration:', registration.scope);
+        
+        // Wait for service worker to be ready (but don't wait forever)
+        let registrationReady = registration;
+        if (!registration.active) {
+          console.log('Service worker not active yet, waiting...');
+          try {
+            registrationReady = await navigator.serviceWorker.ready;
+          } catch (e) {
+            console.log('Service worker not ready, will check later');
+            setIsLoading(false);
+            return;
+          }
         }
 
         // Check existing subscription
-        const subscription = await registration.pushManager.getSubscription();
+        const subscription = await registrationReady.pushManager.getSubscription();
         console.log('Existing subscription:', subscription);
         
         if (subscription) {
@@ -214,7 +227,19 @@ export function usePushSubscription() {
         return true;
       }
 
-      const registration = await navigator.serviceWorker.ready;
+      // Get existing registration (don't use ready - causes refresh loop)
+      const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+      if (existingRegistrations.length === 0 || !existingRegistrations[0].active) {
+        toast({
+          title: 'Service Worker δεν είναι έτοιμο',
+          description: 'Παρακαλώ περιμένετε 2-3 δευτερόλεπτα και δοκιμάστε ξανά',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return false;
+      }
+      
+      const registration = existingRegistrations[0];
       
       // First, unsubscribe from any existing subscription (important when VAPID key changes)
       const existingSubscription = await registration.pushManager.getSubscription();
@@ -314,7 +339,30 @@ export function usePushSubscription() {
         return true;
       }
 
-      const registration = await navigator.serviceWorker.ready;
+      // Get existing registration (don't use ready - causes refresh loop)
+      const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+      if (existingRegistrations.length === 0 || !existingRegistrations[0].active) {
+        // Just clear localStorage for iOS Safari
+        if (isIOS() && !isStandalone()) {
+          localStorage.removeItem('push_subscription_routes');
+          setIsSubscribed(false);
+          setSubscribedRoutes([]);
+          toast({
+            title: 'Ειδοποιήσεις απενεργοποιήθηκαν',
+          });
+          setIsLoading(false);
+          return true;
+        }
+        toast({
+          title: 'Service Worker δεν είναι έτοιμο',
+          description: 'Παρακαλώ περιμένετε 2-3 δευτερόλεπτα και δοκιμάστε ξανά',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return false;
+      }
+      
+      const registration = existingRegistrations[0];
       const subscription = await registration.pushManager.getSubscription();
       
       if (subscription) {
@@ -353,7 +401,14 @@ export function usePushSubscription() {
 
   const updateRoutes = useCallback(async (routeIds: string[]) => {
     try {
-      const registration = await navigator.serviceWorker.ready;
+      // Get existing registration (don't use ready - causes refresh loop)
+      const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+      if (existingRegistrations.length === 0 || !existingRegistrations[0].active) {
+        console.log('Service worker not ready for updateRoutes');
+        return false;
+      }
+      
+      const registration = existingRegistrations[0];
       const subscription = await registration.pushManager.getSubscription();
       
       if (!subscription) {
