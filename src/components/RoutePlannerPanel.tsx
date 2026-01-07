@@ -942,7 +942,16 @@ export function RoutePlannerPanel({
           </div>
           <h2 className="font-medium text-sm text-white">Σχεδιασμός Διαδρομής</h2>
         </div>
-        <Button variant="ghost" size="icon" className="h-6 w-6 text-white hover:bg-white/20" onClick={onClose}>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-6 w-6 text-white hover:bg-white/20" 
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          data-no-drag
+        >
           <X className="h-3.5 w-3.5" />
         </Button>
       </div>

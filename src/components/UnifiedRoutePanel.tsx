@@ -290,7 +290,11 @@ export function UnifiedRoutePanel({
           variant="ghost"
           size="icon"
           className="h-6 w-6 text-white hover:bg-white/20"
-          onClick={onClose}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          data-no-drag
         >
           <X className="h-3.5 w-3.5" />
         </Button>
