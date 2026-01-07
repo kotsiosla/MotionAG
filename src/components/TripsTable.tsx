@@ -36,9 +36,10 @@ const formatDelay = (seconds?: number) => {
 const formatTimestamp = (timestamp?: number) => {
   if (!timestamp) return '-';
   const date = new Date(timestamp * 1000);
-  return date.toLocaleTimeString('en-GB', {
+  return date.toLocaleTimeString('el-GR', {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
     second: '2-digit',
     hour12: false,
   });

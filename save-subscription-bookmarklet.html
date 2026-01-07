@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Save Subscription Bookmarklet</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+        .bookmarklet { background: #007acc; color: white; padding: 15px; border-radius: 5px; margin: 20px 0; cursor: pointer; }
+        .bookmarklet:hover { background: #005f99; }
+        code { background: #252526; padding: 2px 6px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🔔 Save Subscription Bookmarklet</h1>
+    <p>Drag this button to your bookmarks bar, then click it on the MotionBus website:</p>
+    
+    <a class="bookmarklet" href="javascript:(async()=>{const r=await navigator.serviceWorker.ready,s=await r.pushManager.getSubscription();if(!s){alert('❌ No subscription. Enable notifications for a stop first.');return;}const p=btoa(String.fromCharCode.apply(null,Array.from(new Uint8Array(s.getKey('p256dh'))))),a=btoa(String.fromCharCode.apply(null,Array.from(new Uint8Array(s.getKey('auth'))))),st=localStorage.getItem('stop_notifications'),sn=st?JSON.parse(st).filter(n=>n.enabled&&n.push):[];const res=await fetch('https://jftthfniwfarxyisszjh.supabase.co/rest/v1/stop_notification_subscriptions',{method:'POST',headers:{'Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.gPUAizcb955wy6-c_krSAx00_0VNsZc4J3C0I2tmrnw','apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.gPUAizcb955wy6-c_krSAx00_0VNsZc4J3C0I2tmrnw','Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({endpoint:s.endpoint,p256dh:p,auth:a,stop_notifications:sn,updated_at:new Date().toISOString()})});if(res.ok){const d=await res.json();console.log('✅ SAVED!',d);alert('✅ Saved! Check terminal for test notification!');}else{const e=await res.text();console.error('❌ ERROR:',res.status,e);alert('❌ Error: '+res.status);}})();">
+        🔔 Save Subscription
+    </a>
+    
+    <h2>OR - Copy this code to console:</h2>
+    <code style="display:block;padding:10px;margin:10px 0;white-space:pre-wrap;overflow-x:auto;">
+(async()=>{const r=await navigator.serviceWorker.ready,s=await r.pushManager.getSubscription();if(!s){alert('❌ No subscription. Enable notifications for a stop first.');return;}const p=btoa(String.fromCharCode.apply(null,Array.from(new Uint8Array(s.getKey('p256dh'))))),a=btoa(String.fromCharCode.apply(null,Array.from(new Uint8Array(s.getKey('auth'))))),st=localStorage.getItem('stop_notifications'),sn=st?JSON.parse(st).filter(n=>n.enabled&&n.push):[];const res=await fetch('https://jftthfniwfarxyisszjh.supabase.co/rest/v1/stop_notification_subscriptions',{method:'POST',headers:{'Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.gPUAizcb955wy6-c_krSAx00_0VNsZc4J3C0I2tmrnw','apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.gPUAizcb955wy6-c_krSAx00_0VNsZc4J3C0I2tmrnw','Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({endpoint:s.endpoint,p256dh:p,auth:a,stop_notifications:sn,updated_at:new Date().toISOString()})});if(res.ok){const d=await res.json();console.log('✅ SAVED!',d);alert('✅ Saved! Check terminal for test notification!');}else{const e=await res.text();console.error('❌ ERROR:',res.status,e);alert('❌ Error: '+res.status);}})();
+    </code>
+    
+    <h2>Instructions:</h2>
+    <ol>
+        <li>Open <code>https://kotsiosla.github.io/MotionBus_AI</code></li>
+        <li>Enable notifications for a stop (click bell icon)</li>
+        <li>Drag the button above to your bookmarks bar, OR copy the code to console (F12)</li>
+        <li>Click the bookmarklet or paste the code</li>
+        <li>I'll detect it and send a test notification!</li>
+    </ol>
+</body>
+</html>
+

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Push Subscription Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .test { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Push Subscription Diagnostic Test</h1>
+    
+    <div class="test">
+        <h3>1. Service Worker Check</h3>
+        <div id="sw-status">Checking...</div>
+    </div>
+    
+    <div class="test">
+        <h3>2. Notification Permission</h3>
+        <div id="permission-status">Checking...</div>
+        <button onclick="requestPermission()">Request Permission</button>
+    </div>
+    
+    <div class="test">
+        <h3>3. Push Subscription</h3>
+        <div id="subscription-status">Checking...</div>
+        <button onclick="createSubscription()">Create Subscription</button>
+        <button onclick="checkSubscription()">Check Subscription</button>
+    </div>
+    
+    <div class="test">
+        <h3>4. Save to Database</h3>
+        <div id="database-status">Ready to test...</div>
+        <button onclick="saveToDatabase()">Save to Database</button>
+    </div>
+    
+    <div class="test">
+        <h3>5. Console Logs</h3>
+        <pre id="logs"></pre>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jftthfniwfarxyisszjh.supabase.co';
+        const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.gPUAizcb955wy6-c_krSAx00_0VNsZc4J3C0I2tmrnw';
+        const VAPID_PUBLIC_KEY = 'BOKt_6W50S5Al74CyqJZ2pbXvDCCp966T5Ha8pDUrdBJjTxwAx6LSoxO1OeeS0kGRh0PJxK23upgWCDwNY9R2co';
+        
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const time = new Date().toLocaleTimeString();
+            const color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'black';
+            logs.innerHTML += `<span style="color: ${color}">[${time}] ${message}</span>\n`;
+            console.log(message);
+        }
+        
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray.buffer;
+        }
+        
+        // Register and Check Service Worker
+        async function registerServiceWorker() {
+            try {
+                if ('serviceWorker' in navigator) {
+                    log('Registering service worker...');
+                    const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                    log('Service worker registered successfully', 'success');
+                    return registration;
+                } else {
+                    throw new Error('Service workers not supported');
+                }
+            } catch (error) {
+                log(`Service worker registration failed: ${error.message}`, 'error');
+                // Try to use existing registration
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                if (registrations.length > 0) {
+                    log('Using existing service worker registration', 'success');
+                    return registrations[0];
+                }
+                throw error;
+            }
+        }
+        
+        registerServiceWorker().then(registration => {
+            const status = document.getElementById('sw-status');
+            status.innerHTML = `<span style="color: green;">✅ Service worker registered: ${registration.scope}</span>`;
+            status.parentElement.className = 'test success';
+        }).catch(error => {
+            const status = document.getElementById('sw-status');
+            status.innerHTML = `<span style="color: red;">❌ Service worker error: ${error.message}</span>`;
+            status.parentElement.className = 'test error';
+            log('Note: If you\'re testing on the main app, the service worker should already be registered', 'warning');
+        });
+        
+        // Check Permission
+        function checkPermission() {
+            const status = document.getElementById('permission-status');
+            if ('Notification' in window) {
+                const permission = Notification.permission;
+                if (permission === 'granted') {
+                    status.innerHTML = '<span style="color: green;">✅ Permission granted</span>';
+                    status.parentElement.className = 'test success';
+                } else if (permission === 'denied') {
+                    status.innerHTML = '<span style="color: red;">❌ Permission denied</span>';
+                    status.parentElement.className = 'test error';
+                } else {
+                    status.innerHTML = '<span style="color: orange;">⚠️ Permission not requested</span>';
+                    status.parentElement.className = 'test warning';
+                }
+                log(`Notification permission: ${permission}`);
+            } else {
+                status.innerHTML = '<span style="color: red;">❌ Notifications not supported</span>';
+                status.parentElement.className = 'test error';
+            }
+        }
+        checkPermission();
+        
+        function requestPermission() {
+            Notification.requestPermission().then(permission => {
+                log(`Permission result: ${permission}`, permission === 'granted' ? 'success' : 'error');
+                checkPermission();
+            });
+        }
+        
+        // Check Subscription
+        function checkSubscription() {
+            const status = document.getElementById('subscription-status');
+            navigator.serviceWorker.ready.then(registration => {
+                return registration.pushManager.getSubscription();
+            }).then(subscription => {
+                if (subscription) {
+                    status.innerHTML = '<span style="color: green;">✅ Subscription exists</span>';
+                    status.parentElement.className = 'test success';
+                    log(`Subscription endpoint: ${subscription.endpoint.substring(0, 50)}...`, 'success');
+                } else {
+                    status.innerHTML = '<span style="color: orange;">⚠️ No subscription</span>';
+                    status.parentElement.className = 'test warning';
+                    log('No subscription found', 'error');
+                }
+            });
+        }
+        checkSubscription();
+        
+        async function createSubscription() {
+            const status = document.getElementById('subscription-status');
+            status.innerHTML = 'Creating...';
+            log('Creating subscription...');
+            
+            try {
+                // First check if service worker is ready
+                const registration = await navigator.serviceWorker.ready;
+                log('Service worker is ready', 'success');
+                
+                // Check if subscription already exists
+                const existing = await registration.pushManager.getSubscription();
+                if (existing) {
+                    log('Subscription already exists, removing old one...', 'warning');
+                    await existing.unsubscribe();
+                    log('Old subscription removed', 'success');
+                }
+                
+                // Create new subscription
+                log('Subscribing with VAPID key...');
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                });
+                
+                log('✅ Subscription created successfully!', 'success');
+                log(`Endpoint: ${subscription.endpoint.substring(0, 50)}...`, 'success');
+                status.innerHTML = '<span style="color: green;">✅ Subscription created!</span>';
+                status.parentElement.className = 'test success';
+                checkSubscription();
+            } catch (error) {
+                log(`❌ Error creating subscription: ${error.message}`, 'error');
+                log(`Error details: ${JSON.stringify(error, null, 2)}`, 'error');
+                status.innerHTML = `<span style="color: red;">❌ Error: ${error.message}</span>`;
+                status.parentElement.className = 'test error';
+                console.error('Full error:', error);
+            }
+        }
+        
+        async function saveToDatabase() {
+            const status = document.getElementById('database-status');
+            status.innerHTML = 'Saving...';
+            
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.getSubscription();
+                
+                if (!subscription) {
+                    throw new Error('No subscription found. Create one first.');
+                }
+                
+                const p256dhKey = subscription.getKey('p256dh');
+                const authKey = subscription.getKey('auth');
+                if (!p256dhKey || !authKey) {
+                    throw new Error('Subscription keys missing');
+                }
+                
+                const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
+                const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
+                
+                log('Saving to database...');
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${ANON_KEY}`,
+                        'apikey': ANON_KEY,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify({
+                        endpoint: subscription.endpoint,
+                        p256dh: p256dh,
+                        auth: auth,
+                        route_ids: []
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    status.innerHTML = '<span style="color: green;">✅ Saved to database!</span>';
+                    status.parentElement.className = 'test success';
+                    log('Successfully saved to database!', 'success');
+                    log(JSON.stringify(data, null, 2));
+                } else {
+                    const error = await response.text();
+                    status.innerHTML = `<span style="color: red;">❌ Error: ${response.status}</span>`;
+                    status.parentElement.className = 'test error';
+                    log(`Database error: ${error}`, 'error');
+                }
+            } catch (error) {
+                status.innerHTML = `<span style="color: red;">❌ Error: ${error.message}</span>`;
+                status.parentElement.className = 'test error';
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
+

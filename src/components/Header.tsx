@@ -17,9 +17,9 @@ import { Label } from "@/components/ui/label";
 import { OperatorSelector } from "@/components/OperatorSelector";
 import { RouteSelector } from "@/components/RouteSelector";
 import { SmartTripPlanner } from "@/components/SmartTripPlanner";
+import { AnimatedLogo } from "@/components/AnimatedLogo";
 import type { RouteInfo, StaticStop } from "@/types/gtfs";
 import type { FavoriteRoute } from "@/hooks/useFavoriteRoutes";
-import motionLogo from "@/assets/motion-logo.svg";
 
 interface LocationInfo {
   lat: number;
@@ -113,7 +113,7 @@ export function Header({
   };
   const formatLastUpdate = (timestamp: number) => {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-GB', {
+    return date.toLocaleTimeString('el-GR', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
@@ -127,7 +127,7 @@ export function Header({
         {/* Mobile Header */}
         <div className="flex items-center justify-between gap-1 md:hidden">
           <div className="flex items-center gap-1.5">
-            <img src={motionLogo} alt="Motion Logo" className="h-4 sm:h-5" />
+            <AnimatedLogo height="1rem" className="sm:h-5" />
             <h1 className="text-xs sm:text-sm font-bold tracking-tight">GTFS Realtime</h1>
           </div>
           
@@ -266,7 +266,7 @@ export function Header({
         <div className="hidden md:flex items-center justify-between gap-4">
           {/* Left: Logo and Title */}
           <div className="flex items-center gap-3">
-            <img src={motionLogo} alt="Motion Logo" className="h-6" />
+            <AnimatedLogo height="1.5rem" />
             <div>
               <h1 className="text-base font-bold tracking-tight leading-none">GTFS Realtime</h1>
               <span className="text-[10px] text-muted-foreground">Live Tracking</span>

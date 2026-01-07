@@ -17,7 +17,7 @@ interface StopsViewProps {
 const formatETA = (timestamp?: number) => {
   if (!timestamp) return '--:--';
   const date = new Date(timestamp * 1000);
-  return date.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit', hour12: false });
 };
 
 const formatDelay = (seconds?: number) => {
