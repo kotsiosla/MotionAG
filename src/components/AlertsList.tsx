@@ -323,10 +323,20 @@ export function AlertsList({ alerts, trips, routeNamesMap, isLoading }: AlertsLi
                 <img 
                   src="/profile-photo.jpg" 
                   alt="Developer"
-                  className="w-16 h-16 rounded-full object-cover border-2 border-primary/30 shadow-md"
+                  className="w-16 h-16 rounded-full object-cover border-2 border-primary/30 shadow-md bg-primary/20"
                   onError={(e) => {
-                    // Fallback to placeholder if image doesn't exist
-                    (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM2QjhFMjMiLz4KPHBhdGggZD0iTTMyIDIwQzI3LjU4IDIwIDIwIDIzLjU4IDIwIDI4VjM0SDQ0VjI4QzQ0IDIzLjU4IDM2LjQyIDIwIDMyIDIwWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+';
+                    // Try PNG if JPG doesn't exist
+                    const img = e.target as HTMLImageElement;
+                    if (img.src.endsWith('.jpg')) {
+                      img.src = '/profile-photo.png';
+                      return;
+                    }
+                    // Fallback to placeholder if neither exists
+                    img.style.display = 'none';
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'w-16 h-16 rounded-full bg-primary/20 border-2 border-primary/30 shadow-md flex items-center justify-center';
+                    placeholder.innerHTML = '<svg class="w-8 h-8 text-primary/50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>';
+                    img.parentNode?.replaceChild(placeholder, img);
                   }}
                 />
               </div>
