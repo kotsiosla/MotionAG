@@ -531,6 +531,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     if (followVehicleId && followVehicleId !== followedVehicleId) {
       setFollowedVehicleId(followVehicleId);
       setViewMode('street');
+      // Close route planner when following a vehicle
+      setShowRoutePlanner(false);
+      setSelectedVehicleTrip(null);
+      setInitialOriginStop(null);
       
       // Initialize trail with current position when starting to follow
       const vehicle = vehicles.find(v => (v.vehicleId || v.id) === followVehicleId);
@@ -1247,29 +1251,11 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           }
           
           setFollowedVehicleId(vehicleId);
-          // Open route planner with this vehicle's trip info
-          if (vehicle.tripId) {
-            setSelectedVehicleTrip({
-              vehicleId,
-              tripId: vehicle.tripId,
-              routeId: vehicle.routeId,
-            });
-            
-            // Find the current stop of the vehicle to set as origin
-            if (vehicle.stopId) {
-              const currentStop = stops.find(s => s.stop_id === vehicle.stopId);
-              if (currentStop && currentStop.stop_lat && currentStop.stop_lon) {
-                setInitialOriginStop({
-                  stopId: currentStop.stop_id,
-                  stopName: currentStop.stop_name || currentStop.stop_id,
-                  lat: currentStop.stop_lat,
-                  lng: currentStop.stop_lon,
-                });
-              }
-            }
-            
-            setShowRoutePlanner(true);
-          }
+          onFollowVehicle?.(vehicleId);
+          // Close route planner when following a vehicle - UnifiedRoutePanel will show the route
+          setShowRoutePlanner(false);
+          setSelectedVehicleTrip(null);
+          setInitialOriginStop(null);
         });
 
         markerMapRef.current.set(vehicleId, marker);
@@ -2085,8 +2071,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         }}
       />
       
-      {/* Unified Route Panel - shows when selecting route OR following vehicle */}
-      {((selectedRoute !== 'all' && !showRoutePlanner) || followedVehicleId) && (
+      {/* Unified Route Panel - shows when selecting route OR following vehicle, but NOT when route planner is open */}
+      {((selectedRoute !== 'all' && !showRoutePlanner) || (followedVehicleId && !showRoutePlanner)) && (
         <UnifiedRoutePanel
           routeId={followedVehicle?.routeId || selectedRoute}
           routeInfo={followedRouteInfo || selectedRouteInfo || undefined}
@@ -2179,7 +2165,21 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           variant="secondary"
           size="icon"
           className={`h-8 w-8 rounded-full shadow-md transition-all duration-150 active:scale-90 ${showRoutePlanner ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-card/90 backdrop-blur-sm hover:bg-card hover:scale-105'}`}
-          onClick={() => setShowRoutePlanner(!showRoutePlanner)}
+          onClick={() => {
+            if (!showRoutePlanner) {
+              // Opening route planner - stop following vehicle if active
+              if (followedVehicleId) {
+                setFollowedVehicleId(null);
+                onFollowVehicle?.(null);
+                // Clear the trail when unfollowing
+                trailPolylinesRef.current.forEach(polylines => {
+                  polylines.forEach(p => mapRef.current?.removeLayer(p));
+                });
+                trailPolylinesRef.current.clear();
+              }
+            }
+            setShowRoutePlanner(!showRoutePlanner);
+          }}
           title="Σχεδιασμός διαδρομής"
         >
           <Route className="h-3.5 w-3.5" />
