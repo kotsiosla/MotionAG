@@ -54,7 +54,7 @@ export function NotificationButton() {
 
     setIsSendingTest(true);
     try {
-      // For iOS Safari (client-side only), send browser notification directly
+      // For iOS Safari (not PWA), send browser notification directly (no server-side)
       if (iosStatus === 'needs-install' && 'Notification' in window && Notification.permission === 'granted') {
         try {
           new Notification('🚌 Δοκιμή Ειδοποίησης', {
@@ -64,7 +64,7 @@ export function NotificationButton() {
           });
           toast({
             title: 'Επιτυχία',
-            description: 'Δοκιμαστική ειδοποίηση στάλθηκε (client-side)',
+            description: 'Δοκιμαστική ειδοποίηση στάλθηκε (client-side - Safari)',
           });
           setIsSendingTest(false);
           return;
@@ -74,7 +74,7 @@ export function NotificationButton() {
         }
       }
 
-      // For Android/PWA, use server-side push
+      // For Android/iOS PWA, try server-side push first
       const { data, error } = await supabase.functions.invoke('send-push-notification', {
         body: {
           title: '🚌 Δοκιμή Ειδοποίησης',
@@ -87,15 +87,16 @@ export function NotificationButton() {
         const errorDetails = error.message || String(error);
         
         // If server-side fails but we have Notification permission, try client-side as fallback
+        // This works for both iOS PWA and Android if server-side fails
         if ('Notification' in window && Notification.permission === 'granted') {
           try {
             new Notification('🚌 Δοκιμή Ειδοποίησης', {
-              body: 'Οι ειδοποιήσεις λειτουργούν κανονικά! (client-side)',
+              body: 'Οι ειδοποιήσεις λειτουργούν κανονικά! (client-side fallback)',
               icon: '/pwa-192x192.png',
               tag: 'test-notification',
             });
             toast({
-              title: 'Επιτυχία (client-side)',
+              title: 'Επιτυχία (client-side fallback)',
               description: `Server-side απέτυχε: ${errorDetails.substring(0, 40)}... (χρησιμοποιήθηκε client-side)`,
             });
             setIsSendingTest(false);
