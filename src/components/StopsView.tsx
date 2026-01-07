@@ -163,13 +163,30 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
     return filtered.slice(0, 100); // Limit to 100 for performance
   }, [stopsWithArrivals, searchTerm, selectedFavoriteStopId]);
   
-  // Get favorite stops for buttons
+  // Get favorite stops for buttons - combine home/work with regular favorites
   const favoriteStopsForButtons = useMemo(() => {
-    return stopsWithArrivals
+    const result: Array<{ stop: StaticStop; type?: 'home' | 'work' }> = [];
+    
+    // Add home stop first if exists
+    if (homeStop) {
+      result.push({ stop: homeStop, type: 'home' });
+    }
+    
+    // Add work stop second if exists
+    if (workStop) {
+      result.push({ stop: workStop, type: 'work' });
+    }
+    
+    // Add regular favorites (up to 2 more to make total 4)
+    const regularFavorites = stopsWithArrivals
       .filter(data => favoriteStopIds.includes(data.stop.stop_id))
-      .slice(0, 4)
-      .map(data => data.stop);
-  }, [stopsWithArrivals, favoriteStopIds]);
+      .slice(0, 4 - result.length)
+      .map(data => ({ stop: data.stop }));
+    
+    result.push(...regularFavorites);
+    
+    return result;
+  }, [stopsWithArrivals, favoriteStopIds, homeStop, workStop]);
 
   // Favorite stops with arrivals data
   const favoriteStopsData = useMemo(() => {
@@ -323,30 +340,44 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
               <span>Αγαπημένες στάσεις:</span>
             </div>
             <div className="grid grid-cols-4 gap-2">
-              {favoriteStopsForButtons.map((stop) => {
-                const isSelected = selectedFavoriteStopId === stop.stop_id;
-                const stopName = stop.stop_name || stop.stop_id;
+              {favoriteStopsForButtons.map((favStop) => {
+                const isSelected = selectedFavoriteStopId === favStop.stop.stop_id;
+                const stopName = favStop.stop.stop_name || favStop.stop.stop_id;
                 const displayName = stopName.length > 15 ? stopName.substring(0, 12) + '...' : stopName;
+                
+                // Determine icon and color based on type
+                const isHome = favStop.type === 'home';
+                const isWork = favStop.type === 'work';
+                const Icon = isHome ? Home : isWork ? Briefcase : MapPin;
+                
+                // Colors: home = blue, work = orange/brown, regular = olive-green
+                const backgroundColor = isSelected 
+                  ? (isHome ? '#3B82F6' : isWork ? '#F97316' : '#6B8E23')
+                  : undefined;
+                const borderColor = !isSelected 
+                  ? (isHome ? '#3B82F6' : isWork ? '#F97316' : '#6B8E23')
+                  : undefined;
+                
                 return (
                   <Button
-                    key={stop.stop_id}
+                    key={favStop.stop.stop_id}
                     variant={isSelected ? 'default' : 'outline'}
                     size="lg"
                     className={cn(
                       "h-16 flex flex-col items-center justify-center gap-1 font-bold text-xs transition-all",
                       isSelected && "ring-2 ring-offset-2"
                     )}
-                    style={isSelected ? { backgroundColor: '#6B8E23' } : {}}
-                    onClick={() => setSelectedFavoriteStopId(isSelected ? null : stop.stop_id)}
+                    style={isSelected ? { backgroundColor } : borderColor ? { borderColor } : {}}
+                    onClick={() => setSelectedFavoriteStopId(isSelected ? null : favStop.stop.stop_id)}
                     title={stopName}
                   >
-                    <MapPin className="h-4 w-4" />
+                    <Icon className="h-4 w-4" />
                     <span className="line-clamp-2 text-center">{displayName}</span>
                   </Button>
                 );
               })}
-              {/* Add favorite button if less than 4 */}
-              {favoriteStopIds.length < 4 && (
+              {/* Add favorite button if less than 4 total (including home/work) */}
+              {favoriteStopsForButtons.length < 4 && (
                 <Button
                   variant="outline"
                   size="lg"
