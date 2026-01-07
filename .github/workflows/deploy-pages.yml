@@ -43,6 +43,7 @@ jobs:
           fi
         env:
           NODE_OPTIONS: '--max-old-space-size=4096'
+          GITHUB_PAGES: 'true'
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://jftthfniwfarxyisszjh.supabase.co' }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || '' }}
 
