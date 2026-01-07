@@ -17,29 +17,39 @@ if ('serviceWorker' in navigator) {
   
   function registerSW() {
     console.log('[main.tsx] Attempting to register service worker:', swPath);
-    navigator.serviceWorker.register(swPath, { scope: basePath })
-      .then((registration) => {
-        console.log('[main.tsx] ✅ Service worker registered:', registration.scope);
-        console.log('[main.tsx] Service worker state:', registration.active?.state || registration.installing?.state || 'pending');
-        
-        // DON'T listen for updates - this can cause refresh loops
-        // Updates will happen naturally when the page reloads
-      })
-      .catch((error) => {
-        console.error('[main.tsx] ❌ Service worker registration failed:', error);
-        console.error('[main.tsx] Error details:', error.message, error.stack);
-        
-        // Try fallback
-        console.log('[main.tsx] Trying fallback path: /sw.js');
-        navigator.serviceWorker.register('/sw.js')
-          .then((reg) => {
-            console.log('[main.tsx] ✅ Service worker registered with fallback:', reg.scope);
-          })
-          .catch((err) => {
-            console.error('[main.tsx] ❌ Fallback registration failed:', err);
-            console.error('[main.tsx] Make sure the service worker file exists and is accessible');
-          });
-      });
+    
+    // Check if already registered to avoid duplicate registration
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      if (registrations.length > 0) {
+        console.log('[main.tsx] ✅ Service worker already registered:', registrations[0].scope);
+        return;
+      }
+      
+      // Register only if not already registered
+      navigator.serviceWorker.register(swPath, { scope: basePath, updateViaCache: 'none' })
+        .then((registration) => {
+          console.log('[main.tsx] ✅ Service worker registered:', registration.scope);
+          console.log('[main.tsx] Service worker state:', registration.active?.state || registration.installing?.state || 'pending');
+          
+          // DON'T listen for updates - this can cause refresh loops
+          // DON'T check for updates - this can cause refresh loops
+        })
+        .catch((error) => {
+          console.error('[main.tsx] ❌ Service worker registration failed:', error);
+          console.error('[main.tsx] Error details:', error.message, error.stack);
+          
+          // Try fallback
+          console.log('[main.tsx] Trying fallback path: /sw.js');
+          navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+            .then((reg) => {
+              console.log('[main.tsx] ✅ Service worker registered with fallback:', reg.scope);
+            })
+            .catch((err) => {
+              console.error('[main.tsx] ❌ Fallback registration failed:', err);
+              console.error('[main.tsx] Make sure the service worker file exists and is accessible');
+            });
+        });
+    });
   }
 }
 

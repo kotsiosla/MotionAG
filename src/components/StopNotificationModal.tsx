@@ -114,34 +114,31 @@ export function StopNotificationModal({
         return;
       }
 
-      // Get existing service worker registration - DON'T use ready (causes refresh loop on update)
+      // Get existing service worker registration - ONLY use active worker (no waiting, no updates)
       console.log('[StopNotificationModal] Getting existing service worker registration...');
       
-      // Check if service worker is already registered - DON'T wait for ready
+      // Get registration and ONLY use if active - don't wait for anything
       let registration;
       try {
-        // Get existing registration without waiting for ready (avoids refresh loop)
         const existingRegistrations = await navigator.serviceWorker.getRegistrations();
         if (existingRegistrations.length > 0) {
           registration = existingRegistrations[0];
-          console.log('[StopNotificationModal] ✅ Using existing service worker registration:', registration.scope);
+          console.log('[StopNotificationModal] Found registration, scope:', registration.scope);
           
-          // Check if service worker is active, if not wait a bit (but not ready - that causes refresh)
-          if (!registration.active && registration.installing) {
-            console.log('[StopNotificationModal] Service worker is installing, waiting for activation...');
-            // Wait for activation but with timeout to avoid infinite wait
-            await new Promise((resolve) => {
-              const timeout = setTimeout(resolve, 2000); // Max 2 seconds
-              registration.installing?.addEventListener('statechange', () => {
-                if (registration.installing?.state === 'activated' || registration.active) {
-                  clearTimeout(timeout);
-                  resolve(null);
-                }
-              });
+          // ONLY proceed if service worker is active - don't wait for installing/activating
+          if (!registration.active) {
+            console.error('[StopNotificationModal] ❌ Service worker is not active yet');
+            toast({
+              title: "Service Worker δεν είναι έτοιμο",
+              description: "Παρακαλώ περιμένετε 2-3 δευτερόλεπτα και δοκιμάστε ξανά.",
+              variant: "destructive",
             });
+            setIsSaving(false);
+            return;
           }
+          
+          console.log('[StopNotificationModal] ✅ Using active service worker:', registration.scope);
         } else {
-          // No existing registration - this shouldn't happen if main.tsx registered it
           console.error('[StopNotificationModal] ❌ No service worker registration found');
           toast({
             title: "Σφάλμα Service Worker",
