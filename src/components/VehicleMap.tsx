@@ -2099,6 +2099,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           viewMode={viewMode}
           onClose={() => {
             if (followedVehicleId) {
+              // Stop following vehicle
               setFollowedVehicleId(null);
               onFollowVehicle?.(null);
               // Clear the trail when unfollowing
@@ -2106,9 +2107,16 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
                 polylines.forEach(p => mapRef.current?.removeLayer(p));
               });
               trailPolylinesRef.current.clear();
+              // Also clear selected route if it was set from following
+              if (selectedRoute !== 'all') {
+                setSelectedRoute('all');
+                setShowRoutePanel(false);
+                onRouteClose?.();
+              }
             } else {
-              setShowRoutePanel(false);
+              // Close route panel - clear selection
               setSelectedRoute('all');
+              setShowRoutePanel(false);
               onRouteClose?.();
             }
           }}
