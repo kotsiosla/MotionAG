@@ -181,13 +181,19 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Results: ${sent} sent, ${failed} failed`);
+    const duration = Date.now() - startTime;
+    console.log(`[test-push] Results: ${sent} sent, ${failed} failed (took ${duration}ms)`);
 
-    return new Response(JSON.stringify({ sent, failed, total: subscriptions.length, errors: errors.slice(0, 5) }), {
+    const responseBody = { sent, failed, total: subscriptions.length, errors: errors.slice(0, 5) };
+    console.log('[test-push] Returning response:', JSON.stringify(responseBody));
+    
+    return new Response(JSON.stringify(responseBody), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error:', error);
+    const duration = Date.now() - startTime;
+    console.error('[test-push] Error after', duration, 'ms:', error);
+    console.error('[test-push] Error stack:', error instanceof Error ? error.stack : String(error));
     return new Response(JSON.stringify({ error: 'Internal server error', details: String(error) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
