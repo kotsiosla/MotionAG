@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
 import { StopNotificationModal } from "@/components/StopNotificationModal";
-import { useRouteShape, useRouteSchedule } from "@/hooks/useGtfsData";
+import { useRouteShape } from "@/hooks/useGtfsData";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import { cn } from "@/lib/utils";
@@ -97,7 +97,7 @@ export function UnifiedRoutePanel({
   onSwitchToOverview,
 }: UnifiedRoutePanelProps) {
   const isMobile = useIsMobile();
-  const [activeTab, setActiveTab] = useState<'stops' | 'live' | 'planner' | 'schedule'>('stops');
+  const [activeTab, setActiveTab] = useState<'stops' | 'live' | 'planner'>('stops');
   
   // Safety check - don't render if no routeId
   if (!routeId || routeId === 'all') {
@@ -116,7 +116,6 @@ export function UnifiedRoutePanel({
 
   // Fetch static route shape data
   const { data: routeShapeData, isLoading: isLoadingShape } = useRouteShape(routeId, selectedOperator);
-  const { data: scheduleData, isLoading: isLoadingSchedule } = useRouteSchedule(routeId, selectedOperator);
 
   // Find trips for this route
   const routeTrips = useMemo(() => {
@@ -428,7 +427,7 @@ export function UnifiedRoutePanel({
       {/* Tabs */}
       {!isCollapsed && (
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 flex flex-col min-h-0 bg-white">
-          <TabsList className="grid w-full grid-cols-4 h-9 mx-4 mt-2 shrink-0">
+          <TabsList className="grid w-full grid-cols-3 h-9 mx-4 mt-2 shrink-0">
             <TabsTrigger value="stops" className="text-xs gap-1.5">
               <MapPin className="h-3 w-3 text-green-600" />
               Live Στάσεις
@@ -450,10 +449,6 @@ export function UnifiedRoutePanel({
             <TabsTrigger value="planner" className="text-xs gap-1.5">
               <Route className="h-3 w-3 text-green-600" />
               Live Δρομολόγιο
-            </TabsTrigger>
-            <TabsTrigger value="schedule" className="text-xs gap-1.5">
-              <Calendar className="h-3 w-3" />
-              Πρόγραμμα
             </TabsTrigger>
           </TabsList>
 
@@ -824,144 +819,6 @@ export function UnifiedRoutePanel({
             </ScrollArea>
           </TabsContent>
 
-          {/* Schedule Tab - Χάρτης Διαδρομών & Πρόγραμμα */}
-          <TabsContent value="schedule" className="flex-1 min-h-0 mt-0">
-            <ScrollArea className="h-full">
-              {isLoadingSchedule || isLoadingShape ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <div className="p-2 space-y-4">
-                  {/* Direction selector */}
-                  {availableDirections.length > 1 && (
-                    <div className="flex gap-2 mb-3">
-                      {availableDirections.map((dir) => (
-                        <Button
-                          key={dir}
-                          variant={selectedDirection === dir ? "default" : "outline"}
-                          size="sm"
-                          className="flex-1 h-8 text-xs"
-                          onClick={() => setSelectedDirection(dir)}
-                          style={selectedDirection === dir ? { backgroundColor: headerColor } : {}}
-                        >
-                          <ArrowLeftRight className="h-3 w-3 mr-1" />
-                          Κατεύθυνση {dir + 1}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Route Shape & Stops Map */}
-                  {routeShapeData?.directions?.[selectedDirection] && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 pb-2 border-b border-border">
-                        <Map className="h-4 w-4 text-primary" />
-                        <span className="font-semibold text-sm">Χάρτης Διαδρομής</span>
-                      </div>
-                      
-                      {/* Stops list in order */}
-                      <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                        {routeStops.map((stop, index) => {
-                          const staticStop = stopMap.get(stop.stopId);
-                          return (
-                            <div
-                              key={stop.stopId}
-                              className={cn(
-                                "flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors",
-                                "hover:bg-muted/50",
-                                stop.isFirst && "bg-primary/10 border-primary/30",
-                                stop.isLast && "bg-primary/10 border-primary/30"
-                              )}
-                              onClick={() => onStopClick?.(stop.stopId)}
-                            >
-                              {/* Sequence number */}
-                              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-semibold shrink-0">
-                                {index + 1}
-                              </div>
-                              
-                              {/* Stop name */}
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium text-sm truncate">{stop.stopName}</div>
-                                {staticStop?.stop_lat && staticStop?.stop_lon && (
-                                  <div className="text-xs text-muted-foreground">
-                                    {staticStop.stop_lat.toFixed(5)}, {staticStop.stop_lon.toFixed(5)}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Indicators */}
-                              <div className="flex items-center gap-1 shrink-0">
-                                {stop.isFirst && (
-                                  <Badge variant="default" className="h-5 px-1.5 text-[10px]" style={{ backgroundColor: headerColor }}>
-                                    Αρχή
-                                  </Badge>
-                                )}
-                                {stop.isLast && (
-                                  <Badge variant="default" className="h-5 px-1.5 text-[10px]" style={{ backgroundColor: headerColor }}>
-                                    Τέλος
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Schedule List */}
-                  {scheduleData?.schedule?.length ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 pb-2 border-b border-border">
-                        <Clock className="h-4 w-4 text-primary" />
-                        <span className="font-semibold text-sm">Πρόγραμμα Δρομολογίων</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {scheduleData.total_trips} δρομολόγια
-                        </Badge>
-                      </div>
-
-                      {/* Schedule entries */}
-                      <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                        {(scheduleData.by_direction?.[selectedDirection] || scheduleData.schedule)
-                          .slice(0, 100) // Show first 100 trips
-                          .map((entry, idx) => (
-                            <div
-                              key={`${entry.trip_id}-${idx}`}
-                              className="flex items-center gap-2 p-2 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors"
-                            >
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                                <span className="font-mono font-semibold text-sm">{entry.departure_time}</span>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-xs text-muted-foreground truncate">
-                                  {entry.trip_headsign || `${entry.first_stop_name} → ${entry.last_stop_name}`}
-                                </div>
-                              </div>
-                              <Badge variant="secondary" className="text-xs shrink-0">
-                                {entry.stop_count} στάσεις
-                              </Badge>
-                            </div>
-                          ))}
-                      </div>
-
-                      {scheduleData.total_trips > 100 && (
-                        <div className="text-center text-xs text-muted-foreground py-2">
-                          Εμφανίζονται 100 από {scheduleData.total_trips} δρομολόγια
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="p-4 text-center text-muted-foreground text-xs">
-                      <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>Δεν βρέθηκαν δρομολόγια</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </ScrollArea>
-          </TabsContent>
         </Tabs>
       )}
     </div>
