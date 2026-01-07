@@ -36,21 +36,65 @@ serve(async (req) => {
     console.log('VAPID_PUBLIC_KEY starts with:', VAPID_PUBLIC_KEY?.substring(0, 50) || 'MISSING');
     console.log('VAPID_PRIVATE_KEY starts with:', VAPID_PRIVATE_KEY?.substring(0, 50) || 'MISSING');
 
-    // Create ApplicationServerKeys - these need to be in base64url format or JWK format
+    // Create ApplicationServerKeys - support both JWK format and base64 format
     let applicationServerKeys;
     try {
-      // Try to parse as JSON first (JWK format)
       let publicKey = VAPID_PUBLIC_KEY;
       let privateKey = VAPID_PRIVATE_KEY;
       
+      // Try to parse as JSON first (JWK format)
       try {
         const publicKeyJson = JSON.parse(VAPID_PUBLIC_KEY);
         const privateKeyJson = JSON.parse(VAPID_PRIVATE_KEY);
         publicKey = publicKeyJson;
         privateKey = privateKeyJson;
-        console.log('VAPID keys are in JWK format');
+        console.log('VAPID keys are in JWK format (JSON)');
       } catch (e) {
-        console.log('VAPID keys are not in JSON format, using as-is');
+        // Not JSON, assume base64 format - convert to JWK
+        console.log('VAPID keys are in base64 format, converting to JWK...');
+        
+        // Convert base64 to base64url if needed
+        const base64UrlPublic = publicKey.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const base64UrlPrivate = privateKey.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        
+        // For base64 keys, we need to import them and export as JWK
+        // But ApplicationServerKeys.fromJSON expects JWK format
+        // So we'll try to create JWK from base64 keys
+        try {
+          // Decode base64 keys
+          const publicKeyBytes = Uint8Array.from(atob(publicKey.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+          const privateKeyBytes = Uint8Array.from(atob(privateKey.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+          
+          // Import as raw keys and export as JWK
+          const privateCryptoKey = await crypto.subtle.importKey(
+            'pkcs8',
+            privateKeyBytes,
+            { name: 'ECDSA', namedCurve: 'P-256' },
+            true,
+            ['sign']
+          );
+          
+          const publicCryptoKey = await crypto.subtle.importKey(
+            'spki',
+            publicKeyBytes,
+            { name: 'ECDSA', namedCurve: 'P-256' },
+            true,
+            []
+          );
+          
+          // Export as JWK
+          const privateJwk = await crypto.subtle.exportKey('jwk', privateCryptoKey);
+          const publicJwk = await crypto.subtle.exportKey('jwk', publicCryptoKey);
+          
+          publicKey = publicJwk;
+          privateKey = privateJwk;
+          console.log('Converted base64 keys to JWK format');
+        } catch (convertError) {
+          console.error('Failed to convert base64 to JWK:', convertError);
+          // Fall through to try ApplicationServerKeys.fromJSON with base64url
+          publicKey = base64UrlPublic;
+          privateKey = base64UrlPrivate;
+        }
       }
       
       applicationServerKeys = await ApplicationServerKeys.fromJSON({
@@ -64,7 +108,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ 
         error: 'Invalid VAPID key format', 
         details: String(keyError),
-        hint: 'Make sure VAPID keys are in JWK format (JSON) or base64url format'
+        hint: 'VAPID keys should be in JWK format (JSON) or base64/base64url format'
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
