@@ -114,50 +114,34 @@ export function StopNotificationModal({
         return;
       }
 
-      // Register/get service worker - VitePWA auto-registers, so just get it
-      console.log('[StopNotificationModal] Getting service worker registration...');
+      // Get existing service worker registration - DON'T register again (causes refresh loop)
+      console.log('[StopNotificationModal] Getting existing service worker registration...');
       
-      // Wait for service worker to be ready (VitePWA auto-registers)
+      // Check if service worker is already registered
       let registration;
       try {
-        registration = await navigator.serviceWorker.ready;
-        console.log('[StopNotificationModal] ✅ Service worker ready, scope:', registration.scope);
+        // First, try to get existing registration without waiting
+        const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+        if (existingRegistrations.length > 0) {
+          registration = existingRegistrations[0];
+          console.log('[StopNotificationModal] ✅ Using existing service worker registration:', registration.scope);
+        } else {
+          // No existing registration, wait for ready (main.tsx will register it)
+          console.log('[StopNotificationModal] No existing registration, waiting for ready...');
+          registration = await navigator.serviceWorker.ready;
+          console.log('[StopNotificationModal] ✅ Service worker ready, scope:', registration.scope);
+        }
       } catch (swError) {
-        console.error('[StopNotificationModal] ❌ Service worker not ready:', swError);
-        
-        // Try manual registration as fallback
-        const basePath = import.meta.env.BASE_URL || (window.location.pathname.startsWith('/MotionBus_AI') ? '/MotionBus_AI/' : '/');
-        const swPaths = [
-          `${basePath}sw.js`.replace('//', '/'),
-          '/sw.js',
-        ];
-        
-        let lastError;
-        for (const swPath of swPaths) {
-          try {
-            console.log('[StopNotificationModal] Trying manual registration:', swPath);
-            registration = await navigator.serviceWorker.register(swPath, { scope: basePath });
-            console.log('[StopNotificationModal] ✅ Service worker registered:', swPath);
-            break;
-          } catch (regError) {
-            console.error('[StopNotificationModal] ❌ Registration failed:', regError);
-            lastError = regError;
-          }
-        }
-        
-        if (!registration) {
-          const errorMsg = `Δεν ήταν δυνατή η εγγραφή service worker. ${lastError instanceof Error ? lastError.message : String(lastError)}. Βεβαιωθείτε ότι το website είναι HTTPS.`;
-          console.error('[StopNotificationModal]', errorMsg);
-          toast({
-            title: "Σφάλμα Service Worker",
-            description: errorMsg,
-            variant: "destructive",
-          });
-          setIsSaving(false);
-          return;
-        }
-        
-        await navigator.serviceWorker.ready;
+        console.error('[StopNotificationModal] ❌ Service worker error:', swError);
+        const errorMsg = `Δεν ήταν δυνατή η πρόσβαση στο service worker. ${swError instanceof Error ? swError.message : String(swError)}. Βεβαιωθείτε ότι το website είναι HTTPS.`;
+        console.error('[StopNotificationModal]', errorMsg);
+        toast({
+          title: "Σφάλμα Service Worker",
+          description: errorMsg,
+          variant: "destructive",
+        });
+        setIsSaving(false);
+        return;
       }
 
       // Get or create push subscription

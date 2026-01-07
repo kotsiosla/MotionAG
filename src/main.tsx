@@ -22,10 +22,8 @@ if ('serviceWorker' in navigator) {
         console.log('[main.tsx] ✅ Service worker registered:', registration.scope);
         console.log('[main.tsx] Service worker state:', registration.active?.state || registration.installing?.state || 'pending');
         
-        // Check for updates
-        registration.addEventListener('updatefound', () => {
-          console.log('[main.tsx] Service worker update found');
-        });
+        // DON'T listen for updates - this can cause refresh loops
+        // Updates will happen naturally when the page reloads
       })
       .catch((error) => {
         console.error('[main.tsx] ❌ Service worker registration failed:', error);
