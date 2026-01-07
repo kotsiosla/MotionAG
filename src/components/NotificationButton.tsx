@@ -85,7 +85,13 @@ export function NotificationButton() {
 
       if (error) {
         console.error('Supabase function error:', error);
-        const errorDetails = error.message || String(error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        
+        // Try to get more details from the error
+        let errorDetails = error.message || String(error);
+        if (error.context) {
+          errorDetails = error.context.message || errorDetails;
+        }
         
         // If server-side fails but we have Notification permission, try client-side as fallback
         // This works for both iOS PWA and Android if server-side fails
@@ -98,7 +104,7 @@ export function NotificationButton() {
             });
             toast({
               title: 'Επιτυχία (client-side fallback)',
-              description: `Server-side απέτυχε: ${errorDetails.substring(0, 40)}... (χρησιμοποιήθηκε client-side)`,
+              description: `Server-side απέτυχε: ${errorDetails.substring(0, 50)}... (χρησιμοποιήθηκε client-side)`,
             });
             setIsSendingTest(false);
             return;
