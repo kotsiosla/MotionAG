@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Search, ChevronDown, ChevronUp, Clock, ArrowUpDown, ArrowDown, ArrowUp, MapPin, Star, X } from "lucide-react";
+import { Search, ChevronDown, ChevronUp, Clock, ArrowUpDown, ArrowDown, ArrowUp, MapPin, Star, X, Bus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -230,10 +230,11 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [], onTripSel
                       backgroundColor: routeColor, 
                       color: textColor,
                       borderColor: routeColor 
-                    } : {}}
+                    } : { borderColor: routeColor }}
                     onClick={() => setSelectedFavoriteRouteId(isSelected ? null : routeId)}
                   >
-                    {info.route_short_name || routeId}
+                    <Bus className="h-5 w-5" style={{ color: isSelected ? textColor : routeColor }} />
+                    <span>{info.route_short_name || routeId}</span>
                   </Button>
                 );
               })}

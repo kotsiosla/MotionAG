@@ -157,7 +157,8 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
                   onClick={() => setSelectedRoute(isSelected ? '' : route.route_id)}
                   title={route.route_long_name || route.route_short_name}
                 >
-                  {route.route_short_name || route.route_id}
+                  <Bus className="h-5 w-5" style={{ color: isSelected ? textColor : routeColor }} />
+                  <span>{route.route_short_name || route.route_id}</span>
                 </Button>
               );
             })}
