@@ -740,10 +740,17 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     const trip = tripMap.get(vehicle.tripId);
     if (!trip?.stopTimeUpdates?.length) return null;
 
-    // Find the next stop based on current stop sequence
+    // Find the NEXT stop (after current) based on current stop sequence
     const currentSeq = vehicle.currentStopSequence || 0;
-    const nextStopUpdate = trip.stopTimeUpdates.find(
-      stu => (stu.stopSequence || 0) >= currentSeq
+    
+    // Sort stop time updates by sequence to ensure correct order
+    const sortedStops = [...trip.stopTimeUpdates].sort((a, b) => 
+      (a.stopSequence || 0) - (b.stopSequence || 0)
+    );
+    
+    // Find the next stop AFTER the current one (use > instead of >=)
+    const nextStopUpdate = sortedStops.find(
+      stu => (stu.stopSequence || 0) > currentSeq
     );
 
     if (!nextStopUpdate) return null;

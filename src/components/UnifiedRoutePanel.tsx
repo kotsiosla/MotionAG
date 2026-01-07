@@ -682,10 +682,70 @@ export function UnifiedRoutePanel({
 
           {/* Schedule Tab */}
           <TabsContent value="schedule" className="flex-1 min-h-0 mt-0">
-            <div className="p-2 text-center text-muted-foreground text-xs py-8">
-              <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>Πρόγραμμα (υπό ανάπτυξη)</p>
-            </div>
+            <ScrollArea className="h-full">
+              {isLoadingSchedule ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : scheduleData?.schedule?.length ? (
+                <div className="p-2 space-y-2">
+                  {/* Direction selector if multiple directions */}
+                  {availableDirections.length > 1 && (
+                    <div className="flex gap-1 mb-2">
+                      {availableDirections.map((dir) => (
+                        <Button
+                          key={dir}
+                          variant={selectedDirection === dir ? "default" : "outline"}
+                          size="sm"
+                          className="flex-1 h-7 text-xs"
+                          onClick={() => setSelectedDirection(dir)}
+                        >
+                          <ArrowLeftRight className="h-3 w-3 mr-1" />
+                          Κατεύθυνση {dir + 1}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Schedule list */}
+                  <div className="space-y-1">
+                    {(scheduleData.by_direction[selectedDirection] || scheduleData.schedule)
+                      .slice(0, 50) // Show first 50 trips
+                      .map((entry, idx) => (
+                        <div
+                          key={`${entry.trip_id}-${idx}`}
+                          className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 text-xs"
+                        >
+                          <div className="flex items-center gap-1.5 flex-1">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                            <span className="font-semibold text-sm">{entry.departure_time}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-muted-foreground truncate">
+                              {entry.trip_headsign || `${entry.first_stop_name} → ${entry.last_stop_name}`}
+                            </div>
+                          </div>
+                          <Badge variant="secondary" className="text-xs">
+                            {entry.stop_count} στάσεις
+                          </Badge>
+                        </div>
+                      ))}
+                  </div>
+
+                  {/* Total trips info */}
+                  {scheduleData.total_trips > 50 && (
+                    <div className="text-center text-xs text-muted-foreground py-2">
+                      Εμφανίζονται 50 από {scheduleData.total_trips} δρομολόγια
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-2 text-center text-muted-foreground text-xs py-8">
+                  <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Δεν βρέθηκαν δρομολόγια</p>
+                </div>
+              )}
+            </ScrollArea>
           </TabsContent>
         </Tabs>
       )}
