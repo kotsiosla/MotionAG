@@ -2140,8 +2140,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           }}
           onSwitchToStreet={switchToStreetView}
           onSwitchToOverview={switchToOverview}
-        />
-        );
+            />
+          );
+        } catch (error) {
+          console.error('[VehicleMap] Error rendering UnifiedRoutePanel:', error);
+          return null;
+        }
       })()}
       
       {isLoading && (
