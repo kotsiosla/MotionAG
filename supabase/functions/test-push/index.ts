@@ -48,6 +48,17 @@ serve(async (req) => {
       });
     }
 
+    // Parse request body to get title and body (if provided)
+    let requestBody: { title?: string; body?: string } = {};
+    try {
+      requestBody = await req.json();
+    } catch (e) {
+      console.log('No request body provided, using defaults');
+    }
+
+    const title = requestBody.title || '🚌 Test Push Notification';
+    const body = requestBody.body || 'Οι ειδοποιήσεις λειτουργούν σωστά!';
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Get subscriptions from BOTH tables
@@ -77,8 +88,8 @@ serve(async (req) => {
     }
 
     const payload = JSON.stringify({
-      title: '🚌 Test Push Notification',
-      body: 'Οι ειδοποιήσεις λειτουργούν σωστά!',
+      title,
+      body,
       icon: '/pwa-192x192.png',
       url: '/',
     });
