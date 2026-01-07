@@ -331,11 +331,16 @@ export function AlertsList({ alerts, trips, routeNamesMap, isLoading }: AlertsLi
                       img.src = '/profile-photo.png';
                       return;
                     }
-                    // Fallback to placeholder if neither exists
+                    // Try SVG if PNG doesn't exist
+                    if (img.src.endsWith('.png')) {
+                      img.src = '/profile-photo.svg';
+                      return;
+                    }
+                    // Fallback to inline SVG placeholder if none exists
                     img.style.display = 'none';
                     const placeholder = document.createElement('div');
-                    placeholder.className = 'w-16 h-16 rounded-full bg-primary/20 border-2 border-primary/30 shadow-md flex items-center justify-center';
-                    placeholder.innerHTML = '<svg class="w-8 h-8 text-primary/50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>';
+                    placeholder.className = 'w-16 h-16 rounded-full bg-primary/20 border-2 border-primary/30 shadow-md flex items-center justify-center overflow-hidden';
+                    placeholder.innerHTML = '<svg class="w-16 h-16" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="32" r="32" fill="#6B8E23"/><circle cx="32" cy="24" r="10" fill="white" opacity="0.9"/><path d="M12 54C12 46 20 44 32 44C44 44 52 46 52 54V58H12V54Z" fill="white" opacity="0.9"/></svg>';
                     img.parentNode?.replaceChild(placeholder, img);
                   }}
                 />
