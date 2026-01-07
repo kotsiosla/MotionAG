@@ -1139,6 +1139,11 @@ serve(async (req) => {
         }
         const { headers, body, endpoint } = pushRequest;
 
+        console.log(`[test-push:${requestId}] Push request details:`);
+        console.log(`[test-push:${requestId}] Endpoint: ${endpoint.substring(0, 80)}...`);
+        console.log(`[test-push:${requestId}] Headers:`, JSON.stringify(Object.fromEntries(Object.entries(headers).map(([k, v]) => [k, k === 'Authorization' ? (v as string).substring(0, 50) + '...' : v]))));
+        console.log(`[test-push:${requestId}] Body length: ${body ? body.length : 0} bytes`);
+        
         console.log(`[test-push] Sending push to endpoint (10s timeout)...`);
         const response = await fetchWithTimeout(endpoint, {
           method: 'POST',
