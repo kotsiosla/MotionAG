@@ -219,7 +219,8 @@ export function NearbyStopsPanel({
         }
         
         // Get current subscription
-        const registration = await navigator.serviceWorker.getRegistration('/sw.js');
+        const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+        const registration = existingRegistrations.length > 0 ? existingRegistrations[0] : null;
         if (!registration) {
           console.log('[NearbyStopsPanel] No service worker registration');
           return;
@@ -327,7 +328,8 @@ export function NearbyStopsPanel({
       }
 
       // First, check if we already have a valid subscription in browser
-      const existingRegistration = await navigator.serviceWorker.getRegistration('/sw.js');
+      const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+      const existingRegistration = existingRegistrations.length > 0 ? existingRegistrations[0] : null;
       if (existingRegistration) {
         const existingSub = await existingRegistration.pushManager.getSubscription();
         if (existingSub) {
@@ -503,7 +505,8 @@ export function NearbyStopsPanel({
     const syncTrackedStop = async () => {
       try {
         console.log('[NearbyStopsPanel] 🔄 Starting syncTrackedStop...');
-        const registration = await navigator.serviceWorker.getRegistration('/sw.js');
+        const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+        const registration = existingRegistrations.length > 0 ? existingRegistrations[0] : null;
         if (!registration) {
           console.log('[NearbyStopsPanel] ❌ No service worker registration');
           return;
