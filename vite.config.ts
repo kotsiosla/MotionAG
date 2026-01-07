@@ -18,13 +18,16 @@ export default defineConfig(({ mode }) => {
       react(),
       mode === "development" && componentTagger(),
       VitePWA({
+        registerType: "manual",
+        injectRegister: null,
+        // Disable workbox to use custom service worker
         strategies: 'injectManifest',
         srcDir: 'public',
         filename: 'sw.js',
         injectManifest: {
-          globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+          // Empty globPatterns to avoid precaching
+          globPatterns: [],
         },
-        registerType: "manual",
         includeAssets: ["favicon.ico", "robots.txt", "pwa-192x192.png", "pwa-512x512.png"],
         manifest: {
           name: "Motion Bus - Ζωντανή Παρακολούθηση",
