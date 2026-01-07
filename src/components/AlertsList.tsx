@@ -321,7 +321,7 @@ export function AlertsList({ alerts, trips, routeNamesMap, isLoading }: AlertsLi
               {/* Profile Photo */}
               <div className="flex-shrink-0">
                 <img 
-                  src="/profile-photo.jpg" 
+                  src="/profile-photo.jpg.JPEG" 
                   alt="Developer"
                   className="w-16 h-16 rounded-full object-cover border-2 border-primary/30 shadow-md bg-primary/20"
                   onError={(e) => {
@@ -329,12 +329,12 @@ export function AlertsList({ alerts, trips, routeNamesMap, isLoading }: AlertsLi
                     const img = e.target as HTMLImageElement;
                     const currentSrc = img.src;
                     
-                    if (currentSrc.endsWith('.jpg')) {
-                      // Try .jpg.JPEG (what user uploaded)
-                      img.src = '/profile-photo.jpg.JPEG';
+                    if (currentSrc.includes('.jpg.JPEG')) {
+                      // Try .jpg
+                      img.src = '/profile-photo.jpg';
                       return;
                     }
-                    if (currentSrc.endsWith('.jpg.JPEG')) {
+                    if (currentSrc.endsWith('.jpg')) {
                       // Try .png
                       img.src = '/profile-photo.png';
                       return;
