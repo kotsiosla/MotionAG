@@ -733,33 +733,43 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
   // Get next stop info for a vehicle
   const getNextStopInfo = (vehicle: Vehicle) => {
-    if (!vehicle.tripId) return null;
-    
-    const trip = tripMap.get(vehicle.tripId);
-    if (!trip?.stopTimeUpdates?.length) return null;
+    try {
+      if (!vehicle || !vehicle.tripId) return null;
+      
+      if (!tripMap || tripMap.size === 0) return null;
+      const trip = tripMap.get(vehicle.tripId);
+      if (!trip || !trip.stopTimeUpdates || !Array.isArray(trip.stopTimeUpdates) || trip.stopTimeUpdates.length === 0) return null;
 
-    // Find the NEXT stop (after current) based on current stop sequence
-    const currentSeq = vehicle.currentStopSequence || 0;
-    
-    // Sort stop time updates by sequence to ensure correct order
-    const sortedStops = [...trip.stopTimeUpdates].sort((a, b) => 
-      (a.stopSequence || 0) - (b.stopSequence || 0)
-    );
-    
-    // Find the next stop AFTER the current one (use > instead of >=)
-    const nextStopUpdate = sortedStops.find(
-      stu => (stu.stopSequence || 0) > currentSeq
-    );
+      // Find the NEXT stop (after current) based on current stop sequence
+      const currentSeq = vehicle.currentStopSequence || 0;
+      
+      // Sort stop time updates by sequence to ensure correct order
+      const sortedStops = trip.stopTimeUpdates
+        .filter(stu => stu && typeof stu === 'object')
+        .sort((a, b) => 
+          (a.stopSequence || 0) - (b.stopSequence || 0)
+        );
+      
+      if (sortedStops.length === 0) return null;
+      
+      // Find the next stop AFTER the current one (use > instead of >=)
+      const nextStopUpdate = sortedStops.find(
+        stu => stu && (stu.stopSequence || 0) > currentSeq
+      );
 
-    if (!nextStopUpdate) return null;
+      if (!nextStopUpdate || !nextStopUpdate.stopId) return null;
 
-    const stopInfo = nextStopUpdate.stopId ? stopMap.get(nextStopUpdate.stopId) : null;
-    
-    return {
-      stopName: stopInfo?.stop_name || nextStopUpdate.stopId || 'Επόμενη στάση',
-      arrivalTime: nextStopUpdate.arrivalTime,
-      arrivalDelay: nextStopUpdate.arrivalDelay,
-    };
+      const stopInfo = stopMap && stopMap.size > 0 ? stopMap.get(nextStopUpdate.stopId) : null;
+      
+      return {
+        stopName: stopInfo?.stop_name || nextStopUpdate.stopId || 'Επόμενη στάση',
+        arrivalTime: nextStopUpdate.arrivalTime,
+        arrivalDelay: nextStopUpdate.arrivalDelay,
+      };
+    } catch (error) {
+      console.error('[VehicleMap] Error in getNextStopInfo:', error, vehicle);
+      return null;
+    }
   };
 
   // Get arrivals for a specific stop
