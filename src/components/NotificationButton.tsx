@@ -76,21 +76,42 @@ export function NotificationButton() {
 
       // For Android/iOS PWA, try server-side push first
       // Use 'test-push' which is deployed (not 'send-push-notification')
-      const { data, error } = await supabase.functions.invoke('test-push', {
-        body: {
-          title: '🚌 Δοκιμή Ειδοποίησης',
-          body: 'Οι ειδοποιήσεις λειτουργούν κανονικά!',
-        },
-      });
+      let responseData: any = null;
+      let responseError: any = null;
+      
+      try {
+        // Add timeout to prevent hanging (20 seconds)
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Request timeout - function took too long to respond')), 20000);
+        });
+        
+        const invokePromise = supabase.functions.invoke('test-push', {
+          body: {
+            title: '🚌 Δοκιμή Ειδοποίησης',
+            body: 'Οι ειδοποιήσεις λειτουργούν κανονικά!',
+          },
+        });
+        
+        const response = await Promise.race([invokePromise, timeoutPromise]) as any;
+        
+        responseData = response?.data;
+        responseError = response?.error;
+      } catch (invokeError: any) {
+        console.error('Function invoke error:', invokeError);
+        responseError = invokeError;
+      }
 
-      if (error) {
-        console.error('Supabase function error:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
+      if (responseError) {
+        console.error('Supabase function error:', responseError);
+        console.error('Error details:', JSON.stringify(responseError, null, 2));
         
         // Try to get more details from the error
-        let errorDetails = error.message || String(error);
-        if (error.context) {
-          errorDetails = error.context.message || errorDetails;
+        let errorDetails = responseError.message || String(responseError);
+        if (responseError.context) {
+          errorDetails = responseError.context.message || errorDetails;
+        }
+        if (responseError.error) {
+          errorDetails = responseError.error.message || responseError.error || errorDetails;
         }
         
         // If server-side fails but we have Notification permission, try client-side as fallback
@@ -114,13 +135,13 @@ export function NotificationButton() {
         }
         
         // If no client-side fallback, show the error
-        throw error;
+        throw responseError;
       }
 
-      console.log('Test notification result:', data);
+      console.log('Test notification result:', responseData);
       
       // If no notifications were sent, it might mean no subscriptions exist
-      if (data?.sent === 0 && data?.total === 0) {
+      if (responseData?.sent === 0 && responseData?.total === 0) {
         toast({
           title: '⚠️ Δεν βρέθηκαν subscriptions',
           description: 'Δεν υπάρχουν εγγεγραμμένοι χρήστες. Το test notification δουλεύει, αλλά δεν υπάρχουν subscriptions στο database.',
@@ -129,7 +150,7 @@ export function NotificationButton() {
       } else {
         toast({
           title: 'Επιτυχία',
-          description: `Στάλθηκαν ${data?.sent || 0} ειδοποιήσεις${data?.failed ? `, ${data.failed} απέτυχαν` : ''}`,
+          description: `Στάλθηκαν ${responseData?.sent || 0} ειδοποιήσεις${responseData?.failed ? `, ${responseData.failed} απέτυχαν` : ''}`,
         });
       }
     } catch (error) {
