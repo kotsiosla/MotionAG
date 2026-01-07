@@ -170,30 +170,33 @@ export function NearestStopPanel({
   const stopName = stop.stop_name || stop.stop_id;
   const stopId = stop.stop_id;
 
+  const headerColor = '#6B8E23'; // Dark olive-green
+
   return (
     <>
       <div
         ref={panelRef}
-        className="fixed z-[2000] bg-background border border-border rounded-xl shadow-2xl w-[280px] overflow-hidden"
+        className="absolute z-[2000] bg-white border border-border rounded-xl shadow-2xl w-[280px] overflow-hidden"
         style={{
           left: position.x,
           top: position.y,
           cursor: isDragging ? 'grabbing' : 'auto',
         }}
       >
-        {/* Header - draggable */}
+        {/* Header - draggable with dark olive-green */}
         <div
-          className="flex items-center justify-between p-3 border-b border-border bg-muted/50 cursor-grab active:cursor-grabbing"
+          className="flex items-center justify-between p-3 cursor-grab active:cursor-grabbing"
+          style={{ backgroundColor: headerColor }}
           onMouseDown={handleDragStart}
           onTouchStart={handleDragStart}
         >
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="w-8 h-8 rounded-lg bg-blue-500 text-white flex items-center justify-center flex-shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-white/20 text-white flex items-center justify-center flex-shrink-0">
               <MapPin className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-sm truncate">{stopName}</h3>
-              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <h3 className="font-medium text-sm text-white truncate">{stopName}</h3>
+              <p className="text-xs text-white/90 flex items-center gap-1">
                 <Footprints className="h-3 w-3" />
                 {isLoadingRoute ? (
                   <span className="flex items-center gap-1">
@@ -213,24 +216,25 @@ export function NearestStopPanel({
               <Button
                 variant="ghost"
                 size="icon"
-                className={`h-7 w-7 ${currentNotificationSettings?.enabled ? 'text-primary' : ''}`}
+                className={`h-6 w-6 text-white hover:bg-white/20 ${currentNotificationSettings?.enabled ? 'bg-white/20' : ''}`}
                 onClick={() => setShowNotificationModal(true)}
                 title="Ρυθμίσεις ειδοποίησης"
               >
                 {currentNotificationSettings?.enabled ? (
-                  <Bell className="h-3.5 w-3.5 text-primary fill-primary/20" />
+                  <Bell className="h-3.5 w-3.5 text-white" />
                 ) : (
-                  <BellOff className="h-3.5 w-3.5" />
+                  <BellOff className="h-3.5 w-3.5 text-white/80" />
                 )}
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
-              <X className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-white hover:bg-white/20" onClick={onClose}>
+              <X className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
 
-        <ScrollArea className="max-h-[200px]">
+        {/* Content - White background */}
+        <ScrollArea className="max-h-[200px] bg-white">
           {/* Walking info */}
           {walkingRoute && (
             <div className="p-2 bg-blue-500/10 border-b border-border">

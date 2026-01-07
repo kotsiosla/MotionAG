@@ -261,29 +261,33 @@ export function SavedTripsPanel({ isOpen, onClose }: SavedTripsPanelProps) {
   
   if (!isOpen) return null;
   
+  const headerColor = '#6B8E23'; // Dark olive-green
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-card rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden border border-border">
-        {/* Header */}
-        <div className="p-4 border-b border-border bg-muted/50 flex-shrink-0">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden border border-border">
+        {/* Header with dark olive-green */}
+        <div className="p-4 flex-shrink-0" style={{ backgroundColor: headerColor }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Bus className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-bold">Οι Διαδρομές μου</h2>
+              <div className="w-9 h-9 rounded-lg bg-white/20 text-white flex items-center justify-center">
+                <Bus className="h-5 w-5" />
+              </div>
+              <h2 className="text-lg font-medium text-white">Οι Διαδρομές μου</h2>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-5 w-5" />
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-white hover:bg-white/20" onClick={onClose}>
+              <X className="h-4 w-4" />
             </Button>
           </div>
           {savedTrips.length > 0 && (
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-white/90 mt-1">
               {upcomingTrips.length} επερχόμενες διαδρομές
             </p>
           )}
         </div>
         
-        {/* Content */}
-        <div className="flex-1 overflow-auto p-4 space-y-4">
+        {/* Content - White background */}
+        <div className="flex-1 overflow-auto p-4 space-y-4 bg-white">
           {savedTrips.length === 0 ? (
             <div className="text-center py-12">
               <Bus className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-30" />

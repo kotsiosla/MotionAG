@@ -218,28 +218,30 @@ export function SchedulePanel({
       zIndex={1200}
       title="Πρόγραμμα"
     >
-      <div className="h-full flex flex-col overflow-hidden">
-        {/* Header with route info */}
+      <div className="h-full flex flex-col overflow-hidden bg-white">
+        {/* Header with dark olive-green */}
         <div 
-          className="p-2 flex items-center gap-2"
-          style={{ backgroundColor: bgColor }}
+          className="p-3 flex items-center gap-2"
+          style={{ backgroundColor: '#6B8E23' }}
         >
-          <Calendar className="h-4 w-4 text-white" />
-          <span className="text-xs font-bold text-white flex-1">
+          <div className="w-9 h-9 rounded-lg bg-white/20 text-white flex items-center justify-center flex-shrink-0">
+            <Calendar className="h-4 w-4" />
+          </div>
+          <span className="text-sm font-medium text-white flex-1">
             Πρόγραμμα
           </span>
           {routeInfo?.route_short_name && (
-            <span className="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded">
+            <div className="bg-white/20 text-white text-xs font-bold px-2 py-1 rounded">
               {routeInfo.route_short_name}
-            </span>
+            </div>
           )}
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-5 w-5 text-white hover:bg-white/20"
+            className="h-6 w-6 text-white hover:bg-white/20"
             onClick={onClose}
           >
-            <X className="h-3 w-3" />
+            <X className="h-3.5 w-3.5" />
           </Button>
         </div>
 

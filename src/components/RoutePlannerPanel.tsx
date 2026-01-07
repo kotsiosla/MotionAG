@@ -929,17 +929,21 @@ export function RoutePlannerPanel({
 
   if (!isOpen) return null;
 
+  const headerColor = '#6B8E23'; // Dark olive-green
+
   // Panel content (shared between mobile and desktop)
   const panelContent = (
     <>
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-border bg-card shrink-0">
+      {/* Header with dark olive-green */}
+      <div className="flex items-center justify-between p-3 shrink-0" style={{ backgroundColor: headerColor }}>
         <div className="flex items-center gap-2">
-          <Navigation className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold text-sm">Σχεδιασμός Διαδρομής</h2>
+          <div className="w-9 h-9 rounded-lg bg-white/20 text-white flex items-center justify-center">
+            <Navigation className="h-5 w-5" />
+          </div>
+          <h2 className="font-medium text-sm text-white">Σχεδιασμός Διαδρομής</h2>
         </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-          <X className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="h-6 w-6 text-white hover:bg-white/20" onClick={onClose}>
+          <X className="h-3.5 w-3.5" />
         </Button>
       </div>
 
@@ -1570,7 +1574,7 @@ export function RoutePlannerPanel({
   if (isMobile) {
     return (
       <div 
-        className="fixed bottom-0 left-0 right-0 z-[1001] bg-card border-t border-border shadow-2xl rounded-t-xl flex flex-col transition-all duration-150 ease-out"
+        className="fixed bottom-0 left-0 right-0 z-[1001] bg-white border-t border-border shadow-2xl rounded-t-xl flex flex-col transition-all duration-150 ease-out"
         style={{ height: `${mobileHeight}vh` }}
       >
         {/* Drag handle */}
@@ -1590,7 +1594,7 @@ export function RoutePlannerPanel({
 
   // Desktop layout - side panel
   return (
-    <div className="absolute top-0 left-0 bottom-0 w-[380px] glass-card z-[1001] flex flex-col overflow-hidden">
+    <div className="absolute top-0 left-0 bottom-0 w-[380px] bg-white border-r border-border z-[1001] flex flex-col overflow-hidden shadow-xl">
       {panelContent}
     </div>
   );
