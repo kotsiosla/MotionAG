@@ -131,4 +131,7 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     include: ["react", "react-dom", "react-router-dom"],
   },
+  build: {
+    chunkSizeWarningLimit: 1000,
+  },
 }));
