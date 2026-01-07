@@ -321,22 +321,23 @@ export function AlertsList({ alerts, trips, routeNamesMap, isLoading }: AlertsLi
               {/* Profile Photo */}
               <div className="flex-shrink-0">
                 <img 
-                  src="/profile-photo.jpg" 
+                  src={`${import.meta.env.BASE_URL}profile-photo.jpg`}
                   alt="Developer"
                   className="w-16 h-16 rounded-full object-cover border-2 border-primary/30 shadow-md bg-primary/20"
                   onError={(e) => {
                     // Try different filename formats
                     const img = e.target as HTMLImageElement;
+                    const baseUrl = import.meta.env.BASE_URL || '/';
                     const currentSrc = img.src;
                     
                     if (currentSrc.endsWith('.jpg')) {
                       // Try .png
-                      img.src = '/profile-photo.png';
+                      img.src = `${baseUrl}profile-photo.png`;
                       return;
                     }
                     if (currentSrc.endsWith('.png')) {
                       // Try .svg
-                      img.src = '/profile-photo.svg';
+                      img.src = `${baseUrl}profile-photo.svg`;
                       return;
                     }
                     // Fallback to inline SVG placeholder if none exists
