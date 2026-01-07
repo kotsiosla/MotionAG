@@ -277,7 +277,11 @@ export function StopNotificationModal({
       const pushNotifications = allNotifications.filter(n => n.enabled && n.push);
       const pushNotificationsJson = JSON.parse(JSON.stringify(pushNotifications));
       
-      const { error: upsertError } = await supabase
+      console.log('[StopNotificationModal] Saving to stop_notification_subscriptions...');
+      console.log('[StopNotificationModal] Endpoint:', subscription.endpoint);
+      console.log('[StopNotificationModal] Stop notifications to save:', pushNotificationsJson);
+      
+      const { data: upsertData, error: upsertError } = await supabase
         .from('stop_notification_subscriptions')
         .upsert({
           endpoint: subscription.endpoint,
@@ -285,12 +289,15 @@ export function StopNotificationModal({
           auth,
           stop_notifications: pushNotificationsJson,
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'endpoint' });
+        }, { onConflict: 'endpoint' })
+        .select();
 
       if (upsertError) {
         console.error('[StopNotificationModal] ❌ Upsert error:', upsertError);
+        console.error('[StopNotificationModal] Error details:', JSON.stringify(upsertError, null, 2));
       } else {
         console.log('[StopNotificationModal] ✅ Push subscription saved to server');
+        console.log('[StopNotificationModal] Saved data:', upsertData);
       }
 
       onSave(settings);
