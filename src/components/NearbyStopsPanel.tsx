@@ -267,6 +267,22 @@ export function NearbyStopsPanel({
         // Add new stop to existing stops
         const updatedStops = [...existingStops, newStop];
 
+        // Save to localStorage
+        try {
+          const stored = localStorage.getItem('stop_notifications');
+          let allNotifications = stored ? JSON.parse(stored) : [];
+          const existingIndex = allNotifications.findIndex((n: any) => n.stopId === nearestStop.stop_id);
+          if (existingIndex >= 0) {
+            allNotifications[existingIndex] = newStop;
+          } else {
+            allNotifications.push(newStop);
+          }
+          localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
+          console.log('[NearbyStopsPanel] ✅ Saved to localStorage:', allNotifications.length, 'stop(s)');
+        } catch (e) {
+          console.error('[NearbyStopsPanel] ❌ Failed to save to localStorage:', e);
+        }
+
         console.log('[NearbyStopsPanel] Adding stop to notifications:', nearestStop.stop_id, 'Total:', updatedStops.length);
         console.log('[NearbyStopsPanel] Upsert attempt - endpoint:', subscription.endpoint.substring(0, 50) + '...');
 
@@ -543,6 +559,23 @@ export function NearbyStopsPanel({
           push: true,
           beforeMinutes: beforeMinutes,
         }];
+        
+        // Save to localStorage
+        try {
+          const stored = localStorage.getItem('stop_notifications');
+          let allNotifications = stored ? JSON.parse(stored) : [];
+          const existingIndex = allNotifications.findIndex((n: any) => n.stopId === stopToSync.stopId);
+          const stopNotification = stopSettings[0];
+          if (existingIndex >= 0) {
+            allNotifications[existingIndex] = stopNotification;
+          } else {
+            allNotifications.push(stopNotification);
+          }
+          localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
+          console.log('[NearbyStopsPanel] ✅ Saved to localStorage:', allNotifications.length, 'stop(s)');
+        } catch (e) {
+          console.error('[NearbyStopsPanel] ❌ Failed to save to localStorage:', e);
+        }
         
         // Log Supabase URL for debugging
         const supabaseUrl = (supabase as any).supabaseUrl || 'unknown';

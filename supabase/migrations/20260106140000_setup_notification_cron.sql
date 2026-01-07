@@ -23,7 +23,7 @@ BEGIN
   -- Fallback: try to get from function context if available
   IF supabase_url IS NULL OR supabase_url = '' THEN
     -- Use default pattern - will need to be set in Supabase settings
-    supabase_url := 'https://mhlyndipnpwpcydjukig.supabase.co';
+    supabase_url := 'https://jftthfniwfarxyisszjh.supabase.co';
   END IF;
   
   IF service_role_key IS NULL OR service_role_key = '' THEN
@@ -64,7 +64,7 @@ BEGIN
   -- Get from environment variables set in Supabase Dashboard
   supabase_url := COALESCE(
     current_setting('app.settings.supabase_url', true),
-    'https://mhlyndipnpwpcydjukig.supabase.co'
+    'https://jftthfniwfarxyisszjh.supabase.co'
   );
   
   service_role_key := current_setting('app.settings.service_role_key', true);
