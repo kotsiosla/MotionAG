@@ -105,8 +105,8 @@ export function UnifiedRoutePanel({
   const stopsScrollRef = useRef<HTMLDivElement>(null);
   const { getNotification: getStopNotification, setNotification: saveStopNotification, removeNotification: removeStopNotification } = useStopNotifications();
 
-  // Use dark olive-green as default header color
-  const headerColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : '#6B8E23';
+  // Always use dark olive-green header color (consistent across all panels)
+  const headerColor = '#6B8E23';
   const routeColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : '#0ea5e9';
 
   // Fetch static route shape data
