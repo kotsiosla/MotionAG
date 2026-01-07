@@ -1,12 +1,12 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { X, Bus, MapPin, Clock, ChevronDown, ChevronUp, Radio, Calendar, Eye, Focus, Maximize2, ArrowLeftRight, ChevronLeft, ChevronRight, Loader2, GripVertical, Bell } from "lucide-react";
+import { X, Bus, MapPin, Clock, ChevronDown, ChevronUp, Radio, Calendar, Eye, Focus, Maximize2, ArrowLeftRight, ChevronLeft, ChevronRight, Loader2, GripVertical, Bell, Route, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
 import { StopNotificationModal } from "@/components/StopNotificationModal";
-import { useRouteShape, useRouteSchedule } from "@/hooks/useGtfsData";
+import { useRouteShape } from "@/hooks/useGtfsData";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import { cn } from "@/lib/utils";
@@ -97,7 +97,7 @@ export function UnifiedRoutePanel({
   onSwitchToOverview,
 }: UnifiedRoutePanelProps) {
   const isMobile = useIsMobile();
-  const [activeTab, setActiveTab] = useState<'stops' | 'live' | 'schedule'>('stops');
+  const [activeTab, setActiveTab] = useState<'stops' | 'live' | 'planner'>('stops');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [selectedDirection, setSelectedDirection] = useState(0);
@@ -111,7 +111,6 @@ export function UnifiedRoutePanel({
 
   // Fetch static route shape data
   const { data: routeShapeData, isLoading: isLoadingShape } = useRouteShape(routeId, selectedOperator);
-  const { data: scheduleData, isLoading: isLoadingSchedule } = useRouteSchedule(routeId, selectedOperator);
 
   // Find trips for this route
   const routeTrips = useMemo(() => {
@@ -229,6 +228,37 @@ export function UnifiedRoutePanel({
     if (!followedVehicle?.stopId) return null;
     return followedVehicle.stopId;
   }, [followedVehicle?.stopId]);
+
+  // Get upcoming stops starting from current stop (for Route Planner tab)
+  const upcomingStops = useMemo(() => {
+    if (!currentStopId || routeStops.length === 0) return [];
+    
+    const currentIndex = routeStops.findIndex(s => s.stopId === currentStopId);
+    if (currentIndex < 0) return [];
+    
+    // Return all stops after current one
+    return routeStops.slice(currentIndex + 1);
+  }, [currentStopId, routeStops]);
+
+  // Get realtime info for upcoming stops from active trip
+  const upcomingRealtimeMap = useMemo(() => {
+    const map = new Map<string, { arrivalTime?: number; arrivalDelay?: number; isLive: boolean }>();
+    
+    if (activeTrip?.stopTimeUpdates) {
+      const now = Math.floor(Date.now() / 1000);
+      activeTrip.stopTimeUpdates.forEach(stu => {
+        if (stu.stopId && stu.arrivalTime && stu.arrivalTime > now) {
+          map.set(stu.stopId, {
+            arrivalTime: stu.arrivalTime,
+            arrivalDelay: stu.arrivalDelay,
+            isLive: true, // This is from realtime trip data
+          });
+        }
+      });
+    }
+    
+    return map;
+  }, [activeTrip]);
 
   // Auto-scroll to current stop when stops tab opens
   useEffect(() => {
@@ -411,9 +441,9 @@ export function UnifiedRoutePanel({
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="schedule" className="text-xs gap-1.5">
-              <Calendar className="h-3 w-3" />
-              Πρόγραμμα
+            <TabsTrigger value="planner" className="text-xs gap-1.5">
+              <Route className="h-3 w-3" />
+              Δρομολόγιο
             </TabsTrigger>
           </TabsList>
 
@@ -680,69 +710,105 @@ export function UnifiedRoutePanel({
             </ScrollArea>
           </TabsContent>
 
-          {/* Schedule Tab */}
-          <TabsContent value="schedule" className="flex-1 min-h-0 mt-0">
+          {/* Route Planner Tab */}
+          <TabsContent value="planner" className="flex-1 min-h-0 mt-0">
             <ScrollArea className="h-full">
-              {isLoadingSchedule ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              {!currentStopId ? (
+                <div className="p-2 text-center text-muted-foreground text-xs py-8">
+                  <Route className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Πατήστε σε ένα λεωφορείο για να δείτε το δρομολόγιο</p>
                 </div>
-              ) : scheduleData?.schedule?.length ? (
-                <div className="p-2 space-y-2">
-                  {/* Direction selector if multiple directions */}
-                  {availableDirections.length > 1 && (
-                    <div className="flex gap-1 mb-2">
-                      {availableDirections.map((dir) => (
-                        <Button
-                          key={dir}
-                          variant={selectedDirection === dir ? "default" : "outline"}
-                          size="sm"
-                          className="flex-1 h-7 text-xs"
-                          onClick={() => setSelectedDirection(dir)}
-                        >
-                          <ArrowLeftRight className="h-3 w-3 mr-1" />
-                          Κατεύθυνση {dir + 1}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Schedule list */}
-                  <div className="space-y-1">
-                    {(scheduleData.by_direction[selectedDirection] || scheduleData.schedule)
-                      .slice(0, 50) // Show first 50 trips
-                      .map((entry, idx) => (
-                        <div
-                          key={`${entry.trip_id}-${idx}`}
-                          className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 text-xs"
-                        >
-                          <div className="flex items-center gap-1.5 flex-1">
-                            <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                            <span className="font-semibold text-sm">{entry.departure_time}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-muted-foreground truncate">
-                              {entry.trip_headsign || `${entry.first_stop_name} → ${entry.last_stop_name}`}
-                            </div>
-                          </div>
-                          <Badge variant="secondary" className="text-xs">
-                            {entry.stop_count} στάσεις
-                          </Badge>
-                        </div>
-                      ))}
-                  </div>
-
-                  {/* Total trips info */}
-                  {scheduleData.total_trips > 50 && (
-                    <div className="text-center text-xs text-muted-foreground py-2">
-                      Εμφανίζονται 50 από {scheduleData.total_trips} δρομολόγια
-                    </div>
-                  )}
+              ) : upcomingStops.length === 0 ? (
+                <div className="p-2 text-center text-muted-foreground text-xs py-8">
+                  <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Δεν υπάρχουν επόμενες στάσεις</p>
                 </div>
               ) : (
-                <div className="p-2 text-center text-muted-foreground text-xs py-8">
-                  <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>Δεν βρέθηκαν δρομολόγια</p>
+                <div className="p-2 space-y-1">
+                  {/* Current stop header */}
+                  {(() => {
+                    const currentStop = routeStops.find(s => s.stopId === currentStopId);
+                    if (!currentStop) return null;
+                    return (
+                      <div className="p-3 mb-2 rounded-lg border-2 border-primary/30 bg-primary/10">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                          <span className="text-xs font-semibold text-muted-foreground">Τρέχουσα στάση</span>
+                        </div>
+                        <div className="font-medium text-sm">{currentStop.stopName}</div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Upcoming stops */}
+                  {upcomingStops.map((stop, index) => {
+                    const realtime = upcomingRealtimeMap.get(stop.stopId);
+                    const isLive = realtime?.isLive || false;
+                    const timeUntil = getTimeUntilArrival(realtime?.arrivalTime);
+                    const formattedTime = formatTime(realtime?.arrivalTime);
+                    const delay = formatDelay(realtime?.arrivalDelay);
+                    
+                    return (
+                      <div
+                        key={stop.stopId}
+                        className={cn(
+                          "flex items-start gap-2 p-2.5 rounded-lg border transition-colors",
+                          isLive ? "bg-green-50 border-green-200" : "bg-muted/30 border-border hover:bg-muted/50"
+                        )}
+                        onClick={() => onStopClick?.(stop.stopId)}
+                      >
+                        {/* Timeline */}
+                        <div className="flex flex-col items-center pt-0.5">
+                          <div className={cn(
+                            "w-2.5 h-2.5 rounded-full border-2",
+                            isLive ? "bg-green-500 border-green-500" : "bg-muted-foreground border-muted-foreground"
+                          )} />
+                          {index < upcomingStops.length - 1 && (
+                            <div className={cn(
+                              "w-0.5 flex-1 mt-0.5",
+                              isLive ? "bg-green-300" : "bg-muted-foreground/30"
+                            )} style={{ minHeight: '20px' }} />
+                          )}
+                        </div>
+
+                        {/* Stop info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-sm truncate">{stop.stopName}</span>
+                            {isLive ? (
+                              <Badge variant="default" className="h-4 px-1.5 text-[10px] bg-green-500 shrink-0">
+                                Live
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="h-4 px-1.5 text-[10px] shrink-0">
+                                Προγραμματισμένο
+                              </Badge>
+                            )}
+                          </div>
+                          {isLive && realtime?.arrivalTime ? (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              <span className="font-mono">{formattedTime}</span>
+                              {timeUntil && (
+                                <span>({timeUntil})</span>
+                              )}
+                              {delay && (
+                                <span className={cn(
+                                  delay.startsWith('+') ? 'text-destructive' : 'text-green-500'
+                                )}>
+                                  {delay}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-muted-foreground">
+                              Επόμενο προγραμματισμένο δρομολόγιο της ημέρας
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </ScrollArea>
@@ -752,15 +818,24 @@ export function UnifiedRoutePanel({
     </div>
   );
 
-  // Mobile layout
+  // Mobile layout - draggable
   if (isMobile) {
+    // Calculate initial position and size based on screen dimensions
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 375;
+    const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 667;
+    
     return (
       <>
-        <div className="fixed bottom-0 left-0 right-0 z-[2500] border-t border-border shadow-lg rounded-t-xl max-h-[70vh] flex flex-col">
-          {/* Drag indicator */}
-          <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/40" />
+        <ResizableDraggablePanel
+          initialPosition={{ x: 0, y: screenHeight * 0.3 }} // Start at 30% from top
+          initialSize={{ width: screenWidth, height: screenHeight * 0.7 }} // 70% of screen height
+          minSize={{ width: 320, height: 400 }}
+          maxSize={{ width: screenWidth, height: screenHeight * 0.9 }}
+          className="rounded-t-xl overflow-hidden border border-border shadow-xl"
+          zIndex={2500}
+        >
           {panelContent}
-        </div>
+        </ResizableDraggablePanel>
         
         {selectedStopForNotification && (
           <StopNotificationModal
