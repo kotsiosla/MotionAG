@@ -27,6 +27,10 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+      
+      - name: Increase Node memory
+        run: |
+          echo "NODE_OPTIONS=--max-old-space-size=4096" >> $GITHUB_ENV
 
       - name: Check Node.js and npm
         run: |
@@ -62,9 +66,15 @@ jobs:
           echo "Starting build..."
           echo "VITE_SUPABASE_URL=${VITE_SUPABASE_URL:0:50}..."
           echo "VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY:0:20}..."
-          npm run build 2>&1
-          echo "Build completed successfully!"
-          ls -la dist/
+          echo "NODE_OPTIONS=${NODE_OPTIONS}"
+          set -e
+          npm run build 2>&1 || {
+            echo "❌ Build failed!"
+            echo "Exit code: $?"
+            exit 1
+          }
+          echo "✅ Build completed successfully!"
+          ls -la dist/ || echo "⚠️ dist/ directory not found"
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://jftthfniwfarxyisszjh.supabase.co' }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || '' }}
