@@ -81,30 +81,50 @@ const getTimeUntilArrival = (arrivalTime?: number) => {
 
 // Calculate total route distance in kilometers using Haversine formula
 const calculateRouteDistance = (shape: Array<{ lat: number; lng: number }>): number => {
-  if (!shape || shape.length < 2) return 0;
-  
-  let totalDistance = 0; // in meters
-  const R = 6371000; // Earth's radius in meters
-  
-  for (let i = 0; i < shape.length - 1; i++) {
-    const p1 = shape[i];
-    const p2 = shape[i + 1];
+  try {
+    if (!shape || !Array.isArray(shape) || shape.length < 2) return 0;
     
-    const φ1 = (p1.lat * Math.PI) / 180;
-    const φ2 = (p2.lat * Math.PI) / 180;
-    const Δφ = ((p2.lat - p1.lat) * Math.PI) / 180;
-    const Δλ = ((p2.lng - p1.lng) * Math.PI) / 180;
+    let totalDistance = 0; // in meters
+    const R = 6371000; // Earth's radius in meters
     
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    for (let i = 0; i < shape.length - 1; i++) {
+      const p1 = shape[i];
+      const p2 = shape[i + 1];
+      
+      // Safety check for valid coordinates
+      if (!p1 || !p2 || typeof p1.lat !== 'number' || typeof p1.lng !== 'number' || 
+          typeof p2.lat !== 'number' || typeof p2.lng !== 'number') {
+        continue; // Skip invalid points
+      }
+      
+      // Check for valid latitude/longitude ranges
+      if (Math.abs(p1.lat) > 90 || Math.abs(p2.lat) > 90 || 
+          Math.abs(p1.lng) > 180 || Math.abs(p2.lng) > 180) {
+        continue; // Skip invalid coordinates
+      }
+      
+      const φ1 = (p1.lat * Math.PI) / 180;
+      const φ2 = (p2.lat * Math.PI) / 180;
+      const Δφ = ((p2.lat - p1.lat) * Math.PI) / 180;
+      const Δλ = ((p2.lng - p1.lng) * Math.PI) / 180;
+      
+      const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      
+      const distance = R * c;
+      if (isFinite(distance) && distance >= 0) {
+        totalDistance += distance;
+      }
+    }
     
-    totalDistance += R * c;
+    // Convert to kilometers and round to 1 decimal
+    return Math.round((totalDistance / 1000) * 10) / 10;
+  } catch (e) {
+    console.error('[UnifiedRoutePanel] Error calculating route distance:', e);
+    return 0;
   }
-  
-  // Convert to kilometers and round to 1 decimal
-  return Math.round((totalDistance / 1000) * 10) / 10;
 };
 
 export function UnifiedRoutePanel({
@@ -189,9 +209,20 @@ export function UnifiedRoutePanel({
 
   // Create stop map
   const stopMap = useMemo(() => {
-    const map = new Map<string, StaticStop>();
-    stops.forEach(stop => map.set(stop.stop_id, stop));
-    return map;
+    try {
+      const map = new Map<string, StaticStop>();
+      if (stops && Array.isArray(stops)) {
+        stops.forEach(stop => {
+          if (stop && stop.stop_id) {
+            map.set(stop.stop_id, stop);
+          }
+        });
+      }
+      return map;
+    } catch (e) {
+      console.error('[UnifiedRoutePanel] Error creating stop map:', e);
+      return new Map<string, StaticStop>();
+    }
   }, [stops]);
 
   // Get route stops with realtime data
@@ -239,34 +270,65 @@ export function UnifiedRoutePanel({
 
   // Pagination for stops
   const stopsPerPage = isMobile ? STOPS_PER_PAGE_MOBILE : STOPS_PER_PAGE;
-  const totalPages = Math.ceil(routeStops.length / stopsPerPage);
+  const totalPages = useMemo(() => {
+    try {
+      if (!routeStops || !Array.isArray(routeStops) || routeStops.length === 0) return 1;
+      return Math.max(1, Math.ceil(routeStops.length / stopsPerPage));
+    } catch (e) {
+      console.error('[UnifiedRoutePanel] Error calculating totalPages:', e);
+      return 1;
+    }
+  }, [routeStops, stopsPerPage]);
+  
   const paginatedStops = useMemo(() => {
-    const start = currentPage * stopsPerPage;
-    return routeStops.slice(start, start + stopsPerPage);
-  }, [routeStops, currentPage, stopsPerPage]);
+    try {
+      if (!routeStops || !Array.isArray(routeStops)) return [];
+      const safePage = Math.max(0, Math.min(currentPage, totalPages - 1));
+      const start = safePage * stopsPerPage;
+      return routeStops.slice(start, start + stopsPerPage);
+    } catch (e) {
+      console.error('[UnifiedRoutePanel] Error paginating stops:', e);
+      return [];
+    }
+  }, [routeStops, currentPage, stopsPerPage, totalPages]);
 
   // Live trips with vehicles
   const liveTripsWithVehicles = useMemo(() => {
-    return routeTrips
-      .map(trip => {
-        const vehicle = routeVehicles.find(v => v.tripId === trip.tripId);
-        if (!vehicle) return null;
-        
-        // Get next stop
-        const now = Math.floor(Date.now() / 1000);
-        const nextUpdate = trip.stopTimeUpdates?.find(stu => (stu.arrivalTime || 0) > now);
-        const nextStopName = nextUpdate?.stopId 
-          ? (stopMap.get(nextUpdate.stopId)?.stop_name || nextUpdate.stopId)
-          : null;
+    try {
+      if (!routeTrips || !Array.isArray(routeTrips)) return [];
+      if (!routeVehicles || !Array.isArray(routeVehicles)) return [];
+      
+      return routeTrips
+        .filter(trip => trip && trip.tripId)
+        .map(trip => {
+          try {
+            const vehicle = routeVehicles.find(v => v && v.tripId === trip.tripId);
+            if (!vehicle) return null;
+            
+            // Get next stop
+            const now = Math.floor(Date.now() / 1000);
+            const stopTimeUpdates = trip.stopTimeUpdates && Array.isArray(trip.stopTimeUpdates) ? trip.stopTimeUpdates : [];
+            const nextUpdate = stopTimeUpdates.find(stu => stu && (stu.arrivalTime || 0) > now);
+            const nextStopName = nextUpdate?.stopId 
+              ? (stopMap.get(nextUpdate.stopId)?.stop_name || nextUpdate.stopId)
+              : null;
 
-        return {
-          trip,
-          vehicle,
-          nextStop: nextStopName,
-          nextArrivalTime: nextUpdate?.arrivalTime,
-        };
-      })
-      .filter(Boolean) as Array<{ trip: Trip; vehicle: Vehicle; nextStop: string | null; nextArrivalTime?: number }>;
+            return {
+              trip,
+              vehicle,
+              nextStop: nextStopName,
+              nextArrivalTime: nextUpdate?.arrivalTime,
+            };
+          } catch (e) {
+            console.error('[UnifiedRoutePanel] Error processing trip:', e, trip);
+            return null;
+          }
+        })
+        .filter(Boolean) as Array<{ trip: Trip; vehicle: Vehicle; nextStop: string | null; nextArrivalTime?: number }>;
+    } catch (e) {
+      console.error('[UnifiedRoutePanel] Error in liveTripsWithVehicles:', e);
+      return [];
+    }
   }, [routeTrips, routeVehicles, stopMap]);
 
   // Vehicle info for header
@@ -314,22 +376,27 @@ export function UnifiedRoutePanel({
 
   // Get realtime info for upcoming stops from active trip
   const upcomingRealtimeMap = useMemo(() => {
-    const map = new Map<string, { arrivalTime?: number; arrivalDelay?: number; isLive: boolean }>();
-    
-    if (activeTrip?.stopTimeUpdates) {
-      const now = Math.floor(Date.now() / 1000);
-      activeTrip.stopTimeUpdates.forEach(stu => {
-        if (stu.stopId && stu.arrivalTime && stu.arrivalTime > now) {
-          map.set(stu.stopId, {
-            arrivalTime: stu.arrivalTime,
-            arrivalDelay: stu.arrivalDelay,
-            isLive: true, // This is from realtime trip data
-          });
-        }
-      });
+    try {
+      const map = new Map<string, { arrivalTime?: number; arrivalDelay?: number; isLive: boolean }>();
+      
+      if (activeTrip?.stopTimeUpdates && Array.isArray(activeTrip.stopTimeUpdates)) {
+        const now = Math.floor(Date.now() / 1000);
+        activeTrip.stopTimeUpdates.forEach(stu => {
+          if (stu && stu.stopId && stu.arrivalTime && stu.arrivalTime > now) {
+            map.set(stu.stopId, {
+              arrivalTime: stu.arrivalTime,
+              arrivalDelay: stu.arrivalDelay,
+              isLive: true, // This is from realtime trip data
+            });
+          }
+        });
+      }
+      
+      return map;
+    } catch (e) {
+      console.error('[UnifiedRoutePanel] Error in upcomingRealtimeMap:', e);
+      return new Map();
     }
-    
-    return map;
   }, [activeTrip]);
 
   // Auto-scroll to current stop when stops tab opens
@@ -755,54 +822,61 @@ export function UnifiedRoutePanel({
                   </div>
                 ) : (
                   liveTripsWithVehicles.map(({ trip, vehicle, nextStop, nextArrivalTime }) => {
-                    const vehicleId = vehicle.vehicleId || vehicle.id;
-                    return (
-                      <div
-                        key={vehicleId}
-                        className="rounded-lg border p-2 bg-muted/30 hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <Badge variant="default" className="bg-green-500 text-[10px]">
-                              LIVE
-                            </Badge>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-mono font-bold text-sm">
-                                {vehicle.timestamp 
-                                  ? new Date(vehicle.timestamp * 1000).toLocaleTimeString('el-GR', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      second: '2-digit',
-                                      hour12: false,
-                                    })
-                                  : '--:--:--'
-                                }
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {vehicle.label || vehicleId}
+                    try {
+                      if (!vehicle || (!vehicle.vehicleId && !vehicle.id)) return null;
+                      const vehicleId = vehicle.vehicleId || vehicle.id || 'unknown';
+                      
+                      return (
+                        <div
+                          key={vehicleId}
+                          className="rounded-lg border p-2 bg-muted/30 hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <Badge variant="default" className="bg-green-500 text-[10px]">
+                                LIVE
+                              </Badge>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-mono font-bold text-sm">
+                                  {vehicle.timestamp && typeof vehicle.timestamp === 'number'
+                                    ? new Date(vehicle.timestamp * 1000).toLocaleTimeString('el-GR', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: false,
+                                      })
+                                    : '--:--:--'
+                                  }
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {vehicle.label || vehicleId}
+                                </div>
                               </div>
                             </div>
+                            {onVehicleFollow && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs gap-1"
+                                onClick={() => onVehicleFollow(vehicleId)}
+                              >
+                                <Eye className="h-3 w-3" />
+                                Παρακολούθηση
+                              </Button>
+                            )}
                           </div>
-                          {onVehicleFollow && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 text-xs gap-1"
-                              onClick={() => onVehicleFollow(vehicleId)}
-                            >
-                              <Eye className="h-3 w-3" />
-                              Παρακολούθηση
-                            </Button>
+                          {nextStop && nextArrivalTime && (
+                            <div className="mt-1.5 text-xs text-muted-foreground">
+                              Επόμενη στάση σε {formatMinutesUntil(nextArrivalTime) || '—'}
+                            </div>
                           )}
                         </div>
-                        {nextStop && (
-                          <div className="mt-1.5 text-xs text-muted-foreground">
-                            Επόμενη στάση σε {formatMinutesUntil(nextArrivalTime) || '—'}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
+                      );
+                    } catch (e) {
+                      console.error('[UnifiedRoutePanel] Error rendering live trip:', e, { trip, vehicle });
+                      return null;
+                    }
+                  }).filter(Boolean)
                 )}
               </div>
             </ScrollArea>
