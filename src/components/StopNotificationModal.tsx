@@ -71,9 +71,27 @@ export function StopNotificationModal({
         return;
       }
 
-      // Register/get service worker
-      const registration = await navigator.serviceWorker.register('/sw.js');
+      // Register/get service worker with correct base path
+      const basePath = import.meta.env.BASE_URL || (window.location.pathname.startsWith('/MotionBus_AI') ? '/MotionBus_AI/' : '/');
+      const swPath = `${basePath}sw.js`.replace('//', '/'); // Fix double slashes
+      console.log('[StopNotificationModal] Base path:', basePath);
+      console.log('[StopNotificationModal] Registering service worker:', swPath);
+      
+      let registration;
+      try {
+        registration = await navigator.serviceWorker.register(swPath, { scope: basePath });
+        console.log('[StopNotificationModal] Service worker registered successfully');
+      } catch (swError) {
+        console.error('[StopNotificationModal] Service worker registration failed:', swError);
+        // Try fallback path
+        const fallbackPath = '/sw.js';
+        console.log('[StopNotificationModal] Trying fallback path:', fallbackPath);
+        registration = await navigator.serviceWorker.register(fallbackPath);
+        console.log('[StopNotificationModal] Service worker registered with fallback');
+      }
+      
       await navigator.serviceWorker.ready;
+      console.log('[StopNotificationModal] Service worker ready');
 
       // Get or create push subscription
       let subscription = await registration.pushManager.getSubscription();

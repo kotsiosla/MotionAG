@@ -1,26 +1,30 @@
 // Service Worker for Push Notifications and Offline Support
+// This file is processed by VitePWA injectManifest strategy
+// The __WB_MANIFEST array is injected by VitePWA during build
 
-const CACHE_NAME = 'motion-bus-v1';
-const OFFLINE_URL = '/';
+// Precache assets (injected by VitePWA during build)
+const precacheManifest = self.__WB_MANIFEST || [];
+const precacheCacheName = 'motion-bus-precache-v1';
 
-// Assets to cache immediately on install
-const PRECACHE_ASSETS = [
-  '/',
-  '/pwa-192x192.png',
-  '/pwa-512x512.png',
-];
-
-// Install event - precache essential assets
+// Install event - precache assets
 self.addEventListener('install', (event) => {
-  console.log('Service Worker installing...');
+  console.log('Service Worker installing, precaching', precacheManifest.length, 'assets');
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('Precaching assets');
-      return cache.addAll(PRECACHE_ASSETS);
+    caches.open(precacheCacheName).then((cache) => {
+      return cache.addAll(
+        precacheManifest.map((entry) => {
+          if (typeof entry === 'string') return entry;
+          return entry.url;
+        })
+      );
     })
   );
   self.skipWaiting();
 });
+
+const CACHE_NAME = 'motion-bus-v1';
+const OFFLINE_URL = '/';
+
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {

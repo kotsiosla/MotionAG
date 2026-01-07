@@ -18,6 +18,12 @@ export default defineConfig(({ mode }) => {
       react(),
       mode === "development" && componentTagger(),
       VitePWA({
+        strategies: 'injectManifest',
+        srcDir: 'public',
+        filename: 'sw.js',
+        injectManifest: {
+          globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        },
         registerType: "autoUpdate",
         includeAssets: ["favicon.ico", "robots.txt", "pwa-192x192.png", "pwa-512x512.png"],
         manifest: {
