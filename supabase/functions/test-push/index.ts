@@ -31,18 +31,41 @@ serve(async (req) => {
     }
 
     console.log('Loading VAPID keys...');
+    console.log('VAPID_PUBLIC_KEY length:', VAPID_PUBLIC_KEY?.length || 0);
+    console.log('VAPID_PRIVATE_KEY length:', VAPID_PRIVATE_KEY?.length || 0);
+    console.log('VAPID_PUBLIC_KEY starts with:', VAPID_PUBLIC_KEY?.substring(0, 50) || 'MISSING');
+    console.log('VAPID_PRIVATE_KEY starts with:', VAPID_PRIVATE_KEY?.substring(0, 50) || 'MISSING');
 
-    // Create ApplicationServerKeys - these need to be in base64url format
+    // Create ApplicationServerKeys - these need to be in base64url format or JWK format
     let applicationServerKeys;
     try {
+      // Try to parse as JSON first (JWK format)
+      let publicKey = VAPID_PUBLIC_KEY;
+      let privateKey = VAPID_PRIVATE_KEY;
+      
+      try {
+        const publicKeyJson = JSON.parse(VAPID_PUBLIC_KEY);
+        const privateKeyJson = JSON.parse(VAPID_PRIVATE_KEY);
+        publicKey = publicKeyJson;
+        privateKey = privateKeyJson;
+        console.log('VAPID keys are in JWK format');
+      } catch (e) {
+        console.log('VAPID keys are not in JSON format, using as-is');
+      }
+      
       applicationServerKeys = await ApplicationServerKeys.fromJSON({
-        publicKey: VAPID_PUBLIC_KEY,
-        privateKey: VAPID_PRIVATE_KEY,
+        publicKey,
+        privateKey,
       });
       console.log('ApplicationServerKeys loaded successfully');
     } catch (keyError) {
       console.error('Failed to load VAPID keys:', keyError);
-      return new Response(JSON.stringify({ error: 'Invalid VAPID key format', details: String(keyError) }), {
+      console.error('Error details:', String(keyError));
+      return new Response(JSON.stringify({ 
+        error: 'Invalid VAPID key format', 
+        details: String(keyError),
+        hint: 'Make sure VAPID keys are in JWK format (JSON) or base64url format'
+      }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
