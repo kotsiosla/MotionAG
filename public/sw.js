@@ -8,16 +8,15 @@ const precacheManifest = self.__WB_MANIFEST || [];
 // Install event
 self.addEventListener('install', (event) => {
   console.log('Service Worker installing, manifest entries:', precacheManifest.length);
-  // Skip waiting immediately
-  self.skipWaiting();
+  // DON'T skip waiting - let it activate naturally to avoid refresh loops
   event.waitUntil(Promise.resolve());
 });
 
 // Activate event
 self.addEventListener('activate', (event) => {
   console.log('Service Worker activating');
-  // Claim clients immediately
-  self.clients.claim();
+  // DON'T claim clients - this causes refresh loops
+  // Just resolve immediately
   event.waitUntil(Promise.resolve());
 });
 
@@ -94,12 +93,13 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Find existing client and focus it (don't navigate - causes refresh)
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.navigate(validatedUrl);
           return client.focus();
         }
       }
+      // Only open new window if no existing client
       if (clients.openWindow) {
         return clients.openWindow(validatedUrl);
       }
