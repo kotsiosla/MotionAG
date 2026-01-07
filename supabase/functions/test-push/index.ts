@@ -13,11 +13,16 @@ function toBase64Url(base64: string): string {
 }
 
 serve(async (req) => {
+  console.log('[test-push] Request received:', req.method, new Date().toISOString());
+  
   if (req.method === 'OPTIONS') {
+    console.log('[test-push] CORS preflight, returning OK');
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
   try {
+    console.log('[test-push] Starting function execution...');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY');
