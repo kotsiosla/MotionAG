@@ -5,64 +5,67 @@ import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  base: process.env.GITHUB_PAGES === 'true' ? '/MotionBus_AI/' : '/',
-  server: {
-    host: "::",
-    port: 8080,
-  },
-  plugins: [
-    react(),
-    mode === "development" && componentTagger(),
-    VitePWA({
-      registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "robots.txt", "pwa-192x192.png", "pwa-512x512.png"],
-      manifest: {
-        name: "Motion Bus - Ζωντανή Παρακολούθηση",
-        short_name: "Motion Bus",
-        description: "Παρακολούθηση θέσεων λεωφορείων και δρομολογίων σε πραγματικό χρόνο",
-        theme_color: "#0ea5e9",
-        background_color: "#0a0a0b",
-        display: "standalone",
-        orientation: "portrait",
-        scope: "/",
-        start_url: "/",
-        categories: ["transportation", "travel", "utilities"],
-        shortcuts: [
-          {
-            name: "Κοντινές Στάσεις",
-            short_name: "Στάσεις",
-            url: "/?view=nearby",
-            icons: [{ src: "/pwa-192x192.png", sizes: "192x192" }]
-          },
-          {
-            name: "Αποθηκευμένες Διαδρομές",
-            short_name: "Διαδρομές",
-            url: "/?view=saved",
-            icons: [{ src: "/pwa-192x192.png", sizes: "192x192" }]
-          }
-        ],
-        icons: [
-          {
-            src: "/pwa-192x192.png",
-            sizes: "192x192",
-            type: "image/png",
-          },
-          {
-            src: "/pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-          },
-          {
-            src: "/pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "maskable",
-          },
-        ],
+export default defineConfig(({ mode }) => {
+  const base = process.env.GITHUB_PAGES === 'true' ? '/MotionBus_AI/' : '/';
+  
+  return {
+    base,
+    server: {
+      host: "::",
+      port: 8080,
+    },
+    plugins: [
+      react(),
+      mode === "development" && componentTagger(),
+      VitePWA({
+        registerType: "autoUpdate",
+        includeAssets: ["favicon.ico", "robots.txt", "pwa-192x192.png", "pwa-512x512.png"],
+        manifest: {
+          name: "Motion Bus - Ζωντανή Παρακολούθηση",
+          short_name: "Motion Bus",
+          description: "Παρακολούθηση θέσεων λεωφορείων και δρομολογίων σε πραγματικό χρόνο",
+          theme_color: "#0ea5e9",
+          background_color: "#0a0a0b",
+          display: "standalone",
+          orientation: "portrait",
+          scope: base,
+          start_url: base,
+          categories: ["transportation", "travel", "utilities"],
+          shortcuts: [
+            {
+              name: "Κοντινές Στάσεις",
+              short_name: "Στάσεις",
+              url: `${base}?view=nearby`,
+              icons: [{ src: `${base}pwa-192x192.png`, sizes: "192x192" }]
+            },
+            {
+              name: "Αποθηκευμένες Διαδρομές",
+              short_name: "Διαδρομές",
+              url: `${base}?view=saved`,
+              icons: [{ src: `${base}pwa-192x192.png`, sizes: "192x192" }]
+            }
+          ],
+          icons: [
+            {
+              src: `${base}pwa-192x192.png`,
+              sizes: "192x192",
+              type: "image/png",
+            },
+            {
+              src: `${base}pwa-512x512.png`,
+              sizes: "512x512",
+              type: "image/png",
+            },
+            {
+              src: `${base}pwa-512x512.png`,
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "maskable",
+            },
+          ],
         screenshots: [
           {
-            src: "/pwa-512x512.png",
+            src: `${base}pwa-512x512.png`,
             sizes: "512x512",
             type: "image/png",
             form_factor: "narrow"
@@ -71,7 +74,7 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        navigateFallback: "/index.html",
+        navigateFallback: `${base}index.html`,
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
@@ -123,16 +126,17 @@ export default defineConfig(({ mode }) => ({
       },
     }),
   ].filter(Boolean),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
+      dedupe: ["react", "react-dom", "react-router-dom"],
     },
-    dedupe: ["react", "react-dom", "react-router-dom"],
-  },
-  optimizeDeps: {
-    include: ["react", "react-dom", "react-router-dom"],
-  },
-  build: {
-    chunkSizeWarningLimit: 1000,
-  },
-}));
+    optimizeDeps: {
+      include: ["react", "react-dom", "react-router-dom"],
+    },
+    build: {
+      chunkSizeWarningLimit: 1000,
+    },
+  };
+});
