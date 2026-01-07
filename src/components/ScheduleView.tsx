@@ -52,11 +52,14 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     });
   }, [routesQuery.data]);
 
-  // Get favorite routes that are available in current operator
+  // Get favorite routes that are available in current operator - maintain order from favoriteRouteIds
   const favoriteRoutes = useMemo(() => {
-    return sortedRoutes
-      .filter(route => favoriteRouteIds.includes(route.route_id))
-      .slice(0, 4);
+    const routesMap = new Map(sortedRoutes.map(route => [route.route_id, route]));
+    // Maintain order from favoriteRouteIds array
+    return favoriteRouteIds
+      .filter(routeId => routesMap.has(routeId))
+      .slice(0, 4)
+      .map(routeId => routesMap.get(routeId)!);
   }, [sortedRoutes, favoriteRouteIds]);
 
   // Get selected route info

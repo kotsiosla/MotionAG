@@ -128,7 +128,7 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [], onTripSel
     return filtered;
   }, [trips, searchTerm, selectedFavoriteRouteId, routeNames]);
   
-  // Get unique routes from trips for favorite buttons
+  // Get unique routes from trips for favorite buttons - maintain order from favoriteRouteIds
   const uniqueRoutes = useMemo(() => {
     const routesMap = new Map<string, RouteInfo>();
     trips.forEach(trip => {
@@ -136,10 +136,11 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [], onTripSel
         routesMap.set(trip.routeId, routeNames.get(trip.routeId)!);
       }
     });
-    return Array.from(routesMap.entries())
-      .filter(([routeId]) => favoriteRouteIds.includes(routeId))
+    // Maintain order from favoriteRouteIds array
+    return favoriteRouteIds
+      .filter(routeId => routesMap.has(routeId))
       .slice(0, 4)
-      .map(([routeId, info]) => ({ routeId, info }));
+      .map(routeId => ({ routeId, info: routesMap.get(routeId)! }));
   }, [trips, routeNames, favoriteRouteIds]);
 
   const getMaxDelay = (trip: Trip) => {
