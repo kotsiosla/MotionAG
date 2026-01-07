@@ -260,6 +260,20 @@ export function usePushSubscription() {
 
       console.log('Push subscription:', subscription);
 
+      // Check if endpoint is WNS - WNS doesn't support Web Push/VAPID
+      const endpointUrl = new URL(subscription.endpoint);
+      if (endpointUrl.hostname.includes('wns.') || endpointUrl.hostname.includes('notify.windows.com')) {
+        console.warn('⚠️ WNS endpoint detected - WNS doesn\'t support Web Push. Unsubscribing...');
+        await subscription.unsubscribe();
+        toast({
+          title: '⚠️ Push notifications not supported',
+          description: 'Your browser is using WNS which doesn\'t support Web Push. Please use Chrome, Firefox, or Edge (Chromium) with FCM endpoints.',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return false;
+      }
+
       // Extract keys
       const p256dhKey = subscription.getKey('p256dh');
       const authKey = subscription.getKey('auth');

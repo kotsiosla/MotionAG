@@ -199,6 +199,15 @@ export function StopNotificationModal({
             userVisibleOnly: true,
             applicationServerKey: vapidKeyArray,
           });
+          
+          // Check if endpoint is WNS - WNS doesn't support Web Push/VAPID
+          const endpointUrl = new URL(subscription.endpoint);
+          if (endpointUrl.hostname.includes('wns.') || endpointUrl.hostname.includes('notify.windows.com')) {
+            console.warn('[StopNotificationModal] ⚠️ WNS endpoint detected - WNS doesn\'t support Web Push. Unsubscribing...');
+            await subscription.unsubscribe();
+            throw new Error('WNS endpoint not supported - please use Chrome, Firefox, or Edge (Chromium)');
+          }
+          
           console.log('[StopNotificationModal] ✅ Push subscription created');
         } catch (subError) {
           console.error('[StopNotificationModal] ❌ Push subscription failed:', subError);
