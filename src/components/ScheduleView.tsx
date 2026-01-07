@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Calendar, Clock, Loader2, Bus } from "lucide-react";
+import { Calendar, Clock, Loader2, Bus, Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useStaticRoutes, useRouteSchedule } from "@/hooks/useGtfsData";
+import { useFavoriteRouteIds } from "@/hooks/useFavoriteRouteIds";
+import { toast } from "@/hooks/use-toast";
 import { OPERATORS, type RouteInfo } from "@/types/gtfs";
 
 interface ScheduleViewProps {
@@ -24,6 +26,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
   const [selectedRoute, setSelectedRoute] = useState<string>("");
   const [selectedDirection, setSelectedDirection] = useState<number>(0);
   const [selectedDay, setSelectedDay] = useState<number>(new Date().getDay());
+  const { favoriteRouteIds, isFavorite, toggleFavorite } = useFavoriteRouteIds();
 
   const dayNames = ['Κυριακή', 'Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο'];
   const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
@@ -48,6 +51,13 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       return (a.route_short_name || '').localeCompare(b.route_short_name || '');
     });
   }, [routesQuery.data]);
+
+  // Get favorite routes that are available in current operator
+  const favoriteRoutes = useMemo(() => {
+    return sortedRoutes
+      .filter(route => favoriteRouteIds.includes(route.route_id))
+      .slice(0, 4);
+  }, [sortedRoutes, favoriteRouteIds]);
 
   // Get selected route info
   const selectedRouteInfo = useMemo(() => {
@@ -120,6 +130,73 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         <h2 className="text-lg font-bold">Πρόγραμμα Δρομολογίων</h2>
       </div>
 
+      {/* Favorite Routes - Big buttons like distance selector */}
+      {favoriteRoutes.length > 0 && (
+        <div className="mb-4 space-y-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Αγαπημένα δρομολόγια:</span>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {favoriteRoutes.map((route) => {
+              const isSelected = selectedRoute === route.route_id;
+              const routeColor = route.route_color ? `#${route.route_color}` : '#6B8E23';
+              const textColor = route.route_text_color ? `#${route.route_text_color}` : '#FFFFFF';
+              return (
+                <Button
+                  key={route.route_id}
+                  variant={isSelected ? 'default' : 'outline'}
+                  size="lg"
+                  className={cn(
+                    "h-16 flex flex-col items-center justify-center gap-1 font-bold text-base transition-all",
+                    isSelected && "ring-2 ring-offset-2"
+                  )}
+                  style={isSelected ? { 
+                    backgroundColor: routeColor, 
+                    color: textColor,
+                  } : { borderColor: routeColor }}
+                  onClick={() => setSelectedRoute(isSelected ? '' : route.route_id)}
+                  title={route.route_long_name || route.route_short_name}
+                >
+                  {route.route_short_name || route.route_id}
+                </Button>
+              );
+            })}
+            {/* Add favorite button if less than 4 */}
+            {favoriteRouteIds.length < 4 && (
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-16 flex flex-col items-center justify-center gap-1 border-dashed"
+                onClick={() => {
+                  // Find a route to add - show modal/picker
+                  // For now, just log
+                  console.log('Add favorite route - implement picker');
+                  toast({
+                    title: "ℹ️ Προσθήκη αγαπημένου",
+                    description: "Επιλέξτε ένα δρομολόγιο από τη λίστα και πατήστε το ⭐ για να το προσθέσετε",
+                  });
+                }}
+                title="Προσθήκη αγαπημένου δρομολογίου"
+              >
+                <Star className="h-5 w-5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">+</span>
+              </Button>
+            )}
+          </div>
+          {selectedRoute && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => setSelectedRoute('')}
+            >
+              <X className="h-3 w-3" />
+              Καθαρισμός επιλογής
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Operator & Route Selection */}
       <div className="flex flex-wrap gap-3 mb-4">
         {/* Operator Select */}
@@ -156,14 +233,41 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
             <SelectContent className="bg-popover z-50 max-h-[300px]">
               {sortedRoutes.map(route => (
                 <SelectItem key={route.route_id} value={route.route_id}>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full">
                     <span 
-                      className="px-1.5 py-0.5 rounded text-xs font-bold text-white"
+                      className="px-1.5 py-0.5 rounded text-xs font-bold text-white flex-shrink-0"
                       style={{ backgroundColor: route.route_color ? `#${route.route_color}` : 'hsl(var(--primary))' }}
                     >
                       {route.route_short_name}
                     </span>
-                    <span className="truncate max-w-[200px]">{route.route_long_name}</span>
+                    <span className="truncate flex-1">{route.route_long_name}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 p-0 hover:bg-transparent flex-shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const wasFavorite = isFavorite(route.route_id);
+                        toggleFavorite(route.route_id);
+                        if (!wasFavorite) {
+                          // Show notification when route is added to favorites
+                          toast({
+                            title: "✅ Δρομολόγιο προστέθηκε",
+                            description: `Το δρομολόγιο "${route.route_short_name || route.route_id}" προστέθηκε στα αγαπημένα`,
+                          });
+                          // Also send browser notification if permission granted
+                          if ('Notification' in window && Notification.permission === 'granted') {
+                            new Notification('🚌 Δρομολόγιο προστέθηκε', {
+                              body: `Το δρομολόγιο "${route.route_short_name || route.route_id}" προστέθηκε στα αγαπημένα`,
+                              icon: '/pwa-192x192.png',
+                              tag: 'favorite-route-added',
+                            });
+                          }
+                        }
+                      }}
+                    >
+                      <Star className={cn("h-3.5 w-3.5", isFavorite(route.route_id) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground")} />
+                    </Button>
                   </div>
                 </SelectItem>
               ))}
