@@ -105,24 +105,54 @@ export function StopNotificationModal({
 
       // Try to get existing service worker registration (registered in main.tsx)
       // DON'T register again - just use existing one to avoid refresh loop
+      // Wait for service worker to be stable (not updating) before using it
       let registration: ServiceWorkerRegistration | null = null;
-      try {
-        const existingRegistrations = await navigator.serviceWorker.getRegistrations();
-        if (existingRegistrations.length > 0) {
-          registration = existingRegistrations[0];
-          console.log('[StopNotificationModal] Found existing registration:', registration.scope);
-          
-          // Only use if active and NOT updating (to prevent refresh loop)
-          if (!registration.active || registration.installing || registration.waiting) {
-            console.log('[StopNotificationModal] ⚠️ Service worker not ready - using client-side only');
-            registration = null; // Fallback to client-side
+      
+      // Retry mechanism: wait for service worker to be stable
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+          if (existingRegistrations.length > 0) {
+            registration = existingRegistrations[0];
+            console.log(`[StopNotificationModal] Attempt ${attempt + 1}: Found registration, state:`, {
+              active: !!registration.active,
+              installing: !!registration.installing,
+              waiting: !!registration.waiting,
+            });
+            
+            // Only use if active and NOT updating (to prevent refresh loop)
+            if (registration.active && !registration.installing && !registration.waiting) {
+              console.log('[StopNotificationModal] ✅ Service worker is stable and ready');
+              break; // Success - use this registration
+            } else {
+              // Wait a bit and retry
+              if (attempt < 4) {
+                console.log('[StopNotificationModal] ⏳ Service worker not stable yet, waiting...');
+                await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
+                registration = null; // Reset for next attempt
+              } else {
+                console.log('[StopNotificationModal] ⚠️ Service worker not stable after retries - using client-side only');
+                registration = null; // Fallback to client-side
+              }
+            }
           } else {
-            console.log('[StopNotificationModal] ✅ Service worker is active and ready');
+            // No registration yet - wait and retry
+            if (attempt < 4) {
+              console.log('[StopNotificationModal] ⏳ No registration yet, waiting...');
+              await new Promise(resolve => setTimeout(resolve, 500));
+            } else {
+              console.log('[StopNotificationModal] ⚠️ No service worker found - using client-side only');
+              registration = null;
+            }
+          }
+        } catch (swError) {
+          console.error('[StopNotificationModal] ⚠️ Service worker error:', swError);
+          if (attempt < 4) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          } else {
+            registration = null; // Fallback to client-side
           }
         }
-      } catch (swError) {
-        console.error('[StopNotificationModal] ⚠️ Service worker error:', swError);
-        registration = null; // Fallback to client-side
       }
       
       // If no active service worker, use client-side only (like iOS)
