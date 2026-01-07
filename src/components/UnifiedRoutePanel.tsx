@@ -1,12 +1,14 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { X, Bus, MapPin, Clock, ChevronDown, ChevronUp, Radio, Calendar, Eye, Focus, Maximize2, ArrowLeftRight, ChevronLeft, ChevronRight, Loader2, GripVertical } from "lucide-react";
+import { X, Bus, MapPin, Clock, ChevronDown, ChevronUp, Radio, Calendar, Eye, Focus, Maximize2, ArrowLeftRight, ChevronLeft, ChevronRight, Loader2, GripVertical, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
+import { StopNotificationModal } from "@/components/StopNotificationModal";
 import { useRouteShape, useRouteSchedule } from "@/hooks/useGtfsData";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useStopNotifications } from "@/hooks/useStopNotifications";
 import { cn } from "@/lib/utils";
 import type { Vehicle, Trip, StaticStop, RouteInfo, StopTimeUpdate } from "@/types/gtfs";
 
@@ -99,6 +101,9 @@ export function UnifiedRoutePanel({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [selectedDirection, setSelectedDirection] = useState(0);
+  const [selectedStopForNotification, setSelectedStopForNotification] = useState<{ stopId: string; stopName: string } | null>(null);
+  const stopsScrollRef = useRef<HTMLDivElement>(null);
+  const { getStopNotification, saveStopNotification, removeStopNotification } = useStopNotifications();
 
   // Use dark olive-green as default header color
   const headerColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : '#6B8E23';
@@ -218,6 +223,30 @@ export function UnifiedRoutePanel({
   // Get route stats
   const vehicleCount = routeVehicles.length;
   const liveCount = liveTripsWithVehicles.length;
+
+  // Find current stop (where vehicle is now)
+  const currentStopId = useMemo(() => {
+    if (!followedVehicle?.stopId) return null;
+    return followedVehicle.stopId;
+  }, [followedVehicle?.stopId]);
+
+  // Auto-scroll to current stop when stops tab opens
+  useEffect(() => {
+    if (activeTab === 'stops' && currentStopId && routeStops.length > 0) {
+      const currentStopIndex = routeStops.findIndex(s => s.stopId === currentStopId);
+      if (currentStopIndex >= 0) {
+        const targetPage = Math.floor(currentStopIndex / stopsPerPage);
+        setCurrentPage(targetPage);
+        // Scroll to stop after a brief delay to allow render
+        setTimeout(() => {
+          const stopElement = document.querySelector(`[data-stop-id="${currentStopId}"]`);
+          if (stopElement) {
+            stopElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+      }
+    }
+  }, [activeTab, currentStopId, routeStops, stopsPerPage]);
 
   // Auto-select tab based on context
   useEffect(() => {
@@ -438,12 +467,23 @@ export function UnifiedRoutePanel({
                       const formattedTime = formatTime(stop.arrivalTime);
                       const delay = formatDelay(stop.arrivalDelay);
                       const isNow = timeUntil === "Τώρα";
+                      const isCurrentStop = stop.stopId === currentStopId;
+                      const notificationSettings = getStopNotification(stop.stopId);
                       
                       return (
                         <div 
                           key={stop.stopId}
-                          className="flex items-start gap-2 p-1.5 rounded-lg hover:bg-muted/50 active:bg-muted cursor-pointer transition-colors"
-                          onClick={() => onStopClick?.(stop.stopId)}
+                          data-stop-id={stop.stopId}
+                          className={cn(
+                            "flex items-start gap-2 p-1.5 rounded-lg hover:bg-muted/50 active:bg-muted transition-colors",
+                            isCurrentStop && "bg-primary/10 border border-primary/30",
+                            !isCurrentStop && "cursor-pointer"
+                          )}
+                          onClick={() => {
+                            if (!isCurrentStop) {
+                              onStopClick?.(stop.stopId);
+                            }
+                          }}
                         >
                           {/* Timeline indicator */}
                           <div className="flex flex-col items-center pt-0.5">
@@ -505,6 +545,23 @@ export function UnifiedRoutePanel({
                               )}
                             </div>
                           </div>
+                          
+                          {/* Notification button */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedStopForNotification({ stopId: stop.stopId, stopName: stop.stopName });
+                            }}
+                            title={notificationSettings?.enabled ? "Ειδοποίηση ενεργή" : "Ενεργοποίηση ειδοποίησης"}
+                          >
+                            <Bell className={cn(
+                              "h-3.5 w-3.5",
+                              notificationSettings?.enabled ? "text-primary fill-primary" : "text-muted-foreground"
+                            )} />
+                          </Button>
                         </div>
                       );
                     })
@@ -638,26 +695,64 @@ export function UnifiedRoutePanel({
   // Mobile layout
   if (isMobile) {
     return (
-      <div className="fixed bottom-0 left-0 right-0 z-[2500] border-t border-border shadow-lg rounded-t-xl max-h-[70vh] flex flex-col">
-        {/* Drag indicator */}
-        <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/40" />
-        {panelContent}
-      </div>
+      <>
+        <div className="fixed bottom-0 left-0 right-0 z-[2500] border-t border-border shadow-lg rounded-t-xl max-h-[70vh] flex flex-col">
+          {/* Drag indicator */}
+          <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/40" />
+          {panelContent}
+        </div>
+        
+        {selectedStopForNotification && (
+          <StopNotificationModal
+            stopId={selectedStopForNotification.stopId}
+            stopName={selectedStopForNotification.stopName}
+            currentSettings={getStopNotification(selectedStopForNotification.stopId)}
+            onSave={(settings) => {
+              saveStopNotification(settings);
+              setSelectedStopForNotification(null);
+            }}
+            onRemove={(stopId) => {
+              removeStopNotification(stopId);
+              setSelectedStopForNotification(null);
+            }}
+            onClose={() => setSelectedStopForNotification(null)}
+          />
+        )}
+      </>
     );
   }
 
   // Desktop layout
   return (
-    <ResizableDraggablePanel
-      initialPosition={{ x: 16, y: 60 }}
-      initialSize={{ width: 380, height: 600 }}
-      minSize={{ width: 320, height: 400 }}
-      maxSize={{ width: 500, height: 800 }}
-      className="rounded-lg overflow-hidden border border-border shadow-xl"
-      zIndex={2500}
-    >
-      {panelContent}
-    </ResizableDraggablePanel>
+    <>
+      <ResizableDraggablePanel
+        initialPosition={{ x: 16, y: 60 }}
+        initialSize={{ width: 380, height: 600 }}
+        minSize={{ width: 320, height: 400 }}
+        maxSize={{ width: 500, height: 800 }}
+        className="rounded-lg overflow-hidden border border-border shadow-xl"
+        zIndex={2500}
+      >
+        {panelContent}
+      </ResizableDraggablePanel>
+      
+      {selectedStopForNotification && (
+        <StopNotificationModal
+          stopId={selectedStopForNotification.stopId}
+          stopName={selectedStopForNotification.stopName}
+          currentSettings={getStopNotification(selectedStopForNotification.stopId)}
+          onSave={(settings) => {
+            saveStopNotification(settings);
+            setSelectedStopForNotification(null);
+          }}
+          onRemove={(stopId) => {
+            removeStopNotification(stopId);
+            setSelectedStopForNotification(null);
+          }}
+          onClose={() => setSelectedStopForNotification(null)}
+        />
+      )}
+    </>
   );
 }
 
