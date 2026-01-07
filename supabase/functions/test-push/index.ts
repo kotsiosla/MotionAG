@@ -1105,7 +1105,18 @@ serve(async (req) => {
     for (const sub of subscriptions) {
       const subStartTime = Date.now();
       try {
-        console.log(`[test-push] Processing subscription: ${new URL(sub.endpoint).hostname}`);
+        const endpointHostname = new URL(sub.endpoint).hostname;
+        console.log(`[test-push] Processing subscription: ${endpointHostname}`);
+
+        // Skip WNS endpoints - WNS doesn't support Web Push / VAPID
+        // WNS requires OAuth 2.0 Bearer tokens and XML payloads, not VAPID JWT
+        if (endpointHostname.includes('wns.') || endpointHostname.includes('notify.windows.com')) {
+          console.warn(`[test-push:${requestId}] ⚠️ Skipping WNS endpoint: ${sub.endpoint}`);
+          console.warn(`[test-push:${requestId}] WNS doesn't support Web Push/VAPID. Edge should use FCM endpoint instead.`);
+          failed++;
+          errors.push(`400: WNS endpoint not supported (use FCM for Web Push)`);
+          continue;
+        }
 
         // Convert keys to base64url format if they're in standard base64
         const p256dh = toBase64Url(sub.p256dh);
