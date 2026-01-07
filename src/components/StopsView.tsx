@@ -6,6 +6,7 @@ import { useStopRoutes } from "@/hooks/useGtfsData";
 import { useFavoriteStops, FavoriteStopType } from "@/hooks/useFavoriteStops";
 import { useFavoriteStopIds } from "@/hooks/useFavoriteStopIds";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 import type { Trip, StaticStop, RouteInfo } from "@/types/gtfs";
 
 interface StopsViewProps {
@@ -618,7 +619,24 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
                               className="h-5 w-5 p-0 hover:bg-transparent"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                const wasFavorite = isFavoriteStopId(data.stop.stop_id);
                                 toggleFavorite(data.stop.stop_id);
+                                if (!wasFavorite) {
+                                  // Show notification when stop is added to favorites
+                                  const stopName = data.stop.stop_name || data.stop.stop_id;
+                                  toast({
+                                    title: "✅ Στάση προστέθηκε",
+                                    description: `Η στάση "${stopName}" προστέθηκε στα αγαπημένα`,
+                                  });
+                                  // Also send browser notification if permission granted
+                                  if ('Notification' in window && Notification.permission === 'granted') {
+                                    new Notification('📍 Στάση προστέθηκε', {
+                                      body: `Η στάση "${stopName}" προστέθηκε στα αγαπημένα`,
+                                      icon: '/pwa-192x192.png',
+                                      tag: 'favorite-stop-added',
+                                    });
+                                  }
+                                }
                               }}
                             >
                               <Star className={cn("h-3.5 w-3.5", isFavoriteStopId(data.stop.stop_id) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground")} />

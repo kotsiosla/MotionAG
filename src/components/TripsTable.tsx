@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useFavoriteRouteIds } from "@/hooks/useFavoriteRouteIds";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 import type { Trip, RouteInfo, StaticStop } from "@/types/gtfs";
 
 type SortOption = 'none' | 'delay-desc' | 'delay-asc' | 'time-desc' | 'time-asc' | 'route-asc';
@@ -362,7 +363,25 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [], onTripSel
                                     className="h-5 w-5 p-0 hover:bg-transparent"
                                     onClick={(e) => {
                                       e.stopPropagation();
+                                      const wasFavorite = isFavorite(trip.routeId!);
                                       toggleFavorite(trip.routeId!);
+                                      if (!wasFavorite) {
+                                        // Show notification when route is added to favorites
+                                        const route = getRouteDisplay(trip.routeId);
+                                        const routeName = route.shortName || trip.routeId;
+                                        toast({
+                                          title: "✅ Δρομολόγιο προστέθηκε",
+                                          description: `Το δρομολόγιο "${routeName}" προστέθηκε στα αγαπημένα`,
+                                        });
+                                        // Also send browser notification if permission granted
+                                        if ('Notification' in window && Notification.permission === 'granted') {
+                                          new Notification('🚌 Δρομολόγιο προστέθηκε', {
+                                            body: `Το δρομολόγιο "${routeName}" προστέθηκε στα αγαπημένα`,
+                                            icon: '/pwa-192x192.png',
+                                            tag: 'favorite-route-added',
+                                          });
+                                        }
+                                      }
                                     }}
                                   >
                                     <Star className={cn("h-3.5 w-3.5", isFavorite(trip.routeId) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground")} />

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, BellOff, Loader2, Send } from 'lucide-react';
+import { Bell, BellOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -7,12 +7,9 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { usePushSubscription } from '@/hooks/usePushSubscription';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
 
 export function NotificationButton() {
   const { isSubscribed, isSupported, isLoading, subscribe, unsubscribe, iosStatus } = usePushSubscription();
-  const [isSendingTest, setIsSendingTest] = useState(false);
 
   const handleToggle = async () => {
     if (isSubscribed) {
@@ -42,144 +39,6 @@ export function NotificationButton() {
     return null;
   };
 
-  const handleTestNotification = async () => {
-    if (!isSubscribed) {
-      toast({
-        title: 'Πρέπει να εγγραφείτε πρώτα',
-        description: 'Ενεργοποιήστε τις ειδοποιήσεις πριν στείλετε δοκιμή',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsSendingTest(true);
-    try {
-      // For iOS Safari (not PWA), send browser notification directly (no server-side)
-      if (iosStatus === 'needs-install' && 'Notification' in window && Notification.permission === 'granted') {
-        try {
-          new Notification('🚌 Δοκιμή Ειδοποίησης', {
-            body: 'Οι ειδοποιήσεις λειτουργούν κανονικά!',
-            icon: '/pwa-192x192.png',
-            tag: 'test-notification',
-          });
-          toast({
-            title: 'Επιτυχία',
-            description: 'Δοκιμαστική ειδοποίηση στάλθηκε (client-side - Safari)',
-          });
-          setIsSendingTest(false);
-          return;
-        } catch (notifError) {
-          console.error('Browser notification error:', notifError);
-          // Fall through to try server-side
-        }
-      }
-
-      // For Android/iOS PWA, try server-side push first
-      // Use 'test-push' which is deployed (not 'send-push-notification')
-      let responseData: any = null;
-      let responseError: any = null;
-      
-      console.log('[NotificationButton] Starting test notification...');
-      console.log('[NotificationButton] Supabase client:', supabase);
-      
-      try {
-        // Add timeout to prevent hanging (20 seconds)
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Request timeout - function took too long to respond')), 20000);
-        });
-        
-        console.log('[NotificationButton] Invoking test-push function...');
-        const invokePromise = supabase.functions.invoke('test-push', {
-          body: {
-            title: '🚌 Δοκιμή Ειδοποίησης',
-            body: 'Οι ειδοποιήσεις λειτουργούν κανονικά!',
-          },
-        });
-        
-        console.log('[NotificationButton] Waiting for response (with 20s timeout)...');
-        const response = await Promise.race([invokePromise, timeoutPromise]) as any;
-        
-        console.log('[NotificationButton] Response received:', response);
-        responseData = response?.data;
-        responseError = response?.error;
-        
-        if (responseError) {
-          console.error('[NotificationButton] Response has error:', responseError);
-        } else {
-          console.log('[NotificationButton] Response data:', responseData);
-        }
-      } catch (invokeError: any) {
-        console.error('[NotificationButton] Function invoke error:', invokeError);
-        console.error('[NotificationButton] Error type:', typeof invokeError);
-        console.error('[NotificationButton] Error message:', invokeError?.message);
-        console.error('[NotificationButton] Error stack:', invokeError?.stack);
-        responseError = invokeError;
-      }
-
-      if (responseError) {
-        console.error('Supabase function error:', responseError);
-        console.error('Error details:', JSON.stringify(responseError, null, 2));
-        
-        // Try to get more details from the error
-        let errorDetails = responseError.message || String(responseError);
-        if (responseError.context) {
-          errorDetails = responseError.context.message || errorDetails;
-        }
-        if (responseError.error) {
-          errorDetails = responseError.error.message || responseError.error || errorDetails;
-        }
-        
-        // If server-side fails but we have Notification permission, try client-side as fallback
-        // This works for both iOS PWA and Android if server-side fails
-        if ('Notification' in window && Notification.permission === 'granted') {
-          try {
-            new Notification('🚌 Δοκιμή Ειδοποίησης', {
-              body: 'Οι ειδοποιήσεις λειτουργούν κανονικά! (client-side fallback)',
-              icon: '/pwa-192x192.png',
-              tag: 'test-notification',
-            });
-            toast({
-              title: 'Επιτυχία (client-side fallback)',
-              description: `Server-side απέτυχε: ${errorDetails.substring(0, 50)}... (χρησιμοποιήθηκε client-side)`,
-            });
-            setIsSendingTest(false);
-            return;
-          } catch (notifError) {
-            console.error('Client-side notification also failed:', notifError);
-          }
-        }
-        
-        // If no client-side fallback, show the error
-        throw responseError;
-      }
-
-      console.log('Test notification result:', responseData);
-      
-      // If no notifications were sent, it might mean no subscriptions exist
-      if (responseData?.sent === 0 && responseData?.total === 0) {
-        toast({
-          title: '⚠️ Δεν βρέθηκαν subscriptions',
-          description: 'Δεν υπάρχουν εγγεγραμμένοι χρήστες. Το test notification δουλεύει, αλλά δεν υπάρχουν subscriptions στο database.',
-          variant: 'default',
-        });
-      } else {
-        toast({
-          title: 'Επιτυχία',
-          description: `Στάλθηκαν ${responseData?.sent || 0} ειδοποιήσεις${responseData?.failed ? `, ${responseData.failed} απέτυχαν` : ''}`,
-        });
-      }
-    } catch (error) {
-      console.error('Test notification error:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      toast({
-        title: 'Σφάλμα',
-        description: `Αποτυχία αποστολής: ${errorMessage.substring(0, 50)}`,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSendingTest(false);
-    }
-  };
 
   if (!isSupported) {
     return null;
@@ -223,40 +82,22 @@ export function NotificationButton() {
           </p>
 
           {iosStatus !== 'needs-update' && (
-            <div className="flex gap-2">
-              <Button
-                onClick={handleToggle}
-                disabled={isLoading}
-                variant={isSubscribed ? 'outline' : 'default'}
-                size="sm"
-                className="flex-1"
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                ) : isSubscribed ? (
-                  <BellOff className="h-4 w-4 mr-1" />
-                ) : (
-                  <Bell className="h-4 w-4 mr-1" />
-                )}
-                {isSubscribed ? 'Απενεργοποίηση' : 'Ενεργοποίηση'}
-              </Button>
-
-              {isSubscribed && (
-                <Button
-                  onClick={handleTestNotification}
-                  disabled={isSendingTest}
-                  variant="outline"
-                  size="sm"
-                  title="Αποστολή δοκιμαστικής ειδοποίησης"
-                >
-                  {isSendingTest ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                </Button>
+            <Button
+              onClick={handleToggle}
+              disabled={isLoading}
+              variant={isSubscribed ? 'outline' : 'default'}
+              size="sm"
+              className="w-full"
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              ) : isSubscribed ? (
+                <BellOff className="h-4 w-4 mr-1" />
+              ) : (
+                <Bell className="h-4 w-4 mr-1" />
               )}
-            </div>
+              {isSubscribed ? 'Απενεργοποίηση' : 'Ενεργοποίηση'}
+            </Button>
           )}
           
           {isSubscribed && iosStatus === 'supported' && (
