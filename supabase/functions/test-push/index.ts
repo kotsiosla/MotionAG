@@ -1162,8 +1162,11 @@ serve(async (req) => {
           errors.push(errorMsg);
           const subDuration = Date.now() - subStartTime;
           console.log(`[test-push:${requestId}] Push failed with status ${response.status} (took ${subDuration}ms): ${errorMsg}`);
-          console.log(`[test-push:${requestId}] Response headers:`, JSON.stringify(Object.fromEntries(response.headers.entries())));
-          console.log(`[test-push:${requestId}] Response body length: ${responseText.length}, body: "${responseText}"`);
+          const responseHeadersObj = Object.fromEntries(response.headers.entries());
+          console.log(`[test-push:${requestId}] Response headers: ${JSON.stringify(responseHeadersObj)}`);
+          console.log(`[test-push:${requestId}] Response body length: ${responseText.length}`);
+          console.log(`[test-push:${requestId}] Response body content: "${responseText}"`);
+          console.log(`[test-push:${requestId}] Response body (raw):`, responseText);
           
           // Detect VAPID key mismatch errors
           const isVapidMismatch = response.status === 401 || 
