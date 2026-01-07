@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
         injectManifest: {
           globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         },
-        registerType: "autoUpdate",
+        registerType: "manual",
         includeAssets: ["favicon.ico", "robots.txt", "pwa-192x192.png", "pwa-512x512.png"],
         manifest: {
           name: "Motion Bus - Ζωντανή Παρακολούθηση",
