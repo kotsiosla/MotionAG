@@ -28,7 +28,7 @@ import type { StaticStop, Trip, Vehicle, RouteInfo } from "@/types/gtfs";
 import { useNearbyArrivals, useStopArrivals, type StopArrival, type NearbyStop } from "@/hooks/useNearbyArrivals";
 
 // VAPID public key for push subscriptions
-const VAPID_PUBLIC_KEY = 'BEm2RZO1u3EWq0uPcd4FN0WesVxXMh9jnOMf90XGfABjFwiJRU7LPHaY2RGfV2omEYrGBbhRHMMjtzdFXa9GmXA';
+const VAPID_PUBLIC_KEY = 'BM5pROt5d4ceUeGjvlpk4SmlEEBbe4lKQ0B2xVcyjU1VbObEex87ohRSlOCxMQJEF6zJYonkbLOIrH0k04xNEAc';
 
 // Detect iOS
 const isIOS = () => {
