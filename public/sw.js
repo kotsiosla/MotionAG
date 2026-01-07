@@ -9,17 +9,51 @@ const precacheCacheName = 'motion-bus-precache-v1';
 // Install event - precache assets
 self.addEventListener('install', (event) => {
   console.log('Service Worker installing, precaching', precacheManifest.length, 'assets');
+  
+  // Skip waiting immediately to avoid refresh loops
+  self.skipWaiting();
+  
+  // Try to precache, but don't block installation if it fails
   event.waitUntil(
     caches.open(precacheCacheName).then((cache) => {
-      return cache.addAll(
-        precacheManifest.map((entry) => {
+      // Filter and map manifest entries to valid URLs
+      const urlsToCache = precacheManifest
+        .map((entry) => {
           if (typeof entry === 'string') return entry;
           return entry.url;
         })
-      );
+        .filter((url) => {
+          // Only cache same-origin URLs or valid absolute URLs
+          try {
+            const urlObj = new URL(url, self.location.origin);
+            return urlObj.origin === self.location.origin || url.startsWith('http');
+          } catch {
+            return false;
+          }
+        })
+        .slice(0, 20); // Limit to first 20 to avoid issues
+      
+      console.log('Caching', urlsToCache.length, 'assets');
+      if (urlsToCache.length === 0) {
+        return Promise.resolve();
+      }
+      
+      return Promise.allSettled(
+        urlsToCache.map((url) => 
+          cache.add(url).catch((err) => {
+            console.warn('Failed to cache:', url, err);
+            return null;
+          })
+        )
+      ).then(() => {
+        console.log('Precaching completed');
+      });
+    }).catch((err) => {
+      console.error('Error opening cache:', err);
+      // Don't fail installation if caching fails
+      return Promise.resolve();
     })
   );
-  self.skipWaiting();
 });
 
 const CACHE_NAME = 'motion-bus-v1';
@@ -29,16 +63,32 @@ const OFFLINE_URL = '/';
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
   console.log('Service Worker activating...');
+  
+  // Claim clients immediately
+  self.clients.claim();
+  
+  // Clean up old caches, but don't block activation
   event.waitUntil(
     caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
-      );
+      const deletePromises = cacheNames
+        .filter((name) => name !== CACHE_NAME && name !== precacheCacheName)
+        .map((name) => {
+          console.log('Deleting old cache:', name);
+          return caches.delete(name).catch((err) => {
+            console.warn('Failed to delete cache:', name, err);
+            return null;
+          });
+        });
+      
+      return Promise.allSettled(deletePromises).then(() => {
+        console.log('Cache cleanup completed');
+      });
+    }).catch((err) => {
+      console.error('Error during cache cleanup:', err);
+      // Don't fail activation if cleanup fails
+      return Promise.resolve();
     })
   );
-  self.clients.claim();
 });
 
 // Fetch event - serve from cache, fallback to network
