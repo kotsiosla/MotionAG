@@ -1,8 +1,20 @@
-import { useMemo } from "react";
-import { AlertTriangle, Info, AlertCircle, Clock, ExternalLink, Bus, Ticket, Calendar, MapPin } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
+import { AlertTriangle, Info, AlertCircle, Clock, ExternalLink, Bus, Ticket, Calendar, MapPin, Bell, BellOff, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Alert, Trip, RouteInfo } from "@/types/gtfs";
+
+interface StopNotification {
+  stopId: string;
+  stopName: string;
+  enabled: boolean;
+  sound: boolean;
+  vibration: boolean;
+  voice: boolean;
+  push: boolean;
+  beforeMinutes: number;
+}
 
 interface AlertsListProps {
   alerts: Alert[];
@@ -90,6 +102,61 @@ const formatPeriod = (start?: number, end?: number) => {
 };
 
 export function AlertsList({ alerts, trips, routeNamesMap, isLoading }: AlertsListProps) {
+  // Load stop notifications from localStorage
+  const [stopNotifications, setStopNotifications] = useState<StopNotification[]>([]);
+  
+  useEffect(() => {
+    const loadNotifications = () => {
+      try {
+        const stored = localStorage.getItem('stop_notifications');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setStopNotifications(Array.isArray(parsed) ? parsed : []);
+        }
+      } catch (e) {
+        console.error('Failed to load stop notifications:', e);
+      }
+    };
+    
+    loadNotifications();
+    
+    // Listen for storage changes (from other components)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'stop_notifications') {
+        loadNotifications();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also poll periodically for changes within same tab
+    const interval = setInterval(loadNotifications, 2000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+  
+  // Toggle notification enabled state
+  const toggleNotification = (stopId: string) => {
+    setStopNotifications(prev => {
+      const updated = prev.map(n => 
+        n.stopId === stopId ? { ...n, enabled: !n.enabled } : n
+      );
+      localStorage.setItem('stop_notifications', JSON.stringify(updated));
+      return updated;
+    });
+  };
+  
+  // Remove notification
+  const removeNotification = (stopId: string) => {
+    setStopNotifications(prev => {
+      const updated = prev.filter(n => n.stopId !== stopId);
+      localStorage.setItem('stop_notifications', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   // Generate delay alerts from live trip data
   const delayAlerts = useMemo(() => {
     const delays: DelayAlert[] = [];
@@ -145,14 +212,14 @@ export function AlertsList({ alerts, trips, routeNamesMap, isLoading }: AlertsLi
 
   return (
     <div className="h-full flex flex-col">
-      <Tabs defaultValue="delays" className="h-full flex flex-col">
+      <Tabs defaultValue="reminders" className="h-full flex flex-col">
         <TabsList className="grid w-full grid-cols-3 mx-4 mt-2" style={{ width: 'calc(100% - 2rem)' }}>
-          <TabsTrigger value="delays" className="text-xs gap-1">
-            <Clock className="h-3 w-3" />
-            Καθυστερήσεις
-            {delayAlerts.length > 0 && (
-              <Badge variant="destructive" className="ml-1 h-4 px-1 text-[10px]">
-                {delayAlerts.length}
+          <TabsTrigger value="reminders" className="text-xs gap-1">
+            <Bell className="h-3 w-3" />
+            Υπενθυμίσεις
+            {stopNotifications.filter(n => n.enabled).length > 0 && (
+              <Badge variant="default" className="ml-1 h-4 px-1 text-[10px]">
+                {stopNotifications.filter(n => n.enabled).length}
               </Badge>
             )}
           </TabsTrigger>
@@ -171,37 +238,71 @@ export function AlertsList({ alerts, trips, routeNamesMap, isLoading }: AlertsLi
           </TabsTrigger>
         </TabsList>
 
-        {/* Delays Tab */}
-        <TabsContent value="delays" className="flex-1 overflow-auto p-4 space-y-3">
-          {delayAlerts.length === 0 ? (
+        {/* Reminders Tab */}
+        <TabsContent value="reminders" className="flex-1 overflow-auto p-4 space-y-3">
+          {stopNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
-              <Clock className="h-12 w-12 mb-2 opacity-50" />
-              <p className="font-medium">Όλα τα δρομολόγια στην ώρα τους!</p>
-              <p className="text-sm">Δεν υπάρχουν σημαντικές καθυστερήσεις</p>
+              <Bell className="h-12 w-12 mb-2 opacity-50" />
+              <p className="font-medium">Δεν έχετε υπενθυμίσεις</p>
+              <p className="text-sm text-center px-4">
+                Πατήστε το κουμπί 🔔 σε μια στάση για να λαμβάνετε ειδοποιήσεις όταν πλησιάζει το λεωφορείο
+              </p>
             </div>
           ) : (
-            delayAlerts.map((delay) => (
+            stopNotifications.map((notification) => (
               <div
-                key={delay.id}
-                className="rounded-lg border p-3 bg-destructive/10 border-destructive/30 animate-fade-in"
+                key={notification.stopId}
+                className={`rounded-lg border p-3 animate-fade-in ${
+                  notification.enabled 
+                    ? 'bg-primary/10 border-primary/30' 
+                    : 'bg-muted/30 border-muted-foreground/20'
+                }`}
               >
                 <div className="flex items-start gap-3">
                   <div 
-                    className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                    style={{ backgroundColor: delay.routeColor ? `#${delay.routeColor}` : 'hsl(var(--destructive))' }}
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      notification.enabled 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'bg-muted text-muted-foreground'
+                    }`}
                   >
-                    <Bus className="h-5 w-5" />
+                    {notification.enabled ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-sm truncate">{delay.routeName}</h3>
+                      <MapPin className="h-3 w-3 text-muted-foreground" />
+                      <h3 className="font-medium text-sm truncate">{notification.stopName}</h3>
                     </div>
-                    <p className="text-destructive font-bold text-lg">
-                      +{delay.delayMinutes} λεπτά καθυστέρηση
+                    <p className={`text-sm mt-1 ${notification.enabled ? 'text-primary' : 'text-muted-foreground'}`}>
+                      {notification.enabled ? '✓ Ενεργή ειδοποίηση' : 'Απενεργοποιημένη'}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Ενημέρωση: {new Date(delay.timestamp * 1000).toLocaleTimeString('el-GR')}
-                    </p>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                      <span>⏱️ {notification.beforeMinutes} λεπτά πριν</span>
+                      {notification.sound && <span>🔊</span>}
+                      {notification.vibration && <span>📳</span>}
+                      {notification.voice && <span>🗣️</span>}
+                      {notification.push && <span>📲</span>}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => toggleNotification(notification.stopId)}
+                      title={notification.enabled ? 'Απενεργοποίηση' : 'Ενεργοποίηση'}
+                    >
+                      {notification.enabled ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      onClick={() => removeNotification(notification.stopId)}
+                      title="Διαγραφή"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </div>
