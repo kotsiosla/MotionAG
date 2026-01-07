@@ -43,6 +43,12 @@ export function StopNotificationModal({
   const [isSaving, setIsSaving] = useState(false);
   const isEnabled = currentSettings?.enabled ?? false;
 
+  // Detect iOS
+  const isIOS = () => {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  };
+
   // Simple enable - request permission, subscribe, save to server
   const handleEnable = async () => {
     setIsSaving(true);
@@ -50,24 +56,61 @@ export function StopNotificationModal({
       // Unlock audio for notifications (required on iOS)
       unlockAudio();
       
-      // Check support
+      // Check iOS - iOS Safari doesn't support Web Push Notifications
+      if (isIOS()) {
+        toast({
+          title: "iOS Safari Limitation",
+          description: "Το iOS Safari δεν υποστηρίζει Web Push Notifications. Οι ειδοποιήσεις θα λειτουργούν μόνο όταν το app είναι ανοιχτό.",
+          variant: "default",
+        });
+        // Continue with client-side notifications only (no push subscription)
+        const settings: StopNotificationSettings = {
+          stopId,
+          stopName,
+          enabled: true,
+          sound: true,
+          vibration: true,
+          voice: false,
+          push: false, // No push on iOS
+          beforeMinutes,
+        };
+        const stored = localStorage.getItem('stop_notifications');
+        let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
+        const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
+        if (existingIndex >= 0) {
+          allNotifications[existingIndex] = settings;
+        } else {
+          allNotifications.push(settings);
+        }
+        localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
+        onSave(settings);
+        toast({ title: "✅ Ειδοποίηση ενεργοποιήθηκε", description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό` });
+        onClose();
+        setIsSaving(false);
+        return;
+      }
+      
+      // Check support for non-iOS
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         toast({
           title: "Δεν υποστηρίζεται",
-          description: "Ο browser δεν υποστηρίζει push notifications",
+          description: "Ο browser δεν υποστηρίζει push notifications. Χρησιμοποιήστε Chrome, Firefox ή Edge.",
           variant: "destructive",
         });
+        setIsSaving(false);
         return;
       }
 
       // Request permission
       const permission = await Notification.requestPermission();
+      console.log('[StopNotificationModal] Notification permission:', permission);
       if (permission !== 'granted') {
         toast({
           title: "Άδεια απορρίφθηκε",
           description: "Επιτρέψτε τις ειδοποιήσεις από τις ρυθμίσεις του browser",
           variant: "destructive",
         });
+        setIsSaving(false);
         return;
       }
 
@@ -95,11 +138,28 @@ export function StopNotificationModal({
 
       // Get or create push subscription
       let subscription = await registration.pushManager.getSubscription();
+      console.log('[StopNotificationModal] Existing subscription:', !!subscription);
+      
       if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-        });
+        console.log('[StopNotificationModal] Creating new push subscription...');
+        try {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+          });
+          console.log('[StopNotificationModal] Push subscription created:', subscription.endpoint.substring(0, 50) + '...');
+        } catch (subError) {
+          console.error('[StopNotificationModal] Push subscription failed:', subError);
+          toast({
+            title: "Σφάλμα Push Subscription",
+            description: `Δεν ήταν δυνατή η δημιουργία push subscription: ${subError instanceof Error ? subError.message : String(subError)}`,
+            variant: "destructive",
+          });
+          setIsSaving(false);
+          return;
+        }
+      } else {
+        console.log('[StopNotificationModal] Using existing push subscription');
       }
 
       // Extract keys
