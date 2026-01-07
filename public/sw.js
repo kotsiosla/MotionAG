@@ -1,9 +1,13 @@
 // Service Worker for Push Notifications
 // Simple service worker without precaching to avoid refresh loops
+// This file is processed by VitePWA injectManifest strategy
+
+// Precache manifest (injected by VitePWA during build)
+const precacheManifest = self.__WB_MANIFEST || [];
 
 // Install event
 self.addEventListener('install', (event) => {
-  console.log('Service Worker installing');
+  console.log('Service Worker installing, manifest entries:', precacheManifest.length);
   // Skip waiting immediately
   self.skipWaiting();
   event.waitUntil(Promise.resolve());
