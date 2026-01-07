@@ -325,14 +325,22 @@ export function AlertsList({ alerts, trips, routeNamesMap, isLoading }: AlertsLi
                   alt="Developer"
                   className="w-16 h-16 rounded-full object-cover border-2 border-primary/30 shadow-md bg-primary/20"
                   onError={(e) => {
-                    // Try PNG if JPG doesn't exist
+                    // Try different filename formats
                     const img = e.target as HTMLImageElement;
-                    if (img.src.endsWith('.jpg')) {
+                    const currentSrc = img.src;
+                    
+                    if (currentSrc.endsWith('.jpg')) {
+                      // Try .jpg.JPEG (what user uploaded)
+                      img.src = '/profile-photo.jpg.JPEG';
+                      return;
+                    }
+                    if (currentSrc.endsWith('.jpg.JPEG')) {
+                      // Try .png
                       img.src = '/profile-photo.png';
                       return;
                     }
-                    // Try SVG if PNG doesn't exist
-                    if (img.src.endsWith('.png')) {
+                    if (currentSrc.endsWith('.png')) {
+                      // Try .svg
                       img.src = '/profile-photo.svg';
                       return;
                     }
