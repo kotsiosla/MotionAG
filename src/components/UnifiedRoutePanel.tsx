@@ -103,7 +103,7 @@ export function UnifiedRoutePanel({
   const [selectedDirection, setSelectedDirection] = useState(0);
   const [selectedStopForNotification, setSelectedStopForNotification] = useState<{ stopId: string; stopName: string } | null>(null);
   const stopsScrollRef = useRef<HTMLDivElement>(null);
-  const { getStopNotification, saveStopNotification, removeStopNotification } = useStopNotifications();
+  const { getNotification: getStopNotification, setNotification: saveStopNotification, removeNotification: removeStopNotification } = useStopNotifications();
 
   // Use dark olive-green as default header color
   const headerColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : '#6B8E23';
