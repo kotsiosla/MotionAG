@@ -114,22 +114,42 @@ export function StopNotificationModal({
         return;
       }
 
-      // Get existing service worker registration - DON'T register again (causes refresh loop)
+      // Get existing service worker registration - DON'T use ready (causes refresh loop on update)
       console.log('[StopNotificationModal] Getting existing service worker registration...');
       
-      // Check if service worker is already registered
+      // Check if service worker is already registered - DON'T wait for ready
       let registration;
       try {
-        // First, try to get existing registration without waiting
+        // Get existing registration without waiting for ready (avoids refresh loop)
         const existingRegistrations = await navigator.serviceWorker.getRegistrations();
         if (existingRegistrations.length > 0) {
           registration = existingRegistrations[0];
           console.log('[StopNotificationModal] ✅ Using existing service worker registration:', registration.scope);
+          
+          // Check if service worker is active, if not wait a bit (but not ready - that causes refresh)
+          if (!registration.active && registration.installing) {
+            console.log('[StopNotificationModal] Service worker is installing, waiting for activation...');
+            // Wait for activation but with timeout to avoid infinite wait
+            await new Promise((resolve) => {
+              const timeout = setTimeout(resolve, 2000); // Max 2 seconds
+              registration.installing?.addEventListener('statechange', () => {
+                if (registration.installing?.state === 'activated' || registration.active) {
+                  clearTimeout(timeout);
+                  resolve(null);
+                }
+              });
+            });
+          }
         } else {
-          // No existing registration, wait for ready (main.tsx will register it)
-          console.log('[StopNotificationModal] No existing registration, waiting for ready...');
-          registration = await navigator.serviceWorker.ready;
-          console.log('[StopNotificationModal] ✅ Service worker ready, scope:', registration.scope);
+          // No existing registration - this shouldn't happen if main.tsx registered it
+          console.error('[StopNotificationModal] ❌ No service worker registration found');
+          toast({
+            title: "Σφάλμα Service Worker",
+            description: "Δεν βρέθηκε service worker. Παρακαλώ ανανεώστε τη σελίδα.",
+            variant: "destructive",
+          });
+          setIsSaving(false);
+          return;
         }
       } catch (swError) {
         console.error('[StopNotificationModal] ❌ Service worker error:', swError);
