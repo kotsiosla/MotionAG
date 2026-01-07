@@ -603,16 +603,16 @@ const Index = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
           <TabsList className="grid w-full grid-cols-5 mb-1 sm:mb-2 h-auto flex-shrink-0">
             <TabsTrigger value="map" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-1.5 sm:py-2 px-0.5 sm:px-3">
-              <MapIcon className="h-4 w-4" />
-              <span className="text-[9px] sm:text-sm leading-tight">Χάρτης</span>
+              <MapIcon className="h-4 w-4 text-green-600" />
+              <span className="text-[9px] sm:text-sm leading-tight">Live Χάρτης</span>
             </TabsTrigger>
             <TabsTrigger value="trips" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-1.5 sm:py-2 px-0.5 sm:px-3">
-              <Route className="h-4 w-4" />
-              <span className="text-[9px] sm:text-sm leading-tight">Δρομολόγια</span>
+              <Route className="h-4 w-4 text-green-600" />
+              <span className="text-[9px] sm:text-sm leading-tight">Live Δρομολόγια</span>
             </TabsTrigger>
             <TabsTrigger value="stops" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-1.5 sm:py-2 px-0.5 sm:px-3">
-              <MapPin className="h-4 w-4" />
-              <span className="text-[9px] sm:text-sm leading-tight">Στάσεις</span>
+              <MapPin className="h-4 w-4 text-green-600" />
+              <span className="text-[9px] sm:text-sm leading-tight">Live Στάσεις</span>
             </TabsTrigger>
             <TabsTrigger value="schedule" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-1.5 sm:py-2 px-0.5 sm:px-3">
               <Calendar className="h-4 w-4" />
