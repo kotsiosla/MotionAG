@@ -90,18 +90,7 @@ export function StopNotificationModal({
         return;
       }
       
-      // Check support for non-iOS
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        toast({
-          title: "Δεν υποστηρίζεται",
-          description: "Ο browser δεν υποστηρίζει push notifications. Χρησιμοποιήστε Chrome, Firefox ή Edge.",
-          variant: "destructive",
-        });
-        setIsSaving(false);
-        return;
-      }
-
-      // Request permission
+      // Request permission for client-side notifications
       const permission = await Notification.requestPermission();
       console.log('[StopNotificationModal] Notification permission:', permission);
       if (permission !== 'granted') {
@@ -114,133 +103,9 @@ export function StopNotificationModal({
         return;
       }
 
-      // Try to get service worker for push notifications, but fallback to client-side only if it fails
-      let registration: ServiceWorkerRegistration | null = null;
-      let usePushNotifications = false;
-      
-      try {
-        const existingRegistrations = await navigator.serviceWorker.getRegistrations();
-        if (existingRegistrations.length > 0) {
-          registration = existingRegistrations[0];
-          console.log('[StopNotificationModal] Found registration, scope:', registration.scope);
-          
-          // ONLY proceed if service worker is active and NOT updating
-          if (registration.active && !registration.installing && !registration.waiting) {
-            console.log('[StopNotificationModal] ✅ Using active service worker for push notifications');
-            usePushNotifications = true;
-          } else {
-            console.log('[StopNotificationModal] ⚠️ Service worker not ready or updating - using client-side only');
-            usePushNotifications = false;
-          }
-        } else {
-          console.log('[StopNotificationModal] ⚠️ No service worker found - using client-side only');
-          usePushNotifications = false;
-        }
-      } catch (swError) {
-        console.error('[StopNotificationModal] ⚠️ Service worker error - using client-side only:', swError);
-        usePushNotifications = false;
-      }
-      
-      // If we can't use push notifications, use client-side only (like iOS)
-      if (!usePushNotifications || !registration) {
-        console.log('[StopNotificationModal] Using client-side notifications only (no push)');
-        const settings: StopNotificationSettings = {
-          stopId,
-          stopName,
-          enabled: true,
-          sound: true,
-          vibration: true,
-          voice: false,
-          push: false, // No push - client-side only
-          beforeMinutes,
-        };
-        const stored = localStorage.getItem('stop_notifications');
-        let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
-        const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
-        if (existingIndex >= 0) {
-          allNotifications[existingIndex] = settings;
-        } else {
-          allNotifications.push(settings);
-        }
-        localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
-        onSave(settings);
-        toast({ 
-          title: "✅ Ειδοποίηση ενεργοποιήθηκε", 
-          description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό (client-side only)` 
-        });
-        onClose();
-        setIsSaving(false);
-        return;
-      }
-
-      // Get or create push subscription (registration is guaranteed to be non-null here)
-      if (!registration) {
-        console.error('[StopNotificationModal] ❌ Registration is null - this should not happen');
-        setIsSaving(false);
-        return;
-      }
-      
-      console.log('[StopNotificationModal] Checking for push subscription...');
-      let subscription = await registration.pushManager.getSubscription();
-      console.log('[StopNotificationModal] Existing subscription:', !!subscription);
-      
-      if (!subscription) {
-        console.log('[StopNotificationModal] Creating new push subscription...');
-        console.log('[StopNotificationModal] VAPID_PUBLIC_KEY length:', VAPID_PUBLIC_KEY.length);
-        
-        try {
-          const vapidKeyArray = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-          console.log('[StopNotificationModal] VAPID key converted to Uint8Array, length:', vapidKeyArray.byteLength);
-          
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: vapidKeyArray,
-          });
-          
-          console.log('[StopNotificationModal] ✅ Push subscription created successfully');
-          console.log('[StopNotificationModal] Endpoint:', subscription.endpoint.substring(0, 50) + '...');
-          console.log('[StopNotificationModal] Subscription keys:', {
-            hasP256dh: !!subscription.getKey('p256dh'),
-            hasAuth: !!subscription.getKey('auth'),
-          });
-        } catch (subError) {
-          console.error('[StopNotificationModal] ❌ Push subscription failed:', subError);
-          const errorDetails = subError instanceof Error ? subError.message : String(subError);
-          console.error('[StopNotificationModal] Error details:', errorDetails);
-          
-          let userMessage = 'Δεν ήταν δυνατή η δημιουργία push subscription.';
-          if (errorDetails.includes('InvalidApplicationServerKey') || errorDetails.includes('invalid key')) {
-            userMessage += ' Το VAPID key δεν είναι σωστό.';
-          } else if (errorDetails.includes('NotSupportedError')) {
-            userMessage += ' Ο browser δεν υποστηρίζει push notifications.';
-          } else {
-            userMessage += ` ${errorDetails}`;
-          }
-          
-          toast({
-            title: "Σφάλμα Push Subscription",
-            description: userMessage,
-            variant: "destructive",
-          });
-          setIsSaving(false);
-          return;
-        }
-      } else {
-        console.log('[StopNotificationModal] ✅ Using existing push subscription');
-        console.log('[StopNotificationModal] Endpoint:', subscription.endpoint.substring(0, 50) + '...');
-      }
-
-      // Extract keys
-      const p256dhKey = subscription.getKey('p256dh');
-      const authKey = subscription.getKey('auth');
-      if (!p256dhKey || !authKey) {
-        throw new Error('Failed to get subscription keys');
-      }
-      
-      const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
-      const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
-
-      // Create settings
+      // TEMPORARY FIX: Use client-side only notifications for everyone to avoid refresh loop
+      // TODO: Re-enable push notifications once service worker refresh loop is fixed
+      console.log('[StopNotificationModal] Using client-side notifications only (temporary fix for refresh loop)');
       const settings: StopNotificationSettings = {
         stopId,
         stopName,
@@ -248,78 +113,26 @@ export function StopNotificationModal({
         sound: true,
         vibration: true,
         voice: false,
-        push: true,
+        push: false, // No push - client-side only to avoid refresh loop
         beforeMinutes,
       };
-
-      // Get existing notifications from localStorage
       const stored = localStorage.getItem('stop_notifications');
       let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
-      
-      // Update or add
       const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
       if (existingIndex >= 0) {
         allNotifications[existingIndex] = settings;
       } else {
         allNotifications.push(settings);
       }
-
-      // Save to localStorage
       localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
-
-      // Save to server - upsert based on endpoint
-      const supabaseUrl = (supabase as any).supabaseUrl || 'unknown';
-      console.log('[StopNotificationModal] Supabase URL:', supabaseUrl);
-      console.log('[StopNotificationModal] Checking for existing subscription...');
-      const { data: existing, error: checkError } = await supabase
-        .from('stop_notification_subscriptions')
-        .select('id')
-        .eq('endpoint', subscription.endpoint)
-        .maybeSingle();
-
-      if (checkError) {
-        console.error('[StopNotificationModal] Error checking existing subscription:', checkError);
-      } else {
-        console.log('[StopNotificationModal] Existing subscription found:', !!existing);
-      }
-
-      const pushNotifications = allNotifications.filter(n => n.enabled && n.push);
-      
-      console.log('[StopNotificationModal] Attempting to save subscription:', {
-        endpoint: subscription.endpoint,
-        p256dh: p256dh.substring(0, 10) + '...',
-        auth: auth.substring(0, 10) + '...',
-        stop_notifications: pushNotifications,
-        isUpdate: !!existing,
-      });
-
-      // Use upsert instead of update/insert to handle both cases
-      // Ensure stop_notifications is properly formatted as JSONB
-      const pushNotificationsJson = JSON.parse(JSON.stringify(pushNotifications));
-      
-      const { data: upsertData, error: upsertError } = await supabase
-        .from('stop_notification_subscriptions')
-        .upsert({
-          endpoint: subscription.endpoint,
-          p256dh,
-          auth,
-          stop_notifications: pushNotificationsJson,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'endpoint' })
-        .select();
-
-      if (upsertError) {
-        console.error('[StopNotificationModal] ❌ Upsert error:', upsertError);
-        console.error('[StopNotificationModal] Upsert error details:', JSON.stringify(upsertError, null, 2));
-        console.error('[StopNotificationModal] Error code:', upsertError.code);
-        console.error('[StopNotificationModal] Error message:', upsertError.message);
-      } else {
-        console.log('[StopNotificationModal] ✅ Upsert successful:', upsertData);
-        console.log('[StopNotificationModal] Upsert result length:', upsertData?.length || 0);
-      }
-
-      // Call parent callback
       onSave(settings);
+      toast({ 
+        title: "✅ Ειδοποίηση ενεργοποιήθηκε", 
+        description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό` 
+      });
+      onClose();
+      setIsSaving(false);
+      return;
 
       toast({
         title: "🔔 Ειδοποίηση ενεργοποιήθηκε",
