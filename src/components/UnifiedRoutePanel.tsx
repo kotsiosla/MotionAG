@@ -79,6 +79,34 @@ const getTimeUntilArrival = (arrivalTime?: number) => {
   return `${minutes} λεπτά`;
 };
 
+// Calculate total route distance in kilometers using Haversine formula
+const calculateRouteDistance = (shape: Array<{ lat: number; lng: number }>): number => {
+  if (!shape || shape.length < 2) return 0;
+  
+  let totalDistance = 0; // in meters
+  const R = 6371000; // Earth's radius in meters
+  
+  for (let i = 0; i < shape.length - 1; i++) {
+    const p1 = shape[i];
+    const p2 = shape[i + 1];
+    
+    const φ1 = (p1.lat * Math.PI) / 180;
+    const φ2 = (p2.lat * Math.PI) / 180;
+    const Δφ = ((p2.lat - p1.lat) * Math.PI) / 180;
+    const Δλ = ((p2.lng - p1.lng) * Math.PI) / 180;
+    
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    
+    totalDistance += R * c;
+  }
+  
+  // Convert to kilometers and round to 1 decimal
+  return Math.round((totalDistance / 1000) * 10) / 10;
+};
+
 export function UnifiedRoutePanel({
   routeId,
   routeInfo,
@@ -228,6 +256,14 @@ export function UnifiedRoutePanel({
   const vehicleCount = routeVehicles.length;
   const liveCount = liveTripsWithVehicles.length;
 
+  // Calculate total route distance for current direction
+  const routeDistance = useMemo(() => {
+    if (!routeShapeData?.directions?.length) return null;
+    const direction = routeShapeData.directions[selectedDirection] || routeShapeData.directions[0];
+    if (!direction?.shape || direction.shape.length < 2) return null;
+    return calculateRouteDistance(direction.shape);
+  }, [routeShapeData, selectedDirection]);
+
   // Find current stop (where vehicle is now)
   const currentStopId = useMemo(() => {
     if (!followedVehicle?.stopId) return null;
@@ -309,32 +345,58 @@ export function UnifiedRoutePanel({
           <div className="font-medium text-sm text-white truncate">
             {routeInfo?.route_long_name || `Γραμμή ${routeId}`}
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-white/90">
-            {followedVehicle?.timestamp ? (
-              <>
-                <Clock className="h-3 w-3" />
-                <span>
-                  {new Date(followedVehicle.timestamp * 1000).toLocaleTimeString('el-GR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: false,
-                  })}
-                </span>
-                <span className="mx-1 text-white/60">•</span>
-                <Bus className="h-3 w-3" />
-                <span>{vehicleLabel}</span>
-              </>
-            ) : (
-              <>
-                <Clock className="h-3 w-3" />
-                <span>—</span>
-                <span className="mx-1 text-white/60">•</span>
-                <Bus className="h-3 w-3" />
-                <span>{vehicleCount}</span>
-              </>
-            )}
-          </div>
+          {isCollapsed ? (
+            // Collapsed state - show route info: shape distance, stops count
+            <div className="flex items-center gap-2 text-xs text-white/90 mt-0.5">
+              {routeShapeData && (
+                <>
+                  <Map className="h-3 w-3" />
+                  <span>Χάρτης Διαδρομής</span>
+                  {routeDistance !== null && (
+                    <>
+                      <span className="mx-0.5 text-white/60">•</span>
+                      <span>{routeDistance} km</span>
+                    </>
+                  )}
+                  {routeStops.length > 0 && (
+                    <>
+                      <span className="mx-0.5 text-white/60">•</span>
+                      <MapPin className="h-3 w-3" />
+                      <span>{routeStops.length} στάσεις</span>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            // Expanded state - show vehicle info
+            <div className="flex items-center gap-1.5 text-xs text-white/90">
+              {followedVehicle?.timestamp ? (
+                <>
+                  <Clock className="h-3 w-3" />
+                  <span>
+                    {new Date(followedVehicle.timestamp * 1000).toLocaleTimeString('el-GR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      hour12: false,
+                    })}
+                  </span>
+                  <span className="mx-1 text-white/60">•</span>
+                  <Bus className="h-3 w-3" />
+                  <span>{vehicleLabel}</span>
+                </>
+              ) : (
+                <>
+                  <Clock className="h-3 w-3" />
+                  <span>—</span>
+                  <span className="mx-1 text-white/60">•</span>
+                  <Bus className="h-3 w-3" />
+                  <span>{vehicleCount}</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Collapse/Expand - Desktop only */}

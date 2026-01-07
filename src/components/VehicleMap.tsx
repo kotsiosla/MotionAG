@@ -2077,10 +2077,15 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       />
       
       {/* Unified Route Panel - shows when selecting route OR following vehicle, but NOT when route planner is open */}
-      {((selectedRoute !== 'all' && !showRoutePlanner) || (followedVehicleId && !showRoutePlanner)) && (
-        <UnifiedRoutePanel
-          routeId={followedVehicle?.routeId || selectedRoute}
-          routeInfo={followedRouteInfo || selectedRouteInfo || undefined}
+      {((selectedRoute !== 'all' && !showRoutePlanner) || (followedVehicleId && !showRoutePlanner)) && (() => {
+        const effectiveRouteId = followedVehicle?.routeId || selectedRoute;
+        // Only show panel if we have a valid routeId (not 'all' or undefined)
+        if (!effectiveRouteId || effectiveRouteId === 'all') return null;
+        
+        return (
+          <UnifiedRoutePanel
+            routeId={effectiveRouteId}
+            routeInfo={followedRouteInfo || selectedRouteInfo || undefined}
           trips={trips}
           vehicles={vehicles}
           stops={stops}
@@ -2127,7 +2132,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           onSwitchToStreet={switchToStreetView}
           onSwitchToOverview={switchToOverview}
         />
-      )}
+        );
+      })()}
       
       {isLoading && (
         <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center">
