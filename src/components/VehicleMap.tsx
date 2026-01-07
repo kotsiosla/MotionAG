@@ -48,6 +48,10 @@ interface VehicleMapProps {
 const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: string, isOnSelectedRoute?: boolean, routeShortName?: string) => {
   const bgColor = routeColor ? `#${routeColor}` : '#0ea5e9'; // Sky blue default
   
+  // Get base path for GitHub Pages compatibility
+  const basePath = import.meta.env.BASE_URL || (window.location.pathname.startsWith('/MotionBus_AI') ? '/MotionBus_AI/' : '/');
+  const busIconPath = `${basePath}images/bus-icon.png`.replace('//', '/');
+  
   // Use the uploaded bus icon image
   const iconSize = isFollowed ? 48 : (isOnSelectedRoute ? 40 : 32);
   
@@ -82,7 +86,7 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
             height: ${iconSize}px;
             filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4));
           ">
-            <img src="/images/bus-icon.png" 
+            <img src="${busIconPath}" 
               style="width: 100%; height: 100%; object-fit: contain;"
               alt="Bus"
             />
@@ -103,7 +107,7 @@ const createVehicleIcon = (bearing?: number, isFollowed?: boolean, routeColor?: 
         height: ${iconSize}px;
         filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
       ">
-        <img src="/images/bus-icon.png" 
+        <img src="${busIconPath}" 
           style="width: 100%; height: 100%; object-fit: contain;"
           alt="Bus"
         />
@@ -1605,7 +1609,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           ${statusText}
           ${arrivalsHtml}
           <div class="mt-3 pt-2 border-t border-border">
-            <button onclick="window.dispatchEvent(new CustomEvent('openStopNotification', { detail: { stopId: '${stop.stop_id}', stopName: '${(stop.stop_name || stop.stop_id).replace(/'/g, "\\'")}' } }))" class="w-full py-2 px-3 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+            <button data-stop-id="${stop.stop_id}" data-stop-name="${(stop.stop_name || stop.stop_id).replace(/"/g, '&quot;')}" class="stop-notification-btn w-full py-2 px-3 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
               Ρύθμιση ειδοποίησης
             </button>
@@ -1831,7 +1835,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           </div>
           ${etaHtml}
           <div class="mt-3 pt-2 border-t border-gray-300">
-            <button onclick="window.dispatchEvent(new CustomEvent('openStopNotification', { detail: { stopId: '${stop.stop_id}', stopName: '${(stop.stop_name || stop.stop_id).replace(/'/g, "\\'")}' } }))" class="w-full py-2 px-3 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+            <button data-stop-id="${stop.stop_id}" data-stop-name="${(stop.stop_name || stop.stop_id).replace(/"/g, '&quot;')}" class="stop-notification-btn w-full py-2 px-3 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
               Ρύθμιση ειδοποίησης
             </button>
