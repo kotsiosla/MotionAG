@@ -90,7 +90,7 @@ export function StopNotificationModal({
         return;
       }
       
-      // Request permission for client-side notifications
+      // Request permission
       const permission = await Notification.requestPermission();
       console.log('[StopNotificationModal] Notification permission:', permission);
       if (permission !== 'granted') {
@@ -103,9 +103,116 @@ export function StopNotificationModal({
         return;
       }
 
-      // TEMPORARY FIX: Use client-side only notifications for everyone to avoid refresh loop
-      // TODO: Re-enable push notifications once service worker refresh loop is fixed
-      console.log('[StopNotificationModal] Using client-side notifications only (temporary fix for refresh loop)');
+      // Try to get existing service worker registration (registered in main.tsx)
+      // DON'T register again - just use existing one to avoid refresh loop
+      let registration: ServiceWorkerRegistration | null = null;
+      try {
+        const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+        if (existingRegistrations.length > 0) {
+          registration = existingRegistrations[0];
+          console.log('[StopNotificationModal] Found existing registration:', registration.scope);
+          
+          // Only use if active and NOT updating (to prevent refresh loop)
+          if (!registration.active || registration.installing || registration.waiting) {
+            console.log('[StopNotificationModal] ⚠️ Service worker not ready - using client-side only');
+            registration = null; // Fallback to client-side
+          } else {
+            console.log('[StopNotificationModal] ✅ Service worker is active and ready');
+          }
+        }
+      } catch (swError) {
+        console.error('[StopNotificationModal] ⚠️ Service worker error:', swError);
+        registration = null; // Fallback to client-side
+      }
+      
+      // If no active service worker, use client-side only (like iOS)
+      if (!registration) {
+        console.log('[StopNotificationModal] Using client-side notifications only');
+        const settings: StopNotificationSettings = {
+          stopId,
+          stopName,
+          enabled: true,
+          sound: true,
+          vibration: true,
+          voice: false,
+          push: false, // No push - client-side only
+          beforeMinutes,
+        };
+        const stored = localStorage.getItem('stop_notifications');
+        let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
+        const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
+        if (existingIndex >= 0) {
+          allNotifications[existingIndex] = settings;
+        } else {
+          allNotifications.push(settings);
+        }
+        localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
+        onSave(settings);
+        toast({ 
+          title: "✅ Ειδοποίηση ενεργοποιήθηκε", 
+          description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό` 
+        });
+        onClose();
+        setIsSaving(false);
+        return;
+      }
+
+      // Get or create push subscription (for Android)
+      console.log('[StopNotificationModal] Setting up push notifications for Android...');
+      let subscription = await registration.pushManager.getSubscription();
+      
+      if (!subscription) {
+        console.log('[StopNotificationModal] Creating new push subscription...');
+        try {
+          const vapidKeyArray = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: vapidKeyArray,
+          });
+          console.log('[StopNotificationModal] ✅ Push subscription created');
+        } catch (subError) {
+          console.error('[StopNotificationModal] ❌ Push subscription failed:', subError);
+          // Fallback to client-side only
+          const settings: StopNotificationSettings = {
+            stopId,
+            stopName,
+            enabled: true,
+            sound: true,
+            vibration: true,
+            voice: false,
+            push: false,
+            beforeMinutes,
+          };
+          const stored = localStorage.getItem('stop_notifications');
+          let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
+          const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
+          if (existingIndex >= 0) {
+            allNotifications[existingIndex] = settings;
+          } else {
+            allNotifications.push(settings);
+          }
+          localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
+          onSave(settings);
+          toast({ 
+            title: "✅ Ειδοποίηση ενεργοποιήθηκε", 
+            description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό` 
+          });
+          onClose();
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      // Extract keys and save to server
+      const p256dhKey = subscription.getKey('p256dh');
+      const authKey = subscription.getKey('auth');
+      if (!p256dhKey || !authKey) {
+        throw new Error('Failed to get subscription keys');
+      }
+      
+      const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
+      const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
+
       const settings: StopNotificationSettings = {
         stopId,
         stopName,
@@ -113,9 +220,10 @@ export function StopNotificationModal({
         sound: true,
         vibration: true,
         voice: false,
-        push: false, // No push - client-side only to avoid refresh loop
+        push: true, // Push enabled for Android
         beforeMinutes,
       };
+
       const stored = localStorage.getItem('stop_notifications');
       let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
       const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
@@ -125,14 +233,28 @@ export function StopNotificationModal({
         allNotifications.push(settings);
       }
       localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
+
+      // Save to server
+      const pushNotifications = allNotifications.filter(n => n.enabled && n.push);
+      const pushNotificationsJson = JSON.parse(JSON.stringify(pushNotifications));
+      
+      const { error: upsertError } = await supabase
+        .from('stop_notification_subscriptions')
+        .upsert({
+          endpoint: subscription.endpoint,
+          p256dh,
+          auth,
+          stop_notifications: pushNotificationsJson,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'endpoint' });
+
+      if (upsertError) {
+        console.error('[StopNotificationModal] ❌ Upsert error:', upsertError);
+      } else {
+        console.log('[StopNotificationModal] ✅ Push subscription saved to server');
+      }
+
       onSave(settings);
-      toast({ 
-        title: "✅ Ειδοποίηση ενεργοποιήθηκε", 
-        description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό` 
-      });
-      onClose();
-      setIsSaving(false);
-      return;
 
       toast({
         title: "🔔 Ειδοποίηση ενεργοποιήθηκε",
