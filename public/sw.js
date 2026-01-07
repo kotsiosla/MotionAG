@@ -6,54 +6,15 @@
 const precacheManifest = self.__WB_MANIFEST || [];
 const precacheCacheName = 'motion-bus-precache-v1';
 
-// Install event - precache assets
+// Install event - skip precaching to avoid refresh loops
 self.addEventListener('install', (event) => {
-  console.log('Service Worker installing, precaching', precacheManifest.length, 'assets');
+  console.log('Service Worker installing');
   
   // Skip waiting immediately to avoid refresh loops
   self.skipWaiting();
   
-  // Try to precache, but don't block installation if it fails
-  event.waitUntil(
-    caches.open(precacheCacheName).then((cache) => {
-      // Filter and map manifest entries to valid URLs
-      const urlsToCache = precacheManifest
-        .map((entry) => {
-          if (typeof entry === 'string') return entry;
-          return entry.url;
-        })
-        .filter((url) => {
-          // Only cache same-origin URLs or valid absolute URLs
-          try {
-            const urlObj = new URL(url, self.location.origin);
-            return urlObj.origin === self.location.origin || url.startsWith('http');
-          } catch {
-            return false;
-          }
-        })
-        .slice(0, 20); // Limit to first 20 to avoid issues
-      
-      console.log('Caching', urlsToCache.length, 'assets');
-      if (urlsToCache.length === 0) {
-        return Promise.resolve();
-      }
-      
-      return Promise.allSettled(
-        urlsToCache.map((url) => 
-          cache.add(url).catch((err) => {
-            console.warn('Failed to cache:', url, err);
-            return null;
-          })
-        )
-      ).then(() => {
-        console.log('Precaching completed');
-      });
-    }).catch((err) => {
-      console.error('Error opening cache:', err);
-      // Don't fail installation if caching fails
-      return Promise.resolve();
-    })
-  );
+  // Don't precache - let workbox handle it or cache on demand
+  event.waitUntil(Promise.resolve());
 });
 
 const CACHE_NAME = 'motion-bus-v1';
@@ -70,6 +31,7 @@ self.addEventListener('activate', (event) => {
   // Clean up old caches, but don't block activation
   event.waitUntil(
     caches.keys().then((cacheNames) => {
+      console.log('Existing caches:', cacheNames);
       const deletePromises = cacheNames
         .filter((name) => name !== CACHE_NAME && name !== precacheCacheName)
         .map((name) => {
@@ -91,7 +53,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - minimal caching to avoid issues
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
@@ -101,39 +63,22 @@ self.addEventListener('fetch', (event) => {
   const isMapTile = url.hostname.includes('tile') || url.hostname.includes('openstreetmap');
   const isFont = url.hostname.includes('fonts.googleapis') || url.hostname.includes('fonts.gstatic');
   
+  // Only handle same-origin requests for now to avoid issues
   if (url.origin !== self.location.origin && !isMapTile && !isFont) {
     return;
   }
 
+  // Simple network-first strategy
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Return cached response and update cache in background
-        event.waitUntil(
-          fetch(event.request).then((response) => {
-            if (response.ok) {
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(event.request, response);
-              });
-            }
-          }).catch(() => {})
-        );
-        return cachedResponse;
-      }
-
-      return fetch(event.request).then((response) => {
-        // Cache successful responses
-        if (response.ok && (isMapTile || isFont || url.origin === self.location.origin)) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
+    fetch(event.request).catch(() => {
+      // Only use cache as fallback
+      return caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
         }
-        return response;
-      }).catch(() => {
-        // Return offline page for navigation requests
+        // Return offline response for navigation
         if (event.request.mode === 'navigate') {
-          return caches.match(OFFLINE_URL);
+          return caches.match(OFFLINE_URL) || new Response('Offline', { status: 503 });
         }
         return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
       });
