@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => {
           // Empty globPatterns to avoid precaching
           globPatterns: [],
         },
-        includeAssets: ["favicon.ico", "robots.txt", "pwa-192x192.png", "pwa-512x512.png"],
+        includeAssets: ["favicon.ico", "robots.txt", "pwa-192x192.png", "pwa-512x512.png", "images/bus-icon.png"],
         manifest: {
           name: "Motion Bus - Ζωντανή Παρακολούθηση",
           short_name: "Motion Bus",
@@ -45,28 +45,28 @@ export default defineConfig(({ mode }) => {
               name: "Κοντινές Στάσεις",
               short_name: "Στάσεις",
               url: `${base}?view=nearby`,
-              icons: [{ src: `${base}pwa-192x192.png`, sizes: "192x192" }]
+              icons: [{ src: `${base}images/bus-icon.png`, sizes: "192x192" }]
             },
             {
               name: "Αποθηκευμένες Διαδρομές",
               short_name: "Διαδρομές",
               url: `${base}?view=saved`,
-              icons: [{ src: `${base}pwa-192x192.png`, sizes: "192x192" }]
+              icons: [{ src: `${base}images/bus-icon.png`, sizes: "192x192" }]
             }
           ],
           icons: [
             {
-              src: `${base}pwa-192x192.png`,
+              src: `${base}images/bus-icon.png`,
               sizes: "192x192",
               type: "image/png",
             },
             {
-              src: `${base}pwa-512x512.png`,
+              src: `${base}images/bus-icon.png`,
               sizes: "512x512",
               type: "image/png",
             },
             {
-              src: `${base}pwa-512x512.png`,
+              src: `${base}images/bus-icon.png`,
               sizes: "512x512",
               type: "image/png",
               purpose: "maskable",
@@ -74,7 +74,7 @@ export default defineConfig(({ mode }) => {
           ],
         screenshots: [
           {
-            src: `${base}pwa-512x512.png`,
+            src: `${base}images/bus-icon.png`,
             sizes: "512x512",
             type: "image/png",
             form_factor: "narrow"
