@@ -1,7 +1,9 @@
 import { useMemo, useState, useEffect } from "react";
-import { AlertTriangle, Info, AlertCircle, Clock, ExternalLink, Bus, Ticket, Calendar, MapPin, Bell, BellOff, Trash2 } from "lucide-react";
+import { AlertTriangle, Info, AlertCircle, Clock, ExternalLink, Bus, Ticket, Calendar, MapPin, Bell, BellOff, Trash2, MessageSquare, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Alert, Trip, RouteInfo } from "@/types/gtfs";
 
@@ -313,6 +315,69 @@ export function AlertsList({ alerts, trips, routeNamesMap, isLoading }: AlertsLi
 
         {/* GTFS Alerts Tab */}
         <TabsContent value="alerts" className="flex-1 overflow-auto p-4 space-y-3">
+          {/* Feedback Section - positioned in the middle */}
+          <div className="my-6 rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 p-4">
+            <div className="flex items-start gap-4">
+              {/* Profile Photo */}
+              <div className="flex-shrink-0">
+                <img 
+                  src="/profile-photo.jpg" 
+                  alt="Developer"
+                  className="w-16 h-16 rounded-full object-cover border-2 border-primary/30 shadow-md"
+                  onError={(e) => {
+                    // Fallback to placeholder if image doesn't exist
+                    (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM2QjhFMjMiLz4KPHBhdGggZD0iTTMyIDIwQzI3LjU4IDIwIDIwIDIzLjU4IDIwIDI4VjM0SDQ0VjI4QzQ0IDIzLjU4IDM2LjQyIDIwIDMyIDIwWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+';
+                  }}
+                />
+              </div>
+              
+              {/* Feedback Form */}
+              <div className="flex-1 space-y-3">
+                <div>
+                  <h3 className="font-semibold text-sm flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-primary" />
+                    Σχόλια & Εισηγήσεις
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Έχετε ιδέες για βελτίωση; Θέλετε να αναφέρετε κάποιο πρόβλημα; Θα χαρούμε να ακούσουμε!
+                  </p>
+                </div>
+                
+                <form 
+                  action="https://formspree.io/f/xjgknoze" 
+                  method="POST"
+                  className="space-y-2"
+                  onSubmit={(e) => {
+                    // Allow form submission to formspree
+                  }}
+                >
+                  <Input
+                    type="email"
+                    name="email"
+                    placeholder="Το email σας (προαιρετικό)"
+                    className="text-xs h-9"
+                  />
+                  <Textarea
+                    name="message"
+                    placeholder="Γράψτε το σχόλιο ή την εισηγήση σας..."
+                    className="text-xs min-h-[80px] resize-none"
+                    required
+                    rows={4}
+                  />
+                  <Button 
+                    type="submit"
+                    size="sm"
+                    className="w-full h-8 text-xs gap-2"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    Αποστολή
+                  </Button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          {/* Alerts List */}
           {alerts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
               <AlertCircle className="h-12 w-12 mb-2 opacity-50" />
