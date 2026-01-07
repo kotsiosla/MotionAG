@@ -54,6 +54,27 @@ export function NotificationButton() {
 
     setIsSendingTest(true);
     try {
+      // For iOS Safari (client-side only), send browser notification directly
+      if (iosStatus === 'needs-install' && 'Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification('🚌 Δοκιμή Ειδοποίησης', {
+            body: 'Οι ειδοποιήσεις λειτουργούν κανονικά!',
+            icon: '/pwa-192x192.png',
+            tag: 'test-notification',
+          });
+          toast({
+            title: 'Επιτυχία',
+            description: 'Δοκιμαστική ειδοποίηση στάλθηκε (client-side)',
+          });
+          setIsSendingTest(false);
+          return;
+        } catch (notifError) {
+          console.error('Browser notification error:', notifError);
+          // Fall through to try server-side
+        }
+      }
+
+      // For Android/PWA, use server-side push
       const { data, error } = await supabase.functions.invoke('send-push-notification', {
         body: {
           title: '🚌 Δοκιμή Ειδοποίησης',
@@ -61,18 +82,40 @@ export function NotificationButton() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase function error:', error);
+        // If server-side fails but we have Notification permission, try client-side as fallback
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            new Notification('🚌 Δοκιμή Ειδοποίησης', {
+              body: 'Οι ειδοποιήσεις λειτουργούν κανονικά! (client-side)',
+              icon: '/pwa-192x192.png',
+              tag: 'test-notification',
+            });
+            toast({
+              title: 'Επιτυχία (client-side)',
+              description: 'Δοκιμαστική ειδοποίηση στάλθηκε (server-side failed, used client-side)',
+            });
+            setIsSendingTest(false);
+            return;
+          } catch (notifError) {
+            console.error('Client-side notification also failed:', notifError);
+          }
+        }
+        throw error;
+      }
 
       console.log('Test notification result:', data);
       toast({
         title: 'Επιτυχία',
-        description: `Στάλθηκαν ${data?.sent || 0} ειδοποιήσεις`,
+        description: `Στάλθηκαν ${data?.sent || 0} ειδοποιήσεις${data?.failed ? `, ${data.failed} απέτυχαν` : ''}`,
       });
     } catch (error) {
       console.error('Test notification error:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       toast({
         title: 'Σφάλμα',
-        description: 'Αποτυχία αποστολής δοκιμαστικής ειδοποίησης',
+        description: `Αποτυχία αποστολής: ${errorMessage.substring(0, 50)}`,
         variant: 'destructive',
       });
     } finally {
