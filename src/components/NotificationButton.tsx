@@ -84,6 +84,8 @@ export function NotificationButton() {
 
       if (error) {
         console.error('Supabase function error:', error);
+        const errorDetails = error.message || String(error);
+        
         // If server-side fails but we have Notification permission, try client-side as fallback
         if ('Notification' in window && Notification.permission === 'granted') {
           try {
@@ -94,7 +96,7 @@ export function NotificationButton() {
             });
             toast({
               title: 'Επιτυχία (client-side)',
-              description: 'Δοκιμαστική ειδοποίηση στάλθηκε (server-side failed, used client-side)',
+              description: `Server-side απέτυχε: ${errorDetails.substring(0, 40)}... (χρησιμοποιήθηκε client-side)`,
             });
             setIsSendingTest(false);
             return;
@@ -102,14 +104,26 @@ export function NotificationButton() {
             console.error('Client-side notification also failed:', notifError);
           }
         }
+        
+        // If no client-side fallback, show the error
         throw error;
       }
 
       console.log('Test notification result:', data);
-      toast({
-        title: 'Επιτυχία',
-        description: `Στάλθηκαν ${data?.sent || 0} ειδοποιήσεις${data?.failed ? `, ${data.failed} απέτυχαν` : ''}`,
-      });
+      
+      // If no notifications were sent, it might mean no subscriptions exist
+      if (data?.sent === 0 && data?.total === 0) {
+        toast({
+          title: '⚠️ Δεν βρέθηκαν subscriptions',
+          description: 'Δεν υπάρχουν εγγεγραμμένοι χρήστες. Το test notification δουλεύει, αλλά δεν υπάρχουν subscriptions στο database.',
+          variant: 'default',
+        });
+      } else {
+        toast({
+          title: 'Επιτυχία',
+          description: `Στάλθηκαν ${data?.sent || 0} ειδοποιήσεις${data?.failed ? `, ${data.failed} απέτυχαν` : ''}`,
+        });
+      }
     } catch (error) {
       console.error('Test notification error:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
