@@ -82,9 +82,9 @@ const getTimeUntilArrival = (arrivalTime?: number) => {
 export function UnifiedRoutePanel({
   routeId,
   routeInfo,
-  trips,
-  vehicles,
-  stops,
+  trips = [],
+  vehicles = [],
+  stops = [],
   selectedOperator,
   followedVehicle,
   nextStop,
@@ -98,6 +98,11 @@ export function UnifiedRoutePanel({
 }: UnifiedRoutePanelProps) {
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<'stops' | 'live' | 'planner' | 'schedule'>('stops');
+  
+  // Safety check - don't render if no routeId
+  if (!routeId || routeId === 'all') {
+    return null;
+  }
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [selectedDirection, setSelectedDirection] = useState(0);

@@ -362,7 +362,6 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const containerRef = useRef<HTMLDivElement>(null);
   const [followedVehicleId, setFollowedVehicleId] = useState<string | null>(null);
   const [showStops, setShowStops] = useState(false);
-  const [showRoutePanel, setShowRoutePanel] = useState(true);
   const [showRoutePlanner, setShowRoutePlanner] = useState(false);
   const [selectedVehicleTrip, setSelectedVehicleTrip] = useState<{ vehicleId: string; tripId: string; routeId?: string } | null>(null);
   const [initialOriginStop, setInitialOriginStop] = useState<{ stopId: string; stopName: string; lat: number; lng: number } | null>(null);
@@ -508,7 +507,6 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   // Show panels when route changes and clear trails
   useEffect(() => {
     if (selectedRoute !== 'all') {
-      setShowRoutePanel(true);
       setShowLiveVehiclesPanel(true);
     }
     
@@ -2103,13 +2101,11 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
               // Also clear selected route if it was set from following
               if (selectedRoute !== 'all') {
                 setSelectedRoute('all');
-                setShowRoutePanel(false);
                 onRouteClose?.();
               }
             } else {
               // Close route panel - clear selection
               setSelectedRoute('all');
-              setShowRoutePanel(false);
               onRouteClose?.();
             }
           }}
@@ -2167,30 +2163,6 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           </Button>
         )}
 
-        {/* Control buttons - smaller circular */}
-        <Button
-          variant="secondary"
-          size="icon"
-          className={`h-8 w-8 rounded-full shadow-md transition-all duration-150 active:scale-90 ${showRoutePlanner ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-card/90 backdrop-blur-sm hover:bg-card hover:scale-105'}`}
-          onClick={() => {
-            if (!showRoutePlanner) {
-              // Opening route planner - stop following vehicle if active
-              if (followedVehicleId) {
-                setFollowedVehicleId(null);
-                onFollowVehicle?.(null);
-                // Clear the trail when unfollowing
-                trailPolylinesRef.current.forEach(polylines => {
-                  polylines.forEach(p => mapRef.current?.removeLayer(p));
-                });
-                trailPolylinesRef.current.clear();
-              }
-            }
-            setShowRoutePlanner(!showRoutePlanner);
-          }}
-          title="Σχεδιασμός διαδρομής"
-        >
-          <Route className="h-3.5 w-3.5" />
-        </Button>
 
         {/* Stops toggle button */}
         <Button
