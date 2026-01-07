@@ -16,6 +16,7 @@ import { StopDetailPanel } from "@/components/StopDetailPanel";
 import { NearestStopPanel } from "@/components/NearestStopPanel";
 import { UnifiedRoutePanel } from "@/components/UnifiedRoutePanel";
 import { DataSourceHealthIndicator } from "@/components/DataSourceHealthIndicator";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useRouteShape } from "@/hooks/useGtfsData";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import { useStopArrivalNotifications } from "@/hooks/useStopArrivalNotifications";
@@ -2102,62 +2103,64 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           const vehicleRouteInfo = vehicle?.routeId && routeNamesMap ? routeNamesMap.get(vehicle.routeId) : null;
           
           return (
-            <UnifiedRoutePanel
-            routeId={effectiveRouteId}
-            routeInfo={vehicleRouteInfo || followedRouteInfo || selectedRouteInfo || undefined}
-          trips={trips}
-          vehicles={vehicles}
-          stops={stops}
-          selectedOperator={selectedOperator}
-          followedVehicle={vehicle || null}
-          nextStop={vehicle ? (() => {
-            try {
-              return getNextStopInfo(vehicle);
-            } catch (error) {
-              console.error('[VehicleMap] Error getting next stop info:', error);
-              return null;
-            }
-          })() : null}
-          viewMode={viewMode}
-          onClose={() => {
-            if (followedVehicleId) {
-              // Stop following vehicle
-              setFollowedVehicleId(null);
-              onFollowVehicle?.(null);
-              // Clear the trail when unfollowing
-              trailPolylinesRef.current.forEach(polylines => {
-                polylines.forEach(p => mapRef.current?.removeLayer(p));
-              });
-              trailPolylinesRef.current.clear();
-              // Also clear selected route if it was set from following
-              if (selectedRoute !== 'all') {
-                setSelectedRoute('all');
-                onRouteClose?.();
-              }
-            } else {
-              // Close route panel - clear selection
-              setSelectedRoute('all');
-              onRouteClose?.();
-            }
-          }}
-          onStopClick={handleStopClick}
-          onVehicleFollow={(vehicleId) => {
-            setFollowedVehicleId(vehicleId);
-            onFollowVehicle?.(vehicleId);
-          }}
-          onVehicleFocus={(vehicle) => {
-            if (vehicle.latitude && vehicle.longitude && mapRef.current) {
-              // Smooth zoom to street level
-              mapRef.current.flyTo([vehicle.latitude, vehicle.longitude], 18, { 
-                animate: true, 
-                duration: 1.5,
-                easeLinearity: 0.25
-              });
-            }
-          }}
-          onSwitchToStreet={switchToStreetView}
-          onSwitchToOverview={switchToOverview}
-            />
+            <ErrorBoundary>
+              <UnifiedRoutePanel
+                routeId={effectiveRouteId}
+                routeInfo={vehicleRouteInfo || followedRouteInfo || selectedRouteInfo || undefined}
+                trips={trips}
+                vehicles={vehicles}
+                stops={stops}
+                selectedOperator={selectedOperator}
+                followedVehicle={vehicle || null}
+                nextStop={vehicle ? (() => {
+                  try {
+                    return getNextStopInfo(vehicle);
+                  } catch (error) {
+                    console.error('[VehicleMap] Error getting next stop info:', error);
+                    return null;
+                  }
+                })() : null}
+                viewMode={viewMode}
+                onClose={() => {
+                  if (followedVehicleId) {
+                    // Stop following vehicle
+                    setFollowedVehicleId(null);
+                    onFollowVehicle?.(null);
+                    // Clear the trail when unfollowing
+                    trailPolylinesRef.current.forEach(polylines => {
+                      polylines.forEach(p => mapRef.current?.removeLayer(p));
+                    });
+                    trailPolylinesRef.current.clear();
+                    // Also clear selected route if it was set from following
+                    if (selectedRoute !== 'all') {
+                      setSelectedRoute('all');
+                      onRouteClose?.();
+                    }
+                  } else {
+                    // Close route panel - clear selection
+                    setSelectedRoute('all');
+                    onRouteClose?.();
+                  }
+                }}
+                onStopClick={handleStopClick}
+                onVehicleFollow={(vehicleId) => {
+                  setFollowedVehicleId(vehicleId);
+                  onFollowVehicle?.(vehicleId);
+                }}
+                onVehicleFocus={(vehicle) => {
+                  if (vehicle.latitude && vehicle.longitude && mapRef.current) {
+                    // Smooth zoom to street level
+                    mapRef.current.flyTo([vehicle.latitude, vehicle.longitude], 18, { 
+                      animate: true, 
+                      duration: 1.5,
+                      easeLinearity: 0.25
+                    });
+                  }
+                }}
+                onSwitchToStreet={switchToStreetView}
+                onSwitchToOverview={switchToOverview}
+              />
+            </ErrorBoundary>
           );
         } catch (error) {
           console.error('[VehicleMap] Error rendering UnifiedRoutePanel:', error);
