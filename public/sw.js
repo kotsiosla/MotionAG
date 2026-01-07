@@ -3,17 +3,21 @@
 // The __WB_MANIFEST array is injected by VitePWA during build
 
 // Precache assets (injected by VitePWA during build)
-const precacheManifest = self.__WB_MANIFEST || [];
-const precacheCacheName = 'motion-bus-precache-v1';
+let precacheManifest = [];
+try {
+  precacheManifest = self.__WB_MANIFEST || [];
+} catch (e) {
+  console.warn('__WB_MANIFEST not available:', e);
+}
 
-// Install event - skip precaching to avoid refresh loops
+// Install event - minimal installation
 self.addEventListener('install', (event) => {
-  console.log('Service Worker installing');
+  console.log('Service Worker installing, manifest entries:', precacheManifest.length);
   
   // Skip waiting immediately to avoid refresh loops
   self.skipWaiting();
   
-  // Don't precache - let workbox handle it or cache on demand
+  // Don't block on precaching
   event.waitUntil(Promise.resolve());
 });
 
@@ -53,37 +57,11 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - minimal caching to avoid issues
+// Fetch event - pass through, no caching to avoid issues
 self.addEventListener('fetch', (event) => {
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') return;
-  
-  // Skip cross-origin requests except for tiles and fonts
-  const url = new URL(event.request.url);
-  const isMapTile = url.hostname.includes('tile') || url.hostname.includes('openstreetmap');
-  const isFont = url.hostname.includes('fonts.googleapis') || url.hostname.includes('fonts.gstatic');
-  
-  // Only handle same-origin requests for now to avoid issues
-  if (url.origin !== self.location.origin && !isMapTile && !isFont) {
-    return;
-  }
-
-  // Simple network-first strategy
-  event.respondWith(
-    fetch(event.request).catch(() => {
-      // Only use cache as fallback
-      return caches.match(event.request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        // Return offline response for navigation
-        if (event.request.mode === 'navigate') {
-          return caches.match(OFFLINE_URL) || new Response('Offline', { status: 503 });
-        }
-        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
-      });
-    })
-  );
+  // Don't intercept any requests - just pass through
+  // This prevents refresh loops and caching issues
+  return;
 });
 
 // Push notification handler

@@ -82,9 +82,6 @@ export default defineConfig(({ mode }) => {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         navigateFallback: `${base}index.html`,
         navigateFallbackDenylist: [/^\/api/],
-        additionalManifestEntries: [
-          { url: `${base}sw.js`, revision: null },
-        ],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
