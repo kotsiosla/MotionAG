@@ -32,11 +32,27 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: npm run build
+        run: |
+          npm run build 2>&1 | tee build.log
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "❌ Build failed!"
+            echo "Last 50 lines of build output:"
+            tail -n 50 build.log
+            exit 1
+          fi
         env:
           NODE_OPTIONS: '--max-old-space-size=4096'
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://jftthfniwfarxyisszjh.supabase.co' }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || '' }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || '' }
+
+      - name: Verify build output
+        run: |
+          if [ ! -d "dist" ]; then
+            echo "❌ dist/ directory not found!"
+            exit 1
+          fi
+          echo "✅ dist/ directory exists"
+          ls -la dist/ | head -20
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
