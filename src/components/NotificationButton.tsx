@@ -75,7 +75,8 @@ export function NotificationButton() {
       }
 
       // For Android/iOS PWA, try server-side push first
-      const { data, error } = await supabase.functions.invoke('send-push-notification', {
+      // Use 'test-push' which is deployed (not 'send-push-notification')
+      const { data, error } = await supabase.functions.invoke('test-push', {
         body: {
           title: '🚌 Δοκιμή Ειδοποίησης',
           body: 'Οι ειδοποιήσεις λειτουργούν κανονικά!',
