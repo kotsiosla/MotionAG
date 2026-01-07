@@ -2100,7 +2100,14 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           stops={stops}
           selectedOperator={selectedOperator}
           followedVehicle={vehicle || null}
-          nextStop={vehicle ? getNextStopInfo(vehicle) : null}
+          nextStop={vehicle ? (() => {
+            try {
+              return getNextStopInfo(vehicle);
+            } catch (error) {
+              console.error('[VehicleMap] Error getting next stop info:', error);
+              return null;
+            }
+          })() : null}
           viewMode={viewMode}
           onClose={() => {
             if (followedVehicleId) {
