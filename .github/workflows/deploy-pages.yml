@@ -32,6 +32,7 @@ jobs:
         run: npm ci
 
       - name: Build
+        timeout-minutes: 10
         run: |
           npm run build 2>&1 | tee build.log
           if [ ${PIPESTATUS[0]} -ne 0 ]; then
