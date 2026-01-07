@@ -630,7 +630,7 @@ export function UnifiedRoutePanel({
   // Mobile layout
   if (isMobile) {
     return (
-      <div className="fixed bottom-0 left-0 right-0 z-[1200] border-t border-border shadow-lg rounded-t-xl max-h-[70vh] flex flex-col">
+      <div className="fixed bottom-0 left-0 right-0 z-[2500] border-t border-border shadow-lg rounded-t-xl max-h-[70vh] flex flex-col">
         {/* Drag indicator */}
         <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/40" />
         {panelContent}
@@ -646,7 +646,7 @@ export function UnifiedRoutePanel({
       minSize={{ width: 320, height: 400 }}
       maxSize={{ width: 500, height: 800 }}
       className="rounded-lg overflow-hidden border border-border shadow-xl"
-      zIndex={1200}
+      zIndex={2500}
     >
       {panelContent}
     </ResizableDraggablePanel>

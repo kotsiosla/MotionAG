@@ -6,17 +6,14 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
 import { X, Navigation, MapPin, Clock, LocateFixed, Search, Loader2, Home, ZoomIn, ZoomOut, Route, Maximize2, Focus, Share2, Layers, Sun, Moon, Satellite } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { SchedulePanel } from "@/components/SchedulePanel";
 import { ResizableDraggablePanel } from "@/components/ResizableDraggablePanel";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { RouteStopsPanel } from "@/components/RouteStopsPanel";
 import { RoutePlannerPanel } from "@/components/RoutePlannerPanel";
 import { StopDetailPanel } from "@/components/StopDetailPanel";
 import { NearestStopPanel } from "@/components/NearestStopPanel";
-import { VehicleFollowPanel } from "@/components/VehicleFollowPanel";
 import { UnifiedRoutePanel } from "@/components/UnifiedRoutePanel";
 import { DataSourceHealthIndicator } from "@/components/DataSourceHealthIndicator";
 import { useRouteShape } from "@/hooks/useGtfsData";
@@ -2289,8 +2286,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </Button>
       </div>
 
-      {/* Nearest stop panel - draggable with walking route */}
-      {nearestStopWithArrivals && userLocation && !notificationModalStop && (
+      {/* Nearest stop panel - draggable with walking route - hide when route panel is open */}
+      {nearestStopWithArrivals && userLocation && !notificationModalStop && selectedRoute === 'all' && !followedVehicleId && (
         <NearestStopPanel
           stop={nearestStopWithArrivals.stop}
           distance={nearestStopWithArrivals.distance}
@@ -2340,8 +2337,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </div>
       </div>
       
-      {/* Stop Detail Panel - Draggable with routes */}
-      {notificationModalStop && (
+      {/* Stop Detail Panel - Draggable with routes - hide when route panel is open */}
+      {notificationModalStop && selectedRoute === 'all' && !followedVehicleId && (
         <StopDetailPanel
           stopId={notificationModalStop.stopId}
           stopName={notificationModalStop.stopName}
