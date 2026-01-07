@@ -117,6 +117,8 @@ export function VehicleFollowPanel({
   }, [isDragging]);
 
   const vehicleId = vehicle.vehicleId || vehicle.id;
+  // Use dark olive-green as default header color (like bus panels)
+  const headerColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : '#6B8E23';
   const routeColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : '#0ea5e9';
   const minutesUntil = formatMinutesUntil(nextStop?.arrivalTime);
 
@@ -132,22 +134,22 @@ export function VehicleFollowPanel({
     >
       {/* Header - draggable */}
       <div
-        className="flex items-center gap-2 p-2 cursor-grab active:cursor-grabbing"
-        style={{ backgroundColor: routeColor }}
+        className="flex items-center gap-2 p-3 cursor-grab active:cursor-grabbing"
+        style={{ backgroundColor: headerColor }}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
       >
         {/* Route badge */}
-        <div className="flex items-center justify-center min-w-[32px] h-8 rounded-lg bg-white/20 text-white font-bold text-sm px-2">
+        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/20 text-white font-bold text-sm px-2">
           {routeInfo?.route_short_name || vehicle.routeId || '?'}
         </div>
         
         {/* Route name */}
         <div className="flex-1 min-w-0">
-          <div className="font-medium text-xs text-white truncate">
+          <div className="font-medium text-sm text-white truncate">
             {routeInfo?.route_long_name || `Γραμμή ${vehicle.routeId || ''}`}
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] text-white/80">
+          <div className="flex items-center gap-1.5 text-xs text-white/90">
             <Clock className="h-3 w-3" />
             {vehicle.timestamp ? (
               <span>
@@ -161,7 +163,7 @@ export function VehicleFollowPanel({
             ) : (
               <span>--:--:--</span>
             )}
-            <span className="mx-1">•</span>
+            <span className="mx-1 text-white/60">•</span>
             <Bus className="h-3 w-3" />
             <span>{vehicle.label || vehicleId}</span>
           </div>
@@ -188,28 +190,28 @@ export function VehicleFollowPanel({
         </Button>
       </div>
 
-      {/* Content */}
+      {/* Content - White background */}
       {!isCollapsed && (
-        <div className="p-3 space-y-3">
+        <div className="bg-white p-4 space-y-3">
           {/* Next stop info */}
           {nextStop && (
-            <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: routeColor }}>
-                <MapPin className="h-4 w-4 text-white" />
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: headerColor }}>
+                <MapPin className="h-5 w-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-[10px] text-muted-foreground">Επόμενη στάση</div>
+                <div className="text-xs text-muted-foreground mb-0.5">Επόμενη στάση</div>
                 <div className="font-medium text-sm truncate">{nextStop.stopName}</div>
               </div>
-              <div className="text-right">
-                <div className="font-mono font-bold text-sm" style={{ color: routeColor }}>
+              <div className="text-right shrink-0">
+                <div className="font-mono font-bold text-base" style={{ color: headerColor }}>
                   {formatETA(nextStop.arrivalTime)}
                 </div>
                 {minutesUntil && (
-                  <div className="text-[10px] text-muted-foreground flex items-center justify-end gap-1">
+                  <div className="text-xs text-muted-foreground mt-0.5">
                     {minutesUntil}
                     {nextStop.arrivalDelay !== undefined && nextStop.arrivalDelay !== 0 && (
-                      <span className={nextStop.arrivalDelay > 0 ? 'text-destructive' : 'text-green-500'}>
+                      <span className={`ml-1 ${nextStop.arrivalDelay > 0 ? 'text-destructive' : 'text-green-500'}`}>
                         {formatDelay(nextStop.arrivalDelay)}
                       </span>
                     )}
@@ -220,12 +222,13 @@ export function VehicleFollowPanel({
           )}
 
           {/* View mode toggle */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 pt-1">
             <Button
               variant={viewMode === 'street' ? 'default' : 'outline'}
               size="sm"
-              className="flex-1 h-8 text-xs gap-1.5"
+              className="flex-1 h-9 text-xs gap-1.5"
               onClick={onSwitchToStreet}
+              style={viewMode === 'street' ? { backgroundColor: headerColor } : {}}
             >
               <Focus className="h-3.5 w-3.5" />
               Κοντινή
@@ -233,8 +236,9 @@ export function VehicleFollowPanel({
             <Button
               variant={viewMode === 'overview' ? 'default' : 'outline'}
               size="sm"
-              className="flex-1 h-8 text-xs gap-1.5"
+              className="flex-1 h-9 text-xs gap-1.5"
               onClick={onSwitchToOverview}
+              style={viewMode === 'overview' ? { backgroundColor: headerColor } : {}}
             >
               <Maximize2 className="h-3.5 w-3.5" />
               Επισκόπηση

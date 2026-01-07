@@ -176,30 +176,33 @@ export function StopDetailPanel({
 
   const routeGroups = Object.values(arrivalsByRoute);
 
+  const headerColor = '#6B8E23'; // Dark olive-green like bus panels
+
   return (
     <>
       <div
         ref={panelRef}
-        className="fixed z-[2000] bg-background border border-border rounded-xl shadow-2xl w-[300px] max-h-[70vh] overflow-hidden"
+        className="absolute z-[2000] bg-white border border-border rounded-xl shadow-2xl w-[300px] max-h-[70vh] overflow-hidden"
         style={{
           left: position.x,
           top: position.y,
           cursor: isDragging ? 'grabbing' : 'auto',
         }}
       >
-        {/* Header - draggable */}
+        {/* Header - draggable with dark olive-green */}
         <div
-          className="flex items-center justify-between p-3 border-b border-border bg-muted/50 cursor-grab active:cursor-grabbing"
+          className="flex items-center justify-between p-3 cursor-grab active:cursor-grabbing"
+          style={{ backgroundColor: headerColor }}
           onMouseDown={handleDragStart}
           onTouchStart={handleDragStart}
         >
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center flex-shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-white/20 text-white flex items-center justify-center flex-shrink-0">
               <Bus className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-sm truncate">{stopName}</h3>
-              <p className="text-[10px] text-muted-foreground">
+              <h3 className="font-medium text-sm text-white truncate">{stopName}</h3>
+              <p className="text-xs text-white/90">
                 {arrivals.length > 0 ? `${arrivals.length} αφίξεις` : 'Δεν υπάρχουν αφίξεις'}
               </p>
             </div>
@@ -208,25 +211,26 @@ export function StopDetailPanel({
             <Button
               variant="ghost"
               size="icon"
-              className={`h-7 w-7 ${currentSettings?.enabled ? 'text-primary' : ''}`}
+              className={`h-6 w-6 text-white hover:bg-white/20 ${currentSettings?.enabled ? 'bg-white/20' : ''}`}
               onClick={() => setShowNotificationModal(true)}
               title="Ρυθμίσεις ειδοποίησης"
             >
               {currentSettings?.enabled ? (
-                <Bell className="h-3.5 w-3.5 text-primary fill-primary/20" />
+                <Bell className="h-3.5 w-3.5 text-white" />
               ) : (
-                <BellOff className="h-3.5 w-3.5" />
+                <BellOff className="h-3.5 w-3.5 text-white/80" />
               )}
             </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
-              <X className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-white hover:bg-white/20" onClick={onClose}>
+              <X className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
 
-        <ScrollArea className="max-h-[calc(70vh-56px)]">
+        {/* Content - White background */}
+        <ScrollArea className="max-h-[calc(70vh-56px)] bg-white">
           {/* Routes & Arrivals */}
-          <div className="p-3 space-y-2">
+          <div className="p-4 space-y-2">
             {routeGroups.length === 0 ? (
               <div className="text-center py-6 text-sm text-muted-foreground">
                 Δεν υπάρχουν προγραμματισμένες αφίξεις

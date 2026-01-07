@@ -188,7 +188,9 @@ export function RouteStopsPanel({
   // Count active vehicles on this route
   const vehicleCount = vehicles.filter(v => v.routeId === selectedRoute).length;
 
-  const routeColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : 'hsl(var(--primary))';
+  // Use dark olive-green as default header color (like bus panels)
+  const headerColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : '#6B8E23';
+  const routeColor = routeInfo?.route_color ? `#${routeInfo.route_color}` : '#0ea5e9';
 
   if (selectedRoute === 'all') return null;
 
@@ -196,10 +198,10 @@ export function RouteStopsPanel({
   if (isMobile) {
     return (
       <div className="fixed bottom-0 left-0 right-0 z-[1200] bg-card border-t border-border shadow-lg rounded-t-xl max-h-[60vh] flex flex-col">
-        {/* Header with route color */}
+        {/* Header with dark olive-green */}
         <div 
           className="flex items-center gap-2 p-3 cursor-pointer transition-colors rounded-t-xl"
-          style={{ backgroundColor: routeColor }}
+          style={{ backgroundColor: headerColor }}
           onClick={() => setIsCollapsed(!isCollapsed)}
         >
           {/* Drag indicator for mobile */}
@@ -238,9 +240,9 @@ export function RouteStopsPanel({
           </Button>
         </div>
 
-        {/* Content */}
+        {/* Content - White background */}
         {!isCollapsed && (
-          <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-hidden flex flex-col bg-white">
             {/* Direction selector - only show if multiple directions */}
             {availableDirections.length > 1 && (
               <div className="flex items-center justify-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
@@ -423,11 +425,11 @@ export function RouteStopsPanel({
       zIndex={1200}
       title={routeInfo?.route_short_name || selectedRoute}
     >
-      <div className="h-full flex flex-col">
-      {/* Header with route color */}
+      <div className="h-full flex flex-col bg-white">
+      {/* Header with dark olive-green */}
       <div 
         className="flex items-center gap-2 p-3 cursor-pointer transition-colors"
-        style={{ backgroundColor: routeColor }}
+        style={{ backgroundColor: headerColor }}
         onClick={() => setIsCollapsed(!isCollapsed)}
       >
         {/* Drag handle */}
