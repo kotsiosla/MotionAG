@@ -124,13 +124,13 @@ export function UnifiedRoutePanel({
   onSwitchToStreet,
   onSwitchToOverview,
 }: UnifiedRoutePanelProps) {
-  const isMobile = useIsMobile();
-  const [activeTab, setActiveTab] = useState<'stops' | 'live' | 'planner'>('stops');
-  
-  // Safety check - don't render if no routeId or invalid routeId
+  // Safety check - don't render if no routeId or invalid routeId - MUST be before any hooks
   if (!routeId || routeId === 'all' || routeId === '' || typeof routeId !== 'string') {
     return null;
   }
+
+  const isMobile = useIsMobile();
+  const [activeTab, setActiveTab] = useState<'stops' | 'live' | 'planner'>('stops');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [selectedDirection, setSelectedDirection] = useState(0);
@@ -147,24 +147,44 @@ export function UnifiedRoutePanel({
 
   // Find trips for this route
   const routeTrips = useMemo(() => {
-    return trips.filter(t => t.routeId === routeId);
+    if (!trips || !Array.isArray(trips) || !routeId) return [];
+    try {
+      return trips.filter(t => t && t.routeId === routeId);
+    } catch (e) {
+      console.error('[UnifiedRoutePanel] Error filtering trips:', e);
+      return [];
+    }
   }, [trips, routeId]);
 
   // Get vehicles on this route
   const routeVehicles = useMemo(() => {
-    return vehicles.filter(v => v.routeId === routeId && v.latitude && v.longitude);
+    if (!vehicles || !Array.isArray(vehicles) || !routeId) return [];
+    try {
+      return vehicles.filter(v => v && v.routeId === routeId && v.latitude && v.longitude);
+    } catch (e) {
+      console.error('[UnifiedRoutePanel] Error filtering vehicles:', e);
+      return [];
+    }
   }, [vehicles, routeId]);
 
   // Find active trip (prioritize followed vehicle's trip)
   const activeTrip = useMemo(() => {
-    if (followedVehicle?.tripId) {
-      const trip = trips.find(t => t.tripId === followedVehicle.tripId);
-      if (trip) return trip;
+    try {
+      if (followedVehicle?.tripId && trips && Array.isArray(trips)) {
+        const trip = trips.find(t => t && t.tripId === followedVehicle.tripId);
+        if (trip) return trip;
+      }
+      // Otherwise find trip with stop time updates
+      if (routeTrips && routeTrips.length > 0) {
+        return routeTrips.find(t => 
+          t && t.stopTimeUpdates && t.stopTimeUpdates.length > 0
+        ) || routeTrips[0];
+      }
+      return undefined;
+    } catch (e) {
+      console.error('[UnifiedRoutePanel] Error finding active trip:', e);
+      return undefined;
     }
-    // Otherwise find trip with stop time updates
-    return routeTrips.find(t => 
-      t.stopTimeUpdates && t.stopTimeUpdates.length > 0
-    ) || routeTrips[0];
   }, [followedVehicle, trips, routeTrips]);
 
   // Create stop map
@@ -176,39 +196,45 @@ export function UnifiedRoutePanel({
 
   // Get route stops with realtime data
   const routeStops = useMemo(() => {
-    if (routeShapeData?.directions?.length > 0) {
-      const direction = routeShapeData.directions[selectedDirection] || routeShapeData.directions[0];
-      if (direction?.stops?.length > 0) {
-        const realtimeInfo = new Map<string, { arrivalTime?: number; arrivalDelay?: number }>();
-        if (activeTrip?.stopTimeUpdates) {
-          activeTrip.stopTimeUpdates.forEach(stu => {
-            if (stu.stopId) {
-              realtimeInfo.set(stu.stopId, {
-                arrivalTime: stu.arrivalTime,
-                arrivalDelay: stu.arrivalDelay,
-              });
-            }
-          });
-        }
+    try {
+      if (routeShapeData?.directions?.length > 0) {
+        const direction = routeShapeData.directions[selectedDirection] || routeShapeData.directions[0];
+        if (direction?.stops?.length > 0) {
+          const realtimeInfo = new Map<string, { arrivalTime?: number; arrivalDelay?: number }>();
+          if (activeTrip?.stopTimeUpdates && Array.isArray(activeTrip.stopTimeUpdates)) {
+            activeTrip.stopTimeUpdates.forEach(stu => {
+              if (stu && stu.stopId) {
+                realtimeInfo.set(stu.stopId, {
+                  arrivalTime: stu.arrivalTime,
+                  arrivalDelay: stu.arrivalDelay,
+                });
+              }
+            });
+          }
 
-        return direction.stops
-          .sort((a, b) => (a.stop_sequence || 0) - (b.stop_sequence || 0))
-          .map((stop, index) => {
-            const realtime = realtimeInfo.get(stop.stop_id);
-            const staticStop = stopMap.get(stop.stop_id);
-            return {
-              stopId: stop.stop_id,
-              stopName: stop.stop_name || staticStop?.stop_name || stop.stop_id,
-              stopSequence: stop.stop_sequence || index,
-              arrivalTime: realtime?.arrivalTime,
-              arrivalDelay: realtime?.arrivalDelay,
-              isFirst: index === 0,
-              isLast: index === direction.stops.length - 1,
-            };
-          });
+          return direction.stops
+            .filter(stop => stop && stop.stop_id) // Safety check
+            .sort((a, b) => (a.stop_sequence || 0) - (b.stop_sequence || 0))
+            .map((stop, index, arr) => {
+              const realtime = realtimeInfo.get(stop.stop_id);
+              const staticStop = stopMap.get(stop.stop_id);
+              return {
+                stopId: stop.stop_id,
+                stopName: stop.stop_name || staticStop?.stop_name || stop.stop_id,
+                stopSequence: stop.stop_sequence || index,
+                arrivalTime: realtime?.arrivalTime,
+                arrivalDelay: realtime?.arrivalDelay,
+                isFirst: index === 0,
+                isLast: index === arr.length - 1,
+              };
+            });
+        }
       }
+      return [];
+    } catch (e) {
+      console.error('[UnifiedRoutePanel] Error getting route stops:', e);
+      return [];
     }
-    return [];
   }, [routeShapeData, selectedDirection, activeTrip, stopMap]);
 
   // Pagination for stops
@@ -258,10 +284,15 @@ export function UnifiedRoutePanel({
 
   // Calculate total route distance for current direction
   const routeDistance = useMemo(() => {
-    if (!routeShapeData?.directions?.length) return null;
-    const direction = routeShapeData.directions[selectedDirection] || routeShapeData.directions[0];
-    if (!direction?.shape || direction.shape.length < 2) return null;
-    return calculateRouteDistance(direction.shape);
+    try {
+      if (!routeShapeData?.directions?.length) return null;
+      const direction = routeShapeData.directions[selectedDirection] || routeShapeData.directions[0];
+      if (!direction?.shape || !Array.isArray(direction.shape) || direction.shape.length < 2) return null;
+      return calculateRouteDistance(direction.shape);
+    } catch (e) {
+      console.error('[UnifiedRoutePanel] Error calculating route distance:', e);
+      return null;
+    }
   }, [routeShapeData, selectedDirection]);
 
   // Find current stop (where vehicle is now)

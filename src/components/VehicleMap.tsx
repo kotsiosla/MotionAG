@@ -2078,20 +2078,21 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       
       {/* Unified Route Panel - shows when selecting route OR following vehicle, but NOT when route planner is open */}
       {((selectedRoute !== 'all' && !showRoutePlanner) || (followedVehicleId && !showRoutePlanner)) && (() => {
-        // Find the vehicle directly from followedVehicleId if not already found
-        const vehicle = followedVehicle || (followedVehicleId ? vehicles.find((v) => (v.vehicleId || v.id) === followedVehicleId) : null);
-        const effectiveRouteId = vehicle?.routeId || selectedRoute;
-        
-        // Only show panel if we have a valid routeId (not 'all' or undefined or empty string)
-        if (!effectiveRouteId || effectiveRouteId === 'all' || effectiveRouteId === '') {
-          return null;
-        }
-        
-        // Get route info for this vehicle's route
-        const vehicleRouteInfo = vehicle?.routeId && routeNamesMap ? routeNamesMap.get(vehicle.routeId) : null;
-        
-        return (
-          <UnifiedRoutePanel
+        try {
+          // Find the vehicle directly from followedVehicleId if not already found
+          const vehicle = followedVehicle || (followedVehicleId && Array.isArray(vehicles) ? vehicles.find((v) => v && (v.vehicleId || v.id) === followedVehicleId) : null);
+          const effectiveRouteId = vehicle?.routeId || selectedRoute;
+          
+          // Only show panel if we have a valid routeId (not 'all' or undefined or empty string)
+          if (!effectiveRouteId || effectiveRouteId === 'all' || effectiveRouteId === '' || typeof effectiveRouteId !== 'string') {
+            return null;
+          }
+          
+          // Get route info for this vehicle's route
+          const vehicleRouteInfo = vehicle?.routeId && routeNamesMap ? routeNamesMap.get(vehicle.routeId) : null;
+          
+          return (
+            <UnifiedRoutePanel
             routeId={effectiveRouteId}
             routeInfo={vehicleRouteInfo || followedRouteInfo || selectedRouteInfo || undefined}
           trips={trips}
