@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/hooks/use-toast";
 import type { Alert, Trip, RouteInfo } from "@/types/gtfs";
 
 interface StopNotification {
@@ -363,11 +364,67 @@ export function AlertsList({ alerts, trips, routeNamesMap, isLoading }: AlertsLi
                 </div>
                 
                 <form 
-                  action="https://formspree.io/f/xjgknoze" 
-                  method="POST"
                   className="space-y-2"
-                  onSubmit={(e) => {
-                    // Allow form submission to formspree
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const form = e.currentTarget;
+                    const formData = new FormData(form);
+                    const email = formData.get('email') as string;
+                    const message = formData.get('message') as string;
+                    
+                    if (!message || message.trim() === '') {
+                      toast({
+                        title: "Σφάλμα",
+                        description: "Παρακαλώ συμπληρώστε το μήνυμά σας",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    
+                    const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+                    const originalButtonContent = submitButton?.innerHTML;
+                    
+                    try {
+                      if (submitButton) {
+                        submitButton.disabled = true;
+                        submitButton.innerHTML = '<div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>';
+                      }
+                      
+                      const response = await fetch('https://formspree.io/f/xjgknoze', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          email: email?.trim() || undefined,
+                          message: message.trim(),
+                        }),
+                      });
+                      
+                      if (response.ok) {
+                        toast({
+                          title: "✅ Επιτυχία!",
+                          description: "Το μήνυμά σας στάλθηκε επιτυχώς. Ευχαριστούμε για τα σχόλιά σας!",
+                        });
+                        form.reset();
+                      } else {
+                        const data = await response.json().catch(() => ({}));
+                        throw new Error(data.error || 'Σφάλμα κατά την αποστολή');
+                      }
+                    } catch (error) {
+                      console.error('Form submission error:', error);
+                      toast({
+                        title: "Σφάλμα",
+                        description: error instanceof Error ? error.message : "Προέκυψε σφάλμα κατά την αποστολή. Παρακαλώ δοκιμάστε ξανά.",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      if (submitButton && originalButtonContent) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = originalButtonContent;
+                      }
+                    }
                   }}
                 >
                   <Input
