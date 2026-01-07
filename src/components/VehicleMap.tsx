@@ -2078,20 +2078,28 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       
       {/* Unified Route Panel - shows when selecting route OR following vehicle, but NOT when route planner is open */}
       {((selectedRoute !== 'all' && !showRoutePlanner) || (followedVehicleId && !showRoutePlanner)) && (() => {
-        const effectiveRouteId = followedVehicle?.routeId || selectedRoute;
-        // Only show panel if we have a valid routeId (not 'all' or undefined)
-        if (!effectiveRouteId || effectiveRouteId === 'all') return null;
+        // Find the vehicle directly from followedVehicleId if not already found
+        const vehicle = followedVehicle || (followedVehicleId ? vehicles.find((v) => (v.vehicleId || v.id) === followedVehicleId) : null);
+        const effectiveRouteId = vehicle?.routeId || selectedRoute;
+        
+        // Only show panel if we have a valid routeId (not 'all' or undefined or empty string)
+        if (!effectiveRouteId || effectiveRouteId === 'all' || effectiveRouteId === '') {
+          return null;
+        }
+        
+        // Get route info for this vehicle's route
+        const vehicleRouteInfo = vehicle?.routeId && routeNamesMap ? routeNamesMap.get(vehicle.routeId) : null;
         
         return (
           <UnifiedRoutePanel
             routeId={effectiveRouteId}
-            routeInfo={followedRouteInfo || selectedRouteInfo || undefined}
+            routeInfo={vehicleRouteInfo || followedRouteInfo || selectedRouteInfo || undefined}
           trips={trips}
           vehicles={vehicles}
           stops={stops}
           selectedOperator={selectedOperator}
-          followedVehicle={followedVehicle || null}
-          nextStop={followedNextStop || null}
+          followedVehicle={vehicle || null}
+          nextStop={vehicle ? getNextStopInfo(vehicle) : null}
           viewMode={viewMode}
           onClose={() => {
             if (followedVehicleId) {

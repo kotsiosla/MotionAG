@@ -127,8 +127,8 @@ export function UnifiedRoutePanel({
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<'stops' | 'live' | 'planner'>('stops');
   
-  // Safety check - don't render if no routeId
-  if (!routeId || routeId === 'all') {
+  // Safety check - don't render if no routeId or invalid routeId
+  if (!routeId || routeId === 'all' || routeId === '' || typeof routeId !== 'string') {
     return null;
   }
   const [isCollapsed, setIsCollapsed] = useState(false);
