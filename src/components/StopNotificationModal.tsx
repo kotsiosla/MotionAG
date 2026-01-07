@@ -116,50 +116,109 @@ export function StopNotificationModal({
 
       // Register/get service worker with correct base path
       const basePath = import.meta.env.BASE_URL || (window.location.pathname.startsWith('/MotionBus_AI') ? '/MotionBus_AI/' : '/');
-      const swPath = `${basePath}sw.js`.replace('//', '/'); // Fix double slashes
+      
       console.log('[StopNotificationModal] Base path:', basePath);
-      console.log('[StopNotificationModal] Registering service worker:', swPath);
+      console.log('[StopNotificationModal] Checking for existing service worker registrations...');
+      
+      // First, check if there's already a registered service worker
+      const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+      console.log('[StopNotificationModal] Existing service worker registrations:', existingRegistrations.length);
       
       let registration;
-      try {
-        registration = await navigator.serviceWorker.register(swPath, { scope: basePath });
-        console.log('[StopNotificationModal] Service worker registered successfully');
-      } catch (swError) {
-        console.error('[StopNotificationModal] Service worker registration failed:', swError);
-        // Try fallback path
-        const fallbackPath = '/sw.js';
-        console.log('[StopNotificationModal] Trying fallback path:', fallbackPath);
-        registration = await navigator.serviceWorker.register(fallbackPath);
-        console.log('[StopNotificationModal] Service worker registered with fallback');
+      
+      if (existingRegistrations.length > 0) {
+        // Use existing registration
+        registration = existingRegistrations[0];
+        console.log('[StopNotificationModal] ✅ Using existing service worker:', registration.scope);
+      } else {
+        // Try to register new service worker
+        const swPaths = [
+          `${basePath}sw.js`.replace('//', '/'),
+          '/sw.js',
+        ];
+        
+        console.log('[StopNotificationModal] Will try service worker paths:', swPaths);
+        
+        let lastError;
+        for (const swPath of swPaths) {
+          try {
+            console.log('[StopNotificationModal] Trying to register:', swPath);
+            registration = await navigator.serviceWorker.register(swPath, { scope: basePath });
+            console.log('[StopNotificationModal] ✅ Service worker registered successfully:', swPath);
+            break;
+          } catch (swError) {
+            console.error('[StopNotificationModal] ❌ Service worker registration failed for', swPath, ':', swError);
+            lastError = swError;
+          }
+        }
+        
+        if (!registration) {
+          const errorMsg = `Δεν ήταν δυνατή η εγγραφή service worker. ${lastError instanceof Error ? lastError.message : String(lastError)}. Βεβαιωθείτε ότι το website είναι HTTPS.`;
+          console.error('[StopNotificationModal]', errorMsg);
+          toast({
+            title: "Σφάλμα Service Worker",
+            description: errorMsg,
+            variant: "destructive",
+          });
+          setIsSaving(false);
+          return;
+        }
       }
       
+      // Wait for service worker to be ready
+      console.log('[StopNotificationModal] Waiting for service worker to be ready...');
       await navigator.serviceWorker.ready;
-      console.log('[StopNotificationModal] Service worker ready');
+      console.log('[StopNotificationModal] ✅ Service worker ready');
 
       // Get or create push subscription
+      console.log('[StopNotificationModal] Checking for push subscription...');
       let subscription = await registration.pushManager.getSubscription();
       console.log('[StopNotificationModal] Existing subscription:', !!subscription);
       
       if (!subscription) {
         console.log('[StopNotificationModal] Creating new push subscription...');
+        console.log('[StopNotificationModal] VAPID_PUBLIC_KEY length:', VAPID_PUBLIC_KEY.length);
+        
         try {
+          const vapidKeyArray = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+          console.log('[StopNotificationModal] VAPID key converted to Uint8Array, length:', vapidKeyArray.byteLength);
+          
           subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+            applicationServerKey: vapidKeyArray,
           });
-          console.log('[StopNotificationModal] Push subscription created:', subscription.endpoint.substring(0, 50) + '...');
+          
+          console.log('[StopNotificationModal] ✅ Push subscription created successfully');
+          console.log('[StopNotificationModal] Endpoint:', subscription.endpoint.substring(0, 50) + '...');
+          console.log('[StopNotificationModal] Subscription keys:', {
+            hasP256dh: !!subscription.getKey('p256dh'),
+            hasAuth: !!subscription.getKey('auth'),
+          });
         } catch (subError) {
-          console.error('[StopNotificationModal] Push subscription failed:', subError);
+          console.error('[StopNotificationModal] ❌ Push subscription failed:', subError);
+          const errorDetails = subError instanceof Error ? subError.message : String(subError);
+          console.error('[StopNotificationModal] Error details:', errorDetails);
+          
+          let userMessage = 'Δεν ήταν δυνατή η δημιουργία push subscription.';
+          if (errorDetails.includes('InvalidApplicationServerKey') || errorDetails.includes('invalid key')) {
+            userMessage += ' Το VAPID key δεν είναι σωστό.';
+          } else if (errorDetails.includes('NotSupportedError')) {
+            userMessage += ' Ο browser δεν υποστηρίζει push notifications.';
+          } else {
+            userMessage += ` ${errorDetails}`;
+          }
+          
           toast({
             title: "Σφάλμα Push Subscription",
-            description: `Δεν ήταν δυνατή η δημιουργία push subscription: ${subError instanceof Error ? subError.message : String(subError)}`,
+            description: userMessage,
             variant: "destructive",
           });
           setIsSaving(false);
           return;
         }
       } else {
-        console.log('[StopNotificationModal] Using existing push subscription');
+        console.log('[StopNotificationModal] ✅ Using existing push subscription');
+        console.log('[StopNotificationModal] Endpoint:', subscription.endpoint.substring(0, 50) + '...');
       }
 
       // Extract keys
