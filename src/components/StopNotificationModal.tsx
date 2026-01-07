@@ -114,66 +114,72 @@ export function StopNotificationModal({
         return;
       }
 
-      // Get existing service worker registration - ONLY use active worker (no waiting, no updates)
-      console.log('[StopNotificationModal] Getting existing service worker registration...');
+      // Try to get service worker for push notifications, but fallback to client-side only if it fails
+      let registration: ServiceWorkerRegistration | null = null;
+      let usePushNotifications = false;
       
-      // Get registration and ONLY use if active - don't wait for anything
-      let registration;
       try {
         const existingRegistrations = await navigator.serviceWorker.getRegistrations();
         if (existingRegistrations.length > 0) {
           registration = existingRegistrations[0];
           console.log('[StopNotificationModal] Found registration, scope:', registration.scope);
           
-          // ONLY proceed if service worker is active - don't wait for installing/activating
-          if (!registration.active) {
-            console.error('[StopNotificationModal] ❌ Service worker is not active yet');
-            toast({
-              title: "Service Worker δεν είναι έτοιμο",
-              description: "Παρακαλώ περιμένετε 2-3 δευτερόλεπτα και δοκιμάστε ξανά.",
-              variant: "destructive",
-            });
-            setIsSaving(false);
-            return;
+          // ONLY proceed if service worker is active and NOT updating
+          if (registration.active && !registration.installing && !registration.waiting) {
+            console.log('[StopNotificationModal] ✅ Using active service worker for push notifications');
+            usePushNotifications = true;
+          } else {
+            console.log('[StopNotificationModal] ⚠️ Service worker not ready or updating - using client-side only');
+            usePushNotifications = false;
           }
-          
-          // CRITICAL: Check if service worker is updating - if so, abort to prevent refresh loop
-          if (registration.installing || registration.waiting) {
-            console.error('[StopNotificationModal] ❌ Service worker is updating - aborting to prevent refresh loop');
-            toast({
-              title: "Service Worker ενημερώνεται",
-              description: "Παρακαλώ περιμένετε να ολοκληρωθεί η ενημέρωση και δοκιμάστε ξανά.",
-              variant: "destructive",
-            });
-            setIsSaving(false);
-            return;
-          }
-          
-          console.log('[StopNotificationModal] ✅ Using active service worker:', registration.scope);
         } else {
-          console.error('[StopNotificationModal] ❌ No service worker registration found');
-          toast({
-            title: "Σφάλμα Service Worker",
-            description: "Δεν βρέθηκε service worker. Παρακαλώ ανανεώστε τη σελίδα.",
-            variant: "destructive",
-          });
-          setIsSaving(false);
-          return;
+          console.log('[StopNotificationModal] ⚠️ No service worker found - using client-side only');
+          usePushNotifications = false;
         }
       } catch (swError) {
-        console.error('[StopNotificationModal] ❌ Service worker error:', swError);
-        const errorMsg = `Δεν ήταν δυνατή η πρόσβαση στο service worker. ${swError instanceof Error ? swError.message : String(swError)}. Βεβαιωθείτε ότι το website είναι HTTPS.`;
-        console.error('[StopNotificationModal]', errorMsg);
-        toast({
-          title: "Σφάλμα Service Worker",
-          description: errorMsg,
-          variant: "destructive",
+        console.error('[StopNotificationModal] ⚠️ Service worker error - using client-side only:', swError);
+        usePushNotifications = false;
+      }
+      
+      // If we can't use push notifications, use client-side only (like iOS)
+      if (!usePushNotifications || !registration) {
+        console.log('[StopNotificationModal] Using client-side notifications only (no push)');
+        const settings: StopNotificationSettings = {
+          stopId,
+          stopName,
+          enabled: true,
+          sound: true,
+          vibration: true,
+          voice: false,
+          push: false, // No push - client-side only
+          beforeMinutes,
+        };
+        const stored = localStorage.getItem('stop_notifications');
+        let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
+        const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
+        if (existingIndex >= 0) {
+          allNotifications[existingIndex] = settings;
+        } else {
+          allNotifications.push(settings);
+        }
+        localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
+        onSave(settings);
+        toast({ 
+          title: "✅ Ειδοποίηση ενεργοποιήθηκε", 
+          description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό (client-side only)` 
         });
+        onClose();
         setIsSaving(false);
         return;
       }
 
-      // Get or create push subscription
+      // Get or create push subscription (registration is guaranteed to be non-null here)
+      if (!registration) {
+        console.error('[StopNotificationModal] ❌ Registration is null - this should not happen');
+        setIsSaving(false);
+        return;
+      }
+      
       console.log('[StopNotificationModal] Checking for push subscription...');
       let subscription = await registration.pushManager.getSubscription();
       console.log('[StopNotificationModal] Existing subscription:', !!subscription);
