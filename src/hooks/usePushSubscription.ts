@@ -46,14 +46,6 @@ export function usePushSubscription() {
   // Check if push is supported and current subscription status
   useEffect(() => {
     const checkSubscription = async () => {
-      // Check for basic requirements
-      if (!('serviceWorker' in navigator)) {
-        console.log('Service Worker not supported');
-        setIsSupported(false);
-        setIsLoading(false);
-        return;
-      }
-
       // iOS-specific checks
       if (isIOS()) {
         const iosVersion = getIOSVersion();
@@ -68,12 +60,23 @@ export function usePushSubscription() {
         }
         
         if (!isStandalone()) {
-          console.log('iOS requires PWA to be installed for push notifications');
-          // Still allow enabling but warn user
+          console.log('iOS Safari - client-side notifications only (no push)');
+          // Allow button to show for client-side notifications even in Safari
+          setIsSupported(true);
           setIosStatus('needs-install');
+          setIsLoading(false);
+          return; // Don't try to register service worker in Safari
         } else {
           setIosStatus('supported');
         }
+      }
+
+      // Check for basic requirements (for non-iOS or iOS PWA)
+      if (!('serviceWorker' in navigator)) {
+        console.log('Service Worker not supported');
+        setIsSupported(false);
+        setIsLoading(false);
+        return;
       }
 
       if (!('PushManager' in window)) {
@@ -84,6 +87,23 @@ export function usePushSubscription() {
       }
 
       setIsSupported(true);
+
+      // iOS Safari (not PWA) - check localStorage for client-side subscription
+      if (isIOS() && !isStandalone()) {
+        const savedRoutes = localStorage.getItem('push_subscription_routes');
+        if (savedRoutes) {
+          try {
+            const routes = JSON.parse(savedRoutes);
+            setIsSubscribed(true);
+            setSubscribedRoutes(routes);
+            console.log('iOS Safari - client-side subscription found:', routes);
+          } catch (e) {
+            console.error('Error parsing saved routes:', e);
+          }
+        }
+        setIsLoading(false);
+        return;
+      }
 
       try {
         // Register service worker
@@ -154,6 +174,22 @@ export function usePushSubscription() {
           variant: 'destructive',
         });
         return false;
+      }
+
+      // iOS Safari (not PWA) - client-side only, no service worker needed
+      if (isIOS() && !isStandalone()) {
+        console.log('iOS Safari - enabling client-side notifications only');
+        // Save to localStorage for client-side notifications
+        localStorage.setItem('push_subscription_routes', JSON.stringify(routeIds));
+        setIsSubscribed(true);
+        setSubscribedRoutes(routeIds);
+        
+        toast({
+          title: '✅ Ειδοποιήσεις ενεργοποιήθηκαν',
+          description: 'Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό (Safari - client-side only)',
+        });
+        setIsLoading(false);
+        return true;
       }
 
       const registration = await navigator.serviceWorker.ready;
@@ -243,6 +279,18 @@ export function usePushSubscription() {
   const unsubscribe = useCallback(async () => {
     try {
       setIsLoading(true);
+
+      // iOS Safari (not PWA) - just clear localStorage
+      if (isIOS() && !isStandalone()) {
+        localStorage.removeItem('push_subscription_routes');
+        setIsSubscribed(false);
+        setSubscribedRoutes([]);
+        toast({
+          title: 'Ειδοποιήσεις απενεργοποιήθηκαν',
+        });
+        setIsLoading(false);
+        return true;
+      }
 
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();

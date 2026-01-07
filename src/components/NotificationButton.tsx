@@ -113,8 +113,12 @@ export function NotificationButton() {
           
           <p className="text-xs text-muted-foreground">
             {isSubscribed 
-              ? 'Λαμβάνετε ειδοποιήσεις για καθυστερήσεις λεωφορείων.'
-              : 'Ενεργοποιήστε για να λαμβάνετε ειδοποιήσεις καθυστερήσεων.'}
+              ? (iosStatus === 'needs-install' 
+                  ? 'Λαμβάνετε ειδοποιήσεις όταν το app είναι ανοιχτό (Safari - client-side only).'
+                  : 'Λαμβάνετε ειδοποιήσεις για καθυστερήσεις λεωφορείων.')
+              : (iosStatus === 'needs-install'
+                  ? 'Ενεργοποιήστε για να λαμβάνετε ειδοποιήσεις όταν το app είναι ανοιχτό (Safari - client-side only).'
+                  : 'Ενεργοποιήστε για να λαμβάνετε ειδοποιήσεις καθυστερήσεων.')}
           </p>
 
           {iosStatus !== 'needs-update' && (
