@@ -114,41 +114,34 @@ export function StopNotificationModal({
         return;
       }
 
-      // Register/get service worker with correct base path
-      const basePath = import.meta.env.BASE_URL || (window.location.pathname.startsWith('/MotionBus_AI') ? '/MotionBus_AI/' : '/');
+      // Register/get service worker - VitePWA auto-registers, so just get it
+      console.log('[StopNotificationModal] Getting service worker registration...');
       
-      console.log('[StopNotificationModal] Base path:', basePath);
-      console.log('[StopNotificationModal] Checking for existing service worker registrations...');
-      
-      // First, check if there's already a registered service worker
-      const existingRegistrations = await navigator.serviceWorker.getRegistrations();
-      console.log('[StopNotificationModal] Existing service worker registrations:', existingRegistrations.length);
-      
+      // Wait for service worker to be ready (VitePWA auto-registers)
       let registration;
-      
-      if (existingRegistrations.length > 0) {
-        // Use existing registration
-        registration = existingRegistrations[0];
-        console.log('[StopNotificationModal] ✅ Using existing service worker:', registration.scope);
-      } else {
-        // Try to register new service worker
+      try {
+        registration = await navigator.serviceWorker.ready;
+        console.log('[StopNotificationModal] ✅ Service worker ready, scope:', registration.scope);
+      } catch (swError) {
+        console.error('[StopNotificationModal] ❌ Service worker not ready:', swError);
+        
+        // Try manual registration as fallback
+        const basePath = import.meta.env.BASE_URL || (window.location.pathname.startsWith('/MotionBus_AI') ? '/MotionBus_AI/' : '/');
         const swPaths = [
           `${basePath}sw.js`.replace('//', '/'),
           '/sw.js',
         ];
         
-        console.log('[StopNotificationModal] Will try service worker paths:', swPaths);
-        
         let lastError;
         for (const swPath of swPaths) {
           try {
-            console.log('[StopNotificationModal] Trying to register:', swPath);
+            console.log('[StopNotificationModal] Trying manual registration:', swPath);
             registration = await navigator.serviceWorker.register(swPath, { scope: basePath });
-            console.log('[StopNotificationModal] ✅ Service worker registered successfully:', swPath);
+            console.log('[StopNotificationModal] ✅ Service worker registered:', swPath);
             break;
-          } catch (swError) {
-            console.error('[StopNotificationModal] ❌ Service worker registration failed for', swPath, ':', swError);
-            lastError = swError;
+          } catch (regError) {
+            console.error('[StopNotificationModal] ❌ Registration failed:', regError);
+            lastError = regError;
           }
         }
         
@@ -163,12 +156,9 @@ export function StopNotificationModal({
           setIsSaving(false);
           return;
         }
+        
+        await navigator.serviceWorker.ready;
       }
-      
-      // Wait for service worker to be ready
-      console.log('[StopNotificationModal] Waiting for service worker to be ready...');
-      await navigator.serviceWorker.ready;
-      console.log('[StopNotificationModal] ✅ Service worker ready');
 
       // Get or create push subscription
       console.log('[StopNotificationModal] Checking for push subscription...');
