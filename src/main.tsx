@@ -21,7 +21,12 @@ if ('serviceWorker' in navigator) {
     // Check if already registered to avoid duplicate registration
     navigator.serviceWorker.getRegistrations().then((registrations) => {
       if (registrations.length > 0) {
-        console.log('[main.tsx] ✅ Service worker already registered:', registrations[0].scope);
+        const existing = registrations[0];
+        console.log('[main.tsx] ✅ Service worker already registered:', existing.scope);
+        console.log('[main.tsx] Service worker state:', existing.active?.state || existing.installing?.state || existing.waiting?.state || 'pending');
+        
+        // DON'T check for updates - this can cause refresh loops
+        // DON'T listen for updates - this can cause refresh loops
         return;
       }
       
@@ -33,6 +38,7 @@ if ('serviceWorker' in navigator) {
           
           // DON'T listen for updates - this can cause refresh loops
           // DON'T check for updates - this can cause refresh loops
+          // DON'T call update() - this can cause refresh loops
         })
         .catch((error) => {
           console.error('[main.tsx] ❌ Service worker registration failed:', error);

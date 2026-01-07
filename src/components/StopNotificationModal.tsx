@@ -137,6 +137,18 @@ export function StopNotificationModal({
             return;
           }
           
+          // CRITICAL: Check if service worker is updating - if so, abort to prevent refresh loop
+          if (registration.installing || registration.waiting) {
+            console.error('[StopNotificationModal] ❌ Service worker is updating - aborting to prevent refresh loop');
+            toast({
+              title: "Service Worker ενημερώνεται",
+              description: "Παρακαλώ περιμένετε να ολοκληρωθεί η ενημέρωση και δοκιμάστε ξανά.",
+              variant: "destructive",
+            });
+            setIsSaving(false);
+            return;
+          }
+          
           console.log('[StopNotificationModal] ✅ Using active service worker:', registration.scope);
         } else {
           console.error('[StopNotificationModal] ❌ No service worker registration found');
