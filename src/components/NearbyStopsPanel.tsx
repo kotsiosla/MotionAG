@@ -917,6 +917,26 @@ export function NearbyStopsPanel({
     });
   }, [requestNotificationPermission]);
 
+  // Auto-select first arrival when stop is selected
+  useEffect(() => {
+    if (selectedStop && selectedStopArrivals.length > 0) {
+      // Find the first arrival (closest one - sorted by estimatedMinutes)
+      const firstArrival = selectedStopArrivals[0];
+      if (firstArrival && !watchedArrivals.has(firstArrival.tripId)) {
+        // Auto-add to watched arrivals
+        setWatchedArrivals(prev => {
+          const newSet = new Set(prev);
+          newSet.add(firstArrival.tripId);
+          return newSet;
+        });
+        // Request permission if needed
+        if ('Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
+      }
+    }
+  }, [selectedStop?.stop_id, selectedStopArrivals, watchedArrivals]);
+
   // Select stop and view arrivals
   const handleStopSelect = useCallback((stop: StaticStop) => {
     setSelectedStop(stop);
