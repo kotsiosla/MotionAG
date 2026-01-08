@@ -329,7 +329,10 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     const map = mapRef.current;
 
     if (!routeShapeQuery.data || !routeShapeQuery.data.directions || routeShapeQuery.data.directions.length === 0) {
-      console.log('[ScheduleView] No route shape data yet, map should still be visible');
+      console.warn('[ScheduleView] No route shape data available for route:', selectedRoute);
+      if (routeShapeQuery.isError) {
+        console.error('[ScheduleView] Route shape query error:', routeShapeQuery.error);
+      }
       // Map should still be visible even without route data - just ensure it's resized
       setTimeout(() => {
         if (mapRef.current) {
@@ -340,6 +343,13 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     }
 
     console.log('[ScheduleView] Drawing route shape, directions:', routeShapeQuery.data.directions.length);
+    
+    // Check if any direction has empty shape
+    routeShapeQuery.data.directions.forEach((dir, idx) => {
+      if (!dir.shape || dir.shape.length === 0) {
+        console.warn(`[ScheduleView] Direction ${dir.direction_id ?? idx} has no shape data (${dir.stops?.length || 0} stops available)`);
+      }
+    });
 
     // Clear existing route and stops
     if (routePolylineRef.current) {
