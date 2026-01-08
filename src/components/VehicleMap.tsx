@@ -873,6 +873,21 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       },
     });
 
+    // Explicit cluster click handler to ensure zoom works
+    vehicleMarkersRef.current.on('clusterclick', (e: any) => {
+      const cluster = e.layer;
+      if (cluster && typeof cluster.getBounds === 'function') {
+        const bounds = cluster.getBounds();
+        if (mapRef.current && bounds && bounds.isValid && bounds.isValid()) {
+          mapRef.current.fitBounds(bounds, {
+            padding: [50, 50],
+            maxZoom: 16,
+            animate: true,
+          });
+        }
+      }
+    });
+
     stopMarkersRef.current = L.markerClusterGroup({
       chunkedLoading: true,
       spiderfyOnMaxZoom: false,
@@ -893,6 +908,21 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           iconSize: L.point(iconSize, iconSize),
         });
       },
+    });
+
+    // Explicit cluster click handler to ensure zoom works
+    stopMarkersRef.current.on('clusterclick', (e: any) => {
+      const cluster = e.layer;
+      if (cluster && typeof cluster.getBounds === 'function') {
+        const bounds = cluster.getBounds();
+        if (mapRef.current && bounds && bounds.isValid && bounds.isValid()) {
+          mapRef.current.fitBounds(bounds, {
+            padding: [50, 50],
+            maxZoom: 16,
+            animate: true,
+          });
+        }
+      }
     });
 
     mapRef.current.addLayer(vehicleMarkersRef.current);
@@ -946,6 +976,13 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     if (!mapRef.current) return;
 
     const handleMapClick = (e: L.LeafletMouseEvent) => {
+      // Check if click is on a cluster or marker - if so, don't interfere
+      const target = (e.originalEvent?.target as HTMLElement)?.closest('.leaflet-marker-icon, .leaflet-cluster-animated');
+      if (target) {
+        // Click is on a marker or cluster - let MarkerClusterGroup handle it
+        return;
+      }
+      
       if (mapClickMode) {
         setMapClickLocation({
           type: mapClickMode,
