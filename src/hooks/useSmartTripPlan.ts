@@ -1,11 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import type { StaticStop, RouteInfo } from "@/types/gtfs";
+import { OPERATORS, REGION_KEYWORDS } from "@/types/gtfs";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://jftthfniwfarxyisszjh.supabase.co';
 
-const getSupabaseKey = () => {
-  return import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 
-    (typeof window !== 'undefined' ? localStorage.getItem('supabase_anon_key') || '' : '');
+const getSupabaseAnonKey = () => {
+  return (
+    import.meta.env.VITE_SUPABASE_ANON_KEY ||
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    (typeof window !== 'undefined' ? localStorage.getItem('supabase_anon_key') || '' : '')
+  );
 };
 
 interface StopTimeInfo {
@@ -112,8 +116,9 @@ function findNearbyStops(
   return nearby;
 }
 
-async function fetchStopTimes(retryCount: number = 0): Promise<StopTimeInfo[]> {
+async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Promise<StopTimeInfo[]> {
   const maxRetries = 3;
+  const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
   
   try {
     // Increase timeout to 120 seconds for large data, with exponential backoff on retries
@@ -123,9 +128,11 @@ async function fetchStopTimes(retryCount: number = 0): Promise<StopTimeInfo[]> {
     
     console.log(`[fetchStopTimes] Attempt ${retryCount + 1}/${maxRetries}, timeout: ${timeoutMs}ms`);
     
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-times`, {
+    const anonKey = getSupabaseAnonKey();
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-times${params}`, {
       headers: {
-        'Authorization': `Bearer ${getSupabaseKey()}`,
+        'Authorization': `Bearer ${anonKey}`,
+        'apikey': anonKey,
       },
       signal: controller.signal,
     });
@@ -134,9 +141,13 @@ async function fetchStopTimes(retryCount: number = 0): Promise<StopTimeInfo[]> {
     
     if (!response.ok) {
       let errorMessage = 'Failed to fetch stop times';
+      if (response.status === 401 || response.status === 403) {
+        errorMessage =
+          'Μη εξουσιοδοτημένο αίτημα (λείπει/δεν είναι σωστό το Supabase anon key). Ρύθμισε το VITE_SUPABASE_ANON_KEY ή αποθήκευσέ το ως localStorage supabase_anon_key.';
+      }
       try {
         const errorData = await response.json();
-        errorMessage = errorData.error || errorMessage;
+        errorMessage = (errorData.error || errorData.message) ?? errorMessage;
       } catch {
         errorMessage = `Failed to fetch stop times (${response.status} ${response.statusText})`;
       }
@@ -146,7 +157,7 @@ async function fetchStopTimes(retryCount: number = 0): Promise<StopTimeInfo[]> {
         const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff: 1s, 2s, 4s (max 10s)
         console.log(`[fetchStopTimes] Retrying after ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
-        return fetchStopTimes(retryCount + 1);
+        return fetchStopTimes(operatorId, retryCount + 1);
       }
       
       throw new Error(errorMessage);
@@ -163,7 +174,7 @@ async function fetchStopTimes(retryCount: number = 0): Promise<StopTimeInfo[]> {
         const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
         console.log(`[fetchStopTimes] Timeout, retrying after ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
-        return fetchStopTimes(retryCount + 1);
+        return fetchStopTimes(operatorId, retryCount + 1);
       }
       throw new Error('Request timeout - Το αρχείο είναι πολύ μεγάλο. Παρακαλώ δοκιμάστε ξανά σε λίγα λεπτά.');
     }
@@ -173,17 +184,20 @@ async function fetchStopTimes(retryCount: number = 0): Promise<StopTimeInfo[]> {
       const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
       console.log(`[fetchStopTimes] Network error, retrying after ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
-      return fetchStopTimes(retryCount + 1);
+      return fetchStopTimes(operatorId, retryCount + 1);
     }
     
     throw error;
   }
 }
 
-async function fetchTripsStatic(): Promise<TripStaticInfo[]> {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/trips-static`, {
+async function fetchTripsStatic(operatorId?: string): Promise<TripStaticInfo[]> {
+  const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
+  const anonKey = getSupabaseAnonKey();
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/trips-static${params}`, {
     headers: {
-      'Authorization': `Bearer ${getSupabaseKey()}`,
+      'Authorization': `Bearer ${anonKey}`,
+      'apikey': anonKey,
     },
   });
   if (!response.ok) throw new Error('Failed to fetch static trips');
@@ -191,10 +205,13 @@ async function fetchTripsStatic(): Promise<TripStaticInfo[]> {
   return result.data || [];
 }
 
-async function fetchRoutes(): Promise<RouteInfo[]> {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/routes`, {
+async function fetchRoutes(operatorId?: string): Promise<RouteInfo[]> {
+  const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
+  const anonKey = getSupabaseAnonKey();
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/routes${params}`, {
     headers: {
-      'Authorization': `Bearer ${getSupabaseKey()}`,
+      'Authorization': `Bearer ${anonKey}`,
+      'apikey': anonKey,
     },
   });
   if (!response.ok) throw new Error('Failed to fetch routes');
@@ -202,15 +219,37 @@ async function fetchRoutes(): Promise<RouteInfo[]> {
   return result.data || [];
 }
 
-async function fetchStops(): Promise<StaticStop[]> {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stops`, {
+async function fetchStops(operatorId?: string): Promise<StaticStop[]> {
+  const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
+  const anonKey = getSupabaseAnonKey();
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stops${params}`, {
     headers: {
-      'Authorization': `Bearer ${getSupabaseKey()}`,
+      'Authorization': `Bearer ${anonKey}`,
+      'apikey': anonKey,
     },
   });
   if (!response.ok) throw new Error('Failed to fetch stops');
   const result = await response.json();
   return result.data || [];
+}
+
+function detectRegion(stopName: string): string | null {
+  const lowerName = stopName.toLowerCase();
+  for (const [region, keywords] of Object.entries(REGION_KEYWORDS)) {
+    for (const keyword of keywords) {
+      if (lowerName.includes(keyword.toLowerCase())) return region;
+    }
+  }
+  return null;
+}
+
+function getLocalOperator(region: string): string | null {
+  const op = OPERATORS.find(o => o.region === region);
+  return op?.id || null;
+}
+
+function getIntercityOperators(): string[] {
+  return OPERATORS.filter(o => o.isIntercity).map(o => o.id);
 }
 
 // Build a graph of which routes serve which stops
@@ -968,13 +1007,37 @@ export function useSmartTripPlan(
       }
       
       console.log(`Smart trip planning from ${originStop.stop_name} to ${destStop.stop_name} (max walk: ${maxWalkingDistance}m)`);
-      
-      // Fetch all data - fetchStopTimes has built-in retry logic
+
+      // Reduce payload: only load operators relevant to origin/destination (+ intercity when cross-city).
+      const originRegion = detectRegion(originStop.stop_name);
+      const destRegion = detectRegion(destStop.stop_name);
+      const operatorIds: string[] = [];
+      if (originRegion) {
+        const op = getLocalOperator(originRegion);
+        if (op) operatorIds.push(op);
+      }
+      if (destRegion) {
+        const op = getLocalOperator(destRegion);
+        if (op) operatorIds.push(op);
+      }
+      const isInterCity = originRegion && destRegion && originRegion !== destRegion;
+      if (isInterCity) operatorIds.push(...getIntercityOperators());
+      const uniqueOperatorIds = [...new Set(operatorIds)];
+
+      // Fetch all data (bounded to relevant operators)
       const [stopTimes, tripsStatic, routes, stops] = await Promise.all([
-        fetchStopTimes(),
-        fetchTripsStatic(),
-        fetchRoutes(),
-        fetchStops(),
+        uniqueOperatorIds.length === 0
+          ? fetchStopTimes()
+          : Promise.all(uniqueOperatorIds.map(opId => fetchStopTimes(opId))).then(parts => parts.flat()),
+        uniqueOperatorIds.length === 0
+          ? fetchTripsStatic()
+          : Promise.all(uniqueOperatorIds.map(opId => fetchTripsStatic(opId))).then(parts => parts.flat()),
+        uniqueOperatorIds.length === 0
+          ? fetchRoutes()
+          : Promise.all(uniqueOperatorIds.map(opId => fetchRoutes(opId))).then(parts => parts.flat()),
+        uniqueOperatorIds.length === 0
+          ? fetchStops()
+          : Promise.all(uniqueOperatorIds.map(opId => fetchStops(opId))).then(parts => parts.flat()),
       ]);
       
       console.log(`Loaded ${stopTimes.length} stop times, ${tripsStatic.length} trips, ${routes.length} routes, ${stops.length} stops`);

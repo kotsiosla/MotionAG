@@ -4,9 +4,13 @@ import { OPERATORS, REGION_KEYWORDS, INTERCITY_STATIONS } from "@/types/gtfs";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://jftthfniwfarxyisszjh.supabase.co';
 
-const getSupabaseKey = () => {
-  return import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 
-    (typeof window !== 'undefined' ? localStorage.getItem('supabase_anon_key') || '' : '');
+const getSupabaseAnonKey = () => {
+  // Prefer the standard env var name; keep backward compatibility with older setups.
+  return (
+    import.meta.env.VITE_SUPABASE_ANON_KEY ||
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    (typeof window !== 'undefined' ? localStorage.getItem('supabase_anon_key') || '' : '')
+  );
 };
 
 interface StopTimeInfo {
@@ -97,9 +101,12 @@ async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Prom
     
     console.log(`[fetchStopTimes] Attempt ${retryCount + 1}/${maxRetries}, timeout: ${timeoutMs}ms`);
     
+    const anonKey = getSupabaseAnonKey();
     const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-times${params}`, {
       headers: {
-        'Authorization': `Bearer ${getSupabaseKey()}`,
+        'Authorization': `Bearer ${anonKey}`,
+        // Supabase edge functions typically expect both headers.
+        'apikey': anonKey,
       },
       signal: controller.signal,
     });
@@ -108,9 +115,13 @@ async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Prom
     
     if (!response.ok) {
       let errorMessage = 'Failed to fetch stop times';
+      if (response.status === 401 || response.status === 403) {
+        errorMessage =
+          'Μη εξουσιοδοτημένο αίτημα (λείπει/δεν είναι σωστό το Supabase anon key). Ρύθμισε το VITE_SUPABASE_ANON_KEY ή αποθήκευσέ το ως localStorage supabase_anon_key.';
+      }
       try {
         const errorData = await response.json();
-        errorMessage = errorData.error || errorMessage;
+        errorMessage = (errorData.error || errorData.message) ?? errorMessage;
       } catch {
         errorMessage = `Failed to fetch stop times (${response.status} ${response.statusText})`;
       }
@@ -156,9 +167,11 @@ async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Prom
 
 async function fetchTripsStatic(operatorId?: string): Promise<TripStaticInfo[]> {
   const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
+  const anonKey = getSupabaseAnonKey();
   const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/trips-static${params}`, {
     headers: {
-      'Authorization': `Bearer ${getSupabaseKey()}`,
+      'Authorization': `Bearer ${anonKey}`,
+      'apikey': anonKey,
     },
   });
   if (!response.ok) throw new Error('Failed to fetch static trips');
@@ -168,9 +181,11 @@ async function fetchTripsStatic(operatorId?: string): Promise<TripStaticInfo[]> 
 
 async function fetchRoutes(operatorId?: string): Promise<RouteInfo[]> {
   const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
+  const anonKey = getSupabaseAnonKey();
   const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/routes${params}`, {
     headers: {
-      'Authorization': `Bearer ${getSupabaseKey()}`,
+      'Authorization': `Bearer ${anonKey}`,
+      'apikey': anonKey,
     },
   });
   if (!response.ok) throw new Error('Failed to fetch routes');
@@ -180,9 +195,11 @@ async function fetchRoutes(operatorId?: string): Promise<RouteInfo[]> {
 
 async function fetchStops(operatorId?: string): Promise<StaticStop[]> {
   const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
+  const anonKey = getSupabaseAnonKey();
   const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stops${params}`, {
     headers: {
-      'Authorization': `Bearer ${getSupabaseKey()}`,
+      'Authorization': `Bearer ${anonKey}`,
+      'apikey': anonKey,
     },
   });
   if (!response.ok) throw new Error('Failed to fetch stops');
@@ -253,13 +270,46 @@ async function fetchTripPlanData(
 ): Promise<TripPlanData> {
   console.log(`Planning trip from ${originStopId} to ${destinationStopId}`);
 
-  // For trip planning, always fetch ALL operators' data to support inter-city journeys
-  // This ensures we can suggest intercity buses even when a specific operator is selected
-  const [stopTimes, tripsStatic, routes, stops] = await Promise.all([
-    fetchStopTimes(), // All operators
-    fetchTripsStatic(), // All operators
-    fetchRoutes(), // All operators
-    fetchStops(), // All operators
+  // Fetch stops first (lighter than stop_times) so we can detect region and reduce how much data we load.
+  const stops = await fetchStops(); // all operators (needed to resolve stop_id -> stop_name)
+  const originStop = stops.find(s => s.stop_id === originStopId);
+  const destStop = stops.find(s => s.stop_id === destinationStopId);
+
+  const originRegion = originStop ? detectRegion(originStop.stop_name) : null;
+  const destRegion = destStop ? detectRegion(destStop.stop_name) : null;
+
+  const localOps: string[] = [];
+  if (originRegion) {
+    const op = getLocalOperator(originRegion);
+    if (op) localOps.push(op);
+  }
+  if (destRegion && destRegion !== originRegion) {
+    const op = getLocalOperator(destRegion);
+    if (op) localOps.push(op);
+  }
+
+  // If user selected a specific operator, always include it.
+  if (operatorId && operatorId !== 'all' && !localOps.includes(operatorId)) {
+    localOps.push(operatorId);
+  }
+
+  // Intercity only matters when regions differ (or we can't detect regions reliably).
+  const intercityOps = originRegion && destRegion && originRegion !== destRegion ? getIntercityOperators() : [];
+
+  const operatorIds = [...new Set([...localOps, ...intercityOps])];
+  // Fallback: if we couldn't detect anything, keep existing behavior (all operators) to avoid missing results.
+  const shouldUseAllOperators = operatorIds.length === 0;
+
+  const [stopTimes, tripsStatic, routes] = await Promise.all([
+    shouldUseAllOperators
+      ? fetchStopTimes()
+      : Promise.all(operatorIds.map(opId => fetchStopTimes(opId))).then(parts => parts.flat()),
+    shouldUseAllOperators
+      ? fetchTripsStatic()
+      : Promise.all(operatorIds.map(opId => fetchTripsStatic(opId))).then(parts => parts.flat()),
+    shouldUseAllOperators
+      ? fetchRoutes()
+      : Promise.all(operatorIds.map(opId => fetchRoutes(opId))).then(parts => parts.flat()),
   ]);
 
   console.log(`Loaded ${stopTimes.length} stop times, ${tripsStatic.length} trips, ${routes.length} routes`);
@@ -420,24 +470,24 @@ async function fetchTripPlanData(
   }
 
   // Detect if origin and destination are in different regions (inter-city journey)
-  const originStop = stopMap.get(originStopId);
-  const destStop = stopMap.get(destinationStopId);
+  const originStopFromMap = stopMap.get(originStopId);
+  const destStopFromMap = stopMap.get(destinationStopId);
   
   let interCityJourney: InterCityJourney | undefined;
   
-  if (originStop && destStop) {
-    const originRegion = detectRegion(originStop.stop_name);
-    const destRegion = detectRegion(destStop.stop_name);
+  if (originStopFromMap && destStopFromMap) {
+    const originRegion2 = detectRegion(originStopFromMap.stop_name);
+    const destRegion2 = detectRegion(destStopFromMap.stop_name);
     
-    console.log(`Origin region: ${originRegion}, Destination region: ${destRegion}`);
+    console.log(`Origin region: ${originRegion2}, Destination region: ${destRegion2}`);
     
     // If different regions, suggest inter-city journey
-    if (originRegion && destRegion && originRegion !== destRegion) {
+    if (originRegion2 && destRegion2 && originRegion2 !== destRegion2) {
       interCityJourney = buildInterCityJourney(
-        originStop,
-        destStop,
-        originRegion,
-        destRegion,
+        originStopFromMap,
+        destStopFromMap,
+        originRegion2,
+        destRegion2,
         stops,
         stopTimesByStop,
         tripRouteMap,
