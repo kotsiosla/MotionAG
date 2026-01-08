@@ -190,8 +190,10 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     }
   }, []); // Empty deps - mapRef is stable
 
-  // Store in ref for cleanup
-  handleResizeRef.current = handleResize;
+  // Store in ref for cleanup - update on every render to ensure it's always current
+  useEffect(() => {
+    handleResizeRef.current = handleResize;
+  }, [handleResize]);
 
   // Initialize map when route is selected - simple approach like VehicleMap
   useEffect(() => {
