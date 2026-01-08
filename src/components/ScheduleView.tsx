@@ -75,7 +75,6 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
   const stopMarkersRef = useRef<L.Marker[]>([]);
   const userInteractedRef = useRef(false); // Track if user has manually interacted with map
   const lastFittedRouteRef = useRef<string | null>(null); // Track last route we auto-fitted
-  const handleResizeRef = useRef<(() => void) | null>(null); // Store handleResize in ref for cleanup
 
   const dayNames = ['Κυριακή', 'Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο'];
   const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
@@ -189,11 +188,6 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       }, 100);
     }
   }, []); // Empty deps - mapRef is stable
-
-  // Store in ref for cleanup - update on every render to ensure it's always current
-  useEffect(() => {
-    handleResizeRef.current = handleResize;
-  }, [handleResize]);
 
   // Initialize map when route is selected - simple approach like VehicleMap
   useEffect(() => {
@@ -387,9 +381,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         }
         clearTimeout(readyTimeout);
         clearTimeout(retryTimeout);
-        if (handleResizeRef.current) {
-          window.removeEventListener('resize', handleResizeRef.current);
-        }
+        window.removeEventListener('resize', handleResize);
         if (mapRef.current) {
           mapRef.current.remove();
           mapRef.current = null;
@@ -403,11 +395,9 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     } catch (error) {
       console.error('[ScheduleView] Error initializing map:', error);
       
-      // Cleanup on error - handleResize is stored in ref
+      // Cleanup on error - use stable handleResize callback
       return () => {
-        if (handleResizeRef.current) {
-          window.removeEventListener('resize', handleResizeRef.current);
-        }
+        window.removeEventListener('resize', handleResize);
         mapReadyRef.current = false;
         if (mapRef.current) {
           mapRef.current.remove();
