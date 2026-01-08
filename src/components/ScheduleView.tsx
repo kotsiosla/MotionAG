@@ -75,6 +75,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
   const stopMarkersRef = useRef<L.Marker[]>([]);
   const userInteractedRef = useRef(false); // Track if user has manually interacted with map
   const lastFittedRouteRef = useRef<string | null>(null); // Track last route we auto-fitted
+  const handleResizeRef = useRef<(() => void) | null>(null); // Store handleResize in ref for cleanup
 
   const dayNames = ['Κυριακή', 'Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο'];
   const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
@@ -207,7 +208,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     container.style.overflow = 'hidden';
     
     // Initialize map immediately (like VehicleMap does)
-    // Define handleResize OUTSIDE try block so it's always accessible in cleanup
+    // Define handleResize and store in ref so it's always accessible in cleanup
     const handleResize = () => {
       if (mapRef.current) {
         setTimeout(() => {
@@ -215,6 +216,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         }, 100);
       }
     };
+    handleResizeRef.current = handleResize; // Store in ref for cleanup
     
     try {
       console.log('[ScheduleView] Initializing map...');
@@ -379,7 +381,9 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         }
         clearTimeout(readyTimeout);
         clearTimeout(retryTimeout);
-        window.removeEventListener('resize', handleResize);
+        if (handleResizeRef.current) {
+          window.removeEventListener('resize', handleResizeRef.current);
+        }
         if (mapRef.current) {
           mapRef.current.remove();
           mapRef.current = null;
@@ -393,9 +397,11 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     } catch (error) {
       console.error('[ScheduleView] Error initializing map:', error);
       
-      // Cleanup on error - handleResize is always defined outside try block
+      // Cleanup on error - handleResize is stored in ref
       return () => {
-        window.removeEventListener('resize', handleResize);
+        if (handleResizeRef.current) {
+          window.removeEventListener('resize', handleResizeRef.current);
+        }
         mapReadyRef.current = false;
         if (mapRef.current) {
           mapRef.current.remove();
