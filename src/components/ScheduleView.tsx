@@ -309,32 +309,46 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
           const size = mapRef.current.getSize();
           console.log('[ScheduleView] Map size:', size, 'zoom:', zoom);
           
+          // Check if map is already marked as ready (to prevent re-checking after fitBounds)
+          if (mapReady) {
+            // Map is already ready, don't check again
+            isCheckingReady = false;
+            if (checkReadyTimeout) {
+              clearTimeout(checkReadyTimeout);
+              checkReadyTimeout = null;
+            }
+            return;
+          }
+          
           if (typeof zoom === 'number' && size.x > 0 && size.y > 0) {
-            isCheckingReady = false; // Stop checking
+            // Map is ready - stop all checking
+            isCheckingReady = false;
             if (checkReadyTimeout) {
               clearTimeout(checkReadyTimeout);
               checkReadyTimeout = null;
             }
             setMapReady(true);
             console.log('[ScheduleView] Map is ready!');
-          } else {
-            // Size might be 0 temporarily during fitBounds animation - check container instead
-            if (rect.width > 0 && rect.height > 0 && typeof zoom === 'number') {
-              // Container has size and zoom is valid, map is likely ready but size is temporarily 0
-              console.log('[ScheduleView] Map appears ready (container has size, zoom valid), but map size is 0 - likely during animation');
-              isCheckingReady = false;
-              if (checkReadyTimeout) {
-                clearTimeout(checkReadyTimeout);
-                checkReadyTimeout = null;
-              }
-              setMapReady(true);
-            } else {
-              // Not ready yet, retry
-              console.log('[ScheduleView] Map not fully ready (size or zoom invalid), retrying...');
-              if (isCheckingReady) {
-                checkReadyTimeout = setTimeout(checkReady, 200);
-              }
+            return; // Exit early
+          }
+          
+          // Size might be 0 temporarily during fitBounds animation - check container instead
+          if (rect.width > 0 && rect.height > 0 && typeof zoom === 'number') {
+            // Container has size and zoom is valid, map is likely ready but size is temporarily 0
+            console.log('[ScheduleView] Map appears ready (container has size, zoom valid), but map size is 0 - likely during animation');
+            isCheckingReady = false;
+            if (checkReadyTimeout) {
+              clearTimeout(checkReadyTimeout);
+              checkReadyTimeout = null;
             }
+            setMapReady(true);
+            return; // Exit early
+          }
+          
+          // Not ready yet, retry only if still checking
+          if (isCheckingReady) {
+            console.log('[ScheduleView] Map not fully ready (size or zoom invalid), retrying...');
+            checkReadyTimeout = setTimeout(checkReady, 200);
           }
         } catch (e) {
           // Map not ready yet, retry
