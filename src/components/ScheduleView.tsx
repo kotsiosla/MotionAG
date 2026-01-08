@@ -66,6 +66,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
   const [selectedDay, setSelectedDay] = useState<number>(new Date().getDay());
   const { favoriteRouteIds, isFavorite, toggleFavorite } = useFavoriteRouteIds();
   const [mapReady, setMapReady] = useState(false);
+  const mapReadyRef = useRef(false); // Track map ready state in ref for closure access
   
   // Map refs
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -242,9 +243,10 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       mapRef.current = map;
       console.log('[ScheduleView] Map created');
       
-      // Reset interaction flag when route changes
+      // Reset interaction flag and map ready state when route changes
       userInteractedRef.current = false;
       lastFittedRouteRef.current = null;
+      mapReadyRef.current = false;
       
       // Listen for window resize - define BEFORE cleanup
       const handleResize = () => {
@@ -310,7 +312,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
           console.log('[ScheduleView] Map size:', size, 'zoom:', zoom);
           
           // Check if map is already marked as ready (to prevent re-checking after fitBounds)
-          if (mapReady) {
+          if (mapReadyRef.current) {
             // Map is already ready, don't check again
             isCheckingReady = false;
             if (checkReadyTimeout) {
@@ -323,6 +325,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
           if (typeof zoom === 'number' && size.x > 0 && size.y > 0) {
             // Map is ready - stop all checking
             isCheckingReady = false;
+            mapReadyRef.current = true;
             if (checkReadyTimeout) {
               clearTimeout(checkReadyTimeout);
               checkReadyTimeout = null;
@@ -337,6 +340,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
             // Container has size and zoom is valid, map is likely ready but size is temporarily 0
             console.log('[ScheduleView] Map appears ready (container has size, zoom valid), but map size is 0 - likely during animation');
             isCheckingReady = false;
+            mapReadyRef.current = true;
             if (checkReadyTimeout) {
               clearTimeout(checkReadyTimeout);
               checkReadyTimeout = null;
@@ -396,15 +400,16 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       console.error('[ScheduleView] Error initializing map:', error);
       
       // Cleanup on error - handleResize might not be defined if error occurred early
-      const cleanup = () => {
+      return () => {
         try {
-          // handleResize is defined inside try block, so it might not exist
-          if (typeof handleResize === 'function') {
-            window.removeEventListener('resize', handleResize);
+          // cleanupHandleResize might not exist if error occurred before it was defined
+          if (typeof cleanupHandleResize !== 'undefined') {
+            window.removeEventListener('resize', cleanupHandleResize);
           }
         } catch (e) {
-          // Ignore if handleResize doesn't exist
+          // Ignore if cleanupHandleResize doesn't exist
         }
+        mapReadyRef.current = false;
         if (mapRef.current) {
           mapRef.current.remove();
           mapRef.current = null;
@@ -413,8 +418,6 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         userInteractedRef.current = false;
         lastFittedRouteRef.current = null;
       };
-      
-      return cleanup;
     }
   }, [selectedRoute]);
 
