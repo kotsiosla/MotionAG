@@ -199,8 +199,9 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     // Ensure container has proper dimensions before initialization
     container.style.display = 'block';
     container.style.width = '100%';
-    container.style.height = '400px'; // Fixed height instead of 100%
-    container.style.minHeight = '400px';
+    // Use 100% height for responsive layout, with min-height for mobile
+    container.style.height = '100%';
+    container.style.minHeight = '300px';
     container.style.position = 'relative';
     container.style.overflow = 'hidden';
     
@@ -770,7 +771,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
               <span className="text-sm text-muted-foreground">Φόρτωση χάρτη διαδρομής...</span>
             </div>
           ) : routeShapeQuery.data && routeShapeQuery.data.directions && routeShapeQuery.data.directions.length > 0 ? (
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-hidden" style={{ height: 'calc(100% - 20px)', minHeight: '600px' }}>
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 overflow-hidden" style={{ height: 'calc(100% - 20px)', minHeight: '500px' }}>
               {/* Left: Map with Shape File and Distance in km */}
               <div className="flex flex-col overflow-hidden space-y-3 h-full">
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -871,14 +872,14 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
                       )}
 
                       {/* Map with Route Shape and Stops */}
-                      <div className="flex-1 rounded-lg border overflow-hidden bg-muted/30 relative" style={{ minHeight: '400px' }}>
+                      <div className="flex-1 rounded-lg border overflow-hidden bg-muted/30 relative" style={{ minHeight: '300px', height: '100%' }}>
                         <div 
                           ref={mapContainerRef}
-                          className="w-full"
+                          className="w-full h-full"
                           style={{ 
                             width: '100%', 
-                            height: '400px',
-                            minHeight: '400px',
+                            height: '100%',
+                            minHeight: '300px',
                             display: 'block',
                             position: 'relative',
                             zIndex: 1
@@ -983,28 +984,27 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
                   }
 
                   return (
-                    <div className="flex-1 overflow-auto space-y-3 pr-2">
+                    <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-2 lg:space-y-3 pr-1 lg:pr-2 scrollbar-thin">
                       {reorderedDays.map(({ dayIdx, dayName, dayTrips }) => {
                         const isToday = dayIdx === today;
 
                         return (
-
                           <div 
                             key={dayIdx} 
                             className={cn(
-                              "p-3 rounded-lg border bg-card",
+                              "p-2 lg:p-3 rounded-lg border bg-card flex-shrink-0",
                               isToday && "ring-2 ring-primary/50 bg-primary/5"
                             )}
                           >
                             <div className="flex items-center gap-2 mb-2">
                               <span className={cn(
-                                "text-sm font-semibold",
+                                "text-xs lg:text-sm font-semibold",
                                 isToday && "text-primary"
                               )}>
                                 {dayName}
-                                {isToday && <span className="ml-1 text-xs">(σήμερα)</span>}
+                                {isToday && <span className="ml-1 text-[10px] lg:text-xs">(σήμερα)</span>}
                               </span>
-                              <span className="text-xs text-muted-foreground ml-auto">
+                              <span className="text-[10px] lg:text-xs text-muted-foreground ml-auto">
                                 {dayTrips.length} δρομολόγια
                               </span>
                             </div>
@@ -1013,7 +1013,14 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
                                 Δεν υπάρχουν δρομολόγια
                               </div>
                             ) : (
-                              <div className="flex flex-wrap gap-1.5">
+                              <div 
+                                className="flex gap-1.5 overflow-x-auto overflow-y-hidden pb-2 -mx-1 px-1"
+                                style={{
+                                  scrollbarWidth: 'thin',
+                                  WebkitOverflowScrolling: 'touch',
+                                  scrollBehavior: 'smooth',
+                                }}
+                              >
                                 {dayTrips.map((entry) => {
                                   const isPast = isToday && entry.departure_minutes < currentMinutes;
                                   const isNext = isToday && !isPast && 
@@ -1025,10 +1032,11 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
                                     <span
                                       key={entry.trip_id}
                                       className={cn(
-                                        "inline-block px-2 py-0.5 rounded text-xs font-mono transition-all",
+                                        "inline-flex items-center justify-center px-2.5 py-1 rounded-md text-xs font-mono transition-all flex-shrink-0",
+                                        "select-none touch-none", // Prevent text selection and touch callouts
                                         isPast && "bg-muted/50 text-muted-foreground/50",
-                                        isNext && "bg-primary text-white shadow-md scale-105",
-                                        !isPast && !isNext && "bg-primary/20",
+                                        isNext && "bg-primary text-white shadow-md scale-105 ring-2 ring-primary/30",
+                                        !isPast && !isNext && "bg-primary/20 border border-primary/30",
                                       )}
                                       style={!isPast && !isNext ? { color: bgColor, borderColor: bgColor } : undefined}
                                     >
