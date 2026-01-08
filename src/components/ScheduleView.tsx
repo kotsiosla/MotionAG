@@ -248,7 +248,9 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       lastFittedRouteRef.current = null;
       mapReadyRef.current = false;
       
-      // Listen for window resize - define BEFORE cleanup
+      // Listen for window resize - define BEFORE cleanup and store for cleanup
+      let cleanupHandleResize: (() => void) | null = null;
+      
       const handleResize = () => {
         if (mapRef.current) {
           setTimeout(() => {
@@ -258,9 +260,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       };
 
       window.addEventListener('resize', handleResize);
-      
-      // Store handleResize in a way that's accessible to cleanup
-      const cleanupHandleResize = handleResize;
+      cleanupHandleResize = handleResize; // Store after definition
 
       // Check if map is ready - similar to VehicleMap
       let checkCount = 0;
@@ -403,8 +403,8 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       // Cleanup on error - handleResize might not be defined if error occurred early
       return () => {
         try {
-          // cleanupHandleResize might not exist if error occurred before it was defined
-          if (typeof cleanupHandleResize !== 'undefined') {
+          // cleanupHandleResize might be null if error occurred before it was defined
+          if (cleanupHandleResize) {
             window.removeEventListener('resize', cleanupHandleResize);
           }
         } catch (e) {
