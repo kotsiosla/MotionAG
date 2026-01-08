@@ -355,8 +355,16 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     } catch (error) {
       console.error('[ScheduleView] Error initializing map:', error);
       
-      // Cleanup on error
-      return () => {
+      // Cleanup on error - handleResize might not be defined if error occurred early
+      const cleanup = () => {
+        try {
+          // handleResize is defined inside try block, so it might not exist
+          if (typeof handleResize === 'function') {
+            window.removeEventListener('resize', handleResize);
+          }
+        } catch (e) {
+          // Ignore if handleResize doesn't exist
+        }
         if (mapRef.current) {
           mapRef.current.remove();
           mapRef.current = null;
@@ -365,6 +373,8 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         userInteractedRef.current = false;
         lastFittedRouteRef.current = null;
       };
+      
+      return cleanup;
     }
   }, [selectedRoute]);
 
