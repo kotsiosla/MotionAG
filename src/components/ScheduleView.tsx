@@ -256,6 +256,9 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       };
 
       window.addEventListener('resize', handleResize);
+      
+      // Store handleResize in a way that's accessible to cleanup
+      const cleanupHandleResize = handleResize;
 
       // Check if map is ready - similar to VehicleMap
       let checkCount = 0;
@@ -360,10 +363,11 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         isCheckingReady = false;
         if (checkReadyTimeout) {
           clearTimeout(checkReadyTimeout);
+          checkReadyTimeout = null;
         }
         clearTimeout(readyTimeout);
         clearTimeout(retryTimeout);
-        window.removeEventListener('resize', handleResize);
+        window.removeEventListener('resize', cleanupHandleResize);
         if (mapRef.current) {
           mapRef.current.remove();
           mapRef.current = null;
