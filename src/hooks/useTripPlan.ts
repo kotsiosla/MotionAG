@@ -85,13 +85,17 @@ export interface TripPlanData {
   interCityJourney?: InterCityJourney;
 }
 
-async function fetchStopTimes(operatorId?: string): Promise<StopTimeInfo[]> {
+async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Promise<StopTimeInfo[]> {
   const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
+  const maxRetries = 3;
   
   try {
-    // Add timeout of 60 seconds for large data
+    // Increase timeout to 120 seconds for large data, with exponential backoff on retries
+    const timeoutMs = 120000 + (retryCount * 30000); // 120s, 150s, 180s
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    console.log(`[fetchStopTimes] Attempt ${retryCount + 1}/${maxRetries}, timeout: ${timeoutMs}ms`);
     
     const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-times${params}`, {
       headers: {
@@ -110,15 +114,42 @@ async function fetchStopTimes(operatorId?: string): Promise<StopTimeInfo[]> {
       } catch {
         errorMessage = `Failed to fetch stop times (${response.status} ${response.statusText})`;
       }
+      
+      // Retry on 5xx errors or 429 (rate limit)
+      if ((response.status >= 500 || response.status === 429) && retryCount < maxRetries - 1) {
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff: 1s, 2s, 4s (max 10s)
+        console.log(`[fetchStopTimes] Retrying after ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchStopTimes(operatorId, retryCount + 1);
+      }
+      
       throw new Error(errorMessage);
     }
     
     const result = await response.json();
-    return result.data || [];
+    const data = result.data || [];
+    console.log(`[fetchStopTimes] Successfully fetched ${data.length} stop times`);
+    return data;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Request timeout - Το αρχείο είναι πολύ μεγάλο. Παρακαλώ δοκιμάστε ξανά.');
+      // Retry on timeout if we haven't exceeded max retries
+      if (retryCount < maxRetries - 1) {
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+        console.log(`[fetchStopTimes] Timeout, retrying after ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchStopTimes(operatorId, retryCount + 1);
+      }
+      throw new Error('Request timeout - Το αρχείο είναι πολύ μεγάλο. Παρακαλώ δοκιμάστε ξανά σε λίγα λεπτά.');
     }
+    
+    // Retry on network errors
+    if (retryCount < maxRetries - 1 && (error instanceof TypeError || (error instanceof Error && error.message.includes('fetch')))) {
+      const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+      console.log(`[fetchStopTimes] Network error, retrying after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return fetchStopTimes(operatorId, retryCount + 1);
+    }
+    
     throw error;
   }
 }

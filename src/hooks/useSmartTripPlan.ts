@@ -112,11 +112,16 @@ function findNearbyStops(
   return nearby;
 }
 
-async function fetchStopTimes(): Promise<StopTimeInfo[]> {
+async function fetchStopTimes(retryCount: number = 0): Promise<StopTimeInfo[]> {
+  const maxRetries = 3;
+  
   try {
-    // Add timeout of 60 seconds for large data
+    // Increase timeout to 120 seconds for large data, with exponential backoff on retries
+    const timeoutMs = 120000 + (retryCount * 30000); // 120s, 150s, 180s
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    console.log(`[fetchStopTimes] Attempt ${retryCount + 1}/${maxRetries}, timeout: ${timeoutMs}ms`);
     
     const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-times`, {
       headers: {
@@ -135,15 +140,42 @@ async function fetchStopTimes(): Promise<StopTimeInfo[]> {
       } catch {
         errorMessage = `Failed to fetch stop times (${response.status} ${response.statusText})`;
       }
+      
+      // Retry on 5xx errors or 429 (rate limit)
+      if ((response.status >= 500 || response.status === 429) && retryCount < maxRetries - 1) {
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff: 1s, 2s, 4s (max 10s)
+        console.log(`[fetchStopTimes] Retrying after ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchStopTimes(retryCount + 1);
+      }
+      
       throw new Error(errorMessage);
     }
     
     const result = await response.json();
-    return result.data || [];
+    const data = result.data || [];
+    console.log(`[fetchStopTimes] Successfully fetched ${data.length} stop times`);
+    return data;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Request timeout - Το αρχείο είναι πολύ μεγάλο. Παρακαλώ δοκιμάστε ξανά.');
+      // Retry on timeout if we haven't exceeded max retries
+      if (retryCount < maxRetries - 1) {
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+        console.log(`[fetchStopTimes] Timeout, retrying after ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchStopTimes(retryCount + 1);
+      }
+      throw new Error('Request timeout - Το αρχείο είναι πολύ μεγάλο. Παρακαλώ δοκιμάστε ξανά σε λίγα λεπτά.');
     }
+    
+    // Retry on network errors
+    if (retryCount < maxRetries - 1 && (error instanceof TypeError || (error instanceof Error && error.message.includes('fetch')))) {
+      const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+      console.log(`[fetchStopTimes] Network error, retrying after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return fetchStopTimes(retryCount + 1);
+    }
+    
     throw error;
   }
 }
@@ -937,34 +969,9 @@ export function useSmartTripPlan(
       
       console.log(`Smart trip planning from ${originStop.stop_name} to ${destStop.stop_name} (max walk: ${maxWalkingDistance}m)`);
       
-      // Fetch stop times with retry logic (most critical and prone to failures)
-      let stopTimes: StopTimeInfo[] = [];
-      let retries = 0;
-      const maxRetries = 3;
-      
-      while (retries < maxRetries && stopTimes.length === 0) {
-        try {
-          stopTimes = await fetchStopTimes();
-          if (stopTimes.length === 0 && retries < maxRetries - 1) {
-            console.log(`Retry ${retries + 1}/${maxRetries} - No stop times returned, retrying...`);
-            await new Promise(resolve => setTimeout(resolve, 1000 * (retries + 1))); // Wait before retry
-            retries++;
-          } else {
-            break;
-          }
-        } catch (error) {
-          console.error(`Error fetching stop times (attempt ${retries + 1}/${maxRetries}):`, error);
-          if (retries < maxRetries - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000 * (retries + 1))); // Wait before retry
-            retries++;
-          } else {
-            throw error; // Re-throw on final attempt
-          }
-        }
-      }
-      
-      // Fetch other data in parallel
-      const [tripsStatic, routes, stops] = await Promise.all([
+      // Fetch all data - fetchStopTimes has built-in retry logic
+      const [stopTimes, tripsStatic, routes, stops] = await Promise.all([
+        fetchStopTimes(),
         fetchTripsStatic(),
         fetchRoutes(),
         fetchStops(),
