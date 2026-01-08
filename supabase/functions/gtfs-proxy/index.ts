@@ -982,6 +982,49 @@ function enrichVehiclesWithRouteIds(
     }
   }
 
+  // Last-resort: infer route_id from stop_id using TripUpdate stopTimeUpdates.
+  // This helps when VehiclePosition omits both trip_id and route_id.
+  const neededStopIds = new Set<string>();
+  for (const v of vehicles) {
+    if (v.routeId) continue;
+    const stopId = (v as any).stopId;
+    if (typeof stopId === 'string' && stopId) neededStopIds.add(stopId);
+  }
+
+  type StopRouteStats = Map<string, { count: number; seqCounts: Map<number, number> }>;
+  const stopToRouteStats = new Map<string, StopRouteStats>();
+
+  if (neededStopIds.size > 0) {
+    for (const t of trips as any[]) {
+      const routeId = t?.routeId;
+      const stopTimeUpdates = t?.stopTimeUpdates;
+      if (!routeId || !Array.isArray(stopTimeUpdates)) continue;
+
+      for (const stu of stopTimeUpdates) {
+        const stopId = stu?.stopId;
+        if (!stopId || !neededStopIds.has(stopId)) continue;
+
+        let routeStats = stopToRouteStats.get(stopId);
+        if (!routeStats) {
+          routeStats = new Map();
+          stopToRouteStats.set(stopId, routeStats);
+        }
+
+        let stats = routeStats.get(routeId);
+        if (!stats) {
+          stats = { count: 0, seqCounts: new Map() };
+          routeStats.set(routeId, stats);
+        }
+        stats.count += 1;
+
+        const seq = stu?.stopSequence;
+        if (typeof seq === 'number') {
+          stats.seqCounts.set(seq, (stats.seqCounts.get(seq) || 0) + 1);
+        }
+      }
+    }
+  }
+
   return vehicles.map((v) => {
     if (v.routeId) return v;
     const tripId = v.tripId;
@@ -996,6 +1039,39 @@ function enrichVehiclesWithRouteIds(
     if (vehicleId) {
       const routeFromVehicle = vehicleToRoute.get(vehicleId);
       if (routeFromVehicle) return { ...v, routeId: routeFromVehicle };
+    }
+
+    // Final fallback: infer from stopId (+ currentStopSequence if present)
+    const stopId = (v as any).stopId;
+    if (typeof stopId === 'string' && stopId) {
+      const routeStats = stopToRouteStats.get(stopId);
+      if (routeStats && routeStats.size > 0) {
+        const currentSeq = (v as any).currentStopSequence;
+
+        let bestRoute: string | undefined;
+        let bestScore = -Infinity;
+
+        for (const [routeId, stats] of routeStats.entries()) {
+          // Base: how often this stop appears on this route in TripUpdates
+          let score = stats.count;
+
+          // Bonus: if current stop sequence matches known sequence(s) for this stop on this route
+          if (typeof currentSeq === 'number') {
+            const exact = stats.seqCounts.get(currentSeq) || 0;
+            const near =
+              (stats.seqCounts.get(currentSeq - 1) || 0) +
+              (stats.seqCounts.get(currentSeq + 1) || 0);
+            score += exact * 5 + near * 2;
+          }
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestRoute = routeId;
+          }
+        }
+
+        if (bestRoute) return { ...v, routeId: bestRoute };
+      }
     }
 
     return v;
