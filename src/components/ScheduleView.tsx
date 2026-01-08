@@ -180,6 +180,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
   const bgColor = selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))';
 
   // Define handleResize as stable callback using useCallback
+  // MUST be declared BEFORE useEffect to prevent "Cannot access before initialization" error
   // This ensures it's always accessible in cleanup, even during hot reload
   const handleResize = useCallback(() => {
     if (mapRef.current) {
@@ -208,10 +209,10 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     const container = mapContainerRef.current;
     
     // Ensure container has proper dimensions before initialization
+    // CRITICAL: Set explicit fixed height to prevent infinite retry loops
     container.style.display = 'block';
     container.style.width = '100%';
-    // Use 100% height for responsive layout, with min-height for mobile
-    container.style.height = '100%';
+    container.style.height = '300px'; // Fixed height to prevent size {x: 0, y: 0} issues
     container.style.minHeight = '300px';
     container.style.position = 'relative';
     container.style.overflow = 'hidden';
@@ -294,7 +295,16 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         const rect = container.getBoundingClientRect();
         console.log(`[ScheduleView] Check ${checkCount}/${maxChecks} - Container rect:`, rect.width, 'x', rect.height);
         
+        // CRITICAL FIX: Stop infinite retry if container size remains zero after multiple checks
         if (rect.width === 0 || rect.height === 0) {
+          if (checkCount >= 5) {
+            // After 5 checks (1 second), if container still has no size, force ready state
+            console.warn('[ScheduleView] Container size still zero after 5 checks - forcing ready state to prevent infinite loop');
+            isCheckingReady = false;
+            mapReadyRef.current = true;
+            setMapReady(true);
+            return;
+          }
           console.log('[ScheduleView] Container has no dimensions yet, retrying...');
           if (isCheckingReady) {
             checkReadyTimeout = setTimeout(checkReady, 200);
@@ -302,9 +312,16 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
           return;
         }
         
+        // CRITICAL FIX: Only call invalidateSize when container is visible
+        const isVisible = rect.width > 0 && rect.height > 0 && 
+                         container.offsetParent !== null && 
+                         window.getComputedStyle(container).visibility !== 'hidden';
+        
         try {
-          // Force invalidate size
-          mapRef.current.invalidateSize(true);
+          // Only invalidate size if container is visible
+          if (isVisible) {
+            mapRef.current.invalidateSize(true);
+          }
           
           // Verify zoom is accessible
           const zoom = mapRef.current.getZoom();
@@ -381,6 +398,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         }
         clearTimeout(readyTimeout);
         clearTimeout(retryTimeout);
+        // CRITICAL FIX: Use same handleResize reference for removeEventListener
         window.removeEventListener('resize', handleResize);
         if (mapRef.current) {
           mapRef.current.remove();
@@ -397,6 +415,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       
       // Cleanup on error - use stable handleResize callback
       return () => {
+        // CRITICAL FIX: Use same handleResize reference for removeEventListener
         window.removeEventListener('resize', handleResize);
         mapReadyRef.current = false;
         if (mapRef.current) {
@@ -408,7 +427,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         lastFittedRouteRef.current = null;
       };
     }
-  }, [selectedRoute]);
+  }, [selectedRoute, handleResize]); // CRITICAL FIX: Add handleResize to dependencies
 
   // Ensure map is visible and resized when data changes
   useEffect(() => {
