@@ -246,7 +246,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       userInteractedRef.current = false;
       lastFittedRouteRef.current = null;
       
-      // Listen for window resize
+      // Listen for window resize - define BEFORE cleanup
       const handleResize = () => {
         if (mapRef.current) {
           setTimeout(() => {
@@ -261,6 +261,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       let checkCount = 0;
       const maxChecks = 20; // Max 4 seconds of retries
       let isCheckingReady = true; // Flag to stop checking once ready
+      let checkReadyTimeout: NodeJS.Timeout | null = null;
       
       const checkReady = () => {
         // Stop checking if already marked as ready
@@ -278,7 +279,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         
         if (!mapRef.current) {
           console.log(`[ScheduleView] Map ref is null (check ${checkCount}/${maxChecks}), retrying...`);
-          setTimeout(checkReady, 200);
+          checkReadyTimeout = setTimeout(checkReady, 200);
           return;
         }
         
@@ -288,7 +289,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         
         if (rect.width === 0 || rect.height === 0) {
           console.log('[ScheduleView] Container has no dimensions yet, retrying...');
-          setTimeout(checkReady, 200);
+          checkReadyTimeout = setTimeout(checkReady, 200);
           return;
         }
         
@@ -315,13 +316,13 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
             } else {
               // Not ready yet, retry
               console.log('[ScheduleView] Map not fully ready (size or zoom invalid), retrying...');
-              setTimeout(checkReady, 200);
+              checkReadyTimeout = setTimeout(checkReady, 200);
             }
           }
         } catch (e) {
           // Map not ready yet, retry
           console.log('[ScheduleView] Map getZoom/getSize failed, retrying...', e);
-          setTimeout(checkReady, 200);
+          checkReadyTimeout = setTimeout(checkReady, 200);
         }
       };
 
@@ -339,6 +340,11 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       }, 500);
       
       return () => {
+        // Stop all checking
+        isCheckingReady = false;
+        if (checkReadyTimeout) {
+          clearTimeout(checkReadyTimeout);
+        }
         clearTimeout(readyTimeout);
         clearTimeout(retryTimeout);
         window.removeEventListener('resize', handleResize);
