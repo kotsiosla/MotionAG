@@ -199,9 +199,10 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     // Ensure container has proper dimensions before initialization
     container.style.display = 'block';
     container.style.width = '100%';
-    container.style.height = '100%';
+    container.style.height = '400px'; // Fixed height instead of 100%
     container.style.minHeight = '400px';
     container.style.position = 'relative';
+    container.style.overflow = 'hidden';
     
     // Initialize map immediately (like VehicleMap does)
     try {
@@ -826,13 +827,13 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
                       )}
 
                       {/* Map with Route Shape and Stops */}
-                      <div className="flex-1 rounded-lg border overflow-hidden bg-muted/30 relative" style={{ minHeight: '400px', height: '100%' }}>
+                      <div className="flex-1 rounded-lg border overflow-hidden bg-muted/30 relative" style={{ minHeight: '400px' }}>
                         <div 
                           ref={mapContainerRef}
-                          className="w-full h-full"
+                          className="w-full"
                           style={{ 
                             width: '100%', 
-                            height: '100%',
+                            height: '400px',
                             minHeight: '400px',
                             display: 'block',
                             position: 'relative',
@@ -844,6 +845,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
                             <div className="text-center pointer-events-auto">
                               <Loader2 className="h-12 w-12 mx-auto mb-2 opacity-30 animate-spin" />
                               <p className="text-sm">Προετοιμασία χάρτη...</p>
+                              <p className="text-xs mt-2 opacity-50">Container: {mapContainerRef.current ? `${mapContainerRef.current.offsetWidth}x${mapContainerRef.current.offsetHeight}` : 'null'}</p>
                             </div>
                           </div>
                         )}
