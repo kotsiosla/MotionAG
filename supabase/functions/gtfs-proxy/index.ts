@@ -967,6 +967,26 @@ function extractTrips(feed: GtfsRealtimeFeed) {
     }));
 }
 
+function enrichVehiclesWithRouteIds(
+  vehicles: Array<{ tripId?: string; routeId?: string } & Record<string, unknown>>,
+  trips: Array<{ tripId?: string; routeId?: string }>
+) {
+  const tripToRoute = new Map<string, string>();
+  for (const t of trips) {
+    if (t.tripId && t.routeId) {
+      tripToRoute.set(t.tripId, t.routeId);
+    }
+  }
+
+  return vehicles.map((v) => {
+    if (v.routeId) return v;
+    const tripId = v.tripId;
+    if (!tripId) return v;
+    const routeId = tripToRoute.get(tripId);
+    return routeId ? { ...v, routeId } : v;
+  });
+}
+
 function extractAlerts(feed: GtfsRealtimeFeed) {
   if (!feed.entity) return [];
   
@@ -2591,7 +2611,9 @@ serve(async (req) => {
         data = feed;
         break;
       case '/vehicles':
-        data = extractVehicles(feed);
+        // Some GTFS-RT VehiclePosition entities omit route_id.
+        // Enrich vehicles using TripUpdate (trip_id -> route_id) from the same feed.
+        data = enrichVehiclesWithRouteIds(extractVehicles(feed), extractTrips(feed));
         break;
       case '/trips':
         data = extractTrips(feed);
