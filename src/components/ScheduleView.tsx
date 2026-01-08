@@ -246,6 +246,17 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       userInteractedRef.current = false;
       lastFittedRouteRef.current = null;
       
+      // Listen for window resize
+      const handleResize = () => {
+        if (mapRef.current) {
+          setTimeout(() => {
+            mapRef.current?.invalidateSize(true);
+          }, 100);
+        }
+      };
+
+      window.addEventListener('resize', handleResize);
+
       // Check if map is ready - similar to VehicleMap
       let checkCount = 0;
       const maxChecks = 20; // Max 4 seconds of retries
@@ -297,51 +308,39 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
           setTimeout(checkReady, 200);
         }
       };
+
+      // Use requestAnimationFrame to ensure DOM is ready
+      const readyTimeout = setTimeout(() => {
+        requestAnimationFrame(checkReady);
+      }, 150);
       
-    // Listen for window resize
-    const handleResize = () => {
-      if (mapRef.current) {
-        setTimeout(() => {
-          mapRef.current?.invalidateSize(true);
-        }, 100);
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    // Use requestAnimationFrame to ensure DOM is ready
-    const readyTimeout = setTimeout(() => {
-      requestAnimationFrame(checkReady);
-    }, 150);
-    
-    // Also try after a delay in case container needs time to render
-    const retryTimeout = setTimeout(() => {
-      if (mapRef.current) {
-        console.log('[ScheduleView] Retry checkReady - container size:', container.offsetWidth, 'x', container.offsetHeight);
-        checkReady();
-      }
-    }, 500);
-    
-    return () => {
-      clearTimeout(readyTimeout);
-      clearTimeout(retryTimeout);
-      window.removeEventListener('resize', handleResize);
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-        setMapReady(false);
-      }
-      // Reset interaction tracking when route changes
-      userInteractedRef.current = false;
-      lastFittedRouteRef.current = null;
-    };
-    
+      // Also try after a delay in case container needs time to render
+      const retryTimeout = setTimeout(() => {
+        if (mapRef.current) {
+          console.log('[ScheduleView] Retry checkReady - container size:', container.offsetWidth, 'x', container.offsetHeight);
+          checkReady();
+        }
+      }, 500);
+      
+      return () => {
+        clearTimeout(readyTimeout);
+        clearTimeout(retryTimeout);
+        window.removeEventListener('resize', handleResize);
+        if (mapRef.current) {
+          mapRef.current.remove();
+          mapRef.current = null;
+          setMapReady(false);
+        }
+        // Reset interaction tracking when route changes
+        userInteractedRef.current = false;
+        lastFittedRouteRef.current = null;
+      };
+      
     } catch (error) {
       console.error('[ScheduleView] Error initializing map:', error);
       
       // Cleanup on error
       return () => {
-        window.removeEventListener('resize', handleResize);
         if (mapRef.current) {
           mapRef.current.remove();
           mapRef.current = null;
