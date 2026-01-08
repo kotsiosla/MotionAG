@@ -199,17 +199,28 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     let resizeObserverRef: ResizeObserver | null = null;
     
     const initMap = () => {
-      if (mapRef.current) return;
+      if (mapRef.current) {
+        console.log('[ScheduleView] Map already initialized');
+        return;
+      }
       
       const rect = container.getBoundingClientRect();
+      console.log('[ScheduleView] Checking container, rect:', rect.width, 'x', rect.height);
       
       if (rect.width === 0 || rect.height === 0) {
+        console.log('[ScheduleView] Container not ready yet, waiting...');
         return; // Not ready yet
       }
 
       console.log('[ScheduleView] Initializing map, container size:', rect.width, 'x', rect.height);
       
       try {
+        // Ensure container is visible
+        container.style.display = 'block';
+        container.style.width = '100%';
+        container.style.height = '100%';
+        container.style.position = 'relative';
+        
         const map = L.map(container, {
           zoomControl: true,
           scrollWheelZoom: true,
@@ -219,33 +230,42 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
           minZoom: 8, // Prevent zooming out too much
         });
 
+        console.log('[ScheduleView] Map object created:', map);
+
         // Add tile layer
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '© OpenStreetMap contributors',
           maxZoom: 19,
-        }).addTo(map);
+        });
+        tileLayer.addTo(map);
+        console.log('[ScheduleView] Tile layer added');
 
         mapRef.current = map;
-        setMapReady(true);
         
-        // Force resize after initialization
-        setTimeout(() => {
+        // Force resize immediately
+        requestAnimationFrame(() => {
           if (mapRef.current) {
-            mapRef.current.invalidateSize();
+            mapRef.current.invalidateSize(true);
             const size = mapRef.current.getSize();
             console.log('[ScheduleView] Map initialized, size:', size);
+            setMapReady(true);
             
             // Double check and retry if size is still 0
             if (size.x === 0 || size.y === 0) {
+              console.warn('[ScheduleView] Map size is 0, retrying...');
               setTimeout(() => {
                 if (mapRef.current) {
                   mapRef.current.invalidateSize(true);
-                  console.log('[ScheduleView] Map size forced update');
+                  const newSize = mapRef.current.getSize();
+                  console.log('[ScheduleView] Map size after retry:', newSize);
+                  if (newSize.x > 0 && newSize.y > 0) {
+                    setMapReady(true);
+                  }
                 }
               }, 500);
             }
           }
-        }, 100);
+        });
         
         // Disconnect observer if it exists
         if (resizeObserverRef) {
@@ -254,6 +274,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         }
       } catch (error) {
         console.error('[ScheduleView] Error initializing map:', error);
+        console.error('[ScheduleView] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       }
     };
     
@@ -781,12 +802,14 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
                             width: '100%', 
                             height: '100%',
                             minHeight: '400px',
-                            display: mapReady ? 'block' : 'none'
+                            display: 'block',
+                            position: 'relative',
+                            zIndex: 1
                           }}
                         />
                         {!mapReady && (
-                          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground z-10 bg-background/90">
-                            <div className="text-center">
+                          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground z-50 bg-background/95 pointer-events-none">
+                            <div className="text-center pointer-events-auto">
                               <Loader2 className="h-12 w-12 mx-auto mb-2 opacity-30 animate-spin" />
                               <p className="text-sm">Προετοιμασία χάρτη...</p>
                             </div>
