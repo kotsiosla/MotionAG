@@ -366,43 +366,76 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         }
 
         // Fit map to route bounds - include all stops too
-        try {
-          const bounds = L.latLngBounds(allPoints);
-          // Fit bounds with padding and max zoom to show entire route
-          map.fitBounds(bounds, { 
-            padding: [80, 80], // More padding for better view
-            maxZoom: 14, // Prevent too much zoom in
-            animate: true
-          });
+        // Use requestAnimationFrame to ensure map is fully rendered before fitting
+        requestAnimationFrame(() => {
+          if (!mapRef.current || allPoints.length === 0) return;
           
-          console.log('[ScheduleView] Fitted bounds to route, bounds:', bounds.toBBoxString());
-        } catch (e) {
-          console.error('[ScheduleView] Error fitting bounds:', e);
-          // Fallback to default center if bounds fail
-          map.setView([35.0, 33.0], 10);
-        }
-
-        // Ensure map renders after bounds change
-        setTimeout(() => {
-          if (mapRef.current && allPoints.length > 0) {
-            mapRef.current.invalidateSize(true);
-            // Double-check bounds are correct - if zoom is too high, refit bounds
-            const currentZoom = mapRef.current.getZoom();
-            if (currentZoom > 15 || currentZoom < 8) {
-              // Refit bounds to show all route
-              try {
-                const bounds = L.latLngBounds(allPoints);
-                mapRef.current.fitBounds(bounds, { 
-                  padding: [80, 80],
-                  maxZoom: 14,
-                  animate: false // Don't animate on auto-adjustment
-                });
-              } catch (e) {
-                console.error('[ScheduleView] Error auto-adjusting bounds:', e);
+          // Force invalidate size first to ensure map has correct dimensions
+          mapRef.current.invalidateSize(true);
+          
+          try {
+            const bounds = L.latLngBounds(allPoints);
+            const boundsSize = bounds.getNorthEast().distanceTo(bounds.getSouthWest());
+            console.log('[ScheduleView] Route bounds size:', boundsSize.toFixed(2), 'km');
+            
+            // Adjust padding based on route size
+            // Smaller routes need less padding, larger routes need more
+            let padding: [number, number] = [80, 80];
+            if (boundsSize < 5) {
+              padding = [60, 60]; // Small routes
+            } else if (boundsSize > 50) {
+              padding = [100, 100]; // Very large routes
+            }
+            
+            // Fit bounds with dynamic padding and max zoom
+            mapRef.current.fitBounds(bounds, { 
+              padding: padding,
+              maxZoom: 14, // Prevent too much zoom in
+              animate: true
+            });
+            
+            console.log('[ScheduleView] Fitted bounds to route, padding:', padding);
+            
+            // Double-check after animation completes
+            setTimeout(() => {
+              if (mapRef.current) {
+                mapRef.current.invalidateSize(true);
+                const currentZoom = mapRef.current.getZoom();
+                const currentBounds = mapRef.current.getBounds();
+                
+                // Verify bounds include all points
+                let allInBounds = true;
+                for (const point of allPoints) {
+                  if (Array.isArray(point) && !currentBounds.contains([point[0], point[1]])) {
+                    allInBounds = false;
+                    break;
+                  }
+                }
+                
+                // If zoom is too extreme or not all points in bounds, refit
+                if (currentZoom > 15 || currentZoom < 8 || !allInBounds) {
+                  console.log('[ScheduleView] Adjusting bounds - zoom:', currentZoom, 'allInBounds:', allInBounds);
+                  try {
+                    const bounds = L.latLngBounds(allPoints);
+                    mapRef.current.fitBounds(bounds, { 
+                      padding: padding,
+                      maxZoom: 14,
+                      animate: false
+                    });
+                  } catch (e) {
+                    console.error('[ScheduleView] Error adjusting bounds:', e);
+                  }
+                }
               }
+            }, 400);
+          } catch (e) {
+            console.error('[ScheduleView] Error fitting bounds:', e);
+            // Fallback to default center if bounds fail
+            if (mapRef.current) {
+              mapRef.current.setView([35.0, 33.0], 10);
             }
           }
-        }, 300);
+        });
       }
     }
 
