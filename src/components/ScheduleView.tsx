@@ -207,8 +207,14 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     container.style.overflow = 'hidden';
     
     // Initialize map immediately (like VehicleMap does)
-    // Define cleanupHandleResize outside try block so it's accessible in catch cleanup
-    let cleanupHandleResize: (() => void) | null = null;
+    // Define handleResize OUTSIDE try block so it's always accessible in cleanup
+    const handleResize = () => {
+      if (mapRef.current) {
+        setTimeout(() => {
+          mapRef.current?.invalidateSize(true);
+        }, 100);
+      }
+    };
     
     try {
       console.log('[ScheduleView] Initializing map...');
@@ -251,17 +257,8 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       lastFittedRouteRef.current = null;
       mapReadyRef.current = false;
       
-      // Listen for window resize - define BEFORE cleanup and store for cleanup
-      const handleResize = () => {
-        if (mapRef.current) {
-          setTimeout(() => {
-            mapRef.current?.invalidateSize(true);
-          }, 100);
-        }
-      };
-
+      // Listen for window resize
       window.addEventListener('resize', handleResize);
-      cleanupHandleResize = handleResize; // Store after definition
 
       // Check if map is ready - similar to VehicleMap
       let checkCount = 0;
@@ -382,9 +379,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         }
         clearTimeout(readyTimeout);
         clearTimeout(retryTimeout);
-        if (cleanupHandleResize) {
-          window.removeEventListener('resize', cleanupHandleResize);
-        }
+        window.removeEventListener('resize', handleResize);
         if (mapRef.current) {
           mapRef.current.remove();
           mapRef.current = null;
@@ -398,16 +393,9 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     } catch (error) {
       console.error('[ScheduleView] Error initializing map:', error);
       
-      // Cleanup on error - handleResize might not be defined if error occurred early
+      // Cleanup on error - handleResize is always defined outside try block
       return () => {
-        try {
-          // cleanupHandleResize might be null if error occurred before it was defined
-          if (cleanupHandleResize) {
-            window.removeEventListener('resize', cleanupHandleResize);
-          }
-        } catch (e) {
-          // Ignore if cleanupHandleResize doesn't exist
-        }
+        window.removeEventListener('resize', handleResize);
         mapReadyRef.current = false;
         if (mapRef.current) {
           mapRef.current.remove();
