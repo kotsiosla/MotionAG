@@ -247,30 +247,53 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       lastFittedRouteRef.current = null;
       
       // Check if map is ready - similar to VehicleMap
+      let checkCount = 0;
+      const maxChecks = 20; // Max 4 seconds of retries
+      
       const checkReady = () => {
-        if (mapRef.current) {
-          try {
-            // Verify zoom is accessible
-            const zoom = mapRef.current.getZoom();
-            mapRef.current.invalidateSize(true);
-            const size = mapRef.current.getSize();
-            console.log('[ScheduleView] Map size:', size, 'zoom:', zoom);
-            
-            if (typeof zoom === 'number' && size.x > 0 && size.y > 0) {
-              setMapReady(true);
-              console.log('[ScheduleView] Map is ready!');
-            } else {
-              // Not ready yet, retry
-              console.log('[ScheduleView] Map not fully ready, retrying...');
-              setTimeout(checkReady, 200);
-            }
-          } catch (e) {
-            // Map not ready yet, retry
-            console.log('[ScheduleView] Map getZoom failed, retrying...', e);
+        checkCount++;
+        if (checkCount > maxChecks) {
+          console.warn('[ScheduleView] Map ready check timeout - forcing ready state');
+          setMapReady(true);
+          return;
+        }
+        
+        if (!mapRef.current) {
+          console.log(`[ScheduleView] Map ref is null (check ${checkCount}/${maxChecks}), retrying...`);
+          setTimeout(checkReady, 200);
+          return;
+        }
+        
+        // Check container dimensions first
+        const rect = container.getBoundingClientRect();
+        console.log(`[ScheduleView] Check ${checkCount}/${maxChecks} - Container rect:`, rect.width, 'x', rect.height);
+        
+        if (rect.width === 0 || rect.height === 0) {
+          console.log('[ScheduleView] Container has no dimensions yet, retrying...');
+          setTimeout(checkReady, 200);
+          return;
+        }
+        
+        try {
+          // Force invalidate size
+          mapRef.current.invalidateSize(true);
+          
+          // Verify zoom is accessible
+          const zoom = mapRef.current.getZoom();
+          const size = mapRef.current.getSize();
+          console.log('[ScheduleView] Map size:', size, 'zoom:', zoom);
+          
+          if (typeof zoom === 'number' && size.x > 0 && size.y > 0) {
+            setMapReady(true);
+            console.log('[ScheduleView] Map is ready!');
+          } else {
+            // Not ready yet, retry
+            console.log('[ScheduleView] Map not fully ready (size or zoom invalid), retrying...');
             setTimeout(checkReady, 200);
           }
-        } else {
-          // Map ref is null, retry after delay
+        } catch (e) {
+          // Map not ready yet, retry
+          console.log('[ScheduleView] Map getZoom/getSize failed, retrying...', e);
           setTimeout(checkReady, 200);
         }
       };
