@@ -357,8 +357,6 @@ export function SmartTripResults({
   const [sortBy, setSortBy] = useState<string>('recommended');
   const [maxTransfersFilter, setMaxTransfersFilter] = useState<number>(-1);
   const { saveTrip } = useSavedTrips();
-  
-  if (!origin || !destination) return null;
 
   const isToday = departureDate ? departureDate.toDateString() === new Date().toDateString() : true;
   const effectiveDate = departureDate || new Date();
@@ -393,6 +391,9 @@ export function SmartTripResults({
     
     return journeys;
   }, [data?.journeyOptions, sortBy, maxTransfersFilter]);
+
+  // Must be after hooks to avoid conditional hook calls
+  if (!origin || !destination) return null;
 
   const handleSaveTrip = (journey: JourneyOption) => {
     const saved = saveTrip(origin, destination, journey, effectiveDate, 15);

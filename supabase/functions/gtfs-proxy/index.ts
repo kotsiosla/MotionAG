@@ -967,6 +967,117 @@ function extractTrips(feed: GtfsRealtimeFeed) {
     }));
 }
 
+function enrichVehiclesWithRouteIds(
+  vehicles: Array<{ tripId?: string; routeId?: string; vehicleId?: string; id?: string } & Record<string, unknown>>,
+  trips: Array<{ tripId?: string; routeId?: string; vehicleId?: string }>
+) {
+  const tripToRoute = new Map<string, string>();
+  const vehicleToRoute = new Map<string, string>();
+  for (const t of trips) {
+    if (t.tripId && t.routeId) {
+      tripToRoute.set(t.tripId, t.routeId);
+    }
+    if (t.vehicleId && t.routeId) {
+      vehicleToRoute.set(t.vehicleId, t.routeId);
+    }
+  }
+
+  // Last-resort: infer route_id from stop_id using TripUpdate stopTimeUpdates.
+  // This helps when VehiclePosition omits both trip_id and route_id.
+  const neededStopIds = new Set<string>();
+  for (const v of vehicles) {
+    if (v.routeId) continue;
+    const stopId = (v as any).stopId;
+    if (typeof stopId === 'string' && stopId) neededStopIds.add(stopId);
+  }
+
+  type StopRouteStats = Map<string, { count: number; seqCounts: Map<number, number> }>;
+  const stopToRouteStats = new Map<string, StopRouteStats>();
+
+  if (neededStopIds.size > 0) {
+    for (const t of trips as any[]) {
+      const routeId = t?.routeId;
+      const stopTimeUpdates = t?.stopTimeUpdates;
+      if (!routeId || !Array.isArray(stopTimeUpdates)) continue;
+
+      for (const stu of stopTimeUpdates) {
+        const stopId = stu?.stopId;
+        if (!stopId || !neededStopIds.has(stopId)) continue;
+
+        let routeStats = stopToRouteStats.get(stopId);
+        if (!routeStats) {
+          routeStats = new Map();
+          stopToRouteStats.set(stopId, routeStats);
+        }
+
+        let stats = routeStats.get(routeId);
+        if (!stats) {
+          stats = { count: 0, seqCounts: new Map() };
+          routeStats.set(routeId, stats);
+        }
+        stats.count += 1;
+
+        const seq = stu?.stopSequence;
+        if (typeof seq === 'number') {
+          stats.seqCounts.set(seq, (stats.seqCounts.get(seq) || 0) + 1);
+        }
+      }
+    }
+  }
+
+  return vehicles.map((v) => {
+    if (v.routeId) return v;
+    const tripId = v.tripId;
+    if (tripId) {
+      const routeId = tripToRoute.get(tripId);
+      if (routeId) return { ...v, routeId };
+    }
+
+    // Some VehiclePosition entities omit trip_id but include vehicle_id;
+    // try to infer route from TripUpdate.vehicle.id -> route_id.
+    const vehicleId = v.vehicleId || v.id;
+    if (vehicleId) {
+      const routeFromVehicle = vehicleToRoute.get(vehicleId);
+      if (routeFromVehicle) return { ...v, routeId: routeFromVehicle };
+    }
+
+    // Final fallback: infer from stopId (+ currentStopSequence if present)
+    const stopId = (v as any).stopId;
+    if (typeof stopId === 'string' && stopId) {
+      const routeStats = stopToRouteStats.get(stopId);
+      if (routeStats && routeStats.size > 0) {
+        const currentSeq = (v as any).currentStopSequence;
+
+        let bestRoute: string | undefined;
+        let bestScore = -Infinity;
+
+        for (const [routeId, stats] of routeStats.entries()) {
+          // Base: how often this stop appears on this route in TripUpdates
+          let score = stats.count;
+
+          // Bonus: if current stop sequence matches known sequence(s) for this stop on this route
+          if (typeof currentSeq === 'number') {
+            const exact = stats.seqCounts.get(currentSeq) || 0;
+            const near =
+              (stats.seqCounts.get(currentSeq - 1) || 0) +
+              (stats.seqCounts.get(currentSeq + 1) || 0);
+            score += exact * 5 + near * 2;
+          }
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestRoute = routeId;
+          }
+        }
+
+        if (bestRoute) return { ...v, routeId: bestRoute };
+      }
+    }
+
+    return v;
+  });
+}
+
 function extractAlerts(feed: GtfsRealtimeFeed) {
   if (!feed.entity) return [];
   
@@ -2591,7 +2702,9 @@ serve(async (req) => {
         data = feed;
         break;
       case '/vehicles':
-        data = extractVehicles(feed);
+        // Some GTFS-RT VehiclePosition entities omit route_id.
+        // Enrich vehicles using TripUpdate (trip_id -> route_id) from the same feed.
+        data = enrichVehiclesWithRouteIds(extractVehicles(feed), extractTrips(feed));
         break;
       case '/trips':
         data = extractTrips(feed);

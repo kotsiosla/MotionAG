@@ -377,6 +377,29 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [searchResults, setSearchResults] = useState<Array<{ display_name: string; lat: string; lon: string }>>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
+
+  // Resolve a routeId for a vehicle even when GTFS vehicle positions omit route_id.
+  // Fallback order: vehicle.routeId -> trip.routeId (via tripId) -> null
+  const resolveRouteIdForVehicle = useCallback((vehicle: any): string | null => {
+    const direct = vehicle?.routeId;
+    if (typeof direct === 'string' && direct && direct !== 'all') return direct;
+
+    const tripId = vehicle?.tripId;
+    if (tripId && Array.isArray(trips)) {
+      const tripMatch = trips.find((t: any) => t?.tripId === tripId);
+      const fromTrip = tripMatch?.routeId;
+      if (typeof fromTrip === 'string' && fromTrip && fromTrip !== 'all') return fromTrip;
+    }
+
+    const vehicleId = vehicle?.vehicleId || vehicle?.id;
+    if (vehicleId && Array.isArray(trips)) {
+      const tripMatch = trips.find((t: any) => t?.vehicleId === vehicleId);
+      const fromVehicleTrip = tripMatch?.routeId;
+      if (typeof fromVehicleTrip === 'string' && fromVehicleTrip && fromVehicleTrip !== 'all') return fromVehicleTrip;
+    }
+
+    return null;
+  }, [trips]);
   const routeMarkersRef = useRef<L.Marker[]>([]);
   const routeLineRef = useRef<L.Polyline | null>(null);
   const routeShapeLineRef = useRef<L.Polyline | null>(null);
@@ -478,8 +501,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const followedVehicleRouteId = useMemo(() => {
     if (!followedVehicleId) return null;
     const vehicle = vehicles.find(v => (v.vehicleId || v.id) === followedVehicleId);
-    return vehicle?.routeId || null;
-  }, [followedVehicleId, vehicles]);
+    return resolveRouteIdForVehicle(vehicle) || null;
+  }, [followedVehicleId, vehicles, resolveRouteIdForVehicle]);
   
   // Infer operator from route ID when selectedOperator is 'all'
   // NOTE: When operator is 'all', we pass undefined and let the edge function search all operators
@@ -1268,6 +1291,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           
           setFollowedVehicleId(vehicleId);
           onFollowVehicle?.(vehicleId);
+          // Match the behavior of external follow (e.g. from TripsTable): go to street mode immediately.
+          setViewMode('street');
           // Close route planner when following a vehicle - UnifiedRoutePanel will show the route
           setShowRoutePlanner(false);
           setSelectedVehicleTrip(null);
@@ -2092,7 +2117,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         try {
           // Find the vehicle directly from followedVehicleId if not already found
           const vehicle = followedVehicle || (followedVehicleId && Array.isArray(vehicles) ? vehicles.find((v) => v && (v.vehicleId || v.id) === followedVehicleId) : null);
-          const effectiveRouteId = vehicle?.routeId || selectedRoute;
+          const effectiveRouteId = (vehicle ? resolveRouteIdForVehicle(vehicle) : null) || selectedRoute;
           
           // Only show panel if we have a valid routeId (not 'all' or undefined or empty string)
           if (!effectiveRouteId || effectiveRouteId === 'all' || effectiveRouteId === '' || typeof effectiveRouteId !== 'string') {
