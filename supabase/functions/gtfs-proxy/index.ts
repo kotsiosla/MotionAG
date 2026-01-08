@@ -1949,11 +1949,35 @@ serve(async (req) => {
       );
     }
     
-    // Handle stop_times endpoint - Load all stop times for trip planning
+    // Handle stop_times endpoint - Load all stop times for trip planning (with caching)
     if (path === '/stop-times') {
       console.log('Loading stop_times for trip planning...');
       
       try {
+        // Check cache first
+        const cacheKey = `stop_times_${operatorId || 'all'}`;
+        const cached = stopTimesCache.get(cacheKey);
+        
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+          console.log(`Using cached stop_times (${cached.data.length} entries, age: ${Math.round((Date.now() - cached.timestamp) / 1000 / 60)} minutes)`);
+          return new Response(
+            JSON.stringify({
+              data: cached.data,
+              timestamp: cached.timestamp,
+              count: cached.data.length,
+              cached: true,
+            }),
+            { 
+              headers: { 
+                ...corsHeaders, 
+                'Content-Type': 'application/json',
+                'Cache-Control': 'public, max-age=3600',
+              } 
+            }
+          );
+        }
+        
+        console.log('Cache miss, fetching stop_times from source...');
         const allStopTimes: StopTimeInfo[] = [];
         const operators = operatorId && operatorId !== 'all' ? [operatorId] : Object.keys(GTFS_STATIC_URLS);
         
@@ -2025,11 +2049,17 @@ serve(async (req) => {
         
         console.log(`Total stop_times loaded: ${allStopTimes.length}`);
         
+        // Cache the result
+        const timestamp = Date.now();
+        stopTimesCache.set(cacheKey, { data: allStopTimes, timestamp });
+        console.log(`Cached stop_times for key: ${cacheKey}`);
+        
         return new Response(
           JSON.stringify({
             data: allStopTimes,
-            timestamp: Date.now(),
+            timestamp,
             count: allStopTimes.length,
+            cached: false,
           }),
           { 
             headers: { 
@@ -2041,6 +2071,30 @@ serve(async (req) => {
         );
       } catch (error) {
         console.error('Error in stop-times endpoint:', error);
+        
+        // Try to return cached data even if fresh fetch failed
+        const cacheKey = `stop_times_${operatorId || 'all'}`;
+        const cached = stopTimesCache.get(cacheKey);
+        if (cached) {
+          console.log('Returning stale cached data due to error');
+          return new Response(
+            JSON.stringify({
+              data: cached.data,
+              timestamp: cached.timestamp,
+              count: cached.data.length,
+              cached: true,
+              error: String(error),
+            }),
+            { 
+              headers: { 
+                ...corsHeaders, 
+                'Content-Type': 'application/json',
+                'Cache-Control': 'public, max-age=3600',
+              } 
+            }
+          );
+        }
+        
         return new Response(
           JSON.stringify({ error: String(error), data: [] }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
