@@ -176,10 +176,10 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
 
   const bgColor = selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))';
 
-  // Initialize map when route is selected and container is ready
+  // Initialize map when route is selected - simple approach like VehicleMap
   useEffect(() => {
     if (!selectedRoute) {
-      // Clean up if route is deselected
+      // Cleanup when no route selected
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -188,119 +188,76 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       return;
     }
 
-    if (mapRef.current) return; // Already initialized
-
-    if (!mapContainerRef.current) {
-      console.log('[ScheduleView] Map container ref not available');
-      return;
+    if (!mapContainerRef.current || mapRef.current) {
+      return; // Container not ready or already initialized
     }
 
     const container = mapContainerRef.current;
-    let resizeObserverRef: ResizeObserver | null = null;
     
-    const initMap = () => {
-      if (mapRef.current) {
-        console.log('[ScheduleView] Map already initialized');
-        return;
-      }
+    // Ensure container has proper dimensions before initialization
+    container.style.display = 'block';
+    container.style.width = '100%';
+    container.style.height = '100%';
+    container.style.minHeight = '400px';
+    container.style.position = 'relative';
+    
+    // Initialize map immediately (like VehicleMap does)
+    try {
+      console.log('[ScheduleView] Initializing map...');
+      const map = L.map(container, {
+        zoomControl: true,
+        scrollWheelZoom: true,
+        center: [35.0, 33.0], // Default center (Cyprus)
+        zoom: 10,
+        maxZoom: 18,
+        minZoom: 8,
+      });
+
+      // Add tile layer
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19,
+      }).addTo(map);
+
+      mapRef.current = map;
+      console.log('[ScheduleView] Map created');
       
-      const rect = container.getBoundingClientRect();
-      console.log('[ScheduleView] Checking container, rect:', rect.width, 'x', rect.height);
-      
-      if (rect.width === 0 || rect.height === 0) {
-        console.log('[ScheduleView] Container not ready yet, waiting...');
-        return; // Not ready yet
-      }
-
-      console.log('[ScheduleView] Initializing map, container size:', rect.width, 'x', rect.height);
-      
-      try {
-        // Ensure container is visible
-        container.style.display = 'block';
-        container.style.width = '100%';
-        container.style.height = '100%';
-        container.style.position = 'relative';
-        
-        const map = L.map(container, {
-          zoomControl: true,
-          scrollWheelZoom: true,
-          center: [35.0, 33.0], // Default center (Cyprus)
-          zoom: 10,
-          maxZoom: 18, // Prevent zooming in too much
-          minZoom: 8, // Prevent zooming out too much
-        });
-
-        console.log('[ScheduleView] Map object created:', map);
-
-        // Add tile layer
-        const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors',
-          maxZoom: 19,
-        });
-        tileLayer.addTo(map);
-        console.log('[ScheduleView] Tile layer added');
-
-        mapRef.current = map;
-        
-        // Force resize immediately
-        requestAnimationFrame(() => {
-          if (mapRef.current) {
+      // Check if map is ready
+      const checkReady = () => {
+        if (mapRef.current) {
+          try {
             mapRef.current.invalidateSize(true);
             const size = mapRef.current.getSize();
-            console.log('[ScheduleView] Map initialized, size:', size);
-            setMapReady(true);
+            console.log('[ScheduleView] Map size:', size);
             
-            // Double check and retry if size is still 0
-            if (size.x === 0 || size.y === 0) {
-              console.warn('[ScheduleView] Map size is 0, retrying...');
-              setTimeout(() => {
-                if (mapRef.current) {
-                  mapRef.current.invalidateSize(true);
-                  const newSize = mapRef.current.getSize();
-                  console.log('[ScheduleView] Map size after retry:', newSize);
-                  if (newSize.x > 0 && newSize.y > 0) {
-                    setMapReady(true);
-                  }
-                }
-              }, 500);
+            if (size.x > 0 && size.y > 0) {
+              setMapReady(true);
+              console.log('[ScheduleView] Map is ready!');
+            } else {
+              // Retry after a short delay
+              setTimeout(checkReady, 200);
             }
+          } catch (e) {
+            console.error('[ScheduleView] Error checking map ready:', e);
+            setTimeout(checkReady, 200);
           }
-        });
-        
-        // Disconnect observer if it exists
-        if (resizeObserverRef) {
-          resizeObserverRef.disconnect();
-          resizeObserverRef = null;
         }
-      } catch (error) {
-        console.error('[ScheduleView] Error initializing map:', error);
-        console.error('[ScheduleView] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-      }
-    };
-    
-    // Check immediately
-    const rect = container.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) {
-      initMap();
-    } else {
-      // Container not ready, use ResizeObserver
-      console.log('[ScheduleView] Container not ready, waiting for dimensions...');
+      };
       
-      resizeObserverRef = new ResizeObserver(() => {
-        if (!mapRef.current) {
-          initMap();
-        }
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        setTimeout(checkReady, 150);
       });
-      resizeObserverRef.observe(container);
+      
+    } catch (error) {
+      console.error('[ScheduleView] Error initializing map:', error);
     }
 
     // Listen for window resize
     const handleResize = () => {
       if (mapRef.current) {
         setTimeout(() => {
-          if (mapRef.current) {
-            mapRef.current.invalidateSize();
-          }
+          mapRef.current?.invalidateSize(true);
         }, 100);
       }
     };
@@ -308,9 +265,6 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     window.addEventListener('resize', handleResize);
 
     return () => {
-      if (resizeObserverRef) {
-        resizeObserverRef.disconnect();
-      }
       window.removeEventListener('resize', handleResize);
       if (mapRef.current) {
         mapRef.current.remove();
