@@ -119,14 +119,36 @@
   html {
     /* Support for iOS safe areas */
     height: -webkit-fill-available;
+    /* Fullscreen support */
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
     min-height: 100vh;
+    min-height: 100dvh; /* Dynamic viewport height */
     min-height: -webkit-fill-available;
     /* Prevent overscroll */
     overscroll-behavior: none;
+    /* Fullscreen support */
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+
+  #root {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -205,6 +227,14 @@
 .leaflet-container {
   font-family: inherit;
   background: hsl(var(--background));
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.leaflet-container .leaflet-pane {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* No filter for satellite tiles - keep natural colors */
