@@ -1023,21 +1023,15 @@ export function useSmartTripPlan(
       const isInterCity = originRegion && destRegion && originRegion !== destRegion;
       if (isInterCity) operatorIds.push(...getIntercityOperators());
       const uniqueOperatorIds = [...new Set(operatorIds)];
+      const fallbackAllOperatorIds = OPERATORS.filter(o => o.id !== 'all').map(o => o.id);
+      const effectiveOperatorIds = uniqueOperatorIds.length === 0 ? fallbackAllOperatorIds : uniqueOperatorIds;
 
       // Fetch all data (bounded to relevant operators)
       const [stopTimes, tripsStatic, routes, stops] = await Promise.all([
-        uniqueOperatorIds.length === 0
-          ? fetchStopTimes()
-          : Promise.all(uniqueOperatorIds.map(opId => fetchStopTimes(opId))).then(parts => parts.flat()),
-        uniqueOperatorIds.length === 0
-          ? fetchTripsStatic()
-          : Promise.all(uniqueOperatorIds.map(opId => fetchTripsStatic(opId))).then(parts => parts.flat()),
-        uniqueOperatorIds.length === 0
-          ? fetchRoutes()
-          : Promise.all(uniqueOperatorIds.map(opId => fetchRoutes(opId))).then(parts => parts.flat()),
-        uniqueOperatorIds.length === 0
-          ? fetchStops()
-          : Promise.all(uniqueOperatorIds.map(opId => fetchStops(opId))).then(parts => parts.flat()),
+        Promise.all(effectiveOperatorIds.map(opId => fetchStopTimes(opId))).then(parts => parts.flat()),
+        Promise.all(effectiveOperatorIds.map(opId => fetchTripsStatic(opId))).then(parts => parts.flat()),
+        Promise.all(effectiveOperatorIds.map(opId => fetchRoutes(opId))).then(parts => parts.flat()),
+        Promise.all(effectiveOperatorIds.map(opId => fetchStops(opId))).then(parts => parts.flat()),
       ]);
       
       console.log(`Loaded ${stopTimes.length} stop times, ${tripsStatic.length} trips, ${routes.length} routes, ${stops.length} stops`);

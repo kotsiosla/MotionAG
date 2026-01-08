@@ -297,19 +297,16 @@ async function fetchTripPlanData(
   const intercityOps = originRegion && destRegion && originRegion !== destRegion ? getIntercityOperators() : [];
 
   const operatorIds = [...new Set([...localOps, ...intercityOps])];
-  // Fallback: if we couldn't detect anything, keep existing behavior (all operators) to avoid missing results.
+  // Fallback: if we couldn't detect anything, load ALL operators but split per-operator
+  // to avoid huge payload/timeouts from a single /stop-times call.
   const shouldUseAllOperators = operatorIds.length === 0;
+  const fallbackAllOperatorIds = OPERATORS.filter(o => o.id !== 'all').map(o => o.id);
+  const effectiveOperatorIds = shouldUseAllOperators ? fallbackAllOperatorIds : operatorIds;
 
   const [stopTimes, tripsStatic, routes] = await Promise.all([
-    shouldUseAllOperators
-      ? fetchStopTimes()
-      : Promise.all(operatorIds.map(opId => fetchStopTimes(opId))).then(parts => parts.flat()),
-    shouldUseAllOperators
-      ? fetchTripsStatic()
-      : Promise.all(operatorIds.map(opId => fetchTripsStatic(opId))).then(parts => parts.flat()),
-    shouldUseAllOperators
-      ? fetchRoutes()
-      : Promise.all(operatorIds.map(opId => fetchRoutes(opId))).then(parts => parts.flat()),
+    Promise.all(effectiveOperatorIds.map(opId => fetchStopTimes(opId))).then(parts => parts.flat()),
+    Promise.all(effectiveOperatorIds.map(opId => fetchTripsStatic(opId))).then(parts => parts.flat()),
+    Promise.all(effectiveOperatorIds.map(opId => fetchRoutes(opId))).then(parts => parts.flat()),
   ]);
 
   console.log(`Loaded ${stopTimes.length} stop times, ${tripsStatic.length} trips, ${routes.length} routes`);
