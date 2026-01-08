@@ -246,32 +246,61 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       userInteractedRef.current = false;
       lastFittedRouteRef.current = null;
       
-      // Check if map is ready
+      // Check if map is ready - similar to VehicleMap
       const checkReady = () => {
         if (mapRef.current) {
           try {
+            // Verify zoom is accessible
+            const zoom = mapRef.current.getZoom();
             mapRef.current.invalidateSize(true);
             const size = mapRef.current.getSize();
-            console.log('[ScheduleView] Map size:', size);
+            console.log('[ScheduleView] Map size:', size, 'zoom:', zoom);
             
-            if (size.x > 0 && size.y > 0) {
+            if (typeof zoom === 'number' && size.x > 0 && size.y > 0) {
               setMapReady(true);
               console.log('[ScheduleView] Map is ready!');
             } else {
-              // Retry after a short delay
+              // Not ready yet, retry
+              console.log('[ScheduleView] Map not fully ready, retrying...');
               setTimeout(checkReady, 200);
             }
           } catch (e) {
-            console.error('[ScheduleView] Error checking map ready:', e);
+            // Map not ready yet, retry
+            console.log('[ScheduleView] Map getZoom failed, retrying...', e);
             setTimeout(checkReady, 200);
           }
+        } else {
+          // Map ref is null, retry after delay
+          setTimeout(checkReady, 200);
         }
       };
       
       // Use requestAnimationFrame to ensure DOM is ready
-      requestAnimationFrame(() => {
-        setTimeout(checkReady, 150);
-      });
+      const readyTimeout = setTimeout(() => {
+        requestAnimationFrame(checkReady);
+      }, 150);
+      
+      // Also try immediately after a short delay
+      const retryTimeout = setTimeout(() => {
+        if (mapRef.current && !mapReady) {
+          checkReady();
+        }
+      }, 500);
+      
+      // Cleanup function
+      return () => {
+        clearTimeout(readyTimeout);
+        clearTimeout(retryTimeout);
+        window.removeEventListener('resize', handleResize);
+        if (mapRef.current) {
+          mapRef.current.remove();
+          mapRef.current = null;
+          setMapReady(false);
+        }
+        // Reset interaction tracking when route changes
+        userInteractedRef.current = false;
+        lastFittedRouteRef.current = null;
+      };
       
     } catch (error) {
       console.error('[ScheduleView] Error initializing map:', error);
@@ -581,7 +610,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
   }, [routeShapeQuery.data, selectedRoute, selectedDirection, bgColor]);
 
   return (
-    <div className="h-full flex flex-col p-4 overflow-hidden">
+    <div className="h-full flex flex-col p-2 lg:p-4 overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
         <Calendar className="h-5 w-5 text-primary" />
@@ -773,10 +802,10 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
           ) : routeShapeQuery.data && routeShapeQuery.data.directions && routeShapeQuery.data.directions.length > 0 ? (
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 overflow-hidden" style={{ height: 'calc(100% - 20px)', minHeight: '500px' }}>
               {/* Left: Map with Shape File and Distance in km */}
-              <div className="flex flex-col overflow-hidden space-y-3 h-full">
+              <div className="flex flex-col overflow-hidden space-y-2 lg:space-y-3 h-full min-h-0">
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <RouteIcon className="h-5 w-5 text-primary" />
-                  <h3 className="text-base font-semibold">Χάρτης Διαδρομής</h3>
+                  <RouteIcon className="h-4 w-4 lg:h-5 lg:w-5 text-primary" />
+                  <h3 className="text-sm lg:text-base font-semibold">Χάρτης Διαδρομής</h3>
                 </div>
 
                 {/* Direction Tabs */}
