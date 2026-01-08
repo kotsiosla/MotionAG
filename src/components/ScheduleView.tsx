@@ -379,6 +379,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       return () => {
         // Stop all checking
         isCheckingReady = false;
+        mapReadyRef.current = false;
         if (checkReadyTimeout) {
           clearTimeout(checkReadyTimeout);
           checkReadyTimeout = null;
