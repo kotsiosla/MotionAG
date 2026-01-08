@@ -391,6 +391,13 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       if (typeof fromTrip === 'string' && fromTrip && fromTrip !== 'all') return fromTrip;
     }
 
+    const vehicleId = vehicle?.vehicleId || vehicle?.id;
+    if (vehicleId && Array.isArray(trips)) {
+      const tripMatch = trips.find((t: any) => t?.vehicleId === vehicleId);
+      const fromVehicleTrip = tripMatch?.routeId;
+      if (typeof fromVehicleTrip === 'string' && fromVehicleTrip && fromVehicleTrip !== 'all') return fromVehicleTrip;
+    }
+
     return null;
   }, [trips]);
   const routeMarkersRef = useRef<L.Marker[]>([]);

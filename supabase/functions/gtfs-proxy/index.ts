@@ -968,22 +968,37 @@ function extractTrips(feed: GtfsRealtimeFeed) {
 }
 
 function enrichVehiclesWithRouteIds(
-  vehicles: Array<{ tripId?: string; routeId?: string } & Record<string, unknown>>,
-  trips: Array<{ tripId?: string; routeId?: string }>
+  vehicles: Array<{ tripId?: string; routeId?: string; vehicleId?: string; id?: string } & Record<string, unknown>>,
+  trips: Array<{ tripId?: string; routeId?: string; vehicleId?: string }>
 ) {
   const tripToRoute = new Map<string, string>();
+  const vehicleToRoute = new Map<string, string>();
   for (const t of trips) {
     if (t.tripId && t.routeId) {
       tripToRoute.set(t.tripId, t.routeId);
+    }
+    if (t.vehicleId && t.routeId) {
+      vehicleToRoute.set(t.vehicleId, t.routeId);
     }
   }
 
   return vehicles.map((v) => {
     if (v.routeId) return v;
     const tripId = v.tripId;
-    if (!tripId) return v;
-    const routeId = tripToRoute.get(tripId);
-    return routeId ? { ...v, routeId } : v;
+    if (tripId) {
+      const routeId = tripToRoute.get(tripId);
+      if (routeId) return { ...v, routeId };
+    }
+
+    // Some VehiclePosition entities omit trip_id but include vehicle_id;
+    // try to infer route from TripUpdate.vehicle.id -> route_id.
+    const vehicleId = v.vehicleId || v.id;
+    if (vehicleId) {
+      const routeFromVehicle = vehicleToRoute.get(vehicleId);
+      if (routeFromVehicle) return { ...v, routeId: routeFromVehicle };
+    }
+
+    return v;
   });
 }
 
