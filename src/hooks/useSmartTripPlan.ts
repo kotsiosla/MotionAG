@@ -112,11 +112,14 @@ function findNearbyStops(
   return nearby;
 }
 
-async function fetchStopTimes(): Promise<StopTimeInfo[]> {
+async function fetchStopTimes(retryCount = 0): Promise<StopTimeInfo[]> {
+  const MAX_RETRIES = 2;
+  const TIMEOUT_MS = 90000; // 90 seconds
+  
   try {
-    // Add timeout of 60 seconds for large data
+    // Add timeout for large data
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
     
     const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-times`, {
       headers: {
@@ -135,6 +138,15 @@ async function fetchStopTimes(): Promise<StopTimeInfo[]> {
       } catch {
         errorMessage = `Failed to fetch stop times (${response.status} ${response.statusText})`;
       }
+      
+      // Retry on 500 errors or network errors
+      if ((response.status >= 500 || response.status === 0) && retryCount < MAX_RETRIES) {
+        const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.log(`Retrying stop-times fetch (attempt ${retryCount + 1}/${MAX_RETRIES}) after ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchStopTimes(retryCount + 1);
+      }
+      
       throw new Error(errorMessage);
     }
     
@@ -142,7 +154,14 @@ async function fetchStopTimes(): Promise<StopTimeInfo[]> {
     return result.data || [];
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Request timeout - Το αρχείο είναι πολύ μεγάλο. Παρακαλώ δοκιμάστε ξανά.');
+      // Retry on timeout
+      if (retryCount < MAX_RETRIES) {
+        const delay = Math.pow(2, retryCount) * 1000;
+        console.log(`Retrying stop-times fetch after timeout (attempt ${retryCount + 1}/${MAX_RETRIES}) after ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchStopTimes(retryCount + 1);
+      }
+      throw new Error('Request timeout - Το αρχείο είναι πολύ μεγάλο. Παρακαλώ δοκιμάστε ξανά σε λίγο.');
     }
     throw error;
   }
