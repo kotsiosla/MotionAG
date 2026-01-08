@@ -493,6 +493,40 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
           console.log('[ScheduleView] Skipping auto-fit - user has interacted with map');
         }
       }
+    } else {
+      // No shape data - use stops as fallback
+      console.warn(`[ScheduleView] No shape data for direction ${selectedDirection}. Using stops as fallback.`);
+      
+      if (currentDirection.stops && currentDirection.stops.length > 0) {
+        const stopPoints: L.LatLngExpression[] = currentDirection.stops
+          .filter(stop => stop.lat && stop.lng && typeof stop.lat === 'number' && typeof stop.lng === 'number')
+          .sort((a, b) => (a.stop_sequence || 0) - (b.stop_sequence || 0))
+          .map(stop => [stop.lat!, stop.lng!] as L.LatLngExpression);
+        
+        if (stopPoints.length > 1) {
+          console.log(`[ScheduleView] Drawing approximate route using ${stopPoints.length} stops`);
+          routePolylineRef.current = L.polyline(stopPoints, {
+            color: bgColor,
+            weight: 4,
+            opacity: 0.6,
+            lineCap: 'round',
+            lineJoin: 'round',
+            dashArray: '10, 5', // Dashed line to indicate it's approximate
+          }).addTo(map);
+          
+          // Fit bounds to stops
+          try {
+            const bounds = L.latLngBounds(stopPoints);
+            map.fitBounds(bounds, { 
+              padding: [80, 80],
+              maxZoom: 14,
+              animate: true
+            });
+          } catch (e) {
+            console.error('[ScheduleView] Error fitting bounds to stops:', e);
+          }
+        }
+      }
     }
 
     // Add stop markers
