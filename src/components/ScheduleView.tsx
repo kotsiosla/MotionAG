@@ -74,8 +74,6 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
   const stopMarkersRef = useRef<L.Marker[]>([]);
   const userInteractedRef = useRef(false); // Track if user has manually interacted with map
   const lastFittedRouteRef = useRef<string | null>(null); // Track last route we auto-fitted
-  const userInteractedRef = useRef(false); // Track if user has manually interacted with map
-  const lastFittedRouteRef = useRef<string | null>(null); // Track last route we auto-fitted
 
   const dayNames = ['Κυριακή', 'Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο'];
   const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
