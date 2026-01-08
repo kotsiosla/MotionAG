@@ -260,11 +260,18 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       // Check if map is ready - similar to VehicleMap
       let checkCount = 0;
       const maxChecks = 20; // Max 4 seconds of retries
+      let isCheckingReady = true; // Flag to stop checking once ready
       
       const checkReady = () => {
+        // Stop checking if already marked as ready
+        if (!isCheckingReady) {
+          return;
+        }
+        
         checkCount++;
         if (checkCount > maxChecks) {
           console.warn('[ScheduleView] Map ready check timeout - forcing ready state');
+          isCheckingReady = false;
           setMapReady(true);
           return;
         }
@@ -295,12 +302,21 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
           console.log('[ScheduleView] Map size:', size, 'zoom:', zoom);
           
           if (typeof zoom === 'number' && size.x > 0 && size.y > 0) {
+            isCheckingReady = false; // Stop checking
             setMapReady(true);
             console.log('[ScheduleView] Map is ready!');
           } else {
-            // Not ready yet, retry
-            console.log('[ScheduleView] Map not fully ready (size or zoom invalid), retrying...');
-            setTimeout(checkReady, 200);
+            // Size might be 0 temporarily during fitBounds animation - check container instead
+            if (rect.width > 0 && rect.height > 0 && typeof zoom === 'number') {
+              // Container has size and zoom is valid, map is likely ready but size is temporarily 0
+              console.log('[ScheduleView] Map appears ready (container has size, zoom valid), but map size is 0 - likely during animation');
+              isCheckingReady = false;
+              setMapReady(true);
+            } else {
+              // Not ready yet, retry
+              console.log('[ScheduleView] Map not fully ready (size or zoom invalid), retrying...');
+              setTimeout(checkReady, 200);
+            }
           }
         } catch (e) {
           // Map not ready yet, retry
