@@ -382,7 +382,9 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         }
         clearTimeout(readyTimeout);
         clearTimeout(retryTimeout);
-        window.removeEventListener('resize', cleanupHandleResize);
+        if (cleanupHandleResize) {
+          window.removeEventListener('resize', cleanupHandleResize);
+        }
         if (mapRef.current) {
           mapRef.current.remove();
           mapRef.current = null;
