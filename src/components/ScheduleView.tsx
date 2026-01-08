@@ -1006,7 +1006,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
                           className="w-full h-full"
                           style={{ 
                             width: '100%', 
-                            height: '100%',
+                            height: '300px', // CRITICAL FIX: Explicit fixed height to prevent size {x: 0, y: 0}
                             minHeight: '300px',
                             display: 'block',
                             position: 'relative',
