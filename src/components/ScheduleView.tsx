@@ -313,13 +313,8 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
           console.log('[ScheduleView] Map size:', size, 'zoom:', zoom);
           
           // Check if map is already marked as ready (to prevent re-checking after fitBounds)
-          if (mapReadyRef.current) {
-            // Map is already ready, don't check again
-            isCheckingReady = false;
-            if (checkReadyTimeout) {
-              clearTimeout(checkReadyTimeout);
-              checkReadyTimeout = null;
-            }
+          if (mapReadyRef.current || !isCheckingReady) {
+            // Map is already ready or checking was stopped, don't check again
             return;
           }
           
