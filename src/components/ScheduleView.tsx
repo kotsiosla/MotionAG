@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Calendar, Clock, Loader2, Bus, Star, X, MapPin, Route as RouteIcon, Navigation } from "lucide-react";
+import { Calendar, Clock, Loader2, Bus, Star, X, MapPin, Route as RouteIcon, Navigation, Maximize2 } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
@@ -215,6 +215,8 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
           scrollWheelZoom: true,
           center: [35.0, 33.0], // Default center (Cyprus)
           zoom: 10,
+          maxZoom: 18, // Prevent zooming in too much
+          minZoom: 8, // Prevent zooming out too much
         });
 
         // Add tile layer
@@ -376,10 +378,29 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
           lineJoin: 'round',
         }).addTo(map);
 
-        // Fit map to route bounds
+        // Collect all points for bounds calculation (shape + stops)
+        const allPoints: L.LatLngExpression[] = [...shapePoints];
+        
+        // Add stop positions to bounds calculation
+        if (currentDirection.stops && currentDirection.stops.length > 0) {
+          currentDirection.stops.forEach(stop => {
+            if (stop.lat && stop.lng && typeof stop.lat === 'number' && typeof stop.lng === 'number') {
+              allPoints.push([stop.lat, stop.lng]);
+            }
+          });
+        }
+
+        // Fit map to route bounds - include all stops too
         try {
-          const bounds = L.latLngBounds(shapePoints);
-          map.fitBounds(bounds, { padding: [50, 50] });
+          const bounds = L.latLngBounds(allPoints);
+          // Fit bounds with padding and max zoom to show entire route
+          map.fitBounds(bounds, { 
+            padding: [80, 80], // More padding for better view
+            maxZoom: 14, // Prevent too much zoom in
+            animate: true
+          });
+          
+          console.log('[ScheduleView] Fitted bounds to route, bounds:', bounds.toBBoxString());
         } catch (e) {
           console.error('[ScheduleView] Error fitting bounds:', e);
           // Fallback to default center if bounds fail
@@ -388,10 +409,25 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
 
         // Ensure map renders after bounds change
         setTimeout(() => {
-          if (mapRef.current) {
-            mapRef.current.invalidateSize();
+          if (mapRef.current && allPoints.length > 0) {
+            mapRef.current.invalidateSize(true);
+            // Double-check bounds are correct - if zoom is too high, refit bounds
+            const currentZoom = mapRef.current.getZoom();
+            if (currentZoom > 15 || currentZoom < 8) {
+              // Refit bounds to show all route
+              try {
+                const bounds = L.latLngBounds(allPoints);
+                mapRef.current.fitBounds(bounds, { 
+                  padding: [80, 80],
+                  maxZoom: 14,
+                  animate: false // Don't animate on auto-adjustment
+                });
+              } catch (e) {
+                console.error('[ScheduleView] Error auto-adjusting bounds:', e);
+              }
+            }
           }
-        }, 200);
+        }, 300);
       }
     }
 
@@ -691,6 +727,50 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
                           <div className="text-xl font-bold">{stopsCount}</div>
                         </div>
                       </div>
+                      
+                      {/* Fit to Route Button */}
+                      {mapReady && currentDirection.shape && currentDirection.shape.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs gap-1 w-full flex-shrink-0"
+                          onClick={() => {
+                            if (!mapRef.current) return;
+                            
+                            try {
+                              const shapePoints: L.LatLngExpression[] = currentDirection.shape!
+                                .filter(p => p && typeof p.lat === 'number' && typeof p.lng === 'number')
+                                .map(p => [p.lat, p.lng] as L.LatLngExpression);
+                              
+                              const allPoints: L.LatLngExpression[] = [...shapePoints];
+                              
+                              // Add stop positions
+                              if (currentDirection.stops && currentDirection.stops.length > 0) {
+                                currentDirection.stops.forEach(stop => {
+                                  if (stop.lat && stop.lng && typeof stop.lat === 'number' && typeof stop.lng === 'number') {
+                                    allPoints.push([stop.lat, stop.lng]);
+                                  }
+                                });
+                              }
+                              
+                              if (allPoints.length > 0) {
+                                const bounds = L.latLngBounds(allPoints);
+                                mapRef.current.fitBounds(bounds, { 
+                                  padding: [80, 80],
+                                  maxZoom: 14,
+                                  animate: true
+                                });
+                                console.log('[ScheduleView] Fitted bounds to show all route and stops');
+                              }
+                            } catch (e) {
+                              console.error('[ScheduleView] Error fitting bounds:', e);
+                            }
+                          }}
+                        >
+                          <Maximize2 className="h-3 w-3" />
+                          Εμφάνιση όλης της διαδρομής
+                        </Button>
+                      )}
 
                       {/* Map with Route Shape and Stops */}
                       <div className="flex-1 rounded-lg border overflow-hidden bg-muted/30 relative" style={{ minHeight: '400px', height: '100%' }}>
