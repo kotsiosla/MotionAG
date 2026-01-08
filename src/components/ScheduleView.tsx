@@ -207,6 +207,9 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     container.style.overflow = 'hidden';
     
     // Initialize map immediately (like VehicleMap does)
+    // Define cleanupHandleResize outside try block so it's accessible in catch cleanup
+    let cleanupHandleResize: (() => void) | null = null;
+    
     try {
       console.log('[ScheduleView] Initializing map...');
       const map = L.map(container, {
@@ -249,8 +252,6 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       mapReadyRef.current = false;
       
       // Listen for window resize - define BEFORE cleanup and store for cleanup
-      let cleanupHandleResize: (() => void) | null = null;
-      
       const handleResize = () => {
         if (mapRef.current) {
           setTimeout(() => {
