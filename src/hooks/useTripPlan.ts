@@ -85,15 +85,13 @@ export interface TripPlanData {
   interCityJourney?: InterCityJourney;
 }
 
-async function fetchStopTimes(operatorId?: string, retryCount = 0): Promise<StopTimeInfo[]> {
+async function fetchStopTimes(operatorId?: string): Promise<StopTimeInfo[]> {
   const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
-  const MAX_RETRIES = 2;
-  const TIMEOUT_MS = 90000; // 90 seconds
   
   try {
-    // Add timeout for large data
+    // Add timeout of 60 seconds for large data
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
     
     const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-times${params}`, {
       headers: {
@@ -112,15 +110,6 @@ async function fetchStopTimes(operatorId?: string, retryCount = 0): Promise<Stop
       } catch {
         errorMessage = `Failed to fetch stop times (${response.status} ${response.statusText})`;
       }
-      
-      // Retry on 500 errors or network errors
-      if ((response.status >= 500 || response.status === 0) && retryCount < MAX_RETRIES) {
-        const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
-        console.log(`Retrying stop-times fetch (attempt ${retryCount + 1}/${MAX_RETRIES}) after ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return fetchStopTimes(operatorId, retryCount + 1);
-      }
-      
       throw new Error(errorMessage);
     }
     
@@ -128,14 +117,7 @@ async function fetchStopTimes(operatorId?: string, retryCount = 0): Promise<Stop
     return result.data || [];
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      // Retry on timeout
-      if (retryCount < MAX_RETRIES) {
-        const delay = Math.pow(2, retryCount) * 1000;
-        console.log(`Retrying stop-times fetch after timeout (attempt ${retryCount + 1}/${MAX_RETRIES}) after ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return fetchStopTimes(operatorId, retryCount + 1);
-      }
-      throw new Error('Request timeout - Το αρχείο είναι πολύ μεγάλο. Παρακαλώ δοκιμάστε ξανά σε λίγο.');
+      throw new Error('Request timeout - Το αρχείο είναι πολύ μεγάλο. Παρακαλώ δοκιμάστε ξανά.');
     }
     throw error;
   }
@@ -195,6 +177,8 @@ export function useTripPlan(
     enabled: !!originStopId && !!destinationStopId,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
+    retry: 3, // Retry 3 times on failure
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff: 1s, 2s, 4s (max 30s)
   });
 }
 
@@ -224,6 +208,8 @@ export function useEnhancedTripPlan(
     enabled: !!originStopId && !!destinationStopId,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
+    retry: 3, // Retry 3 times on failure
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff: 1s, 2s, 4s (max 30s)
   });
 }
 

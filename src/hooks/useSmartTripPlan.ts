@@ -112,14 +112,11 @@ function findNearbyStops(
   return nearby;
 }
 
-async function fetchStopTimes(retryCount = 0): Promise<StopTimeInfo[]> {
-  const MAX_RETRIES = 2;
-  const TIMEOUT_MS = 90000; // 90 seconds
-  
+async function fetchStopTimes(): Promise<StopTimeInfo[]> {
   try {
-    // Add timeout for large data
+    // Add timeout of 60 seconds for large data
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
     
     const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-times`, {
       headers: {
@@ -138,15 +135,6 @@ async function fetchStopTimes(retryCount = 0): Promise<StopTimeInfo[]> {
       } catch {
         errorMessage = `Failed to fetch stop times (${response.status} ${response.statusText})`;
       }
-      
-      // Retry on 500 errors or network errors
-      if ((response.status >= 500 || response.status === 0) && retryCount < MAX_RETRIES) {
-        const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
-        console.log(`Retrying stop-times fetch (attempt ${retryCount + 1}/${MAX_RETRIES}) after ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return fetchStopTimes(retryCount + 1);
-      }
-      
       throw new Error(errorMessage);
     }
     
@@ -154,14 +142,7 @@ async function fetchStopTimes(retryCount = 0): Promise<StopTimeInfo[]> {
     return result.data || [];
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      // Retry on timeout
-      if (retryCount < MAX_RETRIES) {
-        const delay = Math.pow(2, retryCount) * 1000;
-        console.log(`Retrying stop-times fetch after timeout (attempt ${retryCount + 1}/${MAX_RETRIES}) after ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return fetchStopTimes(retryCount + 1);
-      }
-      throw new Error('Request timeout - Το αρχείο είναι πολύ μεγάλο. Παρακαλώ δοκιμάστε ξανά σε λίγο.');
+      throw new Error('Request timeout - Το αρχείο είναι πολύ μεγάλο. Παρακαλώ δοκιμάστε ξανά.');
     }
     throw error;
   }
@@ -956,9 +937,34 @@ export function useSmartTripPlan(
       
       console.log(`Smart trip planning from ${originStop.stop_name} to ${destStop.stop_name} (max walk: ${maxWalkingDistance}m)`);
       
-      // Fetch all data
-      const [stopTimes, tripsStatic, routes, stops] = await Promise.all([
-        fetchStopTimes(),
+      // Fetch stop times with retry logic (most critical and prone to failures)
+      let stopTimes: StopTimeInfo[] = [];
+      let retries = 0;
+      const maxRetries = 3;
+      
+      while (retries < maxRetries && stopTimes.length === 0) {
+        try {
+          stopTimes = await fetchStopTimes();
+          if (stopTimes.length === 0 && retries < maxRetries - 1) {
+            console.log(`Retry ${retries + 1}/${maxRetries} - No stop times returned, retrying...`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * (retries + 1))); // Wait before retry
+            retries++;
+          } else {
+            break;
+          }
+        } catch (error) {
+          console.error(`Error fetching stop times (attempt ${retries + 1}/${maxRetries}):`, error);
+          if (retries < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * (retries + 1))); // Wait before retry
+            retries++;
+          } else {
+            throw error; // Re-throw on final attempt
+          }
+        }
+      }
+      
+      // Fetch other data in parallel
+      const [tripsStatic, routes, stops] = await Promise.all([
         fetchTripsStatic(),
         fetchRoutes(),
         fetchStops(),
@@ -1034,5 +1040,7 @@ export function useSmartTripPlan(
     enabled: !!originStop && !!destStop,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
+    retry: 2, // Retry 2 more times (total 3 attempts with internal retry)
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
   });
 }
