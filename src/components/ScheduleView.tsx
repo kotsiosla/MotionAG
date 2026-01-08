@@ -279,7 +279,9 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         
         if (!mapRef.current) {
           console.log(`[ScheduleView] Map ref is null (check ${checkCount}/${maxChecks}), retrying...`);
-          checkReadyTimeout = setTimeout(checkReady, 200);
+          if (isCheckingReady) {
+            checkReadyTimeout = setTimeout(checkReady, 200);
+          }
           return;
         }
         
@@ -289,7 +291,9 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
         
         if (rect.width === 0 || rect.height === 0) {
           console.log('[ScheduleView] Container has no dimensions yet, retrying...');
-          checkReadyTimeout = setTimeout(checkReady, 200);
+          if (isCheckingReady) {
+            checkReadyTimeout = setTimeout(checkReady, 200);
+          }
           return;
         }
         
@@ -304,6 +308,10 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
           
           if (typeof zoom === 'number' && size.x > 0 && size.y > 0) {
             isCheckingReady = false; // Stop checking
+            if (checkReadyTimeout) {
+              clearTimeout(checkReadyTimeout);
+              checkReadyTimeout = null;
+            }
             setMapReady(true);
             console.log('[ScheduleView] Map is ready!');
           } else {
@@ -312,17 +320,25 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
               // Container has size and zoom is valid, map is likely ready but size is temporarily 0
               console.log('[ScheduleView] Map appears ready (container has size, zoom valid), but map size is 0 - likely during animation');
               isCheckingReady = false;
+              if (checkReadyTimeout) {
+                clearTimeout(checkReadyTimeout);
+                checkReadyTimeout = null;
+              }
               setMapReady(true);
             } else {
               // Not ready yet, retry
               console.log('[ScheduleView] Map not fully ready (size or zoom invalid), retrying...');
-              checkReadyTimeout = setTimeout(checkReady, 200);
+              if (isCheckingReady) {
+                checkReadyTimeout = setTimeout(checkReady, 200);
+              }
             }
           }
         } catch (e) {
           // Map not ready yet, retry
           console.log('[ScheduleView] Map getZoom/getSize failed, retrying...', e);
-          checkReadyTimeout = setTimeout(checkReady, 200);
+          if (isCheckingReady) {
+            checkReadyTimeout = setTimeout(checkReady, 200);
+          }
         }
       };
 
