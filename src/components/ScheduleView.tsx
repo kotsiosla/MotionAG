@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Calendar, Clock, Loader2, Bus, Star, X, MapPin, Route as RouteIcon, Navigation, Maximize2 } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -180,6 +180,19 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
 
   const bgColor = selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))';
 
+  // Define handleResize as stable callback using useCallback
+  // This ensures it's always accessible in cleanup, even during hot reload
+  const handleResize = useCallback(() => {
+    if (mapRef.current) {
+      setTimeout(() => {
+        mapRef.current?.invalidateSize(true);
+      }, 100);
+    }
+  }, []); // Empty deps - mapRef is stable
+
+  // Store in ref for cleanup
+  handleResizeRef.current = handleResize;
+
   // Initialize map when route is selected - simple approach like VehicleMap
   useEffect(() => {
     if (!selectedRoute) {
@@ -208,15 +221,6 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     container.style.overflow = 'hidden';
     
     // Initialize map immediately (like VehicleMap does)
-    // Define handleResize and store in ref so it's always accessible in cleanup
-    const handleResize = () => {
-      if (mapRef.current) {
-        setTimeout(() => {
-          mapRef.current?.invalidateSize(true);
-        }, 100);
-      }
-    };
-    handleResizeRef.current = handleResize; // Store in ref for cleanup
     
     try {
       console.log('[ScheduleView] Initializing map...');
@@ -259,7 +263,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
       lastFittedRouteRef.current = null;
       mapReadyRef.current = false;
       
-      // Listen for window resize
+      // Listen for window resize - use the stable handleResize callback
       window.addEventListener('resize', handleResize);
 
       // Check if map is ready - similar to VehicleMap
