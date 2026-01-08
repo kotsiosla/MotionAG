@@ -808,9 +808,9 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
                   const stopsCount = currentDirection.stops?.length || 0;
 
                   return (
-                    <div className="flex-1 flex flex-col space-y-3 overflow-hidden" style={{ height: '100%', minHeight: 0 }}>
+                    <div className="flex-1 flex flex-col space-y-2 lg:space-y-3 overflow-hidden" style={{ height: '100%', minHeight: 0 }}>
                       {/* Statistics */}
-                      <div className="grid grid-cols-2 gap-3 flex-shrink-0">
+                      <div className="grid grid-cols-2 gap-2 lg:gap-3 flex-shrink-0">
                         <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
                           <div className="flex items-center gap-2 mb-1">
                             <Navigation className="h-4 w-4 text-primary" />
