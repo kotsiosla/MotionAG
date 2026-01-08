@@ -87,14 +87,40 @@ export interface TripPlanData {
 
 async function fetchStopTimes(operatorId?: string): Promise<StopTimeInfo[]> {
   const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-times${params}`, {
-    headers: {
-      'Authorization': `Bearer ${getSupabaseKey()}`,
-    },
-  });
-  if (!response.ok) throw new Error('Failed to fetch stop times');
-  const result = await response.json();
-  return result.data || [];
+  
+  try {
+    // Add timeout of 60 seconds for large data
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-times${params}`, {
+      headers: {
+        'Authorization': `Bearer ${getSupabaseKey()}`,
+      },
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      let errorMessage = 'Failed to fetch stop times';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch {
+        errorMessage = `Failed to fetch stop times (${response.status} ${response.statusText})`;
+      }
+      throw new Error(errorMessage);
+    }
+    
+    const result = await response.json();
+    return result.data || [];
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timeout - Το αρχείο είναι πολύ μεγάλο. Παρακαλώ δοκιμάστε ξανά.');
+    }
+    throw error;
+  }
 }
 
 async function fetchTripsStatic(operatorId?: string): Promise<TripStaticInfo[]> {
