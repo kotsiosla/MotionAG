@@ -364,20 +364,20 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const resolveRouteIdForVehicle = useCallback((vehicle: Vehicle | undefined | null): string | null => {
     if (!vehicle) return null;
     const direct = vehicle.routeId;
-    if (typeof direct === 'string' && direct && direct !== 'all') return direct;
+    if ((typeof direct === 'string' || typeof direct === 'number') && String(direct) !== 'all') return String(direct);
 
     const tripId = vehicle.tripId;
     if (tripId && Array.isArray(trips)) {
       const tripMatch = trips.find((t) => t?.tripId === tripId);
       const fromTrip = tripMatch?.routeId;
-      if (typeof fromTrip === 'string' && fromTrip && fromTrip !== 'all') return fromTrip;
+      if ((typeof fromTrip === 'string' || typeof fromTrip === 'number') && String(fromTrip) !== 'all') return String(fromTrip);
     }
 
     const vehicleId = vehicle.vehicleId || vehicle.id;
     if (vehicleId && Array.isArray(trips)) {
       const tripMatch = trips.find((t) => t?.vehicleId === vehicleId);
       const fromVehicleTrip = tripMatch?.routeId;
-      if (typeof fromVehicleTrip === 'string' && fromVehicleTrip && fromVehicleTrip !== 'all') return fromVehicleTrip;
+      if ((typeof fromVehicleTrip === 'string' || typeof fromVehicleTrip === 'number') && String(fromVehicleTrip) !== 'all') return String(fromVehicleTrip);
     }
 
     return null;
@@ -2127,6 +2127,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           // Find the vehicle directly from followedVehicleId if not already found
           const vehicle = followedVehicle || (followedVehicleId && Array.isArray(vehicles) ? vehicles.find((v) => v && (v.vehicleId || v.id) === followedVehicleId) : null);
           const effectiveRouteId = (vehicle ? resolveRouteIdForVehicle(vehicle) : null) || selectedRoute;
+
 
           // Only show panel if we have a valid routeId (not 'all' or undefined or empty string)
           if (!effectiveRouteId || effectiveRouteId === 'all' || effectiveRouteId === '' || typeof effectiveRouteId !== 'string') {
