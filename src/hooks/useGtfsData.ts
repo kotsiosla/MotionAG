@@ -4,21 +4,21 @@ import type { Vehicle, Trip, Alert, GtfsResponse, RouteInfo, StaticStop } from "
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://jftthfniwfarxyisszjh.supabase.co';
 
 async function fetchFromProxy<T>(endpoint: string, operatorId?: string): Promise<GtfsResponse<T>> {
-  const params = operatorId && operatorId !== 'all' 
-    ? `?operator=${operatorId}` 
+  const params = operatorId && operatorId !== 'all'
+    ? `?operator=${operatorId}`
     : '';
-  
+
   const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || (() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('supabase_anon_key') || '';
     }
     return '';
   })();
-  
+
   if (!SUPABASE_KEY) {
     throw new Error('Supabase API key is missing. Please set VITE_SUPABASE_PUBLISHABLE_KEY in .env file.');
   }
-  
+
   const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy${endpoint}${params}`, {
     headers: {
       'Authorization': `Bearer ${SUPABASE_KEY}`,
@@ -87,40 +87,69 @@ export interface RouteShapeData {
 }
 
 export function useRouteShape(routeId: string | null, operatorId?: string) {
+  // Key for localStorage (include operatorId if present for uniqueness)
+  const storageKey = `route_shape_${routeId}_${operatorId || 'default'}`;
+
   return useQuery({
     queryKey: ['route-shape', routeId, operatorId],
     queryFn: async () => {
       if (!routeId || routeId === 'all') return null;
-      
+
       console.log('[useRouteShape] Fetching route shape for:', { routeId, operatorId });
-      
+
       const params = new URLSearchParams();
       params.set('route', routeId);
       if (operatorId && operatorId !== 'all') params.set('operator', operatorId);
-      
+
       const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('supabase_anon_key') || '' : '');
       if (!SUPABASE_KEY) throw new Error('Supabase API key is missing');
-      
+
       const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/route-shape?${params}`, {
         headers: {
           'Authorization': `Bearer ${SUPABASE_KEY}`,
         },
       });
-      
+
       const result = await response.json();
-      
+
       if (!response.ok) {
         console.error('[useRouteShape] Error:', result);
         throw new Error(result.error || 'Failed to fetch route shape');
       }
-      
+
       console.log('[useRouteShape] Success, directions:', result.data?.directions?.length || 0);
+
+      // Cache to localStorage
+      try {
+        if (result.data) {
+          localStorage.setItem(storageKey, JSON.stringify(result.data));
+        }
+      } catch (e) {
+        console.warn('Failed to cache route shape:', e);
+      }
+
       return result.data as RouteShapeData;
+    },
+    // Use data from localStorage as initial data if available
+    initialData: () => {
+      if (!routeId || typeof window === 'undefined') return undefined;
+      try {
+        const cached = localStorage.getItem(storageKey);
+        if (cached) {
+          console.log('[useRouteShape] Loaded from local cache');
+          return JSON.parse(cached) as RouteShapeData;
+        }
+      } catch (e) {
+        console.warn('Failed to load route shape from cache:', e);
+      }
+      return undefined;
     },
     enabled: !!routeId && routeId !== 'all',
     staleTime: 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
     retry: 2,
+    // Keep initial data while fetching fresh data to avoid flicker
+    placeholderData: (previousData) => previousData,
   });
 }
 
@@ -174,18 +203,18 @@ export function useRouteSchedule(routeId: string | null, operatorId?: string) {
       const params = new URLSearchParams();
       params.set('route', routeId);
       if (operatorId && operatorId !== 'all') params.set('operator', operatorId);
-      
+
       console.log(`Fetching schedule for route ${routeId}, operator ${operatorId}`);
-      
+
       const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('supabase_anon_key') || '' : '');
       if (!SUPABASE_KEY) throw new Error('Supabase API key is missing');
-      
+
       const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/schedule?${params}`, {
         headers: {
           'Authorization': `Bearer ${SUPABASE_KEY}`,
         },
       });
-      
+
       if (!response.ok) {
         console.error('Failed to fetch route schedule:', response.status, response.statusText);
         throw new Error('Failed to fetch route schedule');
@@ -222,16 +251,16 @@ export function useStopRoutes(stopId: string | null, operatorId?: string) {
       const params = new URLSearchParams();
       params.set('stop', stopId);
       if (operatorId && operatorId !== 'all') params.set('operator', operatorId);
-      
+
       const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('supabase_anon_key') || '' : '');
       if (!SUPABASE_KEY) throw new Error('Supabase API key is missing');
-      
+
       const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-routes?${params}`, {
         headers: {
           'Authorization': `Bearer ${SUPABASE_KEY}`,
         },
       });
-      
+
       if (!response.ok) throw new Error('Failed to fetch stop routes');
       const result = await response.json();
       return result.data as StopRoutesData;
