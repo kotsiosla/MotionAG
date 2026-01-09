@@ -855,7 +855,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
           ) : routeShapeQuery.data && routeShapeQuery.data.directions && routeShapeQuery.data.directions.length > 0 ? (
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 overflow-hidden" style={{ height: 'calc(100% - 20px)', minHeight: '500px' }}>
               {/* Left: Map with Shape File and Distance in km */}
-              <div className="flex flex-col overflow-hidden space-y-2 lg:space-y-3 h-full min-h-0">
+              <div className="flex flex-col space-y-2 lg:space-y-3 h-full min-h-0">
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <RouteIcon className="h-4 w-4 lg:h-5 lg:w-5 text-primary" />
                   <h3 className="text-sm lg:text-base font-semibold">Χάρτης Διαδρομής</h3>
@@ -890,7 +890,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
                   const stopsCount = currentDirection.stops?.length || 0;
 
                   return (
-                    <div className="flex-1 flex flex-col space-y-2 lg:space-y-3 overflow-hidden" style={{ height: '100%', minHeight: 0 }}>
+                    <div className="flex-1 flex flex-col space-y-2 lg:space-y-3" style={{ height: '100%', minHeight: 0 }}>
                       {/* Statistics */}
                       <div className="grid grid-cols-2 gap-2 lg:gap-3 flex-shrink-0">
                         <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
@@ -909,81 +909,21 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
                         </div>
                       </div>
 
-                      {/* Fit to Route Button */}
-                      {mapReady && currentDirection.shape && currentDirection.shape.length > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs gap-1 w-full flex-shrink-0"
-                          onClick={() => {
-                            if (!mapRef.current) return;
-
-                            try {
-                              const shapePoints: L.LatLngExpression[] = currentDirection.shape!
-                                .filter(p => p && typeof p.lat === 'number' && typeof p.lng === 'number')
-                                .map(p => [p.lat, p.lng] as L.LatLngExpression);
-
-                              const allPoints: L.LatLngExpression[] = [...shapePoints];
-
-                              // Add stop positions
-                              if (currentDirection.stops && currentDirection.stops.length > 0) {
-                                currentDirection.stops.forEach(stop => {
-                                  if (stop.lat && stop.lng && typeof stop.lat === 'number' && typeof stop.lng === 'number') {
-                                    allPoints.push([stop.lat, stop.lng]);
-                                  }
-                                });
-                              }
-
-                              if (allPoints.length > 0) {
-                                const bounds = L.latLngBounds(allPoints);
-                                mapRef.current.fitBounds(bounds, {
-                                  padding: [80, 80],
-                                  maxZoom: 14,
-                                  animate: true
-                                });
-                                console.log('[ScheduleView] Fitted bounds to show all route and stops');
-                              }
-                            } catch (e) {
-                              console.error('[ScheduleView] Error fitting bounds:', e);
-                            }
-                          }}
-                        >
-                          <Maximize2 className="h-3 w-3" />
-                          Εμφάνιση όλης της διαδρομής
-                        </Button>
-                      )}
-
                       {/* Map with Route Shape and Stops */}
-                      <div className="flex-1 rounded-lg border overflow-hidden bg-muted/30 relative" style={{ minHeight: '300px', height: '100%' }}>
+                      <div className="flex-1 rounded-lg border overflow-hidden bg-muted/30 relative min-h-[400px] lg:min-h-0">
                         <div
                           ref={mapContainerRef}
                           className="w-full h-full"
-                          style={{
-                            width: '100%',
-                            height: '300px', // CRITICAL FIX: Explicit fixed height to prevent size {x: 0, y: 0}
-                            minHeight: '300px',
-                            display: 'block',
-                            position: 'relative',
-                            zIndex: 1
-                          }}
+                          style={{ minHeight: '400px', height: '100%' }}
                         />
                         {!mapReady && (
                           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground z-50 bg-background/95 pointer-events-none">
                             <div className="text-center pointer-events-auto">
                               <Loader2 className="h-12 w-12 mx-auto mb-2 opacity-30 animate-spin" />
                               <p className="text-sm">Προετοιμασία χάρτη...</p>
-                              <p className="text-xs mt-2 opacity-50">Container: {mapContainerRef.current ? `${mapContainerRef.current.offsetWidth}x${mapContainerRef.current.offsetHeight}` : 'null'}</p>
                             </div>
                           </div>
                         )}
-                        {mapReady && routeShapeQuery.isLoading && (!currentDirection?.shape || currentDirection.shape.length === 0) ? (
-                          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground z-10 bg-background/70 pointer-events-none">
-                            <div className="text-center">
-                              <Loader2 className="h-12 w-12 mx-auto mb-2 opacity-30 animate-spin" />
-                              <p className="text-sm">Φόρτωση διαδρομής...</p>
-                            </div>
-                          </div>
-                        ) : null}
                       </div>
                     </div>
                   );
