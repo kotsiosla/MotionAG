@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
+import { useStopNotifications } from "@/hooks/useStopNotifications";
 import type { Alert, Trip, RouteInfo } from "@/types/gtfs";
 
 interface StopNotification {
@@ -97,59 +98,19 @@ const formatPeriod = (start?: number, end?: number) => {
 };
 
 export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoading }: AlertsListProps) {
-  // Load stop notifications from localStorage
-  const [stopNotifications, setStopNotifications] = useState<StopNotification[]>([]);
-
-  useEffect(() => {
-    const loadNotifications = () => {
-      try {
-        const stored = localStorage.getItem('stop_notifications');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          setStopNotifications(Array.isArray(parsed) ? parsed : []);
-        }
-      } catch (e) {
-        console.error('Failed to load stop notifications:', e);
-      }
-    };
-
-    loadNotifications();
-
-    // Listen for storage changes (from other components)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'stop_notifications') {
-        loadNotifications();
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-
-    // Also poll periodically for changes within same tab
-    const interval = setInterval(loadNotifications, 2000);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
-  }, []);
+  // Use the hook for centralized state management
+  const {
+    notifications: stopNotifications,
+    setNotification: updateNotification,
+    removeNotification
+  } = useStopNotifications();
 
   // Toggle notification enabled state
   const toggleNotification = (stopId: string) => {
-    setStopNotifications(prev => {
-      const updated = prev.map(n =>
-        n.stopId === stopId ? { ...n, enabled: !n.enabled } : n
-      );
-      localStorage.setItem('stop_notifications', JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  // Remove notification
-  const removeNotification = (stopId: string) => {
-    setStopNotifications(prev => {
-      const updated = prev.filter(n => n.stopId !== stopId);
-      localStorage.setItem('stop_notifications', JSON.stringify(updated));
-      return updated;
-    });
+    const existing = stopNotifications.find(n => n.stopId === stopId);
+    if (existing) {
+      updateNotification({ ...existing, enabled: !existing.enabled });
+    }
   };
 
 
