@@ -329,186 +329,207 @@ serve(async (req) => {
             });
         }
 
-        console.log(`Checking ${subscriptions.length} subscriptions for stop arrivals`);
+        // Group subscriptions by Stop ID to minimize requests
+        const stopSubscriptions: Record<string, StopSubscription[]> = {};
 
-        // Fetch trip updates from gtfs-proxy
-        let tripUpdates: unknown[] = [];
-
-        try {
-            const proxyResponse = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/trips?operator=all`, {
-                headers: {
-                    'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-                }
-            });
-
-            if (proxyResponse.ok) {
-                const proxyData = await proxyResponse.json();
-                if (proxyData.data && Array.isArray(proxyData.data)) {
-                    tripUpdates = proxyData.data;
-                    console.log(`Got ${tripUpdates.length} trip updates from gtfs-proxy`);
-                }
-            } else {
-                console.log('gtfs-proxy returned:', proxyResponse.status);
-            }
-        } catch (e) {
-            console.error('Error fetching from gtfs-proxy:', e);
-        }
-
-        if (tripUpdates.length === 0) {
-            console.log('No trip updates available');
-            return new Response(JSON.stringify({ checked: subscriptions.length, sent: 0, reason: 'no_trips' }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
-        }
-
-        const nowSeconds = Math.floor(Date.now() / 1000);
-        const notificationsSent: string[] = [];
-
-        // Check each subscription
         for (const sub of subscriptions as StopSubscription[]) {
             const stopSettings = sub.stop_notifications || [];
             const enabledSettings = Array.isArray(stopSettings)
                 ? stopSettings.filter(s => s && s.enabled && s.push)
                 : [];
 
-            if (enabledSettings.length === 0) continue;
-
-            const lastNotified = sub.last_notified || {};
-
-            for (const settings of enabledSettings) {
-                for (const trip of tripUpdates as Record<string, unknown>[]) {
-                    const stopTimeUpdates = (trip.stopTimeUpdates || trip.stop_time_updates || []) as Record<string, unknown>[];
-                    if (!Array.isArray(stopTimeUpdates)) continue;
-
-                    for (const stu of stopTimeUpdates) {
-                        const stuStopId = stu.stopId || stu.stop_id;
-                        const arrival = stu.arrival as Record<string, unknown> | undefined;
-                        const arrivalTime = (stu.arrivalTime || stu.arrival_time || (arrival && arrival.time)) as number | undefined;
-
-                        if (stuStopId !== settings.stopId || !arrivalTime) continue;
-
-                        const secondsUntil = arrivalTime - nowSeconds;
-                        const minutesUntil = Math.round(secondsUntil / 60);
-
-                        // Progressive notifications: Send at 5, 3, 2, and 1 minute intervals
-                        // This ensures no bus is missed even if timing is off
-                        const notificationIntervals = [5, 3, 2, 1];
-                        const maxBeforeMinutes = Math.max(settings.beforeMinutes, 5); // At least 5 minutes
-
-                        // Improved Logic:
-                        // Check if we should send notification for any of the intervals
-                        // We notify if:
-                        // 1. We are within the interval (e.g. <= 5 mins)
-                        // 2. We haven't notified for this specific interval yet
-                        // 3. We haven't notified for a *closer* interval yet (e.g. if we are at 2 mins, don't send 5 min alert)
-
-                        let shouldNotify = false;
-                        let notificationInterval = 0;
-
-                        const routeId = (trip.routeId || trip.route_id || 'unknown') as string;
-                        const baseNotifKey = `${settings.stopId}-${routeId}-${Math.floor(arrivalTime / 60)}`;
-
-                        // Sort intervals descending (5, 3, 2, 1)
-                        // We want to find the *smallest* interval that we satisfy
-                        // e.g. if we are at 2.5 mins, we satisfy 5 and 3. We want to send 3 (or 2 if we are close enough).
-
-                        // Actually, we want to send the Alert for the specific bucket we are in.
-                        // But to be safe, if we missed the alert start and we are now at 4 minutes, we should send the 5 minute alert (or a generic "approaching" alert).
-
-                        for (const interval of notificationIntervals) {
-                            if (interval > maxBeforeMinutes) continue;
-
-                            // If we are significantly past this interval (e.g. at 2 mins vs 5 mins), 
-                            // we don't need to send the 5-min alert if we are going to send the 2-min alert anyway.
-                            // But if we missed the start, we might want to catch up.
-
-                            const intervalKey = `${baseNotifKey}-${interval}`;
-                            const hasSentThisInterval = lastNotified[intervalKey] > 0;
-
-                            if (!hasSentThisInterval && minutesUntil <= interval) {
-                                // We are within range and haven't sent this specific alert
-                                shouldNotify = true;
-                                notificationInterval = interval;
-
-                                // Break so we prioritize the tightest valid interval
-                                // e.g. at 1.5 mins, we match 5, 3, 2. We want to send the '2' or '1' alert? 
-                                // We typically want the most urgent one that hasn't been sent.
-                                // Since we iterate 5, 3, 2, 1... 
-                                // If we match 2 (<=2), we set it. Then we check 1. If we match 1 (<=1), we overwrite.
-                                // So we naturally select the smallest (most urgent) interval.
-                            }
-                        }
-
-                        if (shouldNotify && notificationInterval > 0) {
-                            const routeId = (trip.routeId || trip.route_id || 'unknown') as string;
-                            const routeName = (trip.routeShortName || trip.route_short_name || routeId) as string;
-                            const baseNotifKey = `${settings.stopId}-${routeId}-${Math.floor(arrivalTime / 60)}`;
-                            const intervalNotifKey = `${baseNotifKey}-${notificationInterval}`;
-                            const lastNotifTime = lastNotified[intervalNotifKey] || 0;
-
-                            // Prevent duplicate notifications within 30 seconds
-                            if (nowSeconds - lastNotifTime < 30) {
-                                continue;
-                            }
-
-                            try {
-                                const urgencyEmoji = minutesUntil <= 1 ? '🚨' : minutesUntil <= 2 ? '⚠️' : minutesUntil <= 3 ? '🔔' : '🚌';
-                                const urgencyText = minutesUntil <= 1 ? 'ΤΩΡΑ!' : minutesUntil <= 2 ? 'Σύντομα' : minutesUntil <= 3 ? 'Προσεχώς' : 'Ερχεται';
-
-                                const payload = JSON.stringify({
-                                    title: `${urgencyEmoji} ${routeName} ${urgencyText} - ${minutesUntil}'`,
-                                    body: `Φτάνει στη στάση "${settings.stopName}"${minutesUntil <= 2 ? ' - Ετοιμάσου!' : ''}`,
-                                    icon: '/pwa-192x192.png',
-                                    url: `/?stop=${settings.stopId}`,
-                                    tag: `arrival-${settings.stopId}-${routeId}-${notificationInterval}`,
-                                    vibrate: minutesUntil <= 1 ? [300, 100, 300, 100, 300] : minutesUntil <= 2 ? [200, 100, 200, 100, 200] : [200, 100, 200],
-                                    requireInteraction: minutesUntil <= 2,
-                                    badge: '/pwa-192x192.png',
-                                    timestamp: arrivalTime * 1000,
-                                });
-
-                                const result = await sendPushNotification(
-                                    sub.endpoint,
-                                    sub.p256dh,
-                                    sub.auth,
-                                    payload,
-                                    VAPID_PUBLIC_KEY,
-                                    VAPID_PRIVATE_KEY
-                                );
-
-                                if (result.success) {
-                                    console.log(`✅ Push sent: stop ${settings.stopId}, route ${routeId}, ${minutesUntil} min (interval: ${notificationInterval})`);
-                                    lastNotified[intervalNotifKey] = nowSeconds;
-                                    notificationsSent.push(intervalNotifKey);
-                                } else {
-                                    console.error('❌ Push error:', result.statusCode, result.error);
-
-                                    if (result.statusCode === 410 || result.statusCode === 404) {
-                                        await supabase.from('stop_notification_subscriptions').delete().eq('id', sub.id);
-                                        console.log('Removed invalid subscription');
-                                    }
-                                }
-                            } catch (pushError: unknown) {
-                                const errorMessage = pushError instanceof Error ? pushError.message : String(pushError);
-                                console.error('Push error:', errorMessage);
-                            }
-                        }
-                    }
+            for (const setting of enabledSettings) {
+                if (!stopSubscriptions[setting.stopId]) {
+                    stopSubscriptions[setting.stopId] = [];
                 }
-            }
-
-            if (Object.keys(lastNotified).length > 0) {
-                await supabase
-                    .from('stop_notification_subscriptions')
-                    .update({ last_notified: lastNotified })
-                    .eq('id', sub.id);
+                // Avoid adding the same subscription multiple times for the same stop
+                if (!stopSubscriptions[setting.stopId].find(s => s.id === sub.id)) {
+                    stopSubscriptions[setting.stopId].push(sub);
+                }
             }
         }
 
-        console.log(`Checked ${subscriptions.length} subscriptions, sent ${notificationsSent.length} notifications`);
+        const stopIds = Object.keys(stopSubscriptions);
+        console.log(`Checking arrivals for ${stopIds.length} unique stops`);
+
+        // Process stops in batches to avoid overwhelming the proxy
+        const CHUNK_SIZE = 5;
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        let processedStops = 0; // This variable was declared but not initialized in the instruction, assuming it should be 0.
+        const notificationsSent: string[] = [];
+
+        for (let i = 0; i < stopIds.length; i += CHUNK_SIZE) {
+            const chunk = stopIds.slice(i, i + CHUNK_SIZE);
+            const promises = chunk.map(async (stopId) => {
+                try {
+                    // Fetch merged arrivals (GTFS + SIRI) for this stop
+                    const arrivalResponse = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/arrivals?stopId=${stopId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                        }
+                    });
+
+                    if (!arrivalResponse.ok) {
+                        console.error(`Failed to fetch arrivals for stop ${stopId}: ${arrivalResponse.status}`);
+                        return;
+                    }
+
+                    const arrivalData = await arrivalResponse.json();
+                    const arrivals = arrivalData.data || [];
+
+                    if (arrivals.length === 0) return;
+
+                    // Check all subscriptions for this stop
+                    const relevantSubs = stopSubscriptions[stopId];
+
+                    for (const sub of relevantSubs) {
+                        const settings = sub.stop_notifications.find(s => s.stopId === stopId);
+                        if (!settings || !settings.enabled || !settings.push) continue;
+
+                        const lastNotified = sub.last_notified || {};
+                        let subUpdated = false;
+
+                        for (const arrival of arrivals) {
+                            // Match route (handle potential mismatches in ID format)
+                            // Notification settings might save "8040012", arrival might be "0012" or vice versa
+                            // We should ideally check if one contains the other or strict match if possible
+                            // For now, we rely on the specific Route ID saved in settings. 
+                            // NOTE: Ideally we should use route short name matching too but settings don't strictly have it.
+                            // WE will check if arrival.routeId matches settings (which is implicitly what we want)
+                            // But wait, the user subscribes to a specific Route at a Stop.
+                            // Does the setting store RouteID?
+                            // StopNotificationSettings interface from Line 9:
+                            // stopId, stopName, enabled... BEFORE MINUTES.
+                            // IT DOES NOT FILTER BY ROUTE ID! 
+                            // Wait, Stop Notifications are usually "Notify me for ANY bus at this stop" ???
+                            // Let's check the Interface again.
+
+                            // Interface StopNotificationSettings (Line 9):
+                            // stopId, stopName, enabled...
+                            // IT DOES NOT HAVE ROUTE ID.
+                            // This means the user wants to be notified for ALL buses at this stop?
+                            // OR is it "Watched Trips"?
+                            // Line 15 (in useStopNotifications.ts) has 'watchedTrips?: string[]'.
+                            // The interface in THIS file (Line 9) MISSES 'watchedTrips'.
+                            // I need to update the interface too? 
+                            // No, if the user wants ANY bus, then we notify for ANY arrival.
+                            // If the user wants specific trips, we need that field.
+                            // Assuming "Any Bus" for now based on current interface. 
+                            // Wait, `check-stop-arrivals/index.ts` code I read earlier didn't check RouteID against settings. 
+                            // It just iterated trips and checked `stuStopId === settings.stopId`.
+                            // So yes, it notifies for ALL buses.
+
+                            const arrivalTime = arrival.bestArrivalTime;
+                            if (!arrivalTime) continue;
+
+                            const routeId = arrival.routeId || 'unknown';
+                            const routeName = arrival.routeShortName || routeId;
+
+                            const secondsUntil = arrivalTime - nowSeconds;
+                            const minutesUntil = Math.round(secondsUntil / 60);
+
+                            // Progressive notifications: 5, 3, 2, 1
+                            const notificationIntervals = [5, 3, 2, 1];
+                            const maxBeforeMinutes = Math.max(settings.beforeMinutes, 5);
+
+                            // Improved Logic (Stateful Catch-up)
+                            let shouldNotify = false;
+                            let notificationInterval = 0;
+                            const baseNotifKey = `${settings.stopId}-${routeId}-${Math.floor(arrivalTime / 60)}`;
+
+                            for (const interval of notificationIntervals) {
+                                if (interval > maxBeforeMinutes) continue;
+
+                                const intervalKey = `${baseNotifKey}-${interval}`;
+                                const hasSentThisInterval = lastNotified[intervalKey] > 0;
+
+                                if (!hasSentThisInterval && minutesUntil <= interval) {
+                                    shouldNotify = true;
+                                    notificationInterval = interval;
+                                    // Keep checking smaller intervals to find the "tightest" one? 
+                                    // Actually, iterating 5->1. 
+                                    // If we are at 1 min.
+                                    // 5 > 1 (True). Sent? No. Set interval=5.
+                                    // 3 > 1 (True). Sent? No. Set interval=3.
+                                    // ...
+                                    // We want the most specific one.
+                                    // The loop overwrites `notificationInterval`. 
+                                    // So we end up with the smallest interval (1). 
+                                    // Validate: "1" is the alert we want to send if we are at 1m.
+                                    // Correct.
+                                }
+                            }
+
+                            if (shouldNotify && notificationInterval > 0) {
+                                // Prevent duplicate notifications within 30 seconds (global protection)
+                                const intervalNotifKey = `${baseNotifKey}-${notificationInterval}`;
+                                const lastNotifTime = lastNotified[intervalNotifKey] || 0;
+                                if (nowSeconds - lastNotifTime < 30) continue;
+
+                                try {
+                                    const urgencyEmoji = minutesUntil <= 1 ? '🚨' : minutesUntil <= 2 ? '⚠️' : minutesUntil <= 3 ? '🔔' : '🚌';
+                                    const urgencyText = minutesUntil <= 1 ? 'ΤΩΡΑ!' : minutesUntil <= 2 ? 'Σύντομα' : minutesUntil <= 3 ? 'Προσεχώς' : 'Ερχεται';
+
+                                    const sourceIndicator = arrival.source === 'siri' ? '📡' : ''; // Indicate if using SIRI
+
+                                    const payload = JSON.stringify({
+                                        title: `${urgencyEmoji} ${routeName} ${urgencyText} - ${minutesUntil}' ${sourceIndicator}`,
+                                        body: `Φτάνει στη στάση "${settings.stopName}"${minutesUntil <= 2 ? ' - Ετοιμάσου!' : ''}`,
+                                        icon: '/pwa-192x192.png',
+                                        url: `/?stop=${settings.stopId}`,
+                                        tag: `arrival-${settings.stopId}-${routeId}-${notificationInterval}`,
+                                        vibrate: minutesUntil <= 1 ? [300, 100, 300, 100, 300] : minutesUntil <= 2 ? [200, 100, 200, 100, 200] : [200, 100, 200],
+                                        requireInteraction: minutesUntil <= 2,
+                                        badge: '/pwa-192x192.png',
+                                        timestamp: arrivalTime * 1000,
+                                    });
+
+                                    const result = await sendPushNotification(
+                                        sub.endpoint,
+                                        sub.p256dh,
+                                        sub.auth,
+                                        payload,
+                                        VAPID_PUBLIC_KEY,
+                                        VAPID_PRIVATE_KEY
+                                    );
+
+                                    if (result.success) {
+                                        console.log(`✅ Push sent: stop ${settings.stopId}, route ${routeId}, ${minutesUntil} min (interval: ${notificationInterval})`);
+                                        lastNotified[intervalNotifKey] = nowSeconds;
+                                        notificationsSent.push(intervalNotifKey);
+                                        subUpdated = true;
+                                    } else {
+                                        console.error('❌ Push error:', result.statusCode, result.error);
+                                        if (result.statusCode === 410 || result.statusCode === 404) {
+                                            await supabase.from('stop_notification_subscriptions').delete().eq('id', sub.id);
+                                        }
+                                    }
+                                } catch (err) {
+                                    console.error('Push handling error:', err);
+                                }
+                            }
+                        }
+
+                        if (subUpdated) {
+                            await supabase
+                                .from('stop_notification_subscriptions')
+                                .update({ last_notified: lastNotified })
+                                .eq('id', sub.id);
+                        }
+                    }
+
+                } catch (e) {
+                    console.error(`Error processing stop ${stopId}:`, e);
+                }
+            });
+
+            await Promise.all(promises);
+        }
+
+        console.log(`Checked ${stopIds.length} stops, sent ${notificationsSent.length} notifications`);
 
         return new Response(JSON.stringify({
-            checked: subscriptions.length,
+            checked: stopIds.length,
             sent: notificationsSent.length
         }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
