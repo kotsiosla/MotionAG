@@ -229,6 +229,34 @@ export function useStopNotifications() {
     await syncToServer(notifications);
   }, [notifications, syncToServer]);
 
+  // Clear all notifications locally and on server
+  const clearAllNotifications = useCallback(async () => {
+    setNotifications([]);
+    localStorage.removeItem(STORAGE_KEY);
+
+    // Dispatch event
+    window.dispatchEvent(new CustomEvent('stop-notifications-changed', { detail: [] }));
+
+    try {
+      const endpoint = await getPushEndpoint();
+      if (endpoint) {
+        // Clear server data
+        const { error } = await supabase
+          .from('stop_notification_subscriptions')
+          .update({ stop_notifications: [] })
+          .eq('endpoint', endpoint);
+
+        if (error) {
+          console.error('[StopNotifications] Clear server error:', error);
+        } else {
+          console.log('[StopNotifications] Server notifications cleared');
+        }
+      }
+    } catch (e) {
+      console.error('Error clearing notifications:', e);
+    }
+  }, []);
+
   return {
     notifications,
     setNotification,
@@ -237,5 +265,6 @@ export function useStopNotifications() {
     hasNotification,
     isSyncing,
     forceSync,
+    clearAllNotifications,
   };
 }
