@@ -395,37 +395,47 @@ serve(async (req) => {
                         const notificationIntervals = [5, 3, 2, 1];
                         const maxBeforeMinutes = Math.max(settings.beforeMinutes, 5); // At least 5 minutes
 
-                        // Check if we should send notification at any of the intervals
+                        // Improved Logic:
+                        // Check if we should send notification for any of the intervals
+                        // We notify if:
+                        // 1. We are within the interval (e.g. <= 5 mins)
+                        // 2. We haven't notified for this specific interval yet
+                        // 3. We haven't notified for a *closer* interval yet (e.g. if we are at 2 mins, don't send 5 min alert)
+
                         let shouldNotify = false;
                         let notificationInterval = 0;
 
+                        const routeId = (trip.routeId || trip.route_id || 'unknown') as string;
+                        const baseNotifKey = `${settings.stopId}-${routeId}-${Math.floor(arrivalTime / 60)}`;
+
+                        // Sort intervals descending (5, 3, 2, 1)
+                        // We want to find the *smallest* interval that we satisfy
+                        // e.g. if we are at 2.5 mins, we satisfy 5 and 3. We want to send 3 (or 2 if we are close enough).
+
+                        // Actually, we want to send the Alert for the specific bucket we are in.
+                        // But to be safe, if we missed the alert start and we are now at 4 minutes, we should send the 5 minute alert (or a generic "approaching" alert).
+
                         for (const interval of notificationIntervals) {
-                            // Only send if within the user's beforeMinutes setting
                             if (interval > maxBeforeMinutes) continue;
 
-                            // Check if we're within this interval (with 30 second window)
-                            if (minutesUntil <= interval && minutesUntil > interval - 0.5) {
+                            // If we are significantly past this interval (e.g. at 2 mins vs 5 mins), 
+                            // we don't need to send the 5-min alert if we are going to send the 2-min alert anyway.
+                            // But if we missed the start, we might want to catch up.
+
+                            const intervalKey = `${baseNotifKey}-${interval}`;
+                            const hasSentThisInterval = lastNotified[intervalKey] > 0;
+
+                            if (!hasSentThisInterval && minutesUntil <= interval) {
+                                // We are within range and haven't sent this specific alert
                                 shouldNotify = true;
                                 notificationInterval = interval;
-                                break;
-                            }
-                        }
 
-                        // Also send if we're past the beforeMinutes but haven't sent yet (fallback)
-                        if (!shouldNotify && minutesUntil > 0 && minutesUntil <= maxBeforeMinutes) {
-                            // Check if we already sent a notification for this arrival
-                            const routeId = (trip.routeId || trip.route_id || 'unknown') as string;
-                            const baseNotifKey = `${settings.stopId}-${routeId}-${Math.floor(arrivalTime / 60)}`;
-                            const hasSentAny = notificationIntervals.some(interval => {
-                                if (interval > maxBeforeMinutes) return false;
-                                const intervalKey = `${baseNotifKey}-${interval}`;
-                                return lastNotified[intervalKey] > 0;
-                            });
-
-                            // If we haven't sent any notification yet, send one now (catch-up)
-                            if (!hasSentAny && minutesUntil <= maxBeforeMinutes) {
-                                shouldNotify = true;
-                                notificationInterval = Math.min(Math.ceil(minutesUntil), maxBeforeMinutes);
+                                // Break so we prioritize the tightest valid interval
+                                // e.g. at 1.5 mins, we match 5, 3, 2. We want to send the '2' or '1' alert? 
+                                // We typically want the most urgent one that hasn't been sent.
+                                // Since we iterate 5, 3, 2, 1... 
+                                // If we match 2 (<=2), we set it. Then we check 1. If we match 1 (<=1), we overwrite.
+                                // So we naturally select the smallest (most urgent) interval.
                             }
                         }
 

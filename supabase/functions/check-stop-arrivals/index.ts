@@ -60,14 +60,14 @@ async function createVapidJwt(
 
   // Import private key for signing
   const privateKeyBytes = base64UrlDecode(privateKeyBase64);
-  
+
   // PKCS8 header for P-256 private key
   const pkcs8Header = new Uint8Array([
     0x30, 0x41, 0x02, 0x01, 0x00, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48,
     0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03,
     0x01, 0x07, 0x04, 0x27, 0x30, 0x25, 0x02, 0x01, 0x01, 0x04, 0x20
   ]);
-  
+
   const pkcs8Key = new Uint8Array([...pkcs8Header, ...privateKeyBytes]);
 
   const cryptoKey = await crypto.subtle.importKey(
@@ -128,7 +128,7 @@ async function encryptPayload(
 
   // Derive encryption key using HKDF
   const ikm = new Uint8Array(sharedSecret);
-  
+
   // PRK = HKDF-Extract(auth_secret, shared_secret)
   const prkKey = await crypto.subtle.importKey(
     'raw',
@@ -142,7 +142,7 @@ async function encryptPayload(
   // Create info for content encryption key
   const keyInfoStr = 'Content-Encoding: aes128gcm\0';
   const keyInfo = new TextEncoder().encode(keyInfoStr);
-  
+
   // Derive content encryption key
   const cekKey = await crypto.subtle.importKey(
     'raw',
@@ -202,14 +202,14 @@ async function sendPushNotification(
     // Create VAPID authorization
     const audience = `${url.protocol}//${url.hostname}`;
     const vapidToken = await createVapidJwt(audience, 'mailto:info@motionbus.cy', vapidPrivateKey);
-    
+
     // Encrypt the payload
     const { ciphertext, salt, localPublicKey } = await encryptPayload(payload, p256dh, auth);
 
     // Build body with aes128gcm format
     const rs = new Uint8Array([0, 0, 16, 0]); // Record size: 4096
     const idlen = new Uint8Array([65]); // Key ID length
-    
+
     const body = new Uint8Array([
       ...salt,
       ...rs,
@@ -286,7 +286,7 @@ serve(async (req) => {
     }
 
     console.log(`Found ${subscriptions?.length || 0} subscriptions (before filtering)`);
-    
+
     // Debug: Log all subscriptions
     if (subscriptions && subscriptions.length > 0) {
       subscriptions.forEach((sub, idx) => {
@@ -333,14 +333,14 @@ serve(async (req) => {
 
     // Fetch trip updates from gtfs-proxy
     let tripUpdates: unknown[] = [];
-    
+
     try {
       const proxyResponse = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/trips?operator=all`, {
         headers: {
           'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
         }
       });
-      
+
       if (proxyResponse.ok) {
         const proxyData = await proxyResponse.json();
         if (proxyData.data && Array.isArray(proxyData.data)) {
@@ -367,10 +367,10 @@ serve(async (req) => {
     // Check each subscription
     for (const sub of subscriptions as StopSubscription[]) {
       const stopSettings = sub.stop_notifications || [];
-      const enabledSettings = Array.isArray(stopSettings) 
+      const enabledSettings = Array.isArray(stopSettings)
         ? stopSettings.filter(s => s && s.enabled && s.push)
         : [];
-      
+
       if (enabledSettings.length === 0) continue;
 
       const lastNotified = sub.last_notified || {};
@@ -384,7 +384,7 @@ serve(async (req) => {
             const stuStopId = stu.stopId || stu.stop_id;
             const arrival = stu.arrival as Record<string, unknown> | undefined;
             const arrivalTime = (stu.arrivalTime || stu.arrival_time || (arrival && arrival.time)) as number | undefined;
-            
+
             if (stuStopId !== settings.stopId || !arrivalTime) continue;
 
             const secondsUntil = arrivalTime - nowSeconds;
@@ -394,40 +394,51 @@ serve(async (req) => {
             // This ensures no bus is missed even if timing is off
             const notificationIntervals = [5, 3, 2, 1];
             const maxBeforeMinutes = Math.max(settings.beforeMinutes, 5); // At least 5 minutes
-            
-            // Check if we should send notification at any of the intervals
+
+            // Improved Logic:
+            // Check if we should send notification for any of the intervals
+            // We notify if:
+            // 1. We are within the interval (e.g. <= 5 mins)
+            // 2. We haven't notified for this specific interval yet
+            // 3. We haven't notified for a *closer* interval yet (e.g. if we are at 2 mins, don't send 5 min alert)
+
             let shouldNotify = false;
             let notificationInterval = 0;
-            
+
+            const routeId = (trip.routeId || trip.route_id || 'unknown') as string;
+            const baseNotifKey = `${settings.stopId}-${routeId}-${Math.floor(arrivalTime / 60)}`;
+
+            // Sort intervals descending (5, 3, 2, 1)
+            // We want to find the *smallest* interval that we satisfy
+            // e.g. if we are at 2.5 mins, we satisfy 5 and 3. We want to send 3 (or 2 if we are close enough).
+
+            // Actually, we want to send the Alert for the specific bucket we are in.
+            // But to be safe, if we missed the 5 minute alert and we are now at 4 minutes, we should send the 5 minute alert (or a generic "approaching" alert).
+
             for (const interval of notificationIntervals) {
-              // Only send if within the user's beforeMinutes setting
               if (interval > maxBeforeMinutes) continue;
-              
-              // Check if we're within this interval (with 30 second window)
-              if (minutesUntil <= interval && minutesUntil > interval - 0.5) {
+
+              // If we are significantly past this interval (e.g. at 2 mins vs 5 mins), 
+              // we don't need to send the 5-min alert if we are going to send the 2-min alert anyway.
+              // But if we missed the start, we might want to catch up.
+
+              const intervalKey = `${baseNotifKey}-${interval}`;
+              const hasSentThisInterval = lastNotified[intervalKey] > 0;
+
+              if (!hasSentThisInterval && minutesUntil <= interval) {
+                // We are within range and haven't sent this specific alert
                 shouldNotify = true;
                 notificationInterval = interval;
-                break;
+
+                // Break so we prioritize the tightest valid interval
+                // e.g. at 1.5 mins, we match 5, 3, 2. We want to send the '2' or '1' alert? 
+                // We typically want the most urgent one that hasn't been sent.
+                // Since we iterate 5, 3, 2, 1... 
+                // If we match 2 (<=2), we set it. Then we check 1. If we match 1 (<=1), we overwrite.
+                // So we naturally select the smallest (most urgent) interval.
               }
             }
-            
-            // Also send if we're past the beforeMinutes but haven't sent yet (fallback)
-            if (!shouldNotify && minutesUntil > 0 && minutesUntil <= maxBeforeMinutes) {
-              // Check if we already sent a notification for this arrival
-              const routeId = (trip.routeId || trip.route_id || 'unknown') as string;
-              const baseNotifKey = `${settings.stopId}-${routeId}-${Math.floor(arrivalTime / 60)}`;
-              const hasSentAny = notificationIntervals.some(interval => {
-                if (interval > maxBeforeMinutes) return false;
-                const intervalKey = `${baseNotifKey}-${interval}`;
-                return lastNotified[intervalKey] > 0;
-              });
-              
-              // If we haven't sent any notification yet, send one now (catch-up)
-              if (!hasSentAny && minutesUntil <= maxBeforeMinutes) {
-                shouldNotify = true;
-                notificationInterval = Math.min(Math.ceil(minutesUntil), maxBeforeMinutes);
-              }
-            }
+
 
             if (shouldNotify && notificationInterval > 0) {
               const routeId = (trip.routeId || trip.route_id || 'unknown') as string;
@@ -435,7 +446,7 @@ serve(async (req) => {
               const baseNotifKey = `${settings.stopId}-${routeId}-${Math.floor(arrivalTime / 60)}`;
               const intervalNotifKey = `${baseNotifKey}-${notificationInterval}`;
               const lastNotifTime = lastNotified[intervalNotifKey] || 0;
-              
+
               // Prevent duplicate notifications within 30 seconds
               if (nowSeconds - lastNotifTime < 30) {
                 continue;
@@ -444,7 +455,7 @@ serve(async (req) => {
               try {
                 const urgencyEmoji = minutesUntil <= 1 ? '🚨' : minutesUntil <= 2 ? '⚠️' : minutesUntil <= 3 ? '🔔' : '🚌';
                 const urgencyText = minutesUntil <= 1 ? 'ΤΩΡΑ!' : minutesUntil <= 2 ? 'Σύντομα' : minutesUntil <= 3 ? 'Προσεχώς' : 'Ερχεται';
-                
+
                 const payload = JSON.stringify({
                   title: `${urgencyEmoji} ${routeName} ${urgencyText} - ${minutesUntil}'`,
                   body: `Φτάνει στη στάση "${settings.stopName}"${minutesUntil <= 2 ? ' - Ετοιμάσου!' : ''}`,
@@ -472,7 +483,7 @@ serve(async (req) => {
                   notificationsSent.push(intervalNotifKey);
                 } else {
                   console.error('❌ Push error:', result.statusCode, result.error);
-                  
+
                   if (result.statusCode === 410 || result.statusCode === 404) {
                     await supabase.from('stop_notification_subscriptions').delete().eq('id', sub.id);
                     console.log('Removed invalid subscription');
@@ -497,9 +508,9 @@ serve(async (req) => {
 
     console.log(`Checked ${subscriptions.length} subscriptions, sent ${notificationsSent.length} notifications`);
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       checked: subscriptions.length,
-      sent: notificationsSent.length 
+      sent: notificationsSent.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
