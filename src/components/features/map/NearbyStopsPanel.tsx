@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   MapPin,
@@ -25,13 +24,8 @@ import { ResizableDraggablePanel } from "@/components/common/ResizableDraggableP
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { StaticStop, Trip, Vehicle, RouteInfo } from "@/types/gtfs";
-import { useNearbyArrivals, useStopArrivals, type StopArrival } from "@/hooks/useNearbyArrivals";
-
-// VAPID public key for push subscriptions
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
-if (!VAPID_PUBLIC_KEY) {
-  console.error("VITE_VAPID_PUBLIC_KEY is not defined in environment variables");
-}
+import { useNearbyArrivals, useStopArrivalNotifications, useStopArrivals, type StopArrival } from "@/hooks/useNearbyArrivals";
+import { useStopNotifications } from "@/hooks/useStopNotifications";
 
 // Detect iOS
 const isIOS = () => {
@@ -44,17 +38,6 @@ const isStandalonePWA = () => {
   return window.matchMedia('(display-mode: standalone)').matches ||
     (window.navigator as any).standalone === true;
 };
-
-function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray.buffer as ArrayBuffer;
-}
 
 interface NearbyStopsPanelProps {
   stops: StaticStop[];
@@ -100,7 +83,17 @@ export function NearbyStopsPanel({
     const saved = localStorage.getItem('nearbyNotificationDistance');
     return saved ? parseInt(saved, 10) : 500;
   });
-  const [notificationSettings, setNotificationSettings] = useState(() => {
+
+  // Use shared notification settings hook
+  const {
+    setNotification,
+    removeNotification,
+    getNotification,
+    notifications
+  } = useStopNotifications();
+
+  // Local settings for the panel UI (merged into stop settings when saving)
+  const [panelSettings, setPanelSettings] = useState(() => {
     const saved = localStorage.getItem('nearbyNotificationSettings');
     return saved ? JSON.parse(saved) : {
       sound: true,
@@ -109,6 +102,7 @@ export function NearbyStopsPanel({
       push: true,
     };
   });
+
   const [showSettings, setShowSettings] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
 
@@ -154,15 +148,18 @@ export function NearbyStopsPanel({
   // Get nearest stop for highlighting
   const nearestStop = nearbyStops.length > 0 ? nearbyStops[0].stop : null;
 
+  // Get active stop based on mode
+  const activeStop = trackingMode === 'fixed' && fixedStop
+    ? { stop_id: fixedStop.stopId, stop_name: fixedStop.stopName }
+    : nearestStop;
+
   // Highlight nearest stop when panel opens
   useEffect(() => {
     if (isPanelOpen && nearestStop && onHighlightStop) {
       onHighlightStop(nearestStop);
     }
     return () => {
-      if (onHighlightStop) {
-        onHighlightStop(null);
-      }
+      // Don't clear highlight on unmount to prevent flickering if parent handles it
     };
   }, [isPanelOpen, nearestStop, onHighlightStop]);
 
@@ -171,10 +168,10 @@ export function NearbyStopsPanel({
     localStorage.setItem('nearbyNotificationDistance', notificationDistance.toString());
   }, [notificationDistance]);
 
-  // Save notification settings
+  // Save panel settings
   useEffect(() => {
-    localStorage.setItem('nearbyNotificationSettings', JSON.stringify(notificationSettings));
-  }, [notificationSettings]);
+    localStorage.setItem('nearbyNotificationSettings', JSON.stringify(panelSettings));
+  }, [panelSettings]);
 
   // Save tracking mode and fixed stop
   useEffect(() => {
@@ -189,11 +186,6 @@ export function NearbyStopsPanel({
     }
   }, [fixedStop]);
 
-  // Get the active stop for notifications (either nearest or fixed)
-  const activeTrackedStop = trackingMode === 'fixed' && fixedStop
-    ? { stop_id: fixedStop.stopId, stop_name: fixedStop.stopName }
-    : nearestStop;
-
   // Function to set a stop as fixed
   const setAsFixedStop = useCallback((stop: { stop_id: string; stop_name: string }) => {
     setFixedStop({ stopId: stop.stop_id, stopName: stop.stop_name });
@@ -204,517 +196,81 @@ export function NearbyStopsPanel({
     });
   }, []);
 
-  // Update push subscription when nearest stop changes - ADD to existing stops, don't replace
+  // Request notification permission if needed
+  const ensurePermission = useCallback(async () => {
+    if (!('Notification' in window)) return false;
+
+    if (Notification.permission === 'granted') return true;
+
+    if (Notification.permission !== 'denied') {
+      const permission = await Notification.requestPermission();
+      return permission === 'granted';
+    }
+
+    return false;
+  }, []);
+
+  // Update notification settings when active stop changes or settings change
   useEffect(() => {
-    const addStopToNotifications = async () => {
-      console.log('[NearbyStopsPanel] Update check - nearestStop:', nearestStop?.stop_id, 'push:', notificationSettings.push);
+    if (!activeStop || !panelSettings.push) return;
 
-      if (!nearestStop || !notificationSettings.push) {
-        console.log('[NearbyStopsPanel] Skipping update - no nearest stop or push disabled');
-        return;
+    // Only update if not currently processing
+    const updateNotification = async () => {
+      // Check permissions first
+      if (panelSettings.push) {
+        await ensurePermission();
+
+        // Register service worker if needed
+        if ('serviceWorker' in navigator && !navigator.serviceWorker.controller) {
+          try {
+            await navigator.serviceWorker.register('/sw.js');
+          } catch (e) {
+            console.error('SW registration failed:', e);
+          }
+        }
       }
 
-      try {
-        // Check if service worker is supported
-        if (!('serviceWorker' in navigator)) {
-          console.log('[NearbyStopsPanel] Service worker not supported');
-          return;
-        }
+      // Use shared hook to setting notification
+      // This will handle syncing to server and local storage
+      setNotification({
+        stopId: activeStop.stop_id,
+        stopName: activeStop.stop_name,
+        enabled: true,
+        sound: panelSettings.sound,
+        vibration: panelSettings.vibration,
+        voice: panelSettings.voice,
+        push: panelSettings.push,
+        beforeMinutes: Math.round(notificationDistance / 100),
+      });
 
-        // Get current subscription
-        const existingRegistrations = await navigator.serviceWorker.getRegistrations();
-        const registration = existingRegistrations.length > 0 ? existingRegistrations[0] : null;
-        if (!registration) {
-          console.log('[NearbyStopsPanel] No service worker registration');
-          return;
-        }
-
-        const subscription = await registration.pushManager.getSubscription();
-        if (!subscription) {
-          console.log('[NearbyStopsPanel] No push subscription');
-          return;
-        }
-
-        // First, get existing stop notifications from database
-        const { data: existing } = await supabase
-          .from('stop_notification_subscriptions')
-          .select('stop_notifications')
-          .eq('endpoint', subscription.endpoint)
-          .maybeSingle();
-
-        // Get existing stops or empty array
-        let existingStops: any[] = Array.isArray(existing?.stop_notifications)
-          ? existing.stop_notifications
-          : [];
-
-        // Check if this stop already exists
-        const stopExists = existingStops.some((s: any) => s.stopId === nearestStop.stop_id);
-
-        if (stopExists) {
-          console.log('[NearbyStopsPanel] Stop already in notifications:', nearestStop.stop_id);
-          return;
-        }
-
-        // Create new stop settings
-        const newStop = {
-          stopId: nearestStop.stop_id,
-          stopName: nearestStop.stop_name,
-          enabled: true,
-          sound: notificationSettings.sound,
-          vibration: notificationSettings.vibration,
-          voice: notificationSettings.voice,
-          push: true,
-          beforeMinutes: Math.round(notificationDistance / 100),
-        };
-
-        // Add new stop to existing stops
-        const updatedStops = [...existingStops, newStop];
-
-        // Save to localStorage
-        try {
-          const stored = localStorage.getItem('stop_notifications');
-          let allNotifications = stored ? JSON.parse(stored) : [];
-          const existingIndex = allNotifications.findIndex((n: any) => n.stopId === nearestStop.stop_id);
-          if (existingIndex >= 0) {
-            allNotifications[existingIndex] = newStop;
-          } else {
-            allNotifications.push(newStop);
-          }
-          localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
-          console.log('[NearbyStopsPanel] ✅ Saved to localStorage:', allNotifications.length, 'stop(s)');
-        } catch (e) {
-          console.error('[NearbyStopsPanel] ❌ Failed to save to localStorage:', e);
-        }
-
-        console.log('[NearbyStopsPanel] Adding stop to notifications:', nearestStop.stop_id, 'Total:', updatedStops.length);
-        console.log('[NearbyStopsPanel] Upsert attempt - endpoint:', subscription.endpoint.substring(0, 50) + '...');
-
-        // Get keys for upsert
-        const p256dhKey = subscription.getKey('p256dh');
-        const authKey = subscription.getKey('auth');
-        if (!p256dhKey || !authKey) {
-          console.error('[NearbyStopsPanel] ❌ Missing push keys for upsert');
-          return;
-        }
-
-        const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
-        const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
-
-        // Ensure stop_notifications is properly formatted as JSONB
-        const updatedStopsJson = JSON.parse(JSON.stringify(updatedStops));
-
-        const { error, data } = await supabase
-          .from('stop_notification_subscriptions')
-          .upsert({
-            endpoint: subscription.endpoint,
-            p256dh,
-            auth,
-            stop_notifications: updatedStopsJson,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'endpoint' })
-          .select();
-
-        if (error) {
-          console.error('[NearbyStopsPanel] ❌ Failed to add stop:', error);
-          console.error('[NearbyStopsPanel] Error code:', error.code);
-          console.error('[NearbyStopsPanel] Error message:', error.message);
-        } else {
-          console.log('[NearbyStopsPanel] ✅ Added stop:', nearestStop.stop_id, 'Total stops:', updatedStops.length);
-          console.log('[NearbyStopsPanel] Update result:', data);
-          if (!data || data.length === 0) {
-            console.warn('[NearbyStopsPanel] ⚠️ Update returned no data - row may not exist');
-          }
-          toast({
-            title: "🔔 Στάση προστέθηκε",
-            description: `${nearestStop.stop_name} - ${updatedStops.length} στάσεις συνολικά`,
-          });
-        }
-      } catch (e) {
-        console.error('[NearbyStopsPanel] Error adding stop:', e);
-      }
+      console.log('[NearbyStopsPanel] Updated notification for stop:', activeStop.stop_name);
     };
 
-    addStopToNotifications();
-  }, [nearestStop?.stop_id, notificationSettings.push, notificationSettings.sound, notificationSettings.vibration, notificationSettings.voice, notificationDistance]);
+    updateNotification();
+  }, [activeStop?.stop_id, panelSettings, notificationDistance, setNotification, ensurePermission]);
 
-  // Ensure push subscription exists and is synced to database
-  const ensurePushSubscription = useCallback(async (silent: boolean = false) => {
-    try {
-      // Check support
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        console.log('[NearbyStopsPanel] Push not supported');
-        return false;
-      }
+  // Toggle notification setting
+  const togglePanelSetting = useCallback((key: keyof typeof panelSettings) => {
+    setPanelSettings(prev => {
+      const newState = { ...prev, [key]: !prev[key] };
 
-      // First, check if we already have a valid subscription in browser
-      const existingRegistrations = await navigator.serviceWorker.getRegistrations();
-      const existingRegistration = existingRegistrations.length > 0 ? existingRegistrations[0] : null;
-      if (existingRegistration) {
-        const existingSub = await existingRegistration.pushManager.getSubscription();
-        if (existingSub) {
-          // Check if this subscription exists in database
-          const { data: dbSub } = await supabase
-            .from('stop_notification_subscriptions')
-            .select('id, endpoint')
-            .eq('endpoint', existingSub.endpoint)
-            .maybeSingle();
-
-          if (dbSub) {
-            console.log('[NearbyStopsPanel] Already have valid subscription in DB');
-            return true; // Already subscribed, no need to do anything
-          }
-        }
-      }
-
-      // Request permission - handle iOS PWA differently
-      let permission = Notification.permission;
-
-      if (permission === 'default') {
-        permission = await Notification.requestPermission();
-      }
-
-      console.log('[NearbyStopsPanel] Push permission:', permission, 'iOS:', isIOS(), 'PWA:', isStandalonePWA());
-
-      // On iOS PWA, permission might still show as default even when granted via iOS settings
-      // We'll try to proceed anyway if we're in a standalone PWA on iOS
-      if (permission !== 'granted') {
-        if (isIOS() && isStandalonePWA()) {
-          console.log('[NearbyStopsPanel] iOS PWA - trying to proceed despite permission state');
-          // On iOS PWA, try to proceed - if it fails, it will throw an error
-        } else {
-          if (!silent) {
+      // If turning push ON, ensure permission
+      if (key === 'push' && newState.push) {
+        ensurePermission().then(granted => {
+          if (!granted) {
+            setPanelSettings(curr => ({ ...curr, push: false }));
             toast({
               title: "⚠️ Απαιτείται άδεια",
-              description: isIOS()
-                ? "Ανοίξτε Ρυθμίσεις → Ειδοποιήσεις → [Εφαρμογή] και ενεργοποιήστε τις ειδοποιήσεις"
-                : "Παρακαλώ επιτρέψτε τις ειδοποιήσεις",
+              description: "Ενεργοποιήστε τις ειδοποιήσεις στις ρυθμίσεις του browser",
               variant: "destructive",
             });
           }
-          return false;
-        }
-      }
-
-      // Register service worker and get subscription
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      await navigator.serviceWorker.ready;
-
-      let subscription = await registration.pushManager.getSubscription();
-      if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
         });
       }
 
-      console.log('[NearbyStopsPanel] Push subscription:', subscription.endpoint.substring(0, 50));
-
-      // Extract keys
-      const p256dhKey = subscription.getKey('p256dh');
-      const authKey = subscription.getKey('auth');
-
-      if (!p256dhKey || !authKey) {
-        throw new Error('Failed to get subscription keys');
-      }
-
-      const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
-      const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
-
-      // Save to database - use the actual nearest stop ID if available
-      // This allows the edge function to match arrivals correctly
-      const actualStopId = nearestStop?.stop_id || 'nearby_mode';
-      const actualStopName = nearestStop?.stop_name || 'Κοντινότερη Στάση (Auto)';
-
-      // Ensure minimum 5 minutes for progressive notifications (5, 3, 2, 1)
-      const calculatedBeforeMinutes = Math.round(notificationDistance / 100);
-      const beforeMinutes = Math.max(calculatedBeforeMinutes, 5); // Minimum 5 for progressive notifications
-
-      const stopSettings = [{
-        stopId: actualStopId,
-        stopName: actualStopName,
-        enabled: true,
-        sound: notificationSettings.sound,
-        vibration: notificationSettings.vibration,
-        voice: notificationSettings.voice,
-        push: true,
-        beforeMinutes: beforeMinutes,
-      }];
-
-      // Upsert to database (use upsert instead of update/insert)
-      // Ensure stop_notifications is properly formatted as JSONB
-      const stopSettingsJson = JSON.parse(JSON.stringify(stopSettings));
-
-      console.log('[NearbyStopsPanel] Upserting subscription to database...');
-      const { data: upsertData, error: upsertError } = await supabase
-        .from('stop_notification_subscriptions')
-        .upsert({
-          endpoint: subscription.endpoint,
-          p256dh,
-          auth,
-          stop_notifications: stopSettingsJson,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'endpoint' })
-        .select();
-
-      if (upsertError) {
-        console.error('[NearbyStopsPanel] ❌ Upsert error:', upsertError);
-        console.error('[NearbyStopsPanel] Upsert error details:', JSON.stringify(upsertError, null, 2));
-        throw upsertError;
-      }
-
-      console.log('[NearbyStopsPanel] ✅ Upserted subscription in database:', upsertData);
-
-      return true;
-    } catch (error) {
-      console.error('[NearbyStopsPanel] Push subscription error:', error);
-      return false;
-    }
-  }, [notificationSettings, notificationDistance, nearestStop]);
-
-  // Toggle notification setting - with push subscription handling
-  const toggleNotificationSetting = useCallback(async (key: keyof typeof notificationSettings) => {
-    // If toggling push ON, create push subscription
-    if (key === 'push' && !notificationSettings.push) {
-      const success = await ensurePushSubscription();
-      if (success) {
-        toast({
-          title: "✅ Push ειδοποιήσεις ενεργοποιήθηκαν",
-          description: "Θα λαμβάνετε ειδοποιήσεις ακόμα και με κλειστή εφαρμογή",
-        });
-        setNotificationSettings((prev: typeof notificationSettings) => ({
-          ...prev,
-          push: true,
-        }));
-      }
-    } else if (key === 'push' && notificationSettings.push) {
-      // Turning push OFF
-      setNotificationSettings((prev: typeof notificationSettings) => ({
-        ...prev,
-        push: false,
-      }));
-      toast({
-        title: "Push ειδοποιήσεις απενεργοποιήθηκαν",
-      });
-    } else {
-      // For other settings, just toggle
-      setNotificationSettings((prev: typeof notificationSettings) => ({
-        ...prev,
-        [key]: !prev[key],
-      }));
-    }
-  }, [notificationSettings, ensurePushSubscription]);
-
-  // Automatically update tracked stop in database when it changes
-  const lastSyncedStopRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    // Only sync if push is enabled and we have an active stop
-    if (!notificationSettings.push || !activeTrackedStop) return;
-
-    // In fixed mode, always use fixed stop; in auto mode, use nearest
-    const stopToSync = trackingMode === 'fixed' && fixedStop
-      ? fixedStop
-      : nearestStop ? { stopId: nearestStop.stop_id, stopName: nearestStop.stop_name } : null;
-
-    if (!stopToSync) return;
-
-    // Skip if we already synced this stop
-    if (lastSyncedStopRef.current === stopToSync.stopId) return;
-
-    const syncTrackedStop = async () => {
-      try {
-        console.log('[NearbyStopsPanel] 🔄 Starting syncTrackedStop...');
-        const existingRegistrations = await navigator.serviceWorker.getRegistrations();
-        const registration = existingRegistrations.length > 0 ? existingRegistrations[0] : null;
-        if (!registration) {
-          console.log('[NearbyStopsPanel] ❌ No service worker registration');
-          return;
-        }
-
-        const subscription = await registration.pushManager.getSubscription();
-        if (!subscription) {
-          console.log('[NearbyStopsPanel] ❌ No push subscription');
-          return;
-        }
-
-        const p256dhKey = subscription.getKey('p256dh');
-        const authKey = subscription.getKey('auth');
-        if (!p256dhKey || !authKey) {
-          console.log('[NearbyStopsPanel] ❌ Missing push keys');
-          return;
-        }
-
-        const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
-        const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
-
-        // Only ONE stop - the tracked one, always replaced
-        // Ensure minimum 5 minutes for progressive notifications (5, 3, 2, 1)
-        const calculatedBeforeMinutes = Math.round(notificationDistance / 100);
-        const beforeMinutes = Math.max(calculatedBeforeMinutes, 5); // Minimum 5 for progressive notifications
-
-        const stopSettings = [{
-          stopId: stopToSync.stopId,
-          stopName: stopToSync.stopName,
-          enabled: true,
-          sound: notificationSettings.sound,
-          vibration: notificationSettings.vibration,
-          voice: notificationSettings.voice,
-          push: true,
-          beforeMinutes: beforeMinutes,
-        }];
-
-        // Save to localStorage
-        try {
-          const stored = localStorage.getItem('stop_notifications');
-          let allNotifications = stored ? JSON.parse(stored) : [];
-          const existingIndex = allNotifications.findIndex((n: any) => n.stopId === stopToSync.stopId);
-          const stopNotification = stopSettings[0];
-          if (existingIndex >= 0) {
-            allNotifications[existingIndex] = stopNotification;
-          } else {
-            allNotifications.push(stopNotification);
-          }
-          localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
-          console.log('[NearbyStopsPanel] ✅ Saved to localStorage:', allNotifications.length, 'stop(s)');
-        } catch (e) {
-          console.error('[NearbyStopsPanel] ❌ Failed to save to localStorage:', e);
-        }
-
-        // Log Supabase URL for debugging
-        const supabaseUrl = (supabase as any).supabaseUrl || 'unknown';
-        console.log('[NearbyStopsPanel] Supabase URL:', supabaseUrl);
-        console.log('[NearbyStopsPanel] Attempting upsert with:', {
-          endpoint: subscription.endpoint.substring(0, 50) + '...',
-          p256dh: p256dh ? p256dh.substring(0, 20) + '...' : 'MISSING',
-          auth: auth ? auth.substring(0, 20) + '...' : 'MISSING',
-          stopSettings: stopSettings.length,
-          supabaseUrl
-        });
-
-        console.log('[NearbyStopsPanel] 📤 Calling supabase.upsert...');
-        console.log('[NearbyStopsPanel] Upsert payload:', {
-          endpoint: subscription.endpoint,
-          p256dh_length: p256dh.length,
-          auth_length: auth.length,
-          stop_notifications: stopSettings
-        });
-
-        // Check if Supabase key is configured
-        const supabaseKey = (supabase as any).supabaseKey || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || localStorage.getItem('supabase_anon_key');
-        if (!supabaseKey || supabaseKey.length === 0) {
-          console.error('[NearbyStopsPanel] ❌ Supabase key is missing!');
-          console.error('[NearbyStopsPanel] Please set VITE_SUPABASE_PUBLISHABLE_KEY in .env or run:');
-          console.error('[NearbyStopsPanel] localStorage.setItem("supabase_anon_key", "YOUR_KEY")');
-          console.error('[NearbyStopsPanel] Get key from: https://supabase.com/dashboard/project/jftthfniwfarxyisszjh/settings/api');
-          toast({
-            title: "❌ Supabase Key Missing",
-            description: "Please set VITE_SUPABASE_PUBLISHABLE_KEY. Check console for details.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // Add timeout to detect if upsert hangs
-        console.log('[NearbyStopsPanel] ⏱️ Starting upsert with 10s timeout...');
-        const startTime = Date.now();
-
-        // Ensure stop_notifications is properly formatted as JSONB
-        const stopNotificationsJson = JSON.parse(JSON.stringify(stopSettings));
-
-        const upsertPromise = supabase
-          .from('stop_notification_subscriptions')
-          .upsert({
-            endpoint: subscription.endpoint,
-            p256dh,
-            auth,
-            stop_notifications: stopNotificationsJson,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'endpoint' })
-          .select();
-
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => {
-            const elapsed = Date.now() - startTime;
-            reject(new Error(`Upsert timeout after ${elapsed} ms`));
-          }, 10000);
-        });
-
-        let error: any, data: any;
-        try {
-          console.log('[NearbyStopsPanel] ⏳ Waiting for upsert response...');
-          const result = await Promise.race([upsertPromise, timeoutPromise]);
-          const elapsed = Date.now() - startTime;
-          console.log(`[NearbyStopsPanel] 📥 Upsert response received after ${elapsed} ms`);
-          error = result.error;
-          data = result.data;
-          console.log('[NearbyStopsPanel] Error:', error);
-          console.log('[NearbyStopsPanel] Data:', data);
-        } catch (raceError) {
-          const elapsed = Date.now() - startTime;
-          console.error(`[NearbyStopsPanel] ❌ Upsert promise error after ${elapsed} ms: `, raceError);
-          if (raceError instanceof Error && raceError.message.includes('timeout')) {
-            console.error('[NearbyStopsPanel] ⏱️ Upsert timed out - request may be stuck');
-            console.error('[NearbyStopsPanel] Check Network tab for pending requests');
-          }
-          error = raceError;
-          data = null;
-        }
-
-        if (error) {
-          console.error('[NearbyStopsPanel] ❌ Upsert error:', error);
-          console.error('[NearbyStopsPanel] Error details:', JSON.stringify(error, null, 2));
-          console.error('[NearbyStopsPanel] Error code:', error.code);
-          console.error('[NearbyStopsPanel] Error message:', error.message);
-          console.error('[NearbyStopsPanel] Error hint:', error.hint);
-        } else {
-          lastSyncedStopRef.current = stopToSync.stopId;
-          console.log('[NearbyStopsPanel] ✅ Synced tracked stop:', stopToSync.stopName, '(mode:', trackingMode, ')');
-          console.log('[NearbyStopsPanel] Upsert result:', data);
-          console.log('[NearbyStopsPanel] Upsert result length:', data?.length || 0);
-
-          if (!data || data.length === 0) {
-            console.warn('[NearbyStopsPanel] ⚠️ Upsert returned no data - checking if row exists...');
-            // Check if row was actually created
-            const { data: checkData, error: checkError } = await supabase
-              .from('stop_notification_subscriptions')
-              .select('id, endpoint, stop_notifications')
-              .eq('endpoint', subscription.endpoint)
-              .maybeSingle();
-            console.log('[NearbyStopsPanel] Row exists check:', checkData);
-            console.log('[NearbyStopsPanel] Row exists check error:', checkError);
-
-            // Also try to count all rows
-            const { count, error: countError } = await supabase
-              .from('stop_notification_subscriptions')
-              .select('*', { count: 'exact', head: true });
-            console.log('[NearbyStopsPanel] Total rows in table:', count);
-            console.log('[NearbyStopsPanel] Count error:', countError);
-          } else {
-            // Verify the data was actually saved
-            console.log('[NearbyStopsPanel] ✅ Upsert returned data, verifying save...');
-            const { data: verifyData, error: verifyError } = await supabase
-              .from('stop_notification_subscriptions')
-              .select('id, endpoint, stop_notifications')
-              .eq('endpoint', subscription.endpoint)
-              .maybeSingle();
-            console.log('[NearbyStopsPanel] Verification result:', verifyData);
-            console.log('[NearbyStopsPanel] Verification error:', verifyError);
-          }
-        }
-      } catch (e) {
-        console.error('[NearbyStopsPanel] ❌ Exception in syncTrackedStop:', e);
-        console.error('[NearbyStopsPanel] Exception details:', JSON.stringify(e, null, 2));
-        if (e instanceof Error) {
-          console.error('[NearbyStopsPanel] Exception message:', e.message);
-          console.error('[NearbyStopsPanel] Exception stack:', e.stack);
-        }
-      }
-    };
-
-    syncTrackedStop();
-  }, [activeTrackedStop?.stop_id, trackingMode, fixedStop, nearestStop, notificationSettings.push, notificationSettings.sound, notificationSettings.vibration, notificationSettings.voice, notificationDistance]);
-
-  // Note: Removed auto-sync that was showing permission toast repeatedly
+      return newState;
+    });
+  }, [ensurePermission]);
 
   // Get user location with retry logic
   const getLocation = useCallback(() => {
@@ -797,7 +353,6 @@ export function NearbyStopsPanel({
     );
   }, []);
 
-  // Cleanup watch on unmount
   useEffect(() => {
     return () => {
       if (watchIdRef.current !== null) {
@@ -806,108 +361,56 @@ export function NearbyStopsPanel({
     };
   }, []);
 
-  // Request notification permission
-  const requestNotificationPermission = useCallback(async () => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      await Notification.requestPermission();
-    }
-  }, []);
+  // Full notification trigger for in-app simple alerts (bell icon)
+  // This logic is separate from the persistent stop subscriptions
+  const triggerSimpleNotification = useCallback((arrival: StopArrival, stopName: string) => {
+    // Basic in-app alert for manually watched trips
+    const routeName = arrival.routeShortName || arrival.routeId;
 
-  // Play notification sound
-  const playNotificationSound = useCallback(() => {
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
-      oscillator.frequency.setValueAtTime(1200, audioContext.currentTime + 0.2);
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
-    } catch (e) {
-      console.error('Audio playback failed', e);
-    }
-  }, []);
-
-  // Trigger vibration
-  const triggerVibration = useCallback(() => {
-    if ('vibrate' in navigator) {
-      navigator.vibrate([200, 100, 200, 100, 200]);
-    }
-  }, []);
-
-  // Speak announcement
-  const speakAnnouncement = useCallback((message: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(message);
-      utterance.lang = 'el-GR';
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      window.speechSynthesis.speak(utterance);
-    }
-  }, []);
-
-  // Full notification trigger - respects settings
-  const triggerFullNotification = useCallback((arrival: StopArrival, stopName: string) => {
-    const routeName = arrival.routeShortName
-      ? `${arrival.routeShortName}${arrival.routeLongName ? `, ${arrival.routeLongName}` : ''} `
-      : arrival.routeId;
-
-    // Sound
-    if (notificationSettings.sound) {
-      playNotificationSound();
+    if (panelSettings.sound) {
+      // Basic beep
+      try {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.frequency.value = 800;
+        gainNode.gain.value = 0.1;
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 200);
+      } catch (e) { console.error(e); }
     }
 
-    // Vibration
-    if (notificationSettings.vibration) {
-      triggerVibration();
-    }
-
-    // Voice announcement
-    if (notificationSettings.voice) {
-      const message = `Προσοχή! Γραμμή ${routeName} πλησιάζει στη στάση ${stopName}. Ετοιμαστείτε για επιβίβαση.`;
-      speakAnnouncement(message);
-    }
-
-    // Push notification
-    if (notificationSettings.push && 'Notification' in window && Notification.permission === 'granted') {
+    if (panelSettings.push && 'Notification' in window && Notification.permission === 'granted') {
       new Notification(`🚌 ${routeName} πλησιάζει!`, {
-        body: `Η γραμμή πλησιάζει στη στάση: ${stopName} `,
+        body: `Στη στάση: ${stopName}`,
         icon: '/pwa-192x192.png',
-        tag: `arrival - ${arrival.tripId} `,
-        requireInteraction: true,
       });
     }
-  }, [playNotificationSound, triggerVibration, speakAnnouncement, notificationSettings]);
+  }, [panelSettings]);
 
-  // Monitor watched arrivals
+  // Monitor manually watched arrivals
   useEffect(() => {
     if (!selectedStop || watchedArrivals.size === 0) return;
 
     selectedStopArrivals.forEach(arrival => {
-      const arrivalKey = `${arrival.tripId} -${selectedStop.stop_id} `;
+      const arrivalKey = `${arrival.tripId}-${selectedStop.stop_id}`;
 
       // Check if this arrival is being watched and is approaching
       if (watchedArrivals.has(arrival.tripId) &&
         arrival.estimatedMinutes !== undefined &&
         arrival.estimatedMinutes <= 2 &&
         !notifiedArrivals.has(arrivalKey)) {
-        triggerFullNotification(arrival, selectedStop.stop_name || selectedStop.stop_id);
+        triggerSimpleNotification(arrival, selectedStop.stop_name || selectedStop.stop_id);
         setNotifiedArrivals(prev => new Set([...prev, arrivalKey]));
       }
     });
-  }, [selectedStopArrivals, selectedStop, watchedArrivals, notifiedArrivals, triggerFullNotification]);
+  }, [selectedStopArrivals, selectedStop, watchedArrivals, notifiedArrivals, triggerSimpleNotification]);
 
-  // Toggle watch for an arrival
+  // Toggle watch for an specific arrival
   const toggleWatchArrival = useCallback((arrival: StopArrival) => {
-    requestNotificationPermission();
+    ensurePermission();
 
     setWatchedArrivals(prev => {
       const newSet = new Set(prev);
@@ -918,16 +421,20 @@ export function NearbyStopsPanel({
       }
       return newSet;
     });
-  }, [requestNotificationPermission]);
-
-  // Note: Removed auto-watch logic - user must manually click bell icon
+  }, [ensurePermission]);
 
   // Select stop and view arrivals
   const handleStopSelect = useCallback((stop: StaticStop) => {
     setSelectedStop(stop);
     onStopSelect?.(stop);
+
+    // CRITICAL FIX: Highlight stop on map when selected from list
+    if (onHighlightStop) {
+      onHighlightStop(stop);
+    }
+
     watchLocation();
-  }, [onStopSelect, watchLocation]);
+  }, [onStopSelect, onHighlightStop, watchLocation]);
 
   // Track vehicle - close panel and follow vehicle
   const handleTrackVehicle = useCallback((arrival: StopArrival) => {
@@ -1181,38 +688,36 @@ export function NearbyStopsPanel({
             {/* Push notification toggle */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Bell className={`h - 4 w - 4 ${notificationSettings.push ? 'text-green-500' : 'text-muted-foreground'} `} />
+                <Bell className={`h-4 w-4 ${panelSettings.push ? 'text-green-500' : 'text-muted-foreground'}`} />
                 <span className="text-sm font-medium">Push Ειδοποιήσεις</span>
               </div>
               <button
-                className={`relative w - 12 h - 6 rounded - full transition - colors ${notificationSettings.push ? 'bg-green-500' : 'bg-muted-foreground/30'
-                  } `}
-                onClick={() => toggleNotificationSetting('push')}
+                className={`relative w-12 h-6 rounded-full transition-colors ${panelSettings.push ? 'bg-green-500' : 'bg-muted-foreground/30'}`}
+                onClick={() => togglePanelSetting('push')}
               >
-                <div className={`absolute top - 1 w - 4 h - 4 rounded - full bg - white shadow transition - transform ${notificationSettings.push ? 'translate-x-7' : 'translate-x-1'
-                  } `} />
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${panelSettings.push ? 'translate-x-7' : 'translate-x-1'}`} />
               </button>
             </div>
 
             {/* Extra notification types - shown when push is on */}
-            {notificationSettings.push && (
+            {panelSettings.push && (
               <div className="flex gap-2">
                 <button
-                  className={`flex - 1 h - 9 text - xs flex items - center justify - center gap - 1.5 rounded - md border transition - all ${notificationSettings.sound
+                  className={`flex-1 h-9 text-xs flex items-center justify-center gap-1.5 rounded-md border transition-all ${panelSettings.sound
                     ? 'bg-green-500/20 border-green-500 text-green-400'
                     : 'bg-muted/30 border-muted-foreground/20 text-muted-foreground'
-                    } `}
-                  onClick={() => toggleNotificationSetting('sound')}
+                    }`}
+                  onClick={() => togglePanelSetting('sound')}
                 >
                   <Volume2 className="h-3.5 w-3.5" />
                   Ήχος
                 </button>
                 <button
-                  className={`flex - 1 h - 9 text - xs flex items - center justify - center gap - 1.5 rounded - md border transition - all ${notificationSettings.vibration
+                  className={`flex-1 h-9 text-xs flex items-center justify-center gap-1.5 rounded-md border transition-all ${panelSettings.vibration
                     ? 'bg-green-500/20 border-green-500 text-green-400'
                     : 'bg-muted/30 border-muted-foreground/20 text-muted-foreground'
-                    } `}
-                  onClick={() => toggleNotificationSetting('vibration')}
+                    }`}
+                  onClick={() => togglePanelSetting('vibration')}
                 >
                   <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <rect x="5" y="2" width="14" height="20" rx="2" />
@@ -1221,11 +726,11 @@ export function NearbyStopsPanel({
                   Δόνηση
                 </button>
                 <button
-                  className={`flex - 1 h - 9 text - xs flex items - center justify - center gap - 1.5 rounded - md border transition - all ${notificationSettings.voice
+                  className={`flex-1 h-9 text-xs flex items-center justify-center gap-1.5 rounded-md border transition-all ${panelSettings.voice
                     ? 'bg-green-500/20 border-green-500 text-green-400'
                     : 'bg-muted/30 border-muted-foreground/20 text-muted-foreground'
-                    } `}
-                  onClick={() => toggleNotificationSetting('voice')}
+                    }`}
+                  onClick={() => togglePanelSetting('voice')}
                 >
                   <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
@@ -1237,7 +742,7 @@ export function NearbyStopsPanel({
             )}
 
             {/* Distance settings */}
-            {notificationSettings.push && (
+            {panelSettings.push && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs text-muted-foreground">Ειδοποίηση όταν το λεωφορείο είναι σε:</span>
@@ -1262,7 +767,7 @@ export function NearbyStopsPanel({
             )}
 
             {/* Tracking mode toggle */}
-            {notificationSettings.push && (
+            {panelSettings.push && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Λειτουργία παρακολούθησης:</span>
@@ -1274,7 +779,6 @@ export function NearbyStopsPanel({
                     className="flex-1 h-8 text-xs"
                     onClick={() => {
                       setTrackingMode('auto');
-                      lastSyncedStopRef.current = null; // Force re-sync
                     }}
                   >
                     <Navigation className="h-3 w-3 mr-1" />
@@ -1296,12 +800,11 @@ export function NearbyStopsPanel({
                 </div>
 
                 {/* Show current tracked stop */}
-                {activeTrackedStop && (
-                  <div className={`text - xs flex items - center justify - between p - 2 rounded - md ${trackingMode === 'fixed' ? 'bg-primary/10 text-primary' : 'bg-green-500/10 text-green-500'
-                    } `}>
+                {activeStop && (
+                  <div className={`text-xs flex items-center justify-between p-2 rounded-md ${trackingMode === 'fixed' ? 'bg-primary/10 text-primary' : 'bg-green-500/10 text-green-500'}`}>
                     <span className="flex items-center gap-1">
                       {trackingMode === 'fixed' ? <MapPin className="h-3 w-3" /> : <Navigation className="h-3 w-3" />}
-                      {activeTrackedStop.stop_name.substring(0, 25)}
+                      {activeStop.stop_name.substring(0, 25)}
                     </span>
                     {trackingMode === 'fixed' && (
                       <Button
@@ -1311,7 +814,6 @@ export function NearbyStopsPanel({
                         onClick={() => {
                           setTrackingMode('auto');
                           setFixedStop(null);
-                          lastSyncedStopRef.current = null;
                           toast({ title: "Αλλαγή σε αυτόματη λειτουργία" });
                         }}
                       >
@@ -1343,7 +845,10 @@ export function NearbyStopsPanel({
                   <h3 className="font-semibold text-sm">{selectedStop.stop_name}</h3>
                   <p className="text-xs text-muted-foreground">{selectedStop.stop_id}</p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedStop(null)}>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  setSelectedStop(null);
+                  if (onHighlightStop) onHighlightStop(null);
+                }}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -1358,7 +863,7 @@ export function NearbyStopsPanel({
                   {selectedStopArrivals.map((arrival) => (
                     <Card
                       key={arrival.tripId}
-                      className={`${watchedArrivals.has(arrival.tripId) ? 'ring-2 ring-primary bg-primary/5' : ''} `}
+                      className={`${watchedArrivals.has(arrival.tripId) ? 'ring-2 ring-primary bg-primary/5' : ''}`}
                     >
                       <CardContent className="p-2">
                         <div className="flex items-center justify-between">
@@ -1367,7 +872,7 @@ export function NearbyStopsPanel({
                               variant="secondary"
                               className="shrink-0 text-xs"
                               style={{
-                                backgroundColor: arrival.routeColor ? `#${arrival.routeColor} ` : undefined,
+                                backgroundColor: arrival.routeColor ? `#${arrival.routeColor}` : undefined,
                                 color: arrival.routeColor ? '#fff' : undefined,
                               }}
                             >
@@ -1385,12 +890,12 @@ export function NearbyStopsPanel({
                             </div>
                           </div>
                           <div className="text-right shrink-0 ml-2">
-                            <p className={`text - sm font - bold ${arrival.estimatedMinutes !== undefined && arrival.estimatedMinutes <= 2
+                            <p className={`text-sm font-bold ${arrival.estimatedMinutes !== undefined && arrival.estimatedMinutes <= 2
                               ? 'text-green-500'
                               : arrival.estimatedMinutes !== undefined && arrival.estimatedMinutes <= 5
                                 ? 'text-yellow-500'
                                 : ''
-                              } `}>
+                              }`}>
                               {formatArrivalTime(arrival.estimatedMinutes)}
                             </p>
                           </div>
@@ -1469,18 +974,18 @@ export function NearbyStopsPanel({
                 return (
                   <Card
                     key={nearbyStop.stop.stop_id}
-                    className={`cursor - pointer hover: bg - accent / 50 transition - colors ${isFixed ? 'ring-2 ring-primary bg-primary/10' :
+                    className={`cursor-pointer hover:bg-accent/50 transition-colors ${isFixed ? 'ring-2 ring-primary bg-primary/10' :
                       index === 0 && trackingMode === 'auto' ? 'ring-2 ring-green-500 bg-green-500/10' : ''
-                      } `}
+                      }`}
                     onClick={() => handleStopSelect(nearbyStop.stop)}
                   >
                     <CardContent className="p-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start gap-2">
-                            <MapPin className={`h - 4 w - 4 shrink - 0 mt - 0.5 ${isFixed ? 'text-primary' :
+                            <MapPin className={`h-4 w-4 shrink-0 mt-0.5 ${isFixed ? 'text-primary' :
                               index === 0 && trackingMode === 'auto' ? 'text-green-500' : 'text-muted-foreground'
-                              } `} />
+                              }`} />
                             <div className="min-w-0">
                               <p className="font-medium text-sm leading-tight">{nearbyStop.stop.stop_name}</p>
                               <div className="flex items-center gap-2">
@@ -1499,7 +1004,7 @@ export function NearbyStopsPanel({
                         </div>
                         <div className="flex items-center gap-1">
                           {/* Set as fixed button */}
-                          {notificationSettings.push && !isFixed && (
+                          {panelSettings.push && !isFixed && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1528,7 +1033,7 @@ export function NearbyStopsPanel({
                               variant="outline"
                               className="text-[10px] py-0"
                               style={{
-                                borderColor: arrival.routeColor ? `#${arrival.routeColor} ` : undefined,
+                                borderColor: arrival.routeColor ? `#${arrival.routeColor}` : undefined,
                               }}
                             >
                               {arrival.routeShortName || arrival.routeId}
@@ -1569,7 +1074,7 @@ export function NearbyStopsPanel({
           right: mobilePosition.x === 0 ? 0 : 'auto',
           bottom: mobilePosition.y === 0 ? 0 : 'auto',
           top: mobilePosition.y !== 0 ? mobilePosition.y : 'auto',
-          height: mobilePosition.y === 0 ? `${mobileHeight} vh` : '60vh',
+          height: mobilePosition.y === 0 ? `${mobileHeight}vh` : '60vh',
           width: mobilePosition.x === 0 ? 'auto' : 'min(90vw, 360px)',
         }}
       >
@@ -1595,7 +1100,7 @@ export function NearbyStopsPanel({
           </div>
         )}
         <div
-          className={`h - full ${mobilePosition.x === 0 && mobilePosition.y === 0 ? 'pt-6' : 'pt-8 rounded-xl border border-border overflow-hidden'} `}
+          className={`h-full ${mobilePosition.x === 0 && mobilePosition.y === 0 ? 'pt-6' : 'pt-8 rounded-xl border border-border overflow-hidden'}`}
           onMouseDown={mobilePosition.x !== 0 || mobilePosition.y !== 0 ? handleMobileMoveStart : undefined}
           onTouchStart={mobilePosition.x !== 0 || mobilePosition.y !== 0 ? handleMobileMoveStart : undefined}
         >

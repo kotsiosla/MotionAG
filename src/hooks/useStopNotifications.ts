@@ -140,8 +140,31 @@ export function useStopNotifications() {
     }
   }, []);
 
-  // Save to localStorage and sync to server
+  // Event listener for syncing state across components and tabs
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        setNotifications(JSON.parse(e.newValue));
+      }
+    };
 
+    const handleCustomEvent = (e: CustomEvent) => {
+      if (e.detail) {
+        setNotifications(e.detail);
+      }
+    };
+
+    // Listen for storage changes (other tabs)
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Listen for custom event (same tab, different components)
+    window.addEventListener('stop-notifications-changed', handleCustomEvent as EventListener);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('stop-notifications-changed', handleCustomEvent as EventListener);
+    };
+  }, []);
 
   // Add or update notification for a stop
   const setNotification = useCallback((settings: StopNotificationSettings) => {
@@ -155,6 +178,9 @@ export function useStopNotifications() {
         updated = [...prev, settings];
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+      // Dispatch event to update other components
+      window.dispatchEvent(new CustomEvent('stop-notifications-changed', { detail: updated }));
 
       // Sync to server for background push notifications
       syncToServer(updated);
@@ -176,6 +202,10 @@ export function useStopNotifications() {
     setNotifications(prev => {
       const updated = prev.filter(n => n.stopId !== stopId);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      
+      // Dispatch event
+      window.dispatchEvent(new CustomEvent('stop-notifications-changed', { detail: updated }));
+      
       syncToServer(updated);
       return updated;
     });
