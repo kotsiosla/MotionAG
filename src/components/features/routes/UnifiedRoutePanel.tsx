@@ -814,62 +814,102 @@ export function UnifiedRoutePanel({
           {/* Live Tab */}
           <TabsContent value="live" className="flex-1 min-h-0 mt-0">
             <ScrollArea className="h-full">
-              <div className="p-2 space-y-1.5">
+              <div className="p-3 space-y-3">
+                {/* Header */}
+                <div className="flex items-center gap-2 pb-2 border-b border-border">
+                  <Bus className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium text-muted-foreground">
+                    {liveTripsWithVehicles.length} Ενεργά Λεωφορεία
+                  </span>
+                </div>
+
                 {liveTripsWithVehicles.length === 0 ? (
                   <div className="text-center text-muted-foreground text-xs py-8">
                     <Radio className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>Δεν υπάρχουν live οχήματα</p>
+                    <p>Δεν υπάρχουν live οχήματα στη διαδρομή</p>
                   </div>
                 ) : (
                   liveTripsWithVehicles.map(({ trip, vehicle, nextStop, nextArrivalTime }) => {
                     try {
                       if (!vehicle || (!vehicle.vehicleId && !vehicle.id)) return null;
                       const vehicleId = vehicle.vehicleId || vehicle.id || 'unknown';
+                      const isFollowed = followedVehicle && (followedVehicle.vehicleId === vehicleId || followedVehicle.id === vehicleId);
 
                       return (
                         <div
                           key={vehicleId}
-                          className="rounded-lg border p-2 bg-muted/30 hover:bg-muted/50 transition-colors"
+                          className={cn(
+                            "rounded-xl border p-3 transition-all duration-200",
+                            isFollowed
+                              ? "bg-green-50/50 border-green-500 shadow-sm ring-1 ring-green-500/20"
+                              : "bg-white border-border hover:border-green-300 hover:shadow-sm"
+                          )}
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <Badge variant="default" className="bg-green-500 text-[10px]">
-                                LIVE
-                              </Badge>
+                          {/* Top Row: Icon + ID + Status */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                              <div className={cn(
+                                "h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-colors",
+                                isFollowed ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"
+                              )}>
+                                <Bus className="h-5 w-5" />
+                              </div>
                               <div className="min-w-0 flex-1">
-                                <div className="font-mono font-bold text-sm">
-                                  {vehicle.timestamp && typeof vehicle.timestamp === 'number'
-                                    ? new Date(vehicle.timestamp * 1000).toLocaleTimeString('el-GR', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      second: '2-digit',
-                                      hour12: false,
-                                    })
-                                    : '--:--:--'
-                                  }
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-sm text-foreground">
+                                    Όχημα {vehicle.label || vehicleId}
+                                  </span>
+                                  {isFollowed && (
+                                    <Badge variant="default" className="h-4 px-1.5 text-[10px] bg-green-600 hover:bg-green-700">
+                                      ΠΑΡΑΚΟΛΟΥΘΗΣΗ
+                                    </Badge>
+                                  )}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {vehicle.label || vehicleId}
-                                </div>
+                                {nextStop && (
+                                  <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                                    <MapPin className="h-3 w-3 shrink-0" />
+                                    <span className="truncate">Επόμενη: <span className="font-medium text-foreground">{nextStop}</span></span>
+                                  </div>
+                                )}
                               </div>
                             </div>
+                          </div>
+
+                          {/* Bottom Row: Time + Actions */}
+                          <div className="mt-3 flex items-center justify-between pt-2 border-t border-border/50">
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <Radio className={cn("h-3 w-3", isFollowed ? "text-green-600 animate-pulse" : "")} />
+                              <span>
+                                {formatMinutesUntil(nextArrivalTime)
+                                  ? `Άφιξη σε ${formatMinutesUntil(nextArrivalTime)}`
+                                  : 'Εν κινήσει...'}
+                              </span>
+                            </div>
+
                             {onVehicleFollow && (
                               <Button
-                                variant="outline"
+                                variant={isFollowed ? "default" : "outline"}
                                 size="sm"
-                                className="h-7 text-xs gap-1"
+                                className={cn(
+                                  "h-7 text-xs gap-1.5 ml-auto transition-all",
+                                  isFollowed ? "bg-green-600 hover:bg-green-700 border-transparent" : ""
+                                )}
                                 onClick={() => onVehicleFollow(vehicleId)}
                               >
-                                <Eye className="h-3 w-3" />
-                                Παρακολούθηση
+                                {isFollowed ? (
+                                  <>
+                                    <Eye className="h-3 w-3" />
+                                    Επιλεγμένο
+                                  </>
+                                ) : (
+                                  <>
+                                    <Focus className="h-3 w-3" />
+                                    Επιλογή
+                                  </>
+                                )}
                               </Button>
                             )}
                           </div>
-                          {nextStop && nextArrivalTime && (
-                            <div className="mt-1.5 text-xs text-muted-foreground">
-                              Επόμενη στάση σε {formatMinutesUntil(nextArrivalTime) || '—'}
-                            </div>
-                          )}
                         </div>
                       );
                     } catch (e) {
