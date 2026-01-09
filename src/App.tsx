@@ -13,6 +13,10 @@ const queryClient = new QueryClient();
 const getBasePath = () => {
   if (typeof window !== 'undefined') {
     const path = window.location.pathname;
+    if (path.startsWith('/MotionAG')) {
+      return '/MotionAG';
+    }
+    // Check for old path just in case, or remove it if we want strict migration
     if (path.startsWith('/MotionBus_AI')) {
       return '/MotionBus_AI';
     }
