@@ -1,5 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
 import { X, Bus, MapPin, Clock, ChevronDown, ChevronUp, Radio, Calendar, Eye, Focus, Maximize2, ArrowLeftRight, ChevronLeft, ChevronRight, Loader2, Bell, Route, Map as MapIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { RouteStopsPanel } from "@/components/features/routes/RouteStopsPanel";
 import { SchedulePanel } from "@/components/features/schedule/SchedulePanel";
 import { VehicleFollowPanel } from "@/components/features/map/VehicleFollowPanel";

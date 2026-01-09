@@ -368,14 +368,19 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
     const tripId = vehicle.tripId;
     if (tripId && Array.isArray(trips)) {
-      const tripMatch = trips.find((t) => t?.tripId === tripId);
+      // Use loose comparison or string conversion to handle potential number/string mismatches
+      const tripMatch = trips.find((t) => t?.tripId && String(t.tripId) === String(tripId));
       const fromTrip = tripMatch?.routeId;
       if ((typeof fromTrip === 'string' || typeof fromTrip === 'number') && String(fromTrip) !== 'all') return String(fromTrip);
     }
 
     const vehicleId = vehicle.vehicleId || vehicle.id;
     if (vehicleId && Array.isArray(trips)) {
-      const tripMatch = trips.find((t) => t?.vehicleId === vehicleId);
+      // Use loose comparison or string conversion
+      const tripMatch = trips.find((t) => {
+        const tVehicleId = t?.vehicleId || t?.vehicleLabel; // Also check vehicleLabel just in case
+        return tVehicleId && String(tVehicleId) === String(vehicleId);
+      });
       const fromVehicleTrip = tripMatch?.routeId;
       if ((typeof fromVehicleTrip === 'string' || typeof fromVehicleTrip === 'number') && String(fromVehicleTrip) !== 'all') return String(fromVehicleTrip);
     }
