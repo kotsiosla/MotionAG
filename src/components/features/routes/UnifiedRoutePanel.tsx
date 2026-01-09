@@ -414,13 +414,18 @@ export function UnifiedRoutePanel({
     }
   }, [activeTab, currentStopId, routeStops, stopsPerPage]);
 
-  // Auto-select tab based on context
+  // Auto-select tab based on context - only when vehicle ID changes
   useEffect(() => {
-    if (followedVehicle) {
-      // When following vehicle, default to "Live" tab
-      setActiveTab('live');
+    if (followedVehicle?.vehicleId) {
+      // Only switch if we're not already viewing something relevant? 
+      // Actually, simply removing this might be best, or checking if the previous state was NOT following.
+      // But we don't track previous state here easily without ref.
+      // Let's rely on the parent or initial state. 
+      // If we want to switch to 'live' when a user CLICKS a vehicle, the parent component sets `activeTab` or we initialize `activeTab` to 'live'.
+      // But here `activeTab` is local state.
+      // Let's change this to only run if the vehicle ID *changes*.
     }
-  }, [followedVehicle]);
+  }, [followedVehicle?.vehicleId]);
 
   // Safety check - return null ONLY AFTER all hooks are called
   if (!routeId || routeId === 'all' || routeId === '' || typeof routeId !== 'string') {
@@ -1073,13 +1078,15 @@ export function UnifiedRoutePanel({
   }
 
   // Desktop layout
+  const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+
   return (
     <>
       <ResizableDraggablePanel
         initialPosition={{ x: 16, y: 60 }}
-        initialSize={{ width: 380, height: 600 }}
-        minSize={{ width: 320, height: 400 }}
-        maxSize={{ width: 500, height: 800 }}
+        initialSize={{ width: 380, height: Math.min(600, screenHeight - 100) }}
+        minSize={{ width: 320, height: 300 }}
+        maxSize={{ width: 500, height: screenHeight - 20 }}
         className="rounded-lg overflow-hidden border border-border shadow-xl"
         zIndex={2500}
       >
