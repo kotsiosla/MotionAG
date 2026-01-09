@@ -693,9 +693,10 @@ export function UnifiedRoutePanel({
                           key={stop.stopId}
                           data-stop-id={stop.stopId}
                           className={cn(
-                            "flex items-start gap-2 p-1.5 rounded-lg hover:bg-muted/50 active:bg-muted transition-colors",
-                            isCurrentStop && "bg-primary/10 border border-primary/30",
-                            !isCurrentStop && "cursor-pointer"
+                            "flex items-start gap-3 p-3 rounded-xl transition-all mb-1",
+                            isCurrentStop
+                              ? "bg-green-50 border border-green-200 shadow-sm"
+                              : "hover:bg-muted/50 active:bg-muted cursor-pointer"
                           )}
                           onClick={() => {
                             if (!isCurrentStop) {
@@ -704,36 +705,31 @@ export function UnifiedRoutePanel({
                           }}
                         >
                           {/* Timeline indicator */}
-                          <div className="flex flex-col items-center pt-0.5">
+                          <div className="flex flex-col items-center pt-1">
                             <div
-                              className={`w-2.5 h-2.5 rounded-full border-2 ${isNow
-                                ? 'bg-green-500 border-green-500'
-                                : stop.isFirst
-                                  ? 'bg-primary border-primary'
-                                  : 'bg-background border-muted-foreground'
-                                }`}
+                              className={cn(
+                                "w-3 h-3 rounded-full border-2",
+                                isNow
+                                  ? "bg-green-500 border-green-500 shadow-[0_0_0_2px_rgba(34,197,94,0.2)]"
+                                  : isCurrentStop
+                                    ? "bg-green-500 border-green-500"
+                                    : "bg-background border-muted-foreground/40"
+                              )}
                             />
                             {index < paginatedStops.length - 1 && (
-                              <div className="w-0.5 h-8 bg-muted-foreground/30 mt-0.5" />
+                              <div className="w-0.5 min-h-[2rem] flex-1 bg-muted-foreground/20 mt-1" />
                             )}
                           </div>
 
                           {/* Stop info */}
-                          <div className="flex-1 min-w-0 pb-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-medium text-xs truncate flex-1">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className={cn(
+                                "text-sm truncate flex-1",
+                                isCurrentStop ? "font-bold text-foreground" : "font-medium text-muted-foreground/90"
+                              )}>
                                 {stop.stopName}
                               </span>
-                              {stop.isFirst && (
-                                <Badge variant="default" className="text-[9px] px-1 py-0 h-4 bg-red-500 hover:bg-red-600 shrink-0">
-                                  ΑΦΕΤ.
-                                </Badge>
-                              )}
-                              {stop.isLast && (
-                                <Badge variant="default" className="text-[9px] px-1 py-0 h-4 bg-blue-500 hover:bg-blue-600 shrink-0">
-                                  ΤΕΡΜ.
-                                </Badge>
-                              )}
                             </div>
 
                             <div className="flex items-center gap-1.5 mt-0.5">
