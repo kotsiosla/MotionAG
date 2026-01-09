@@ -23,7 +23,7 @@ if (typeof window !== 'undefined') {
     urlExists: !!SUPABASE_URL,
     keyExists: hasKey,
   });
-  
+
   if (!hasKey) {
     console.error('[Supabase Client] ❌ VITE_SUPABASE_PUBLISHABLE_KEY is missing!');
     console.error('[Supabase Client] Please set it in .env file or run:');
@@ -38,19 +38,19 @@ if (typeof window !== 'undefined') {
 // Only create client if we have a valid key, otherwise create a mock that won't crash
 export const supabase = (SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY && SUPABASE_PUBLISHABLE_KEY.length > 0)
   ? createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-      auth: {
-        storage: localStorage,
-        persistSession: true,
-        autoRefreshToken: true,
-      }
-    })
+    auth: {
+      storage: localStorage,
+      persistSession: true,
+      autoRefreshToken: true,
+    }
+  })
   : createClient<Database>(SUPABASE_URL || 'https://jftthfniwfarxyisszjh.supabase.co', 'dummy-key-for-initialization', {
-      auth: {
-        storage: localStorage,
-        persistSession: true,
-        autoRefreshToken: true,
-      }
-    });
+    auth: {
+      storage: localStorage,
+      persistSession: true,
+      autoRefreshToken: true,
+    }
+  });
 
 // Debug: Test connection on client side
 if (typeof window !== 'undefined' && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
@@ -61,7 +61,7 @@ if (typeof window !== 'undefined' && SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY) {
     } else {
       console.log('[Supabase Client] ✅ Connection test successful');
     }
-  }).catch((err) => {
+  }).then(undefined, (err: any) => {
     console.error('[Supabase Client] ❌ Connection test error:', err);
   });
 }

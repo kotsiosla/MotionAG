@@ -2,23 +2,25 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Map as MapIcon, Route, MapPin, Bell, Calendar } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Header } from "@/components/Header";
-import { ErrorBanner } from "@/components/ErrorBanner";
-import { VehicleMap, MapStyleType } from "@/components/VehicleMap";
-import { TripsTable } from "@/components/TripsTable";
-import { StopsView } from "@/components/StopsView";
-import { AlertsList } from "@/components/AlertsList";
-import { ScheduleView } from "@/components/ScheduleView";
-import { SmartTripResults } from "@/components/SmartTripResults";
-import { NearbyStopsPanel } from "@/components/NearbyStopsPanel";
-import { SavedTripsPanel } from "@/components/SavedTripsPanel";
-import { PWAInstallBanner } from "@/components/PWAInstallBanner";
-import { PullToRefresh } from "@/components/PullToRefresh";
+import { Header } from "@/components/layout/Header";
+import { ErrorBanner } from "@/components/common/ErrorBanner";
+import { VehicleMap, MapStyleType } from "@/components/features/map/VehicleMap";
+import { TripPlanner } from "@/components/features/planning/TripPlanner";
+import { SmartTripPlanner } from "@/components/features/planning/SmartTripPlanner";
+import { TripsTable } from "@/components/features/schedule/TripsTable";
+import { StopsView } from "@/components/features/schedule/StopsView";
+import { AlertsList } from "@/components/features/user/AlertsList";
+import { ScheduleView } from "@/components/features/schedule/ScheduleView";
+import { SmartTripResults } from "@/components/features/planning/SmartTripResults";
+import { NearbyStopsPanel } from "@/components/features/map/NearbyStopsPanel";
+import { SavedTripsPanel } from "@/components/features/user/SavedTripsPanel";
+import { AnimatedLogo } from "@/components/common/AnimatedLogo";
+import { PWAInstallBanner } from "@/components/common/PWAInstallBanner";
+import { PullToRefresh } from "@/components/common/PullToRefresh";
 import { useSavedTrips } from "@/hooks/useSavedTrips";
 import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } from "@/hooks/useGtfsData";
 import { useSmartTripPlan } from "@/hooks/useSmartTripPlan";
 import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
-import { useDelayNotifications } from "@/hooks/useDelayNotifications";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import { useStopArrivalNotifications, unlockAudio } from "@/hooks/useStopArrivalNotifications";
 import type { RouteInfo, StaticStop } from "@/types/gtfs";
@@ -26,7 +28,7 @@ import { toast } from "sonner";
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   const [isDark, setIsDark] = useState(() => {
     // Check saved preference or default to light
     try {
@@ -36,14 +38,14 @@ const Index = () => {
       }
       const savedMapStyle = localStorage.getItem('motionbus_map_style');
       return savedMapStyle === 'dark' || savedMapStyle === 'satellite';
-    } catch {}
+    } catch { }
     return false;
   });
   const [mapStyle, setMapStyle] = useState<MapStyleType>(() => {
     try {
       const saved = localStorage.getItem('motionbus_map_style');
       if (saved === 'light' || saved === 'dark' || saved === 'satellite') return saved;
-    } catch {}
+    } catch { }
     return 'light';
   });
   const [refreshInterval, setRefreshInterval] = useState(5);
@@ -51,35 +53,34 @@ const Index = () => {
   const [selectedOperator, setSelectedOperator] = useState("all");
   const [selectedRoute, setSelectedRoute] = useState("all");
   const [showLiveOnly, setShowLiveOnly] = useState(false);
-  
+
   // Deep link stop state - passed to VehicleMap to open stop panel
   const [deepLinkStopId, setDeepLinkStopId] = useState<string | null>(null);
-  
+
   // Trip planning state
   const [tripOrigin, setTripOrigin] = useState<StaticStop | null>(null);
   const [tripDestination, setTripDestination] = useState<StaticStop | null>(null);
   const [tripDepartureTime, setTripDepartureTime] = useState<string>("now");
   const [tripDepartureDate, setTripDepartureDate] = useState<Date>(new Date());
   const [showTripResults, setShowTripResults] = useState(false);
-  const [tripOriginLocation, setTripOriginLocation] = useState<{ lat: number; lon: number } | null>(null);
-  const [tripDestLocation, setTripDestLocation] = useState<{ lat: number; lon: number } | null>(null);
+
   const [maxWalkingDistance, setMaxWalkingDistance] = useState<number>(() => {
     const saved = localStorage.getItem('maxWalkingDistance');
     return saved ? parseInt(saved, 10) : 0; // Default to unlimited (0)
   });
-  
+
   // Highlighted stop (for nearby stops panel)
   const [highlightedStop, setHighlightedStop] = useState<StaticStop | null>(null);
-  
+
   // Vehicle to follow from NearbyStopsPanel
   const [followVehicleId, setFollowVehicleId] = useState<string | null>(null);
-  
+
   // Delay notifications toggle
   const [delayNotificationsEnabled, setDelayNotificationsEnabled] = useState(() => {
     const saved = localStorage.getItem('delayNotificationsEnabled');
     return saved !== null ? JSON.parse(saved) : true;
   });
-  
+
   // Apply theme to document
   useEffect(() => {
     if (isDark) {
@@ -94,11 +95,11 @@ const Index = () => {
     const handleInteraction = () => {
       unlockAudio();
     };
-    
+
     // Listen for various interaction events
     document.addEventListener('touchstart', handleInteraction, { passive: true });
     document.addEventListener('click', handleInteraction, { passive: true });
-    
+
     return () => {
       document.removeEventListener('touchstart', handleInteraction);
       document.removeEventListener('click', handleInteraction);
@@ -119,7 +120,7 @@ const Index = () => {
       localStorage.setItem('motionbus_map_style', 'light');
     }
   }, [isDark, mapStyle]);
-  
+
   const handleMapStyleChange = useCallback((newStyle: MapStyleType) => {
     setMapStyle(newStyle);
     localStorage.setItem('motionbus_map_style', newStyle);
@@ -130,18 +131,18 @@ const Index = () => {
       setIsDark(false);
     }
   }, []);
-  
+
   // Toggle delay notifications
   const toggleDelayNotifications = () => {
     const newValue = !delayNotificationsEnabled;
     setDelayNotificationsEnabled(newValue);
     localStorage.setItem('delayNotificationsEnabled', JSON.stringify(newValue));
   };
-  
+
   // Saved trips
-  const { savedTrips, getUpcomingTrips } = useSavedTrips();
+  const { getUpcomingTrips } = useSavedTrips();
   const [showSavedTrips, setShowSavedTrips] = useState(false);
-  
+
   // Favorites
   const { favorites, addFavorite, removeFavorite, isFavorite } = useFavoriteRoutes();
 
@@ -150,7 +151,7 @@ const Index = () => {
   const alertsQuery = useAlerts(refreshInterval, selectedOperator);
   const staticRoutesQuery = useStaticRoutes(selectedOperator);
   const staticStopsQuery = useStaticStops(selectedOperator);
-  
+
   // Cache for last known good data - initialize from localStorage
   const [cachedVehicles, setCachedVehicles] = useState<typeof vehiclesQuery.data>(() => {
     try {
@@ -177,7 +178,7 @@ const Index = () => {
     }
   });
   const [isUsingCachedData, setIsUsingCachedData] = useState(false);
-  
+
   // Update cache when we get successful data - also persist to localStorage
   useEffect(() => {
     if (vehiclesQuery.data?.data && vehiclesQuery.data.data.length > 0) {
@@ -191,7 +192,7 @@ const Index = () => {
       }
     }
   }, [vehiclesQuery.data]);
-  
+
   useEffect(() => {
     if (tripsQuery.data?.data && tripsQuery.data.data.length > 0) {
       setCachedTrips(tripsQuery.data);
@@ -202,7 +203,7 @@ const Index = () => {
       }
     }
   }, [tripsQuery.data]);
-  
+
   useEffect(() => {
     if (alertsQuery.data?.data) {
       setCachedAlerts(alertsQuery.data);
@@ -213,29 +214,16 @@ const Index = () => {
       }
     }
   }, [alertsQuery.data]);
-  
-  // Get cache age for display
-  const getCacheAge = useCallback(() => {
-    try {
-      const timestamp = localStorage.getItem('gtfs_cache_timestamp');
-      if (timestamp) {
-        return parseInt(timestamp, 10);
-      }
-    } catch {
-      // ignore
-    }
-    return null;
-  }, []);
-  
+
   // Determine if we're using cached data
   useEffect(() => {
     const hasError = vehiclesQuery.isError || tripsQuery.isError;
     const hasNoCurrentData = !vehiclesQuery.data?.data?.length && !tripsQuery.data?.data?.length;
     const hasCachedData = (cachedVehicles?.data?.length ?? 0) > 0 || (cachedTrips?.data?.length ?? 0) > 0;
-    
+
     setIsUsingCachedData(hasError && hasNoCurrentData && hasCachedData);
   }, [vehiclesQuery.isError, tripsQuery.isError, vehiclesQuery.data, tripsQuery.data, cachedVehicles, cachedTrips]);
-  
+
   // Use current data if available, otherwise fall back to cached data
   const effectiveVehiclesData = useMemo(() => {
     if (vehiclesQuery.data?.data && vehiclesQuery.data.data.length > 0) {
@@ -246,7 +234,7 @@ const Index = () => {
     }
     return vehiclesQuery.data;
   }, [vehiclesQuery.data, vehiclesQuery.isError, cachedVehicles]);
-  
+
   const effectiveTripsData = useMemo(() => {
     if (tripsQuery.data?.data && tripsQuery.data.data.length > 0) {
       return tripsQuery.data;
@@ -256,7 +244,7 @@ const Index = () => {
     }
     return tripsQuery.data;
   }, [tripsQuery.data, tripsQuery.isError, cachedTrips]);
-  
+
   const effectiveAlertsData = useMemo(() => {
     if (alertsQuery.data?.data) {
       return alertsQuery.data;
@@ -266,18 +254,17 @@ const Index = () => {
     }
     return alertsQuery.data;
   }, [alertsQuery.data, alertsQuery.isError, cachedAlerts]);
-  
+
   // Smart trip planning query with route combinations
   const tripPlanQuery = useSmartTripPlan(
     tripOrigin,
     tripDestination,
-    tripOriginLocation,
-    tripDestLocation,
+
     tripDepartureTime,
     tripDepartureDate,
     maxWalkingDistance
   );
-  
+
   // Save walking distance preference
   const handleWalkingDistanceChange = useCallback((distance: number) => {
     setMaxWalkingDistance(distance);
@@ -292,7 +279,7 @@ const Index = () => {
     });
     return routeMap;
   }, [staticRoutesQuery.data]);
-  
+
   // Delay notifications disabled - users can view delays in the dedicated "Καθυστερήσεις" tab
   // useDelayNotifications(
   //   effectiveTripsData?.data || [],
@@ -326,13 +313,13 @@ const Index = () => {
     if (showLiveOnly) {
       return Array.from(liveRoutes);
     }
-    
+
     // Get routes from static GTFS data
     const staticRoutes = staticRoutesQuery.data?.data?.map(r => r.route_id) || [];
     if (staticRoutes.length > 0) {
       return staticRoutes;
     }
-    
+
     // Fallback: use live routes
     return Array.from(liveRoutes);
   }, [staticRoutesQuery.data, liveRoutes, showLiveOnly]);
@@ -347,12 +334,12 @@ const Index = () => {
   useEffect(() => {
     const routeParam = searchParams.get('route');
     const stopParam = searchParams.get('stop');
-    
+
     if (routeParam) {
       setSelectedRoute(routeParam);
       setActiveTab("map");
     }
-    
+
     if (stopParam) {
       setDeepLinkStopId(stopParam);
       setActiveTab("map");
@@ -362,7 +349,7 @@ const Index = () => {
   // Update URL when route or stop changes
   const updateUrlParams = useCallback((params: { route?: string | null; stop?: string | null }) => {
     const newParams = new URLSearchParams(searchParams);
-    
+
     if (params.route !== undefined) {
       if (params.route && params.route !== 'all') {
         newParams.set('route', params.route);
@@ -370,7 +357,7 @@ const Index = () => {
         newParams.delete('route');
       }
     }
-    
+
     if (params.stop !== undefined) {
       if (params.stop) {
         newParams.set('stop', params.stop);
@@ -378,7 +365,7 @@ const Index = () => {
         newParams.delete('stop');
       }
     }
-    
+
     setSearchParams(newParams, { replace: true });
   }, [searchParams, setSearchParams]);
 
@@ -410,7 +397,7 @@ const Index = () => {
 
   // Track previous error state to detect connection restored
   const wasOfflineRef = useRef(false);
-  
+
   // Show toast when connection is restored
   useEffect(() => {
     if (wasOfflineRef.current && !hasError && !isLoading) {
@@ -424,15 +411,6 @@ const Index = () => {
       wasOfflineRef.current = true;
     }
   }, [hasError, isLoading]);
-
-  // Track last successful update for status indicator
-  const [lastSuccessfulUpdate, setLastSuccessfulUpdate] = useState<number | null>(null);
-  
-  useEffect(() => {
-    if (vehiclesQuery.data?.timestamp || tripsQuery.data?.timestamp) {
-      setLastSuccessfulUpdate(Date.now());
-    }
-  }, [vehiclesQuery.data?.timestamp, tripsQuery.data?.timestamp]);
 
   const lastUpdate = Math.max(
     vehiclesQuery.data?.timestamp || 0,
@@ -468,11 +446,11 @@ const Index = () => {
       // Clear any existing intervals
       if (retryIntervalRef.current) clearTimeout(retryIntervalRef.current);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-      
+
       // Set countdown to 30 seconds
       const retryDelay = 30;
       setRetryCountdown(retryDelay);
-      
+
       // Start countdown
       countdownIntervalRef.current = setInterval(() => {
         setRetryCountdown(prev => {
@@ -483,7 +461,7 @@ const Index = () => {
           return prev - 1;
         });
       }, 1000);
-      
+
       // Schedule retry
       retryIntervalRef.current = setTimeout(() => {
         handleRetry();
@@ -500,7 +478,7 @@ const Index = () => {
       }
       setRetryCountdown(0);
     }
-    
+
     return () => {
       if (retryIntervalRef.current) clearTimeout(retryIntervalRef.current);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
@@ -530,21 +508,11 @@ const Index = () => {
         liveRoutesCount={liveRoutes.size}
         stops={staticStopsQuery.data?.data || []}
         stopsLoading={staticStopsQuery.isLoading}
-        onTripSearch={(origin, destination, departureTime, departureDate, originLocation, destLocation) => {
+        onTripSearch={(origin, destination, departureTime, departureDate, _originLocation, _destLocation) => {
           setTripOrigin(origin);
           setTripDestination(destination);
           setTripDepartureTime(departureTime);
           setTripDepartureDate(departureDate);
-          if (originLocation) {
-            setTripOriginLocation({ lat: originLocation.lat, lon: originLocation.lon });
-          } else {
-            setTripOriginLocation(null);
-          }
-          if (destLocation) {
-            setTripDestLocation({ lat: destLocation.lat, lon: destLocation.lon });
-          } else {
-            setTripDestLocation(null);
-          }
           setShowTripResults(true);
         }}
         favorites={favorites}
@@ -559,13 +527,13 @@ const Index = () => {
         onOpenSavedTrips={() => setShowSavedTrips(true)}
         savedTripsCount={getUpcomingTrips().length}
       />
-      
+
       {/* Saved Trips Panel */}
-      <SavedTripsPanel 
-        isOpen={showSavedTrips} 
-        onClose={() => setShowSavedTrips(false)} 
+      <SavedTripsPanel
+        isOpen={showSavedTrips}
+        onClose={() => setShowSavedTrips(false)}
       />
-      
+
       {/* Smart Trip Plan Results Modal */}
       {showTripResults && (
         <SmartTripResults
@@ -718,12 +686,12 @@ const Index = () => {
           trips={effectiveTripsData?.data || []}
           vehicles={effectiveVehiclesData?.data || []}
           routeNamesMap={routeNamesMap}
-          onSelectVehicle={(vehicleId, tripId, routeId) => {
+          onSelectVehicle={(vehicleId, _tripId, routeId) => {
             if (routeId) setSelectedRoute(routeId);
             setFollowVehicleId(vehicleId);
             setActiveTab("map");
           }}
-          onStopSelect={(stop) => {
+          onStopSelect={(_stop) => {
             setActiveTab("map");
           }}
           onHighlightStop={(stop) => {
@@ -732,7 +700,7 @@ const Index = () => {
           }}
         />
       )}
-      
+
       {/* PWA Install Banner */}
       <PWAInstallBanner />
     </div>

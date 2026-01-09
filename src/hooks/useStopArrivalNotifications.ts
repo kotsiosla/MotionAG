@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { toast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+
 import type { Trip, RouteInfo } from '@/types/gtfs';
 import type { StopNotificationSettings } from './useStopNotifications';
 
@@ -15,53 +15,39 @@ interface ArrivalInfo {
   source?: string;
 }
 
-interface HighAccuracyArrival {
-  stopId: string;
-  routeId: string;
-  tripId?: string;
-  vehicleId?: string;
-  bestArrivalTime: number;
-  confidence: 'high' | 'medium' | 'low';
-  source: 'gtfs' | 'siri' | 'merged';
-  gtfsArrivalTime?: number;
-  siriExpectedArrivalTime?: number;
-}
+
 
 // Track notifications we've already sent to avoid spam
 const notifiedArrivals = new Map<string, { timestamp: number; arrivalTime: number }>();
 
 // Audio context for notification sounds
 let audioContext: AudioContext | null = null;
-let audioUnlocked = false;
-let lastUserInteraction = 0;
 
 // Pre-loaded audio element for iOS fallback
 let fallbackAudio: HTMLAudioElement | null = null;
 
 // iOS Audio unlock - must be called from user interaction
 export const unlockAudio = () => {
-  lastUserInteraction = Date.now();
-  
   try {
     // Create and unlock audio context
     if (!audioContext) {
       audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
-    
+
     // Resume if suspended (iOS requirement)
     if (audioContext.state === 'suspended') {
       audioContext.resume().then(() => {
         console.log('[Audio] AudioContext resumed via user interaction');
       });
     }
-    
+
     // Play a silent buffer to unlock - this is required on iOS
     const buffer = audioContext.createBuffer(1, 1, 22050);
     const source = audioContext.createBufferSource();
     source.buffer = buffer;
     source.connect(audioContext.destination);
     source.start(0);
-    
+
     // Pre-load and unlock HTML5 Audio for iOS fallback
     if (!fallbackAudio) {
       fallbackAudio = new Audio();
@@ -79,8 +65,7 @@ export const unlockAudio = () => {
         // Ignore - will try again on next interaction
       });
     }
-    
-    audioUnlocked = true;
+
     console.log('[Audio] iOS audio unlocked');
   } catch (e) {
     console.log('[Audio] Could not unlock audio:', e);
@@ -91,7 +76,7 @@ export const unlockAudio = () => {
 export const keepAudioAlive = () => {
   if (audioContext && audioContext.state === 'suspended') {
     // Cannot resume without user interaction, but we can try
-    audioContext.resume().catch(() => {});
+    audioContext.resume().catch(() => { });
   }
 };
 
@@ -100,7 +85,7 @@ export const speak = (text: string) => {
   if ('speechSynthesis' in window) {
     // Cancel any ongoing speech
     speechSynthesis.cancel();
-    
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'el-GR';
     utterance.rate = 0.9;
@@ -113,24 +98,24 @@ export const speak = (text: string) => {
 // Play notification sound - more urgent as time approaches
 export const playSound = (urgency: 'low' | 'medium' | 'high' = 'medium') => {
   console.log('[Audio] Attempting to play sound, urgency:', urgency);
-  
+
   // On iOS, if the audio context is suspended, we need user interaction
   // Try HTML5 Audio fallback first as it's more reliable on iOS
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  
+
   if (isIOS && fallbackAudio) {
     // Use pre-loaded HTML5 Audio for iOS
     playWithHTML5Audio(urgency);
     return;
   }
-  
+
   try {
     // Try Web Audio API
     if (!audioContext) {
       audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
-    
+
     // Resume audio context if suspended (iOS)
     if (audioContext.state === 'suspended') {
       console.log('[Audio] AudioContext suspended, trying to resume...');
@@ -153,10 +138,10 @@ export const playSound = (urgency: 'low' | 'medium' | 'high' = 'medium') => {
 // Play using pre-loaded HTML5 Audio (more reliable on iOS)
 const playWithHTML5Audio = (urgency: 'low' | 'medium' | 'high') => {
   const beepCount = urgency === 'high' ? 3 : urgency === 'medium' ? 2 : 1;
-  
+
   const playBeep = (index: number) => {
     if (index >= beepCount || !fallbackAudio) return;
-    
+
     try {
       fallbackAudio.currentTime = 0;
       fallbackAudio.play().then(() => {
@@ -168,29 +153,29 @@ const playWithHTML5Audio = (urgency: 'low' | 'medium' | 'high') => {
       console.log('[Audio] HTML5 Audio error:', e);
     }
   };
-  
+
   playBeep(0);
 };
 
 const playSoundWithContext = (ctx: AudioContext, urgency: 'low' | 'medium' | 'high') => {
   const baseFreq = urgency === 'high' ? 1000 : urgency === 'medium' ? 800 : 600;
   const beepCount = urgency === 'high' ? 3 : urgency === 'medium' ? 2 : 1;
-  
+
   for (let i = 0; i < beepCount; i++) {
     setTimeout(() => {
       try {
         const oscillator = ctx.createOscillator();
         const gainNode = ctx.createGain();
-        
+
         oscillator.connect(gainNode);
         gainNode.connect(ctx.destination);
-        
+
         oscillator.frequency.value = baseFreq + (i * 100);
         oscillator.type = 'sine';
-        
+
         gainNode.gain.setValueAtTime(0.5, ctx.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-        
+
         oscillator.start(ctx.currentTime);
         oscillator.stop(ctx.currentTime + 0.3);
       } catch (e) {
@@ -204,7 +189,7 @@ const playSoundWithContext = (ctx: AudioContext, urgency: 'low' | 'medium' | 'hi
 const playFallbackSound = (urgency: 'low' | 'medium' | 'high') => {
   // Generate a data URI for a short beep (WAV format)
   const beepCount = urgency === 'high' ? 3 : urgency === 'medium' ? 2 : 1;
-  
+
   for (let i = 0; i < beepCount; i++) {
     setTimeout(() => {
       try {
@@ -229,7 +214,7 @@ export const vibrate = (urgency: 'low' | 'medium' | 'high' = 'medium') => {
     console.log('[Vibration] Not supported on this device (iOS does not support vibration API)');
     return false;
   }
-  
+
   try {
     const patterns = {
       low: [200],
@@ -253,44 +238,27 @@ export function useStopArrivalNotifications(
 ) {
   const lastCheckRef = useRef<number>(0);
   const [checkInterval, setCheckInterval] = useState(10000); // Default 10 seconds
-  const highAccuracyModeRef = useRef<Set<string>>(new Set()); // Stops in high-accuracy mode
 
-  // Fetch high-accuracy arrivals from the server
-  const fetchHighAccuracyArrivals = useCallback(async (stopId: string): Promise<HighAccuracyArrival[]> => {
-    try {
-      const { data, error } = await supabase.functions.invoke('gtfs-proxy', {
-        body: null,
-        method: 'GET',
-      });
-      
-      // Since we can't pass query params directly, we'll use the standard trips endpoint
-      // and the merged data logic is already in the edge function
-      // For now, fall back to local processing
-      return [];
-    } catch (error) {
-      console.error('Error fetching high-accuracy arrivals:', error);
-      return [];
-    }
-  }, []);
+
 
   // Send browser notification - works for both push (Android) and client-side (iOS)
   // For iOS: push=false but we still send browser Notification when app is open
   // For Android: push=true, browser Notification works when app is open, server push works when app is closed
-  const sendPushNotification = useCallback(async (arrival: ArrivalInfo, settings: StopNotificationSettings) => {
+  const sendPushNotification = useCallback(async (arrival: ArrivalInfo) => {
     try {
       // Always try to send browser Notification if permission granted (works for both iOS and Android)
       // iOS: push=false but browser Notification still works when app is open
       // Android: push=true, browser Notification works when app is open
       if ('Notification' in window && Notification.permission === 'granted') {
         const urgencyEmoji = arrival.minutesUntil <= 1 ? '🚨' : arrival.minutesUntil <= 2 ? '⚠️' : '🚌';
-        
+
         new Notification(`${urgencyEmoji} ${arrival.routeShortName || arrival.routeId} - ${arrival.minutesUntil}'`, {
           body: `Φτάνει στη στάση "${arrival.stopName}"${arrival.confidence === 'high' ? ' (ακριβής πρόβλεψη)' : ''}`,
           icon: '/pwa-192x192.png',
           tag: `arrival-${arrival.stopId}-${arrival.routeId}`,
           requireInteraction: arrival.minutesUntil <= 2,
         });
-        
+
         console.log('[Notification] Browser notification sent (iOS client-side or Android foreground)');
       } else {
         console.log('[Notification] Browser notification permission not granted');
@@ -309,27 +277,27 @@ export function useStopArrivalNotifications(
 
   // Check if we should notify again for an arrival (progressive notifications)
   const shouldNotifyAgain = (
-    notificationKey: string, 
-    arrivalTime: number, 
+    notificationKey: string,
+    arrivalTime: number,
     minutesUntil: number,
     settings: StopNotificationSettings
   ): boolean => {
     const previous = notifiedArrivals.get(notificationKey);
     if (!previous) return true;
-    
+
     const now = Date.now();
-    
+
     // If arrival time has changed significantly, re-notify
     if (Math.abs(previous.arrivalTime - arrivalTime) > 60) {
       console.log('[Notification] Arrival time changed, re-notifying');
       return true;
     }
-    
+
     // Progressive notifications: notify at key intervals (5, 3, 2, 1 minutes)
     // This ensures no bus is missed
     const maxBeforeMinutes = Math.max(settings.beforeMinutes, 5);
     const intervals = [5, 3, 2, 1].filter(i => i <= maxBeforeMinutes);
-    
+
     // Check if we're at any notification interval
     for (const interval of intervals) {
       // Check if we're within this interval (with 10 second window for accuracy)
@@ -342,13 +310,13 @@ export function useStopArrivalNotifications(
         }
       }
     }
-    
+
     // Fallback: if we haven't sent any notification yet and we're within the window
     const hasSentAny = intervals.some(interval => {
       const intervalKey = `${notificationKey}-${interval}`;
       return notifiedArrivals.has(intervalKey);
     });
-    
+
     if (!hasSentAny && minutesUntil > 0 && minutesUntil <= maxBeforeMinutes) {
       // Send catch-up notification
       const catchUpInterval = Math.min(Math.ceil(minutesUntil), maxBeforeMinutes);
@@ -359,52 +327,52 @@ export function useStopArrivalNotifications(
         return true;
       }
     }
-    
+
     return false;
   };
 
   // Trigger all notification types for an arrival
   const triggerNotification = useCallback((arrival: ArrivalInfo, settings: StopNotificationSettings) => {
     const notificationKey = `${arrival.stopId}-${arrival.routeId}-${Math.floor(arrival.arrivalTime / 60)}`;
-    
+
     if (!shouldNotifyAgain(notificationKey, arrival.arrivalTime, arrival.minutesUntil, settings)) {
       return;
     }
-    
+
     const now = Date.now();
     notifiedArrivals.set(notificationKey, { timestamp: now, arrivalTime: arrival.arrivalTime });
-    
+
     const routeName = arrival.routeShortName || arrival.routeId;
     const urgency = getUrgency(arrival.minutesUntil);
     const urgencyText = urgency === 'high' ? 'ΤΩΡΑ! ' : urgency === 'medium' ? 'Σύντομα: ' : '';
-    
+
     let message = `${urgencyText}Γραμμή ${routeName} φτάνει στη στάση ${arrival.stopName}`;
     if (arrival.minutesUntil <= 1) {
       message += ' τώρα!';
     } else {
       message += ` σε ${arrival.minutesUntil} λεπτά`;
     }
-    
+
     // Sound notification
     if (settings.sound) {
       playSound(urgency);
     }
-    
+
     // Vibration
     if (settings.vibration) {
       vibrate(urgency);
     }
-    
+
     // Voice announcement
     if (settings.voice) {
       speak(message);
     }
-    
+
     // Browser notification (works for both iOS client-side and Android foreground)
     // For iOS: always send browser notification (push=false but notification still works when app is open)
     // For Android: send browser notification when app is open, server push when app is closed
-    sendPushNotification(arrival, settings);
-    
+    sendPushNotification(arrival);
+
     // Always show toast when app is visible
     const toastVariant = urgency === 'high' ? 'destructive' : 'default';
     toast({
@@ -412,35 +380,35 @@ export function useStopArrivalNotifications(
       description: `Φτάνει στη στάση "${arrival.stopName}"${arrival.confidence === 'high' ? ' ✓' : ''}`,
       variant: toastVariant,
     });
-    
+
     console.log('[StopNotification] Triggered:', { arrival, settings, urgency });
   }, [sendPushNotification]);
 
   // Dynamic check interval based on approaching arrivals
   useEffect(() => {
     if (!enabled || !stopNotifications.length) return;
-    
+
     // Find the nearest arrival time for any monitored stop
     let nearestMinutes = Infinity;
     const nowSeconds = Math.floor(Date.now() / 1000);
     const enabledNotifications = stopNotifications.filter(n => n.enabled);
-    
+
     trips.forEach(trip => {
       if (!trip.stopTimeUpdates?.length || !trip.routeId) return;
-      
+
       trip.stopTimeUpdates.forEach(stu => {
         if (!stu.stopId || !stu.arrivalTime) return;
-        
+
         const settings = enabledNotifications.find(n => n.stopId === stu.stopId);
         if (!settings) return;
-        
+
         const minutesUntil = (stu.arrivalTime - nowSeconds) / 60;
         if (minutesUntil > 0 && minutesUntil < nearestMinutes) {
           nearestMinutes = minutesUntil;
         }
       });
     });
-    
+
     // Adjust check interval based on nearest arrival - more aggressive checking
     let newInterval: number;
     if (nearestMinutes <= 1) {
@@ -456,7 +424,7 @@ export function useStopArrivalNotifications(
     } else {
       newInterval = 15000; // Check every 15 seconds when far
     }
-    
+
     if (newInterval !== checkInterval) {
       setCheckInterval(newInterval);
       console.log(`[StopNotification] Adjusted check interval to ${newInterval}ms (nearest: ${nearestMinutes.toFixed(1)} min)`);
@@ -466,40 +434,40 @@ export function useStopArrivalNotifications(
   // Main check loop for approaching buses
   useEffect(() => {
     if (!enabled || !trips.length || !stopNotifications.length) return;
-    
+
     const now = Date.now();
-    
+
     // Throttle checks based on dynamic interval
     if (now - lastCheckRef.current < checkInterval) return;
     lastCheckRef.current = now;
-    
+
     const nowSeconds = Math.floor(now / 1000);
-    
+
     // Get all enabled stop notifications
     const enabledNotifications = stopNotifications.filter(n => n.enabled);
     if (enabledNotifications.length === 0) return;
-    
+
     // Create a map for quick lookup
     const stopSettingsMap = new Map(enabledNotifications.map(n => [n.stopId, n]));
-    
+
     // Track arrivals for each monitored stop
     const arrivalsByStop = new Map<string, ArrivalInfo[]>();
-    
+
     // Check each trip for arrivals at our monitored stops
     trips.forEach(trip => {
       if (!trip.stopTimeUpdates?.length || !trip.routeId) return;
-      
+
       const routeInfo = routeNamesMap?.get(trip.routeId);
-      
+
       trip.stopTimeUpdates.forEach(stu => {
         if (!stu.stopId || !stu.arrivalTime) return;
-        
+
         const settings = stopSettingsMap.get(stu.stopId);
         if (!settings) return;
-        
+
         const secondsUntil = stu.arrivalTime - nowSeconds;
         const minutesUntil = Math.round(secondsUntil / 60);
-        
+
         // Track all upcoming arrivals (up to 15 minutes ahead)
         if (minutesUntil > 0 && minutesUntil <= 15) {
           const existingArrivals = arrivalsByStop.get(stu.stopId) || [];
@@ -515,7 +483,7 @@ export function useStopArrivalNotifications(
           });
           arrivalsByStop.set(stu.stopId, existingArrivals);
         }
-        
+
         // Check if arrival is within the notification window
         if (minutesUntil > 0 && minutesUntil <= settings.beforeMinutes) {
           triggerNotification({
@@ -531,7 +499,7 @@ export function useStopArrivalNotifications(
         }
       });
     });
-    
+
     // Log monitoring status
     if (arrivalsByStop.size > 0) {
       console.log(`[StopNotification] Monitoring ${arrivalsByStop.size} stops with arrivals`);
@@ -543,7 +511,7 @@ export function useStopArrivalNotifications(
     const cleanup = setInterval(() => {
       const now = Date.now();
       const fiveMinutesAgo = now - 5 * 60 * 1000;
-      
+
       notifiedArrivals.forEach((data, key) => {
         if (data.timestamp < fiveMinutesAgo) {
           notifiedArrivals.delete(key);

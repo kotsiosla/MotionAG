@@ -102,7 +102,7 @@ function findNearbyStops(
 ): Array<{ stop: StaticStop; distance: number }> {
   const effectiveRadius = maxRadius === 0 ? 5000 : maxRadius; // 5km when unlimited
   const nearby: Array<{ stop: StaticStop; distance: number }> = [];
-  
+
   for (const stop of stops) {
     if (!stop.stop_lat || !stop.stop_lon) continue;
     const distance = calculateDistance(lat, lon, stop.stop_lat, stop.stop_lon);
@@ -110,7 +110,7 @@ function findNearbyStops(
       nearby.push({ stop, distance });
     }
   }
-  
+
   // Sort by distance
   nearby.sort((a, b) => a.distance - b.distance);
   return nearby;
@@ -119,15 +119,15 @@ function findNearbyStops(
 async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Promise<StopTimeInfo[]> {
   const maxRetries = 3;
   const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
-  
+
   try {
     // Increase timeout to 120 seconds for large data, with exponential backoff on retries
     const timeoutMs = 120000 + (retryCount * 30000); // 120s, 150s, 180s
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
+
     console.log(`[fetchStopTimes] Attempt ${retryCount + 1}/${maxRetries}, timeout: ${timeoutMs}ms`);
-    
+
     const anonKey = getSupabaseAnonKey();
     const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-times${params}`, {
       headers: {
@@ -136,9 +136,9 @@ async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Prom
       },
       signal: controller.signal,
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (!response.ok) {
       let errorMessage = 'Failed to fetch stop times';
       if (response.status === 401 || response.status === 403) {
@@ -151,7 +151,7 @@ async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Prom
       } catch {
         errorMessage = `Failed to fetch stop times (${response.status} ${response.statusText})`;
       }
-      
+
       // Retry on 5xx errors or 429 (rate limit)
       if ((response.status >= 500 || response.status === 429) && retryCount < maxRetries - 1) {
         const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff: 1s, 2s, 4s (max 10s)
@@ -159,10 +159,10 @@ async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Prom
         await new Promise(resolve => setTimeout(resolve, delay));
         return fetchStopTimes(operatorId, retryCount + 1);
       }
-      
+
       throw new Error(errorMessage);
     }
-    
+
     const result = await response.json();
     const data = result.data || [];
     console.log(`[fetchStopTimes] Successfully fetched ${data.length} stop times`);
@@ -178,7 +178,7 @@ async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Prom
       }
       throw new Error('Request timeout - Το αρχείο είναι πολύ μεγάλο. Παρακαλώ δοκιμάστε ξανά σε λίγα λεπτά.');
     }
-    
+
     // Retry on network errors
     if (retryCount < maxRetries - 1 && (error instanceof TypeError || (error instanceof Error && error.message.includes('fetch')))) {
       const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
@@ -186,7 +186,7 @@ async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Prom
       await new Promise(resolve => setTimeout(resolve, delay));
       return fetchStopTimes(operatorId, retryCount + 1);
     }
-    
+
     throw error;
   }
 }
@@ -253,80 +253,12 @@ function getIntercityOperators(): string[] {
 }
 
 // Build a graph of which routes serve which stops
-interface RouteStopGraph {
-  // stop_id -> array of { route_id, trips with times }
-  stopToRoutes: Map<string, Array<{
-    routeId: string;
-    tripId: string;
-    departureTime: string;
-    stopSequence: number;
-  }>>;
-  // route_id -> ordered stops with times
-  routeStops: Map<string, Array<{
-    stopId: string;
-    tripId: string;
-    arrivalTime: string;
-    departureTime: string;
-    stopSequence: number;
-  }>>;
-}
 
-function buildGraph(
-  stopTimes: StopTimeInfo[],
-  tripRouteMap: Map<string, string>
-): RouteStopGraph {
-  const stopToRoutes = new Map<string, Array<{
-    routeId: string;
-    tripId: string;
-    departureTime: string;
-    stopSequence: number;
-  }>>();
-  
-  const routeStops = new Map<string, Array<{
-    stopId: string;
-    tripId: string;
-    arrivalTime: string;
-    departureTime: string;
-    stopSequence: number;
-  }>>();
-  
-  for (const st of stopTimes) {
-    const routeId = tripRouteMap.get(st.trip_id);
-    if (!routeId) continue;
-    
-    // Add to stop -> routes map
-    if (!stopToRoutes.has(st.stop_id)) {
-      stopToRoutes.set(st.stop_id, []);
-    }
-    stopToRoutes.get(st.stop_id)!.push({
-      routeId,
-      tripId: st.trip_id,
-      departureTime: st.departure_time || st.arrival_time || '',
-      stopSequence: st.stop_sequence,
-    });
-    
-    // Add to route -> stops map
-    if (!routeStops.has(routeId)) {
-      routeStops.set(routeId, []);
-    }
-    routeStops.get(routeId)!.push({
-      stopId: st.stop_id,
-      tripId: st.trip_id,
-      arrivalTime: st.arrival_time || '',
-      departureTime: st.departure_time || '',
-      stopSequence: st.stop_sequence,
-    });
-  }
-  
-  return { stopToRoutes, routeStops };
-}
 
 // Find journeys using improved algorithm
 function findJourneys(
   originStop: StaticStop,
   destStop: StaticStop,
-  originLocation: { lat: number; lon: number } | null,
-  destLocation: { lat: number; lon: number } | null,
   stops: StaticStop[],
   stopTimes: StopTimeInfo[],
   tripRouteMap: Map<string, string>,
@@ -337,7 +269,7 @@ function findJourneys(
   maxTransfers: number = 2
 ): JourneyOption[] {
   const journeys: JourneyOption[] = [];
-  
+
   // Group stop times by trip
   const stopTimesByTrip = new Map<string, StopTimeInfo[]>();
   stopTimes.forEach(st => {
@@ -346,7 +278,7 @@ function findJourneys(
     }
     stopTimesByTrip.get(st.trip_id)!.push(st);
   });
-  
+
   // Sort each trip's stops by sequence
   stopTimesByTrip.forEach(tripStops => {
     tripStops.sort((a, b) => a.stop_sequence - b.stop_sequence);
@@ -362,26 +294,26 @@ function findJourneys(
     }
     stopToRoutes.get(st.stop_id)!.add(routeId);
   });
-  
+
   // Determine effective walking radius
   const effectiveRadius = maxWalkingDistance === 0 ? 5000 : maxWalkingDistance;
-  
+
   // Find all stops near origin
   const originNearbyStops = findNearbyStops(
-    originStop.stop_lat || 0, 
-    originStop.stop_lon || 0, 
-    stops, 
+    originStop.stop_lat || 0,
+    originStop.stop_lon || 0,
+    stops,
     effectiveRadius
   );
-  
+
   // Find all stops near destination  
   const destNearbyStops = findNearbyStops(
-    destStop.stop_lat || 0, 
-    destStop.stop_lon || 0, 
-    stops, 
+    destStop.stop_lat || 0,
+    destStop.stop_lon || 0,
+    stops,
     effectiveRadius
   );
-  
+
   // Always include the origin and dest stops themselves
   if (!originNearbyStops.find(n => n.stop.stop_id === originStop.stop_id)) {
     originNearbyStops.unshift({ stop: originStop, distance: 0 });
@@ -389,14 +321,10 @@ function findJourneys(
   if (!destNearbyStops.find(n => n.stop.stop_id === destStop.stop_id)) {
     destNearbyStops.unshift({ stop: destStop, distance: 0 });
   }
-  
+
   console.log(`Origin: ${originStop.stop_name} with ${originNearbyStops.length} nearby stops`);
   console.log(`Destination: ${destStop.stop_name} with ${destNearbyStops.length} nearby stops`);
-  
-  // Build set of destination stop IDs for quick lookup
-  const destStopIds = new Set(destNearbyStops.map(n => n.stop.stop_id));
-  const originStopIds = new Set(originNearbyStops.map(n => n.stop.stop_id));
-  
+
   // STEP 1: Find DIRECT routes
   // For each trip, check if it goes through any origin stop and any destination stop
   stopTimesByTrip.forEach((tripStops, tripId) => {
@@ -404,12 +332,12 @@ function findJourneys(
     if (!routeId) return;
     const route = routeMap.get(routeId);
     if (!route) return;
-    
+
     // Find all stops in this trip that are near origin
     const originMatches: Array<{ idx: number; st: StopTimeInfo; nearbyInfo: { stop: StaticStop; distance: number } }> = [];
     // Find all stops in this trip that are near destination
     const destMatches: Array<{ idx: number; st: StopTimeInfo; nearbyInfo: { stop: StaticStop; distance: number } }> = [];
-    
+
     tripStops.forEach((st, idx) => {
       const originNearby = originNearbyStops.find(n => n.stop.stop_id === st.stop_id);
       if (originNearby) {
@@ -420,19 +348,19 @@ function findJourneys(
         destMatches.push({ idx, st, nearbyInfo: destNearby });
       }
     });
-    
+
     // Check all origin -> dest combinations where origin comes before dest
     for (const originMatch of originMatches) {
       for (const destMatch of destMatches) {
         if (originMatch.idx >= destMatch.idx) continue; // Origin must be before dest
-        
+
         const depTime = originMatch.st.departure_time || originMatch.st.arrival_time || '';
         if (!depTime || depTime < filterTimeStr) continue;
-        
+
         const arrTime = destMatch.st.arrival_time || destMatch.st.departure_time || '';
-        
+
         const legs: JourneyLeg[] = [];
-        
+
         // Walking to boarding stop if needed
         if (originMatch.nearbyInfo.distance > 50) {
           legs.push({
@@ -451,7 +379,7 @@ function findJourneys(
             },
           });
         }
-        
+
         // Bus leg
         legs.push({
           type: 'bus',
@@ -463,7 +391,7 @@ function findJourneys(
           stopCount: destMatch.idx - originMatch.idx,
           tripId,
         });
-        
+
         // Walking from alighting stop if needed
         if (destMatch.nearbyInfo.distance > 50) {
           legs.push({
@@ -482,19 +410,19 @@ function findJourneys(
             },
           });
         }
-        
+
         addJourneyFromLegs(legs, journeys);
       }
     }
   });
-  
+
   console.log(`Found ${journeys.length} direct journeys`);
-  
+
   // STEP 2: Find ONE-TRANSFER routes
   if (maxTransfers >= 1) {
     // For each trip from origin, find where it goes
     // Then for each of those stops, check if another trip can reach destination
-    
+
     // Build: route -> all trips with their stop sequences
     const routeTrips = new Map<string, Array<{ tripId: string; stops: StopTimeInfo[] }>>();
     stopTimesByTrip.forEach((tripStops, tripId) => {
@@ -505,7 +433,7 @@ function findJourneys(
       }
       routeTrips.get(routeId)!.push({ tripId, stops: tripStops });
     });
-    
+
     // For each origin nearby stop, find routes that serve it
     const originRoutes = new Map<string, Array<{
       originNearby: { stop: StaticStop; distance: number };
@@ -513,22 +441,22 @@ function findJourneys(
       originStopIdx: number;
       tripStops: StopTimeInfo[];
     }>>();
-    
+
     for (const originNearby of originNearbyStops.slice(0, 20)) {
       const routes = stopToRoutes.get(originNearby.stop.stop_id);
       if (!routes) continue;
-      
+
       for (const routeId of routes) {
         const trips = routeTrips.get(routeId);
         if (!trips) continue;
-        
+
         for (const { tripId, stops: tripStops } of trips.slice(0, 5)) {
           const originIdx = tripStops.findIndex(st => st.stop_id === originNearby.stop.stop_id);
           if (originIdx === -1) continue;
-          
+
           const depTime = tripStops[originIdx].departure_time || tripStops[originIdx].arrival_time || '';
           if (!depTime || depTime < filterTimeStr) continue;
-          
+
           if (!originRoutes.has(routeId)) {
             originRoutes.set(routeId, []);
           }
@@ -541,7 +469,7 @@ function findJourneys(
         }
       }
     }
-    
+
     // For each destination nearby stop, find routes that serve it
     const destRoutes = new Map<string, Array<{
       destNearby: { stop: StaticStop; distance: number };
@@ -549,19 +477,19 @@ function findJourneys(
       destStopIdx: number;
       tripStops: StopTimeInfo[];
     }>>();
-    
+
     for (const destNearby of destNearbyStops.slice(0, 20)) {
       const routes = stopToRoutes.get(destNearby.stop.stop_id);
       if (!routes) continue;
-      
+
       for (const routeId of routes) {
         const trips = routeTrips.get(routeId);
         if (!trips) continue;
-        
+
         for (const { tripId, stops: tripStops } of trips.slice(0, 5)) {
           const destIdx = tripStops.findIndex(st => st.stop_id === destNearby.stop.stop_id);
           if (destIdx === -1) continue;
-          
+
           if (!destRoutes.has(routeId)) {
             destRoutes.set(routeId, []);
           }
@@ -574,14 +502,14 @@ function findJourneys(
         }
       }
     }
-    
+
     // Find transfer points: stops where origin route meets dest route
     let transfersFound = 0;
     originRoutes.forEach((originTrips, originRouteId) => {
       destRoutes.forEach((destTrips, destRouteId) => {
         if (originRouteId === destRouteId) return; // Skip same route
         if (transfersFound > 50) return; // Limit
-        
+
         for (const originTrip of originTrips.slice(0, 3)) {
           for (const destTrip of destTrips.slice(0, 3)) {
             // Find common stop (transfer point) that comes AFTER origin in first route
@@ -589,32 +517,32 @@ function findJourneys(
             for (let i = originTrip.originStopIdx + 1; i < originTrip.tripStops.length; i++) {
               const transferStopId = originTrip.tripStops[i].stop_id;
               const destTripTransferIdx = destTrip.tripStops.findIndex(st => st.stop_id === transferStopId);
-              
+
               if (destTripTransferIdx === -1 || destTripTransferIdx >= destTrip.destStopIdx) continue;
-              
+
               // Check timing
               const arriveTransfer = originTrip.tripStops[i].arrival_time || '';
               const departTransfer = destTrip.tripStops[destTripTransferIdx].departure_time || '';
-              
+
               if (!arriveTransfer || !departTransfer) continue;
-              
+
               const arriveMin = parseTimeToMinutes(arriveTransfer);
               const departMin = parseTimeToMinutes(departTransfer);
-              
+
               // Need at least 2 minutes for transfer
               if (departMin < arriveMin + 2) continue;
               // Don't wait more than 60 minutes
               if (departMin > arriveMin + 60) continue;
-              
+
               const route1 = routeMap.get(originRouteId);
               const route2 = routeMap.get(destRouteId);
               if (!route1 || !route2) continue;
-              
+
               const transferStop = stopMap.get(transferStopId);
               if (!transferStop) continue;
-              
+
               const legs: JourneyLeg[] = [];
-              
+
               // Walk to first bus if needed
               if (originTrip.originNearby.distance > 50) {
                 legs.push({
@@ -633,7 +561,7 @@ function findJourneys(
                   },
                 });
               }
-              
+
               // First bus
               legs.push({
                 type: 'bus',
@@ -645,7 +573,7 @@ function findJourneys(
                 stopCount: i - originTrip.originStopIdx,
                 tripId: originTrip.tripId,
               });
-              
+
               // Second bus
               legs.push({
                 type: 'bus',
@@ -657,7 +585,7 @@ function findJourneys(
                 stopCount: destTrip.destStopIdx - destTripTransferIdx,
                 tripId: destTrip.tripId,
               });
-              
+
               // Walk from last bus if needed
               if (destTrip.destNearby.distance > 50) {
                 legs.push({
@@ -676,10 +604,10 @@ function findJourneys(
                   },
                 });
               }
-              
+
               addJourneyFromLegs(legs, journeys);
               transfersFound++;
-              
+
               if (transfersFound > 50) break;
             }
             if (transfersFound > 50) break;
@@ -688,14 +616,14 @@ function findJourneys(
         }
       });
     });
-    
+
     console.log(`Found ${transfersFound} one-transfer journeys, total: ${journeys.length}`);
   }
-  
+
   // STEP 3: Find TWO-TRANSFER routes (3 buses) if enabled and not enough routes
   if (maxTransfers >= 2 && journeys.length < 10) {
     console.log('Searching for 2-transfer routes...');
-    
+
     // Build route trips map if not already built
     const routeTrips = new Map<string, Array<{ tripId: string; stops: StopTimeInfo[] }>>();
     stopTimesByTrip.forEach((tripStops, tripId) => {
@@ -706,7 +634,7 @@ function findJourneys(
       }
       routeTrips.get(routeId)!.push({ tripId, stops: tripStops });
     });
-    
+
     // Build stop -> routes map
     const stopRoutes = new Map<string, Set<string>>();
     stopTimes.forEach(st => {
@@ -717,122 +645,122 @@ function findJourneys(
       }
       stopRoutes.get(st.stop_id)!.add(routeId);
     });
-    
+
     let twoTransfersFound = 0;
     const maxTwoTransfers = 30;
-    
+
     // For each origin nearby stop
     for (const originNearby of originNearbyStops.slice(0, 10)) {
       if (twoTransfersFound >= maxTwoTransfers) break;
-      
+
       const originStopRoutes = stopRoutes.get(originNearby.stop.stop_id);
       if (!originStopRoutes) continue;
-      
+
       // For each route from origin
       for (const route1Id of originStopRoutes) {
         if (twoTransfersFound >= maxTwoTransfers) break;
-        
+
         const route1Trips = routeTrips.get(route1Id);
         if (!route1Trips) continue;
-        
+
         // Take first few trips of route 1
         for (const trip1 of route1Trips.slice(0, 3)) {
           if (twoTransfersFound >= maxTwoTransfers) break;
-          
+
           const origin1Idx = trip1.stops.findIndex(s => s.stop_id === originNearby.stop.stop_id);
           if (origin1Idx === -1) continue;
-          
+
           const dep1 = trip1.stops[origin1Idx].departure_time || '';
           if (!dep1 || dep1 < filterTimeStr) continue;
-          
+
           // For each possible first transfer stop (after origin on route 1)
           for (let t1Idx = origin1Idx + 2; t1Idx < trip1.stops.length && t1Idx < origin1Idx + 15; t1Idx++) {
             if (twoTransfersFound >= maxTwoTransfers) break;
-            
+
             const transfer1StopId = trip1.stops[t1Idx].stop_id;
             const arr1 = trip1.stops[t1Idx].arrival_time || '';
             if (!arr1) continue;
-            
+
             const transfer1Stop = stopMap.get(transfer1StopId);
             if (!transfer1Stop) continue;
-            
+
             // Find routes at transfer1 stop (excluding route1)
             const transfer1Routes = stopRoutes.get(transfer1StopId);
             if (!transfer1Routes) continue;
-            
+
             for (const route2Id of transfer1Routes) {
               if (route2Id === route1Id) continue;
               if (twoTransfersFound >= maxTwoTransfers) break;
-              
+
               const route2Trips = routeTrips.get(route2Id);
               if (!route2Trips) continue;
-              
+
               for (const trip2 of route2Trips.slice(0, 2)) {
                 if (twoTransfersFound >= maxTwoTransfers) break;
-                
+
                 const t1OnTrip2Idx = trip2.stops.findIndex(s => s.stop_id === transfer1StopId);
                 if (t1OnTrip2Idx === -1) continue;
-                
+
                 const dep2 = trip2.stops[t1OnTrip2Idx].departure_time || '';
                 if (!dep2) continue;
-                
+
                 // Check timing: need at least 2 mins to transfer
                 const arr1Min = parseTimeToMinutes(arr1);
                 const dep2Min = parseTimeToMinutes(dep2);
                 if (dep2Min < arr1Min + 2 || dep2Min > arr1Min + 45) continue;
-                
+
                 // For each possible second transfer stop
                 for (let t2Idx = t1OnTrip2Idx + 2; t2Idx < trip2.stops.length && t2Idx < t1OnTrip2Idx + 15; t2Idx++) {
                   if (twoTransfersFound >= maxTwoTransfers) break;
-                  
+
                   const transfer2StopId = trip2.stops[t2Idx].stop_id;
                   const arr2 = trip2.stops[t2Idx].arrival_time || '';
                   if (!arr2) continue;
-                  
+
                   const transfer2Stop = stopMap.get(transfer2StopId);
                   if (!transfer2Stop) continue;
-                  
+
                   // Find routes at transfer2 that can reach destination
                   const transfer2Routes = stopRoutes.get(transfer2StopId);
                   if (!transfer2Routes) continue;
-                  
+
                   for (const route3Id of transfer2Routes) {
                     if (route3Id === route2Id) continue;
                     if (twoTransfersFound >= maxTwoTransfers) break;
-                    
+
                     const route3Trips = routeTrips.get(route3Id);
                     if (!route3Trips) continue;
-                    
+
                     for (const trip3 of route3Trips.slice(0, 2)) {
                       if (twoTransfersFound >= maxTwoTransfers) break;
-                      
+
                       const t2OnTrip3Idx = trip3.stops.findIndex(s => s.stop_id === transfer2StopId);
                       if (t2OnTrip3Idx === -1) continue;
-                      
+
                       const dep3 = trip3.stops[t2OnTrip3Idx].departure_time || '';
                       if (!dep3) continue;
-                      
+
                       // Check timing
                       const arr2Min = parseTimeToMinutes(arr2);
                       const dep3Min = parseTimeToMinutes(dep3);
                       if (dep3Min < arr2Min + 2 || dep3Min > arr2Min + 45) continue;
-                      
+
                       // Check if this trip reaches any destination nearby stop
                       for (const destNearby of destNearbyStops.slice(0, 10)) {
                         const destIdx = trip3.stops.findIndex(s => s.stop_id === destNearby.stop.stop_id);
                         if (destIdx === -1 || destIdx <= t2OnTrip3Idx) continue;
-                        
+
                         const arr3 = trip3.stops[destIdx].arrival_time || '';
                         if (!arr3) continue;
-                        
+
                         const route1 = routeMap.get(route1Id);
                         const route2 = routeMap.get(route2Id);
                         const route3 = routeMap.get(route3Id);
                         if (!route1 || !route2 || !route3) continue;
-                        
+
                         // Build the 3-bus journey
                         const legs: JourneyLeg[] = [];
-                        
+
                         // Walk to first stop if needed
                         if (originNearby.distance > 50) {
                           legs.push({
@@ -851,7 +779,7 @@ function findJourneys(
                             },
                           });
                         }
-                        
+
                         // Bus 1
                         legs.push({
                           type: 'bus',
@@ -863,7 +791,7 @@ function findJourneys(
                           stopCount: t1Idx - origin1Idx,
                           tripId: trip1.tripId,
                         });
-                        
+
                         // Bus 2
                         legs.push({
                           type: 'bus',
@@ -875,7 +803,7 @@ function findJourneys(
                           stopCount: t2Idx - t1OnTrip2Idx,
                           tripId: trip2.tripId,
                         });
-                        
+
                         // Bus 3
                         legs.push({
                           type: 'bus',
@@ -887,7 +815,7 @@ function findJourneys(
                           stopCount: destIdx - t2OnTrip3Idx,
                           tripId: trip3.tripId,
                         });
-                        
+
                         // Walk from last stop if needed
                         if (destNearby.distance > 50) {
                           legs.push({
@@ -906,10 +834,10 @@ function findJourneys(
                             },
                           });
                         }
-                        
+
                         addJourneyFromLegs(legs, journeys);
                         twoTransfersFound++;
-                        
+
                         if (twoTransfersFound >= maxTwoTransfers) break;
                       }
                     }
@@ -921,21 +849,21 @@ function findJourneys(
         }
       }
     }
-    
+
     console.log(`Found ${twoTransfersFound} two-transfer journeys, total: ${journeys.length}`);
   }
-  
+
   // Score and sort journeys
   journeys.forEach(j => {
     j.score = j.totalDurationMinutes + (j.transferCount * 15) + (j.totalWalkingMinutes * 0.5);
   });
-  
+
   journeys.sort((a, b) => a.score - b.score);
-  
+
   // Remove duplicates
   const seen = new Set<string>();
   const uniqueJourneys: JourneyOption[] = [];
-  
+
   for (const j of journeys) {
     const routeKey = j.legs
       .filter(l => l.type === 'bus')
@@ -943,13 +871,13 @@ function findJourneys(
       .join('|');
     const timeKey = j.departureTime.substring(0, 5);
     const key = `${routeKey}:${timeKey}`;
-    
+
     if (!seen.has(key)) {
       seen.add(key);
       uniqueJourneys.push(j);
     }
   }
-  
+
   return uniqueJourneys.slice(0, 15);
 }
 
@@ -958,10 +886,10 @@ function addJourneyFromLegs(legs: JourneyLeg[], journeys: JourneyOption[]) {
   const totalWalkingMinutes = legs
     .filter(l => l.type === 'walk')
     .reduce((sum, l) => sum + (l.walkingMinutes || 0), 0);
-  
+
   const busLegs = legs.filter(l => l.type === 'bus');
   let totalBusMinutes = 0;
-  
+
   if (busLegs.length > 0) {
     const firstBusDep = busLegs[0].departureTime;
     const lastBusArr = busLegs[busLegs.length - 1].arrivalTime;
@@ -969,10 +897,10 @@ function addJourneyFromLegs(legs: JourneyLeg[], journeys: JourneyOption[]) {
       totalBusMinutes = parseTimeToMinutes(lastBusArr) - parseTimeToMinutes(firstBusDep);
     }
   }
-  
+
   const departureTime = busLegs[0]?.departureTime || '';
   const arrivalTime = busLegs[busLegs.length - 1]?.arrivalTime || '';
-  
+
   journeys.push({
     legs,
     totalDurationMinutes: totalWalkingMinutes + totalBusMinutes,
@@ -989,8 +917,6 @@ function addJourneyFromLegs(legs: JourneyLeg[], journeys: JourneyOption[]) {
 export function useSmartTripPlan(
   originStop: StaticStop | null,
   destStop: StaticStop | null,
-  originLocation: { lat: number; lon: number } | null,
-  destLocation: { lat: number; lon: number } | null,
   departureTime?: string,
   departureDate?: Date,
   maxWalkingDistance: number = 0 // 0 = unlimited (5km effective)
@@ -1005,7 +931,7 @@ export function useSmartTripPlan(
           searchedStops: 0,
         };
       }
-      
+
       console.log(`Smart trip planning from ${originStop.stop_name} to ${destStop.stop_name} (max walk: ${maxWalkingDistance}m)`);
 
       // Reduce payload: only load operators relevant to origin/destination (+ intercity when cross-city).
@@ -1033,9 +959,9 @@ export function useSmartTripPlan(
         Promise.all(effectiveOperatorIds.map(opId => fetchRoutes(opId))).then(parts => parts.flat()),
         Promise.all(effectiveOperatorIds.map(opId => fetchStops(opId))).then(parts => parts.flat()),
       ]);
-      
+
       console.log(`Loaded ${stopTimes.length} stop times, ${tripsStatic.length} trips, ${routes.length} routes, ${stops.length} stops`);
-      
+
       if (stopTimes.length === 0) {
         return {
           journeyOptions: [],
@@ -1044,22 +970,22 @@ export function useSmartTripPlan(
           message: 'Δεν φορτώθηκαν τα ωράρια. Δοκιμάστε ξανά.',
         };
       }
-      
+
       // Build maps
       const routeMap = new Map<string, RouteInfo>();
       routes.forEach(r => routeMap.set(r.route_id, r));
-      
+
       const stopMap = new Map<string, StaticStop>();
       stops.forEach(s => stopMap.set(s.stop_id, s));
-      
+
       const tripRouteMap = new Map<string, string>();
       tripsStatic.forEach(t => tripRouteMap.set(t.trip_id, t.route_id));
-      
+
       // Get time filter
       const today = new Date();
       const isToday = departureDate ? departureDate.toDateString() === today.toDateString() : true;
       let filterTimeStr: string;
-      
+
       if (departureTime === 'all_day') {
         // Show all trips for the day - start from 00:00
         filterTimeStr = '00:00:00';
@@ -1072,15 +998,12 @@ export function useSmartTripPlan(
       } else {
         filterTimeStr = `${departureTime}:00`;
       }
-      
+
       console.log(`Searching journeys: origin=${originStop.stop_name}, dest=${destStop.stop_name}, time=${filterTimeStr}, maxWalking=${maxWalkingDistance}`);
-      
-      // Find journeys with max walking distance
+
       const journeyOptions = findJourneys(
         originStop,
         destStop,
-        originLocation,
-        destLocation,
         stops,
         stopTimes,
         tripRouteMap,
@@ -1089,14 +1012,14 @@ export function useSmartTripPlan(
         filterTimeStr,
         maxWalkingDistance
       );
-      
+
       console.log(`Found ${journeyOptions.length} journey options for ${originStop.stop_name} → ${destStop.stop_name}`);
-      
+
       return {
         journeyOptions,
         noRouteFound: journeyOptions.length === 0,
         searchedStops: stops.length,
-        message: journeyOptions.length === 0 
+        message: journeyOptions.length === 0
           ? 'Δεν βρέθηκε διαδρομή. Δοκιμάστε διαφορετική ώρα ή αυξήστε την απόσταση περπατήματος.'
           : undefined,
       };

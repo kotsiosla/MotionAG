@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>GTFS API Test</title>
+</head>
+
+<body>
+    <h1>GTFS API Test</h1>
+    <div id="status">Testing...</div>
+    <pre id="output"></pre>
+
+    <script>
+        const SUPABASE_URL = 'https://jftthfniwfarxyisszjh.supabase.co';
+        const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+        async function testGTFS() {
+            const output = document.getElementById('output');
+            const status = document.getElementById('status');
+
+            try {
+                status.textContent = 'Testing /vehicles endpoint...';
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/vehicles?operator=all`, {
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const vehicleCount = data.data ? data.data.length : 0;
+
+                status.textContent = `✅ SUCCESS: Found ${vehicleCount} vehicles!`;
+                output.textContent = JSON.stringify(data, null, 2);
+
+                console.log('✅ GTFS API Test:', { vehicleCount, data });
+            } catch (error) {
+                status.textContent = `❌ ERROR: ${error.message}`;
+                output.textContent = error.stack || error.toString();
+                console.error('❌ GTFS API Test Error:', error);
+            }
+        }
+
+        testGTFS();
+    </script>
+</body>
+
+</html>

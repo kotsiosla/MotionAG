@@ -37,17 +37,17 @@ async function getPushSubscriptionKeys(): Promise<{ p256dh: string; auth: string
     }
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
-    
+
     if (!subscription) return null;
-    
+
     const p256dhKey = subscription.getKey('p256dh');
     const authKey = subscription.getKey('auth');
-    
+
     if (!p256dhKey || !authKey) return null;
-    
+
     const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
     const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
-    
+
     return { p256dh, auth };
   } catch {
     return null;
@@ -73,7 +73,7 @@ export function useStopNotifications() {
   // Sync to server when notifications with push enabled change
   const syncToServer = useCallback(async (notifs: StopNotificationSettings[]) => {
     const pushEnabledNotifs = notifs.filter(n => n.enabled && n.push);
-    
+
     if (pushEnabledNotifs.length === 0) {
       console.log('[StopNotifications] No push-enabled notifications to sync');
       return;
@@ -141,11 +141,7 @@ export function useStopNotifications() {
   }, []);
 
   // Save to localStorage and sync to server
-  const saveNotifications = useCallback((notifs: StopNotificationSettings[]) => {
-    setNotifications(notifs);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(notifs));
-    syncToServer(notifs);
-  }, [syncToServer]);
+
 
   // Add or update notification for a stop
   const setNotification = useCallback((settings: StopNotificationSettings) => {
@@ -159,10 +155,10 @@ export function useStopNotifications() {
         updated = [...prev, settings];
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      
+
       // Sync to server for background push notifications
       syncToServer(updated);
-      
+
       // Show confirmation if push is enabled
       if (settings.push && settings.enabled) {
         toast({
@@ -170,7 +166,7 @@ export function useStopNotifications() {
           description: `Θα λαμβάνετε ειδοποιήσεις ${settings.beforeMinutes} λεπτά πριν φτάσει το λεωφορείο στη στάση "${settings.stopName}"`,
         });
       }
-      
+
       return updated;
     });
   }, [syncToServer]);

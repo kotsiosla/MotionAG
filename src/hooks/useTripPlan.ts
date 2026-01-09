@@ -92,15 +92,15 @@ export interface TripPlanData {
 async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Promise<StopTimeInfo[]> {
   const params = operatorId && operatorId !== 'all' ? `?operator=${operatorId}` : '';
   const maxRetries = 3;
-  
+
   try {
     // Increase timeout to 120 seconds for large data, with exponential backoff on retries
     const timeoutMs = 120000 + (retryCount * 30000); // 120s, 150s, 180s
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
+
     console.log(`[fetchStopTimes] Attempt ${retryCount + 1}/${maxRetries}, timeout: ${timeoutMs}ms`);
-    
+
     const anonKey = getSupabaseAnonKey();
     const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/stop-times${params}`, {
       headers: {
@@ -110,9 +110,9 @@ async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Prom
       },
       signal: controller.signal,
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (!response.ok) {
       let errorMessage = 'Failed to fetch stop times';
       if (response.status === 401 || response.status === 403) {
@@ -125,7 +125,7 @@ async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Prom
       } catch {
         errorMessage = `Failed to fetch stop times (${response.status} ${response.statusText})`;
       }
-      
+
       // Retry on 5xx errors or 429 (rate limit)
       if ((response.status >= 500 || response.status === 429) && retryCount < maxRetries - 1) {
         const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff: 1s, 2s, 4s (max 10s)
@@ -133,10 +133,10 @@ async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Prom
         await new Promise(resolve => setTimeout(resolve, delay));
         return fetchStopTimes(operatorId, retryCount + 1);
       }
-      
+
       throw new Error(errorMessage);
     }
-    
+
     const result = await response.json();
     const data = result.data || [];
     console.log(`[fetchStopTimes] Successfully fetched ${data.length} stop times`);
@@ -152,7 +152,7 @@ async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Prom
       }
       throw new Error('Request timeout - Το αρχείο είναι πολύ μεγάλο. Παρακαλώ δοκιμάστε ξανά σε λίγα λεπτά.');
     }
-    
+
     // Retry on network errors
     if (retryCount < maxRetries - 1 && (error instanceof TypeError || (error instanceof Error && error.message.includes('fetch')))) {
       const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
@@ -160,7 +160,7 @@ async function fetchStopTimes(operatorId?: string, retryCount: number = 0): Prom
       await new Promise(resolve => setTimeout(resolve, delay));
       return fetchStopTimes(operatorId, retryCount + 1);
     }
-    
+
     throw error;
   }
 }
@@ -433,20 +433,20 @@ async function fetchTripPlanData(
 
   // Find routes serving origin stop
   const originStopRoutes = findRoutesAtStop(
-    originStopId, 
-    stopTimesByStop, 
-    tripRouteMap, 
-    routeMap, 
+    originStopId,
+    stopTimesByStop,
+    tripRouteMap,
+    routeMap,
     tripHeadsignMap,
     filterTimeStr
   );
 
   // Find routes serving destination stop
   const destinationStopRoutes = findRoutesAtStop(
-    destinationStopId, 
-    stopTimesByStop, 
-    tripRouteMap, 
-    routeMap, 
+    destinationStopId,
+    stopTimesByStop,
+    tripRouteMap,
+    routeMap,
     tripHeadsignMap,
     filterTimeStr
   );
@@ -458,7 +458,6 @@ async function fetchTripPlanData(
       originStopId,
       destinationStopId,
       stopTimesByTrip,
-      stopTimesByStop,
       tripRouteMap,
       routeMap,
       stopMap,
@@ -469,15 +468,15 @@ async function fetchTripPlanData(
   // Detect if origin and destination are in different regions (inter-city journey)
   const originStopFromMap = stopMap.get(originStopId);
   const destStopFromMap = stopMap.get(destinationStopId);
-  
+
   let interCityJourney: InterCityJourney | undefined;
-  
+
   if (originStopFromMap && destStopFromMap) {
     const originRegion2 = detectRegion(originStopFromMap.stop_name);
     const destRegion2 = detectRegion(destStopFromMap.stop_name);
-    
+
     console.log(`Origin region: ${originRegion2}, Destination region: ${destRegion2}`);
-    
+
     // If different regions, suggest inter-city journey
     if (originRegion2 && destRegion2 && originRegion2 !== destRegion2) {
       interCityJourney = buildInterCityJourney(
@@ -516,17 +515,17 @@ function findRoutesAtStop(
   filterTimeStr: string
 ): StopRouteInfo[] {
   const stopTimes = stopTimesByStop.get(stopId) || [];
-  
+
   // Group by route
   const routeDepartures = new Map<string, { times: string[]; headsign?: string }>();
-  
+
   stopTimes.forEach(st => {
     const routeId = tripRouteMap.get(st.trip_id);
     if (!routeId) return;
-    
+
     const depTime = st.departure_time || st.arrival_time;
     if (!depTime || depTime < filterTimeStr) return;
-    
+
     if (!routeDepartures.has(routeId)) {
       routeDepartures.set(routeId, { times: [], headsign: tripHeadsignMap.get(st.trip_id) });
     }
@@ -540,7 +539,7 @@ function findRoutesAtStop(
 
     // Sort and take next 3 departures
     const sortedTimes = [...new Set(data.times)].sort().slice(0, 3);
-    
+
     results.push({
       route,
       nextDepartures: sortedTimes.map(t => t.substring(0, 5)),
@@ -558,7 +557,6 @@ function findTransferRoutes(
   originStopId: string,
   destinationStopId: string,
   stopTimesByTrip: Map<string, StopTimeInfo[]>,
-  stopTimesByStop: Map<string, StopTimeInfo[]>,
   tripRouteMap: Map<string, string>,
   routeMap: Map<string, RouteInfo>,
   stopMap: Map<string, StaticStop>,
@@ -566,15 +564,15 @@ function findTransferRoutes(
 ): TransferRoute[] {
   // Find all stops reachable from origin
   const stopsFromOrigin = new Map<string, { routeId: string; arrivalTime: string }>();
-  
+
   stopTimesByTrip.forEach((tripStopTimes, tripId) => {
     tripStopTimes.sort((a, b) => a.stop_sequence - b.stop_sequence);
     const originIdx = tripStopTimes.findIndex(st => st.stop_id === originStopId);
-    
+
     if (originIdx !== -1) {
       const depTime = tripStopTimes[originIdx].departure_time;
       if (!depTime || depTime < filterTimeStr) return;
-      
+
       const routeId = tripRouteMap.get(tripId);
       if (!routeId) return;
 
@@ -583,9 +581,9 @@ function findTransferRoutes(
         const st = tripStopTimes[i];
         const existing = stopsFromOrigin.get(st.stop_id);
         if (!existing || (st.arrival_time && st.arrival_time < existing.arrivalTime)) {
-          stopsFromOrigin.set(st.stop_id, { 
-            routeId, 
-            arrivalTime: st.arrival_time || '' 
+          stopsFromOrigin.set(st.stop_id, {
+            routeId,
+            arrivalTime: st.arrival_time || ''
           });
         }
       }
@@ -594,11 +592,11 @@ function findTransferRoutes(
 
   // Find all stops that can reach destination
   const stopsToDestination = new Map<string, { routeId: string; departureTime: string }>();
-  
+
   stopTimesByTrip.forEach((tripStopTimes, tripId) => {
     tripStopTimes.sort((a, b) => a.stop_sequence - b.stop_sequence);
     const destIdx = tripStopTimes.findIndex(st => st.stop_id === destinationStopId);
-    
+
     if (destIdx !== -1) {
       const routeId = tripRouteMap.get(tripId);
       if (!routeId) return;
@@ -611,9 +609,9 @@ function findTransferRoutes(
 
         const existing = stopsToDestination.get(st.stop_id);
         if (!existing || depTime < existing.departureTime) {
-          stopsToDestination.set(st.stop_id, { 
-            routeId, 
-            departureTime: depTime 
+          stopsToDestination.set(st.stop_id, {
+            routeId,
+            departureTime: depTime
           });
         }
       }
@@ -627,7 +625,7 @@ function findTransferRoutes(
   stopsFromOrigin.forEach((fromOriginData, transferStopId) => {
     const toDestData = stopsToDestination.get(transferStopId);
     if (!toDestData) return;
-    
+
     // Check timing - arrival at transfer must be before departure to destination
     if (fromOriginData.arrivalTime && toDestData.departureTime) {
       if (fromOriginData.arrivalTime > toDestData.departureTime) return;
@@ -681,7 +679,7 @@ function findTransferRoutes(
 // Detect which region a stop belongs to based on its name
 function detectRegion(stopName: string): string | null {
   const lowerName = stopName.toLowerCase();
-  
+
   for (const [region, keywords] of Object.entries(REGION_KEYWORDS)) {
     for (const keyword of keywords) {
       if (lowerName.includes(keyword.toLowerCase())) {
@@ -689,7 +687,7 @@ function detectRegion(stopName: string): string | null {
       }
     }
   }
-  
+
   return null;
 }
 
@@ -700,7 +698,7 @@ function findIntercityStations(
 ): StaticStop[] {
   const stationKeywords = INTERCITY_STATIONS[region] || [];
   const found: StaticStop[] = [];
-  
+
   for (const stop of stops) {
     const lowerName = stop.stop_name.toLowerCase();
     for (const keyword of stationKeywords) {
@@ -710,7 +708,7 @@ function findIntercityStations(
       }
     }
   }
-  
+
   return found;
 }
 
@@ -741,34 +739,31 @@ function buildInterCityJourney(
   // Find intercity stations in both regions
   const originIntercityStations = findIntercityStations(originRegion, stops);
   const destIntercityStations = findIntercityStations(destRegion, stops);
-  
+
   // Get operators
-  const originLocalOp = getLocalOperator(originRegion);
-  const destLocalOp = getLocalOperator(destRegion);
-  const intercityOps = getIntercityOperators();
-  
+
   // Find routes from origin stop (local buses in origin city)
   const localToIntercityRoutes: StopRouteInfo[] = [];
   const stopTimes = stopTimesByStop.get(originStop.stop_id) || [];
   const routeDepartures = new Map<string, { times: string[]; headsign?: string }>();
-  
+
   stopTimes.forEach(st => {
     const routeId = tripRouteMap.get(st.trip_id);
     if (!routeId) return;
-    
+
     const depTime = st.departure_time || st.arrival_time;
     if (!depTime || depTime < filterTimeStr) return;
-    
+
     if (!routeDepartures.has(routeId)) {
       routeDepartures.set(routeId, { times: [], headsign: tripHeadsignMap.get(st.trip_id) });
     }
     routeDepartures.get(routeId)!.times.push(depTime);
   });
-  
+
   routeDepartures.forEach((data, routeId) => {
     const route = routeMap.get(routeId);
     if (!route) return;
-    
+
     const sortedTimes = [...new Set(data.times)].sort().slice(0, 3);
     localToIntercityRoutes.push({
       route,
@@ -776,39 +771,39 @@ function buildInterCityJourney(
       direction: data.headsign,
     });
   });
-  
+
   // Find intercity routes (routes from operator 5 or 11)
   const intercityRoutes: StopRouteInfo[] = [];
   const intercityStops = [...originIntercityStations, ...destIntercityStations];
   const seenRoutes = new Set<string>();
-  
+
   for (const station of intercityStops) {
     const stationStopTimes = stopTimesByStop.get(station.stop_id) || [];
-    
+
     stationStopTimes.forEach(st => {
       const routeId = tripRouteMap.get(st.trip_id);
       if (!routeId || seenRoutes.has(routeId)) return;
-      
+
       const route = routeMap.get(routeId);
       if (!route) return;
-      
+
       // Check if this is an intercity route (route name often contains city names)
       const routeName = (route.route_long_name || '').toLowerCase();
-      const isIntercity = 
-        routeName.includes('λευκωσ') || 
-        routeName.includes('λεμεσ') || 
-        routeName.includes('λάρνακ') || 
+      const isIntercity =
+        routeName.includes('λευκωσ') ||
+        routeName.includes('λεμεσ') ||
+        routeName.includes('λάρνακ') ||
         routeName.includes('πάφο') ||
         routeName.includes('αμμόχωστ') ||
         routeName.includes('nicosia') ||
         routeName.includes('limassol') ||
         routeName.includes('larnaca') ||
         routeName.includes('paphos');
-      
+
       if (isIntercity) {
         seenRoutes.add(routeId);
         const depTime = st.departure_time || st.arrival_time;
-        
+
         intercityRoutes.push({
           route,
           nextDepartures: depTime ? [depTime.substring(0, 5)] : [],
@@ -817,29 +812,29 @@ function buildInterCityJourney(
       }
     });
   }
-  
+
   // Find routes at destination stop (local buses in destination city)
   const localFromIntercityRoutes: StopRouteInfo[] = [];
   const destStopTimes = stopTimesByStop.get(destStop.stop_id) || [];
   const destRouteDepartures = new Map<string, { times: string[]; headsign?: string }>();
-  
+
   destStopTimes.forEach(st => {
     const routeId = tripRouteMap.get(st.trip_id);
     if (!routeId) return;
-    
+
     const depTime = st.departure_time || st.arrival_time;
     if (!depTime) return;
-    
+
     if (!destRouteDepartures.has(routeId)) {
       destRouteDepartures.set(routeId, { times: [], headsign: tripHeadsignMap.get(st.trip_id) });
     }
     destRouteDepartures.get(routeId)!.times.push(depTime);
   });
-  
+
   destRouteDepartures.forEach((data, routeId) => {
     const route = routeMap.get(routeId);
     if (!route) return;
-    
+
     const sortedTimes = [...new Set(data.times)].sort().slice(0, 3);
     localFromIntercityRoutes.push({
       route,
@@ -847,7 +842,7 @@ function buildInterCityJourney(
       direction: data.headsign,
     });
   });
-  
+
   // Build region names for display
   const regionNames: Record<string, string> = {
     nicosia: 'Λευκωσία',
@@ -856,10 +851,10 @@ function buildInterCityJourney(
     paphos: 'Πάφος',
     famagusta: 'Αμμόχωστος',
   };
-  
+
   const originRegionName = regionNames[originRegion] || originRegion;
   const destRegionName = regionNames[destRegion] || destRegion;
-  
+
   return {
     originRegion,
     destinationRegion: destRegion,

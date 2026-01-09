@@ -1,0 +1,166 @@
+﻿src/components/AlertsList.tsx(215,9): error TS6133: 'totalAlerts' is declared but its value is never read.
+src/components/ErrorBoundary.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/Header.tsx(3,21): error TS6133: 'RefreshCw' is declared but its value is never read.
+src/components/Header.tsx(3,75): error TS6133: 'Bell' is declared but its value is never read.
+src/components/Header.tsx(3,81): error TS6133: 'BellOff' is declared but its value is never read.
+src/components/Header.tsx(93,3): error TS6133: 'delayNotificationsEnabled' is declared but its value is never read.
+src/components/Header.tsx(94,3): error TS6133: 'onToggleDelayNotifications' is declared but its value is never read.
+src/components/NearbyStopsPanel.tsx(6,3): error TS6133: 'Clock' is declared but its value is never read.
+src/components/NearbyStopsPanel.tsx(20,29): error TS6133: 'CardHeader' is declared but its value is never read.
+src/components/NearbyStopsPanel.tsx(20,41): error TS6133: 'CardTitle' is declared but its value is never read.
+src/components/NearbyStopsPanel.tsx(23,43): error TS6133: 'CollapsibleTrigger' is declared but its value is never read.
+src/components/NearbyStopsPanel.tsx(28,69): error TS6133: 'NearbyStop' is declared but its value is never read.
+src/components/NearbyStopsPanel.tsx(663,65): error TS2339: Property 'code' does not exist on type '{}'.
+src/components/NearbyStopsPanel.tsx(664,68): error TS2339: Property 'message' does not exist on type '{}'.
+src/components/NearbyStopsPanel.tsx(665,65): error TS2339: Property 'hint' does not exist on type '{}'.
+src/components/NearestStopPanel.tsx(102,3): error TS6133: 'userLocation' is declared but its value is never read.
+src/components/NotificationButton.tsx(1,1): error TS6133: 'useState' is declared but its value is never read.
+src/components/ResizableDraggablePanel.tsx(28,4): error TS6133: 'ref' is declared but its value is never read.
+src/components/RoutePlannerPanel.tsx(2,111): error TS6133: 'ArrowRight' is declared but its value is never read.
+src/components/RoutePlannerPanel.tsx(2,180): error TS6133: 'GripHorizontal' is declared but its value is never read.
+src/components/RoutePlannerPanel.tsx(5,1): error TS6133: 'ScrollArea' is declared but its value is never read.
+src/components/RoutePlannerPanel.tsx(143,10): error TS6133: 'alternativeRoutes' is declared but its value is never read.
+src/components/RoutePlannerPanel.tsx(143,29): error TS6133: 'setAlternativeRoutes' is declared but its value is never read.
+src/components/RoutePlannerPanel.tsx(144,10): error TS6133: 'selectedRouteIndex' is declared but its value is never read.
+src/components/RoutePlannerPanel.tsx(144,30): error TS6133: 'setSelectedRouteIndex' is declared but its value is never read.
+src/components/RoutePlannerPanel.tsx(150,9): error TS6133: 'audioRef' is declared but its value is never read.
+src/components/RoutePlannerPanel.tsx(190,44): error TS6133: 'e' is declared but its value is never read.
+src/components/RoutePlannerPanel.tsx(663,9): error TS6133: 'getTripsForStop' is declared but its value is never read.
+src/components/RouteStopsPanel.tsx(9,53): error TS6196: 'StopTimeUpdate' is declared but never used.
+src/components/RouteStopsPanel.tsx(32,5): error TS1117: An object literal cannot have multiple properties with the same name.
+src/components/RouteStopsPanel.tsx(88,9): error TS6133: 'tripVehicle' is declared but its value is never read.
+src/components/RouteStopsPanel.tsx(120,9): error TS18048: 'routeShapeData.directions.length' is possibly 'undefined'.
+src/components/RouteStopsPanel.tsx(121,25): error TS18049: 'routeShapeData' is possibly 'null' or 'undefined'.
+src/components/RouteStopsPanel.tsx(121,73): error TS18049: 'routeShapeData' is possibly 'null' or 'undefined'.
+src/components/RouteStopsPanel.tsx(193,9): error TS6133: 'routeColor' is declared but its value is never read.
+src/components/RouteStopsPanel.tsx(522,23): error TS6133: 'globalIndex' is declared but its value is never read.
+src/components/SavedTripsPanel.tsx(2,61): error TS6133: 'BellOff' is declared but its value is never read.
+src/components/SavedTripsPanel.tsx(2,96): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/components/SavedTripsPanel.tsx(71,47): error TS18048: 'trip.reminderMinutes' is possibly 'undefined'.
+src/components/SavedTripsPanel.tsx(109,9): error TS6133: 'firstBusLeg' is declared but its value is never read.
+src/components/SchedulePanel.tsx(2,13): error TS6133: 'Navigation' is declared but its value is never read.
+src/components/SchedulePanel.tsx(2,47): error TS6133: 'Clock' is declared but its value is never read.
+src/components/SchedulePanel.tsx(2,63): error TS6133: 'ArrowRight' is declared but its value is never read.
+src/components/SchedulePanel.tsx(2,75): error TS6133: 'ChevronDown' is declared but its value is never read.
+src/components/SchedulePanel.tsx(5,1): error TS6192: All imports in import declaration are unused.
+src/components/SchedulePanel.tsx(31,5): error TS1117: An object literal cannot have multiple properties with the same name.
+src/components/SchedulePanel.tsx(84,68): error TS6133: 'scheduleError' is declared but its value is never read.
+src/components/ScheduleView.tsx(2,20): error TS6133: 'Clock' is declared but its value is never read.
+src/components/ScheduleView.tsx(17,26): error TS6133: 'RouteInfo' is declared but its value is never read.
+src/components/ScheduleView.tsx(66,23): error TS6133: 'setSelectedDay' is declared but its value is never read.
+src/components/ScheduleView.tsx(162,9): error TS6133: 'scheduledTrips' is declared but its value is never read.
+src/components/ScheduleView.tsx(167,11): error TS6133: 'currentMinutes' is declared but its value is never read.
+src/components/ScheduleView.tsx(493,31): error TS18047: 'routeShapeQuery.data' is possibly 'null'.
+src/components/ScheduleView.tsx(691,36): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/components/ScheduleView.tsx(691,46): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/components/ScheduleView.tsx(921,82): error TS2339: Property 'direction_name' does not exist on type '{ direction_id: number; shape: { lat: number; lng: number; }[]; stops: { stop_id: string; stop_name: string; stop_sequence: number; lat?: number | undefined; lng?: number | undefined; }[]; }'.
+src/components/ScheduleView.tsx(921,107): error TS2339: Property 'direction_name' does not exist on type '{ direction_id: number; shape: { lat: number; lng: number; }[]; stops: { stop_id: string; stop_name: string; stop_sequence: number; lat?: number | undefined; lng?: number | undefined; }[]; }'.
+src/components/ScheduleView.tsx(930,45): error TS18047: 'routeShapeQuery.data' is possibly 'null'.
+src/components/SmartTripPlanner.tsx(1,29): error TS6133: 'useCallback' is declared but its value is never read.
+src/components/SmartTripPlanner.tsx(5,15): error TS6133: 'ExternalLink' is declared but its value is never read.
+src/components/SmartTripPlanner.tsx(18,1): error TS6192: All imports in import declaration are unused.
+src/components/SmartTripPlanner.tsx(38,8): error TS6133: 'NearestStopInfo' is declared but its value is never read.
+src/components/SmartTripPlanner.tsx(75,7): error TS6133: 'TIME_PRESETS' is declared but its value is never read.
+src/components/SmartTripResults.tsx(2,73): error TS6133: 'Printer' is declared but its value is never read.
+src/components/SmartTripResults.tsx(2,138): error TS6133: 'Settings2' is declared but its value is never read.
+src/components/SmartTripResults.tsx(2,178): error TS6133: 'Copy' is declared but its value is never read.
+src/components/SmartTripResults.tsx(2,184): error TS6133: 'Check' is declared but its value is never read.
+src/components/SmartTripResults.tsx(2,215): error TS6133: 'Bell' is declared but its value is never read.
+src/components/SmartTripResults.tsx(17,46): error TS6133: 'formatTripForShare' is declared but its value is never read.
+src/components/SmartTripResults.tsx(219,3): error TS6133: 'origin' is declared but its value is never read.
+src/components/SmartTripResults.tsx(220,3): error TS6133: 'destination' is declared but its value is never read.
+src/components/SmartTripResults.tsx(221,3): error TS6133: 'departureDate' is declared but its value is never read.
+src/components/SmartTripResults.tsx(399,11): error TS6133: 'saved' is declared but its value is never read.
+src/components/StopsView.tsx(56,11): error TS6133: 'favorites' is declared but its value is never read.
+src/components/TripPlanner.tsx(2,108): error TS6133: 'Building2' is declared but its value is never read.
+src/components/TripPlanResults.tsx(1,88): error TS6133: 'ExternalLink' is declared but its value is never read.
+src/components/TripPlanResults.tsx(33,11): error TS6133: 'waypoints' is declared but its value is never read.
+src/components/ui/calendar.tsx(45,20): error TS6133: '_props' is declared but its value is never read.
+src/components/ui/calendar.tsx(46,21): error TS6133: '_props' is declared but its value is never read.
+src/components/UnifiedRoutePanel.tsx(1,29): error TS6133: 'useCallback' is declared but its value is never read.
+src/components/UnifiedRoutePanel.tsx(2,149): error TS6133: 'GripVertical' is declared but its value is never read.
+src/components/UnifiedRoutePanel.tsx(2,176): error TS6133: 'BellOff' is declared but its value is never read.
+src/components/UnifiedRoutePanel.tsx(13,53): error TS6196: 'StopTimeUpdate' is declared but never used.
+src/components/UnifiedRoutePanel.tsx(143,3): error TS6133: 'onVehicleFocus' is declared but its value is never read.
+src/components/UnifiedRoutePanel.tsx(158,9): error TS6133: 'stopsScrollRef' is declared but its value is never read.
+src/components/UnifiedRoutePanel.tsx(163,9): error TS6133: 'routeColor' is declared but its value is never read.
+src/components/UnifiedRoutePanel.tsx(216,19): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+src/components/UnifiedRoutePanel.tsx(216,27): error TS2558: Expected 0 type arguments, but got 2.
+src/components/UnifiedRoutePanel.tsx(227,14): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+src/components/UnifiedRoutePanel.tsx(227,22): error TS2558: Expected 0 type arguments, but got 2.
+src/components/UnifiedRoutePanel.tsx(234,11): error TS18048: 'routeShapeData.directions.length' is possibly 'undefined'.
+src/components/UnifiedRoutePanel.tsx(235,27): error TS18049: 'routeShapeData' is possibly 'null' or 'undefined'.
+src/components/UnifiedRoutePanel.tsx(235,75): error TS18049: 'routeShapeData' is possibly 'null' or 'undefined'.
+src/components/UnifiedRoutePanel.tsx(237,32): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+src/components/UnifiedRoutePanel.tsx(237,40): error TS2558: Expected 0 type arguments, but got 2.
+src/components/UnifiedRoutePanel.tsx(342,31): error TS18048: 'routeShapeData.directions.length' is possibly 'undefined'.
+src/components/UnifiedRoutePanel.tsx(343,28): error TS18049: 'routeShapeData' is possibly 'null' or 'undefined'.
+src/components/UnifiedRoutePanel.tsx(383,19): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+src/components/UnifiedRoutePanel.tsx(383,27): error TS2558: Expected 0 type arguments, but got 2.
+src/components/UnifiedRoutePanel.tsx(401,14): error TS2554: Expected 1 arguments, but got 0.
+src/components/UnifiedRoutePanel.tsx(401,14): error TS7009: 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.
+src/components/VehicleFollowPanel.tsx(2,33): error TS6133: 'Route' is declared but its value is never read.
+src/components/VehicleFollowPanel.tsx(2,64): error TS6133: 'Navigation' is declared but its value is never read.
+src/components/VehicleFollowPanel.tsx(2,76): error TS6133: 'Eye' is declared but its value is never read.
+src/components/VehicleFollowPanel.tsx(4,1): error TS6133: 'Badge' is declared but its value is never read.
+src/components/VehicleFollowPanel.tsx(5,1): error TS6133: 'ScrollArea' is declared but its value is never read.
+src/components/VehicleFollowPanel.tsx(6,24): error TS6196: 'Trip' is declared but never used.
+src/components/VehicleFollowPanel.tsx(6,30): error TS6196: 'StaticStop' is declared but never used.
+src/components/VehicleFollowPanel.tsx(29,5): error TS1117: An object literal cannot have multiple properties with the same name.
+src/components/VehicleFollowPanel.tsx(122,9): error TS6133: 'routeColor' is declared but its value is never read.
+src/components/VehicleMap.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/VehicleMap.tsx(7,13): error TS6133: 'Navigation' is declared but its value is never read.
+src/components/VehicleMap.tsx(7,33): error TS6133: 'Clock' is declared but its value is never read.
+src/components/VehicleMap.tsx(7,53): error TS6133: 'Search' is declared but its value is never read.
+src/components/VehicleMap.tsx(7,61): error TS6133: 'Loader2' is declared but its value is never read.
+src/components/VehicleMap.tsx(7,93): error TS6133: 'Route' is declared but its value is never read.
+src/components/VehicleMap.tsx(7,100): error TS6133: 'Maximize2' is declared but its value is never read.
+src/components/VehicleMap.tsx(7,111): error TS6133: 'Focus' is declared but its value is never read.
+src/components/VehicleMap.tsx(7,134): error TS6133: 'Sun' is declared but its value is never read.
+src/components/VehicleMap.tsx(7,139): error TS6133: 'Moon' is declared but its value is never read.
+src/components/VehicleMap.tsx(7,145): error TS6133: 'Satellite' is declared but its value is never read.
+src/components/VehicleMap.tsx(9,1): error TS6133: 'ResizableDraggablePanel' is declared but its value is never read.
+src/components/VehicleMap.tsx(11,1): error TS6133: 'Switch' is declared but its value is never read.
+src/components/VehicleMap.tsx(12,1): error TS6133: 'Label' is declared but its value is never read.
+src/components/VehicleMap.tsx(13,1): error TS6133: 'Input' is declared but its value is never read.
+src/components/VehicleMap.tsx(47,28): error TS6133: 'bearing' is declared but its value is never read.
+src/components/VehicleMap.tsx(230,7): error TS6133: 'formatTimestamp' is declared but its value is never read.
+src/components/VehicleMap.tsx(369,10): error TS6133: 'showLiveVehiclesPanel' is declared but its value is never read.
+src/components/VehicleMap.tsx(376,10): error TS6133: 'searchQuery' is declared but its value is never read.
+src/components/VehicleMap.tsx(377,10): error TS6133: 'searchResults' is declared but its value is never read.
+src/components/VehicleMap.tsx(378,10): error TS6133: 'isSearching' is declared but its value is never read.
+src/components/VehicleMap.tsx(379,10): error TS6133: 'showSearchResults' is declared but its value is never read.
+src/components/VehicleMap.tsx(490,9): error TS6133: 'particleAnimationRef' is declared but its value is never read.
+src/components/VehicleMap.tsx(674,9): error TS6133: 'searchAddress' is declared but its value is never read.
+src/components/VehicleMap.tsx(702,9): error TS6133: 'selectSearchResult' is declared but its value is never read.
+src/components/VehicleMap.tsx(1976,9): error TS6133: 'followedNextStop' is declared but its value is never read.
+src/components/VehicleMap.tsx(1979,9): error TS6133: 'vehiclesOnSelectedRoute' is declared but its value is never read.
+src/components/VehicleMap.tsx(2147,27): error TS6133: 'stopId' is declared but its value is never read.
+src/hooks/useSmartTripPlan.ts(274,10): error TS6133: 'buildGraph' is declared but its value is never read.
+src/hooks/useSmartTripPlan.ts(328,3): error TS6133: 'originLocation' is declared but its value is never read.
+src/hooks/useSmartTripPlan.ts(329,3): error TS6133: 'destLocation' is declared but its value is never read.
+src/hooks/useSmartTripPlan.ts(397,9): error TS6133: 'destStopIds' is declared but its value is never read.
+src/hooks/useSmartTripPlan.ts(398,9): error TS6133: 'originStopIds' is declared but its value is never read.
+src/hooks/useStopArrivalNotifications.ts(35,5): error TS6133: 'audioUnlocked' is declared but its value is never read.
+src/hooks/useStopArrivalNotifications.ts(36,5): error TS6133: 'lastUserInteraction' is declared but its value is never read.
+src/hooks/useStopArrivalNotifications.ts(256,9): error TS6133: 'highAccuracyModeRef' is declared but its value is never read.
+src/hooks/useStopArrivalNotifications.ts(259,9): error TS6133: 'fetchHighAccuracyArrivals' is declared but its value is never read.
+src/hooks/useStopArrivalNotifications.ts(259,56): error TS6133: 'stopId' is declared but its value is never read.
+src/hooks/useStopArrivalNotifications.ts(261,13): error TS6198: All destructured elements are unused.
+src/hooks/useStopArrivalNotifications.ts(262,9): error TS2322: Type 'null' is not assignable to type 'string | ArrayBuffer | File | Blob | FormData | ReadableStream<Uint8Array<ArrayBufferLike>> | Record<...> | undefined'.
+src/hooks/useStopArrivalNotifications.ts(279,73): error TS6133: 'settings' is declared but its value is never read.
+src/hooks/useStopNotifications.ts(144,9): error TS6133: 'saveNotifications' is declared but its value is never read.
+src/hooks/useTripPlan.ts(561,3): error TS6133: 'stopTimesByStop' is declared but its value is never read.
+src/hooks/useTripPlan.ts(746,9): error TS6133: 'originLocalOp' is declared but its value is never read.
+src/hooks/useTripPlan.ts(747,9): error TS6133: 'destLocalOp' is declared but its value is never read.
+src/hooks/useTripPlan.ts(748,9): error TS6133: 'intercityOps' is declared but its value is never read.
+src/integrations/supabase/client.ts(64,6): error TS2339: Property 'catch' does not exist on type 'PromiseLike<void>'.
+src/integrations/supabase/client.ts(64,13): error TS7006: Parameter 'err' implicitly has an 'any' type.
+src/pages/Index.tsx(21,1): error TS6133: 'useDelayNotifications' is declared but its value is never read.
+src/pages/Index.tsx(142,11): error TS6133: 'savedTrips' is declared but its value is never read.
+src/pages/Index.tsx(218,9): error TS6133: 'getCacheAge' is declared but its value is never read.
+src/pages/Index.tsx(429,10): error TS6133: 'lastSuccessfulUpdate' is declared but its value is never read.
+src/pages/Index.tsx(721,40): error TS6133: 'tripId' is declared but its value is never read.
+src/pages/Index.tsx(726,26): error TS6133: 'stop' is declared but its value is never read.
