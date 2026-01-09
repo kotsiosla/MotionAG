@@ -6,8 +6,8 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  const base = process.env.GITHUB_PAGES === 'true' ? '/MotionBus_AI/' : '/';
-  
+  const base = process.env.GITHUB_PAGES === 'true' ? '/MotionAG/' : '/';
+
   return {
     base,
     server: {
@@ -72,17 +72,17 @@ export default defineConfig(({ mode }) => {
               purpose: "maskable",
             },
           ],
-        screenshots: [
-          {
-            src: `${base}images/bus-icon.png`,
-            sizes: "512x512",
-            type: "image/png",
-            form_factor: "narrow"
-          }
-        ]
-      },
-    }),
-  ].filter(Boolean),
+          screenshots: [
+            {
+              src: `${base}images/bus-icon.png`,
+              sizes: "512x512",
+              type: "image/png",
+              form_factor: "narrow"
+            }
+          ]
+        },
+      }),
+    ].filter(Boolean),
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
