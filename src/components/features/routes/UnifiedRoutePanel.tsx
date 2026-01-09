@@ -265,29 +265,48 @@ export function UnifiedRoutePanel({
     }
   }, [routeShapeData, selectedDirection, activeTrip, stopMap]);
 
+  // Find current stop (where vehicle is now)
+  const currentStopId = useMemo(() => {
+    if (!followedVehicle?.stopId) return null;
+    return followedVehicle.stopId;
+  }, [followedVehicle?.stopId]);
+
+  // Filter stops to show progress from current location (if following vehicle)
+  const visibleStops = useMemo(() => {
+    if (followedVehicle && currentStopId) {
+      const currentIndex = routeStops.findIndex(s => s.stopId === currentStopId);
+      if (currentIndex >= 0) {
+        // Show from current stop onwards
+        return routeStops.slice(currentIndex);
+      }
+    }
+    // If not following (or current stop not found), show all
+    return routeStops;
+  }, [followedVehicle, currentStopId, routeStops]);
+
   // Pagination for stops
   const stopsPerPage = isMobile ? STOPS_PER_PAGE_MOBILE : STOPS_PER_PAGE;
   const totalPages = useMemo(() => {
     try {
-      if (!routeStops || !Array.isArray(routeStops) || routeStops.length === 0) return 1;
-      return Math.max(1, Math.ceil(routeStops.length / stopsPerPage));
+      if (!visibleStops || !Array.isArray(visibleStops) || visibleStops.length === 0) return 1;
+      return Math.max(1, Math.ceil(visibleStops.length / stopsPerPage));
     } catch (e) {
       console.error('[UnifiedRoutePanel] Error calculating totalPages:', e);
       return 1;
     }
-  }, [routeStops, stopsPerPage]);
+  }, [visibleStops, stopsPerPage]);
 
   const paginatedStops = useMemo(() => {
     try {
-      if (!routeStops || !Array.isArray(routeStops)) return [];
+      if (!visibleStops || !Array.isArray(visibleStops)) return [];
       const safePage = Math.max(0, Math.min(currentPage, totalPages - 1));
       const start = safePage * stopsPerPage;
-      return routeStops.slice(start, start + stopsPerPage);
+      return visibleStops.slice(start, start + stopsPerPage);
     } catch (e) {
       console.error('[UnifiedRoutePanel] Error paginating stops:', e);
       return [];
     }
-  }, [routeStops, currentPage, stopsPerPage, totalPages]);
+  }, [visibleStops, currentPage, stopsPerPage, totalPages]);
 
   // Live trips with vehicles
   const liveTripsWithVehicles = useMemo(() => {
@@ -354,11 +373,7 @@ export function UnifiedRoutePanel({
     }
   }, [routeShapeData, selectedDirection]);
 
-  // Find current stop (where vehicle is now)
-  const currentStopId = useMemo(() => {
-    if (!followedVehicle?.stopId) return null;
-    return followedVehicle.stopId;
-  }, [followedVehicle?.stopId]);
+
 
   // Get upcoming stops starting from current stop (for Route Planner tab)
   const upcomingStops = useMemo(() => {
