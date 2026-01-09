@@ -1,15 +1,14 @@
 import { useState, useMemo, useEffect } from "react";
-import { X, Bus, MapPin, Clock, ChevronDown, ChevronUp, Radio, Calendar, Eye, Focus, Maximize2, ArrowLeftRight, ChevronLeft, ChevronRight, Loader2, Bell, Route, Map as MapIcon } from "lucide-react";
+import { X, Bus, MapPin, Clock, ChevronDown, ChevronUp, Radio, Eye, Focus, Maximize2, ArrowLeftRight, ChevronLeft, ChevronRight, Loader2, Bell, Route, Map as MapIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RouteStopsPanel } from "@/components/features/routes/RouteStopsPanel";
-import { SchedulePanel } from "@/components/features/schedule/SchedulePanel";
 import { VehicleFollowPanel } from "@/components/features/map/VehicleFollowPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizableDraggablePanel } from "@/components/common/ResizableDraggablePanel";
 import { StopNotificationModal } from "@/components/features/user/StopNotificationModal";
-import { useRouteShape, useRouteSchedule } from "@/hooks/useGtfsData";
+import { useRouteShape } from "@/hooks/useGtfsData";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import { cn } from "@/lib/utils";
@@ -147,7 +146,7 @@ export function UnifiedRoutePanel({
   onSwitchToOverview,
 }: UnifiedRoutePanelProps) {
   const isMobile = useIsMobile();
-  const [activeTab, setActiveTab] = useState<'stops' | 'live' | 'planner' | 'schedule'>('stops');
+  const [activeTab, setActiveTab] = useState<'stops' | 'live' | 'planner'>('stops');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [selectedDirection, setSelectedDirection] = useState(0);
@@ -161,7 +160,7 @@ export function UnifiedRoutePanel({
   const { data: routeShapeData, isLoading: isLoadingShape } = useRouteShape(routeId, selectedOperator);
 
   // Fetch static schedule data (for Schedule tab - no live data)
-  const { data: scheduleData, isLoading: isLoadingSchedule } = useRouteSchedule(routeId, selectedOperator);
+  // const { data: scheduleData, isLoading: isLoadingSchedule } = useRouteSchedule(routeId, selectedOperator);
 
   // Find trips for this route
   const routeTrips = useMemo(() => {
@@ -613,10 +612,7 @@ export function UnifiedRoutePanel({
               <Route className="h-3 w-3 text-green-600" />
               Live Δρομολόγιο
             </TabsTrigger>
-            <TabsTrigger value="schedule" className="text-xs gap-1.5">
-              <Calendar className="h-3 w-3" />
-              Πρόγραμμα
-            </TabsTrigger>
+
           </TabsList>
 
           {/* Stops Tab */}
@@ -990,149 +986,7 @@ export function UnifiedRoutePanel({
             </ScrollArea>
           </TabsContent>
 
-          {/* Schedule Tab - Static data only (no live) */}
-          <TabsContent value="schedule" className="flex-1 min-h-0 mt-0">
-            <ScrollArea className="h-full">
-              <div className="p-3 space-y-4">
-                {isLoadingShape || isLoadingSchedule ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                    <Loader2 className="h-6 w-6 mb-2 animate-spin" />
-                    <p className="text-xs">Φόρτωση προγράμματος...</p>
-                  </div>
-                ) : !routeShapeData ? (
-                  <div className="text-center text-muted-foreground text-xs py-8">
-                    Δεν υπάρχουν δεδομένα διαδρομής
-                  </div>
-                ) : (
-                  <>
-                    {/* Route info header */}
-                    <div className="bg-muted/30 rounded-lg p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-muted-foreground">Συνολική διαδρομή</span>
-                        {routeDistance !== null && (
-                          <span className="text-sm font-bold" style={{ color: headerColor }}>
-                            {routeDistance} km
-                          </span>
-                        )}
-                      </div>
-                      {routeStops.length > 0 && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-muted-foreground">Στάσεις</span>
-                          <span className="text-sm font-bold" style={{ color: headerColor }}>
-                            {routeStops.length}
-                          </span>
-                        </div>
-                      )}
-                    </div>
 
-                    {/* Direction selector */}
-                    {availableDirections.length > 1 && (
-                      <div className="flex items-center justify-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs gap-1"
-                          onClick={() => setSelectedDirection(prev => prev === 0 ? 1 : 0)}
-                        >
-                          <ArrowLeftRight className="h-3 w-3" />
-                          Κατεύθυνση {selectedDirection + 1}/{availableDirections.length}
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Static stops list with shape file data */}
-                    {routeStops.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="text-xs font-semibold text-muted-foreground px-1">
-                          Στάσεις διαδρομής (στατικά δεδομένα)
-                        </div>
-                        <div className="space-y-1">
-                          {routeStops.map((stop, index) => {
-                            const staticStop = stopMap.get(stop.stopId);
-                            return (
-                              <div
-                                key={stop.stopId}
-                                className="flex items-start gap-2 p-2 rounded-lg border bg-white hover:bg-muted/30 transition-colors"
-                              >
-                                {/* Stop number */}
-                                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-                                  <span className="text-[10px] font-bold text-primary">
-                                    {stop.stopSequence || index + 1}
-                                  </span>
-                                </div>
-
-                                {/* Stop info */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1.5 mb-0.5">
-                                    <span className="font-medium text-xs truncate">
-                                      {stop.stopName}
-                                    </span>
-                                    {stop.isFirst && (
-                                      <Badge variant="default" className="text-[9px] px-1 py-0 h-4 bg-red-500 hover:bg-red-600 shrink-0">
-                                        ΑΦΕΤ.
-                                      </Badge>
-                                    )}
-                                    {stop.isLast && (
-                                      <Badge variant="default" className="text-[9px] px-1 py-0 h-4 bg-blue-500 hover:bg-blue-600 shrink-0">
-                                        ΤΕΡΜ.
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  {staticStop && (staticStop.stop_lat || staticStop.stop_lon) && (
-                                    <div className="text-[10px] text-muted-foreground font-mono">
-                                      {staticStop.stop_lat?.toFixed(6)}, {staticStop.stop_lon?.toFixed(6)}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Static schedule for selected direction */}
-                    {scheduleData && scheduleData.by_direction && (
-                      <div className="space-y-2">
-                        <div className="text-xs font-semibold text-muted-foreground px-1">
-                          Προγραμματισμένα δρομολόγια (κατεύθυνση {selectedDirection + 1})
-                        </div>
-                        {(() => {
-                          const directionTrips = scheduleData.by_direction[selectedDirection] || [];
-                          if (directionTrips.length === 0) {
-                            return (
-                              <div className="text-center text-muted-foreground text-xs py-4">
-                                Δεν υπάρχουν προγραμματισμένα δρομολόγια
-                              </div>
-                            );
-                          }
-                          return (
-                            <div className="bg-muted/30 rounded-lg p-3">
-                              <div className="text-sm leading-relaxed">
-                                {directionTrips.map((entry, idx) => (
-                                  <span key={entry.trip_id}>
-                                    <span className="font-mono text-xs" style={{ color: headerColor }}>
-                                      {entry.departure_time}
-                                    </span>
-                                    {idx < directionTrips.length - 1 && (
-                                      <span className="text-muted-foreground">, </span>
-                                    )}
-                                  </span>
-                                ))}
-                              </div>
-                              <div className="text-[10px] text-muted-foreground mt-2">
-                                Σύνολο: {directionTrips.length} δρομολόγια
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </ScrollArea>
-          </TabsContent>
 
         </Tabs>
       )}
