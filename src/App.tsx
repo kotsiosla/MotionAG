@@ -20,24 +20,11 @@ const getBasePath = () => {
   return import.meta.env.BASE_URL || '/';
 };
 
-import { useStopNotifications } from "@/hooks/useStopNotifications";
-import { useEffect } from "react";
-
-const Cleanup = () => {
-  const { clearAllNotifications } = useStopNotifications();
-  useEffect(() => {
-    console.log("Running one-time cleanup...");
-    clearAllNotifications();
-  }, [clearAllNotifications]);
-  return null;
-};
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <Cleanup />
       <BrowserRouter basename={getBasePath()}>
         <Routes>
           <Route path="/" element={<Index />} />
