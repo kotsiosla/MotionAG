@@ -11,6 +11,8 @@ export interface StopNotificationSettings {
   voice: boolean;
   push: boolean;
   beforeMinutes: number;
+  notifyType?: 'all' | 'selected'; // 'all' = notify for all buses, 'selected' = only watchedTrips
+  watchedTrips?: string[]; // If set, only notify for these trip IDs
 }
 
 const STORAGE_KEY = 'stop_notifications';
@@ -156,7 +158,7 @@ export function useStopNotifications() {
 
     // Listen for storage changes (other tabs)
     window.addEventListener('storage', handleStorageChange);
-    
+
     // Listen for custom event (same tab, different components)
     window.addEventListener('stop-notifications-changed', handleCustomEvent as EventListener);
 
@@ -202,10 +204,10 @@ export function useStopNotifications() {
     setNotifications(prev => {
       const updated = prev.filter(n => n.stopId !== stopId);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      
+
       // Dispatch event
       window.dispatchEvent(new CustomEvent('stop-notifications-changed', { detail: updated }));
-      
+
       syncToServer(updated);
       return updated;
     });

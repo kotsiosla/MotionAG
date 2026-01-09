@@ -1,0 +1,199 @@
+﻿
+> motion-ag@0.0.0 lint
+> eslint .
+
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\CHECK_STOP_ARRIVALS_FULL_CODE.ts
+  297:102  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\common\PWAInstallBanner.tsx
+  37:68  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\common\ResizableDraggablePanel.tsx
+  42:6  warning  React Hook useEffect has a missing dependency: 'initialPosition'. Either include it or remove the dependency array. If 'setPosition' needs the current value of 'initialPosition', you can also switch to useReducer instead of useState and read 'initialPosition' in the reducer  react-hooks/exhaustive-deps
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\features\map\NearbyStopsPanel.tsx
+   45:26  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  246:13  error    'existingStops' is never reassigned. Use 'const' instead                                                              prefer-const
+  246:28  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  251:51  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  276:15  error    'allNotifications' is never reassigned. Use 'const' instead                                                           prefer-const
+  277:64  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  338:6   warning  React Hook useEffect has a missing dependency: 'nearestStop'. Either include it or remove the dependency array        react-hooks/exhaustive-deps
+  569:15  error    'allNotifications' is never reassigned. Use 'const' instead                                                           prefer-const
+  570:64  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  584:42  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  603:42  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  642:20  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  642:31  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  715:6   warning  React Hook useEffect has a missing dependency: 'activeTrackedStop'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  819:67  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\features\map\VehicleMap.tsx
+   126:7   error    'bearing' is never reassigned. Use 'const' instead                                                                                                                                                                                                                     prefer-const
+   401:13  error    Empty block statement                                                                                                                                                                                                                                                  no-empty
+   420:13  error    Empty block statement                                                                                                                                                                                                                                                  no-empty
+   797:54  error    Unexpected any. Specify a different type                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+   834:51  error    Unexpected any. Specify a different type                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+   860:63  error    Unexpected any. Specify a different type                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+   861:57  error    Unexpected any. Specify a different type                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+  1045:55  error    Unexpected any. Specify a different type                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+  1280:6   warning  React Hook useEffect has missing dependencies: 'getNextStopInfo' and 'onFollowVehicle'. Either include them or remove the dependency array. If 'onFollowVehicle' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+  1463:6   warning  React Hook useEffect has a missing dependency: 'nearestStopWithArrivals.stop'. Either include it or remove the dependency array                                                                                                                                        react-hooks/exhaustive-deps
+  1478:52  error    Unexpected any. Specify a different type                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+  1609:6   warning  React Hook useEffect has missing dependencies: 'getArrivalsForStop' and 'openStopPanel'. Either include them or remove the dependency array                                                                                                                            react-hooks/exhaustive-deps
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\features\planning\RoutePlannerPanel.tsx
+  495:67  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+  920:6   warning  React Hook useEffect has a missing dependency: 'calculateRoute'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\features\planning\TripPlanner.tsx
+  141:6  warning  React Hook useMemo has a missing dependency: 'filterStops'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  148:6  warning  React Hook useMemo has a missing dependency: 'filterStops'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\features\routes\UnifiedRoutePanel.tsx
+  151:20   error  React Hook "useIsMobile" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?           react-hooks/rules-of-hooks
+  152:37   error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?              react-hooks/rules-of-hooks
+  153:41   error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?              react-hooks/rules-of-hooks
+  154:41   error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?              react-hooks/rules-of-hooks
+  155:53   error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?              react-hooks/rules-of-hooks
+  156:73   error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?              react-hooks/rules-of-hooks
+  157:135  error  React Hook "useStopNotifications" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  163:63   error  React Hook "useRouteShape" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?         react-hooks/rules-of-hooks
+  166:64   error  React Hook "useRouteSchedule" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  169:22   error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?               react-hooks/rules-of-hooks
+  180:25   error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?               react-hooks/rules-of-hooks
+  191:22   error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?               react-hooks/rules-of-hooks
+  211:19   error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?               react-hooks/rules-of-hooks
+  229:22   error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?               react-hooks/rules-of-hooks
+  273:22   error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?               react-hooks/rules-of-hooks
+  283:26   error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?               react-hooks/rules-of-hooks
+  296:33   error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?               react-hooks/rules-of-hooks
+  348:25   error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?               react-hooks/rules-of-hooks
+  361:25   error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?               react-hooks/rules-of-hooks
+  367:25   error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?               react-hooks/rules-of-hooks
+  378:31   error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?               react-hooks/rules-of-hooks
+  403:3    error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?             react-hooks/rules-of-hooks
+  421:3    error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?             react-hooks/rules-of-hooks
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\features\schedule\SchedulePanel.tsx
+  78:9  warning  The 'dayKeys' array makes the dependencies of useMemo Hook (at line 147) change on every render. Move it inside the useMemo callback. Alternatively, wrap the initialization of 'dayKeys' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\features\schedule\ScheduleView.tsx
+  663:6    warning  React Hook useEffect has missing dependencies: 'routeShapeQuery.error' and 'routeShapeQuery.isError'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  875:86   error    Unexpected any. Specify a different type                                                                                                                  @typescript-eslint/no-explicit-any
+  875:120  error    Unexpected any. Specify a different type                                                                                                                  @typescript-eslint/no-explicit-any
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\features\schedule\StopsView.tsx
+  211:6  warning  React Hook useMemo has a missing dependency: 'getArrivalsForStop'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\features\schedule\TripsTable.tsx
+  128:6  warning  React Hook useMemo has a missing dependency: 'getRouteDisplay'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  183:6  warning  React Hook useMemo has a missing dependency: 'getRouteDisplay'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\features\user\StopNotificationModal.tsx
+   78:13  error  'allNotifications' is never reassigned. Use 'const' instead  prefer-const
+  172:13  error  'allNotifications' is never reassigned. Use 'const' instead  prefer-const
+  226:15  error  'allNotifications' is never reassigned. Use 'const' instead  prefer-const
+  267:11  error  'allNotifications' is never reassigned. Use 'const' instead  prefer-const
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\ui\badge.tsx
+  29:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\ui\button.tsx
+  47:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\ui\command.tsx
+  24:11  error  An interface declaring no members is equivalent to its supertype  @typescript-eslint/no-empty-object-type
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\ui\form.tsx
+  129:10  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\ui\navigation-menu.tsx
+  111:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\ui\sidebar.tsx
+  636:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\ui\sonner.tsx
+  27:19  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\ui\textarea.tsx
+  5:18  error  An interface declaring no members is equivalent to its supertype  @typescript-eslint/no-empty-object-type
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\components\ui\toggle.tsx
+  37:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\hooks\useNativeNotifications.ts
+  107:6   warning  React Hook useCallback has a missing dependency: 'scheduleLocalNotification'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  206:67  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\hooks\useNearbyArrivals.ts
+   99:13  error  'arrivalTime' is never reassigned. Use 'const' instead  prefer-const
+  189:11  error  'arrivalTime' is never reassigned. Use 'const' instead  prefer-const
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\hooks\usePushSubscription.ts
+   36:63  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  315:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\hooks\useStopArrivalNotifications.ts
+   34:61  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  116:61  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\integrations\supabase\client.ts
+  64:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\src\pages\Index.tsx
+   41:13  error    Empty block statement                                                                                                no-empty
+   48:13  error    Empty block statement                                                                                                no-empty
+  331:6   warning  React Hook useEffect has a missing dependency: 'staticStopsQuery'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  375:6   warning  React Hook useEffect has a missing dependency: 'updateUrlParams'. Either include it or remove the dependency array   react-hooks/exhaustive-deps
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\supabase\functions\_shared\webpush.ts
+  143:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  158:41  error  Unnecessary escape character: \/          no-useless-escape
+  190:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\supabase\functions\check-delays\index.ts
+  227:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\supabase\functions\check-stop-arrivals\index.ts
+  297:102  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\supabase\functions\check-trip-reminders\index.ts
+  175:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\supabase\functions\gtfs-proxy\index.ts
+   990:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   998:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1045:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1049:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\supabase\functions\test-push\index.ts
+    19:7    error  'standard' is never reassigned. Use 'const' instead                prefer-const
+    36:31   error  Unexpected control character(s) in regular expression: \x00, \x1f  no-control-regex
+    41:44   error  Unnecessary escape character: \/                                   no-useless-escape
+   116:84   error  Unnecessary escape character: \/                                   no-useless-escape
+   126:115  error  Unexpected any. Specify a different type                           @typescript-eslint/no-explicit-any
+   126:132  error  Unexpected any. Specify a different type                           @typescript-eslint/no-explicit-any
+   357:69   error  Unnecessary escape character: \/                                   no-useless-escape
+   358:71   error  Unnecessary escape character: \/                                   no-useless-escape
+   387:22   error  Unexpected any. Specify a different type                           @typescript-eslint/no-explicit-any
+   388:23   error  Unexpected any. Specify a different type                           @typescript-eslint/no-explicit-any
+   419:79   error  Unnecessary escape character: \/                                   no-useless-escape
+   420:81   error  Unnecessary escape character: \/                                   no-useless-escape
+   447:52   error  Unnecessary escape character: \/                                   no-useless-escape
+   448:54   error  Unnecessary escape character: \/                                   no-useless-escape
+   457:45   error  Unnecessary escape character: \/                                   no-useless-escape
+   458:46   error  Unnecessary escape character: \/                                   no-useless-escape
+   475:35   error  Unexpected any. Specify a different type                           @typescript-eslint/no-explicit-any
+   478:29   error  Unexpected any. Specify a different type                           @typescript-eslint/no-explicit-any
+  1143:29   error  Unexpected any. Specify a different type                           @typescript-eslint/no-explicit-any
+  1216:23   error  Unexpected any. Specify a different type                           @typescript-eslint/no-explicit-any
+
+C:\Users\kotsi\Downloads\google_anti\MotionBus_AI\tailwind.config.ts
+  110:13  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+Ô£û 121 problems (97 errors, 24 warnings)
+  11 errors and 0 warnings potentially fixable with the `--fix` option.
+

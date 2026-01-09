@@ -484,8 +484,22 @@ export function useStopArrivalNotifications(
           arrivalsByStop.set(stu.stopId, existingArrivals);
         }
 
-        // Check if arrival is within the notification window
         if (minutesUntil > 0 && minutesUntil <= settings.beforeMinutes) {
+          // Check filtering mode
+          const notifyType = settings.notifyType || 'selected'; // Default to selected to prevent spam
+
+          if (notifyType === 'selected') {
+            // Check if we are filtering by specific trips
+            // If no trips are watched, we don't notify
+            if (!settings.watchedTrips || settings.watchedTrips.length === 0) {
+              return;
+            }
+            if (!settings.watchedTrips.includes(trip.tripId || '')) {
+              return;
+            }
+          }
+          // If notifyType === 'all', we proceed (notify for everything)
+
           triggerNotification({
             stopId: stu.stopId,
             stopName: settings.stopName,

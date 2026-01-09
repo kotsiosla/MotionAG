@@ -22,9 +22,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { ResizableDraggablePanel } from "@/components/common/ResizableDraggablePanel";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+// import { supabase } from "@/integrations/supabase/client";
 import type { StaticStop, Trip, Vehicle, RouteInfo } from "@/types/gtfs";
-import { useNearbyArrivals, useStopArrivalNotifications, useStopArrivals, type StopArrival } from "@/hooks/useNearbyArrivals";
+import { useNearbyArrivals, useStopArrivals, type StopArrival } from "@/hooks/useNearbyArrivals";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 
 // Detect iOS
@@ -77,8 +77,8 @@ export function NearbyStopsPanel({
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [selectedStop, setSelectedStop] = useState<StaticStop | null>(null);
-  const [watchedArrivals, setWatchedArrivals] = useState<Set<string>>(new Set());
-  const [notifiedArrivals, setNotifiedArrivals] = useState<Set<string>>(new Set());
+  // REMOVED local legacy states (watchedArrivals, notifiedArrivals)
+
   const [notificationDistance, setNotificationDistance] = useState(() => {
     const saved = localStorage.getItem('nearbyNotificationDistance');
     return saved ? parseInt(saved, 10) : 500;
@@ -87,9 +87,7 @@ export function NearbyStopsPanel({
   // Use shared notification settings hook
   const {
     setNotification,
-    removeNotification,
     getNotification,
-    notifications
   } = useStopNotifications();
 
   // Local settings for the panel UI (merged into stop settings when saving)
@@ -230,6 +228,9 @@ export function NearbyStopsPanel({
         }
       }
 
+      // Get existing settings to preserve watchedTrips
+      const existing = getNotification(activeStop.stop_id);
+
       // Use shared hook to setting notification
       // This will handle syncing to server and local storage
       setNotification({
@@ -241,6 +242,10 @@ export function NearbyStopsPanel({
         voice: panelSettings.voice,
         push: panelSettings.push,
         beforeMinutes: Math.round(notificationDistance / 100),
+        watchedTrips: existing?.watchedTrips || [], // Preserve existing trips
+        // Default to 'selected' for NearbyStopsPanel to prevent spam
+        // User must toggle "Notify All" explicitly if they want that
+        notifyType: existing?.notifyType || 'selected',
       });
 
       console.log('[NearbyStopsPanel] Updated notification for stop:', activeStop.stop_name);
@@ -251,14 +256,14 @@ export function NearbyStopsPanel({
 
   // Toggle notification setting
   const togglePanelSetting = useCallback((key: keyof typeof panelSettings) => {
-    setPanelSettings(prev => {
+    setPanelSettings((prev: any) => {
       const newState = { ...prev, [key]: !prev[key] };
 
       // If turning push ON, ensure permission
       if (key === 'push' && newState.push) {
         ensurePermission().then(granted => {
           if (!granted) {
-            setPanelSettings(curr => ({ ...curr, push: false }));
+            setPanelSettings((curr: any) => ({ ...curr, push: false }));
             toast({
               title: "⚠️ Απαιτείται άδεια",
               description: "Ενεργοποιήστε τις ειδοποιήσεις στις ρυθμίσεις του browser",
@@ -363,65 +368,45 @@ export function NearbyStopsPanel({
 
   // Full notification trigger for in-app simple alerts (bell icon)
   // This logic is separate from the persistent stop subscriptions
-  const triggerSimpleNotification = useCallback((arrival: StopArrival, stopName: string) => {
-    // Basic in-app alert for manually watched trips
-    const routeName = arrival.routeShortName || arrival.routeId;
+  // REMOVED legacy triggerSimpleNotification and manual watch effect
 
-    if (panelSettings.sound) {
-      // Basic beep
-      try {
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.frequency.value = 800;
-        gainNode.gain.value = 0.1;
-        oscillator.start();
-        setTimeout(() => oscillator.stop(), 200);
-      } catch (e) { console.error(e); }
-    }
-
-    if (panelSettings.push && 'Notification' in window && Notification.permission === 'granted') {
-      new Notification(`🚌 ${routeName} πλησιάζει!`, {
-        body: `Στη στάση: ${stopName}`,
-        icon: '/pwa-192x192.png',
-      });
-    }
-  }, [panelSettings]);
-
-  // Monitor manually watched arrivals
-  useEffect(() => {
-    if (!selectedStop || watchedArrivals.size === 0) return;
-
-    selectedStopArrivals.forEach(arrival => {
-      const arrivalKey = `${arrival.tripId}-${selectedStop.stop_id}`;
-
-      // Check if this arrival is being watched and is approaching
-      if (watchedArrivals.has(arrival.tripId) &&
-        arrival.estimatedMinutes !== undefined &&
-        arrival.estimatedMinutes <= 2 &&
-        !notifiedArrivals.has(arrivalKey)) {
-        triggerSimpleNotification(arrival, selectedStop.stop_name || selectedStop.stop_id);
-        setNotifiedArrivals(prev => new Set([...prev, arrivalKey]));
-      }
-    });
-  }, [selectedStopArrivals, selectedStop, watchedArrivals, notifiedArrivals, triggerSimpleNotification]);
 
   // Toggle watch for an specific arrival
   const toggleWatchArrival = useCallback((arrival: StopArrival) => {
     ensurePermission();
 
-    setWatchedArrivals(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(arrival.tripId)) {
-        newSet.delete(arrival.tripId);
-      } else {
-        newSet.add(arrival.tripId);
-      }
-      return newSet;
+    if (!activeStop) return;
+
+    const existing = getNotification(activeStop.stop_id);
+    const currentWatched = existing?.watchedTrips || [];
+
+    let newWatched: string[];
+    const isWatched = currentWatched.includes(arrival.tripId);
+
+    if (isWatched) {
+      newWatched = currentWatched.filter(id => id !== arrival.tripId);
+    } else {
+      newWatched = [...currentWatched, arrival.tripId];
+    }
+
+    // Update global settings
+    setNotification({
+      stopId: activeStop.stop_id,
+      stopName: activeStop.stop_name,
+      enabled: true, // Ensure enabled when toggling
+      sound: panelSettings.sound,
+      vibration: panelSettings.vibration,
+      voice: panelSettings.voice,
+      push: panelSettings.push,
+      beforeMinutes: Math.round(notificationDistance / 100),
+      watchedTrips: newWatched,
     });
-  }, [ensurePermission]);
+
+    toast({
+      title: isWatched ? "Ειδοποίηση αφαιρέθηκε" : "Ειδοποίηση προστέθηκε",
+      description: `Για το λεωφορείο: ${arrival.routeShortName || arrival.routeId}`,
+    });
+  }, [ensurePermission, activeStop, getNotification, setNotification, panelSettings, notificationDistance]);
 
   // Select stop and view arrivals
   const handleStopSelect = useCallback((stop: StaticStop) => {
@@ -741,6 +726,39 @@ export function NearbyStopsPanel({
               </div>
             )}
 
+            {/* Notification Mode Toggle (All vs Selected) */}
+            {panelSettings.push && (
+              <div className="flex items-center justify-between p-2 rounded-md bg-muted/40">
+                <span className="text-xs font-medium">Ειδοποίηση για όλα τα λεωφορεία;</span>
+                <button
+                  className={`relative w-10 h-5 rounded-full transition-colors ${getNotification(activeStop?.stop_id || '')?.notifyType === 'all'
+                      ? 'bg-blue-500'
+                      : 'bg-muted-foreground/30'
+                    }`}
+                  onClick={() => {
+                    const current = getNotification(activeStop?.stop_id || '');
+                    if (current && activeStop) {
+                      setNotification({
+                        ...current,
+                        notifyType: current.notifyType === 'all' ? 'selected' : 'all'
+                      });
+                      toast({
+                        title: current.notifyType === 'all' ? "Λειτουργία: Επιλεγμένα" : "Λειτουργία: Όλα",
+                        description: current.notifyType === 'all'
+                          ? "Θα λαμβάνετε ειδοποιήσεις μόνο για τα λεωφορεία που επιλέγετε (καμπανάκι)."
+                          : "Θα λαμβάνετε ειδοποιήσεις για ΟΛΑ τα λεωφορεία σε αυτή τη στάση."
+                      });
+                    }
+                  }}
+                >
+                  <div className={`absolute top-1 w-3 h-3 rounded-full bg-white shadow transition-transform ${getNotification(activeStop?.stop_id || '')?.notifyType === 'all'
+                      ? 'translate-x-6'
+                      : 'translate-x-1'
+                    }`} />
+                </button>
+              </div>
+            )}
+
             {/* Distance settings */}
             {panelSettings.push && (
               <div>
@@ -860,80 +878,86 @@ export function NearbyStopsPanel({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {selectedStopArrivals.map((arrival) => (
-                    <Card
-                      key={arrival.tripId}
-                      className={`${watchedArrivals.has(arrival.tripId) ? 'ring-2 ring-primary bg-primary/5' : ''}`}
-                    >
-                      <CardContent className="p-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <Badge
-                              variant="secondary"
-                              className="shrink-0 text-xs"
-                              style={{
-                                backgroundColor: arrival.routeColor ? `#${arrival.routeColor}` : undefined,
-                                color: arrival.routeColor ? '#fff' : undefined,
-                              }}
-                            >
-                              {arrival.routeShortName || arrival.routeId}
-                            </Badge>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-medium truncate">
-                                {arrival.routeLongName || arrival.routeId}
-                              </p>
-                              {arrival.vehicleLabel && (
-                                <p className="text-[10px] text-muted-foreground">
-                                  Όχημα: {arrival.vehicleLabel}
+                  {selectedStopArrivals.map((arrival) => {
+                    // Check if watched using global state
+                    const notif = getNotification(selectedStop.stop_id);
+                    const isWatched = notif?.watchedTrips?.includes(arrival.tripId);
+
+                    return (
+                      <Card
+                        key={arrival.tripId}
+                        className={`${isWatched ? 'ring-2 ring-primary bg-primary/5' : ''}`}
+                      >
+                        <CardContent className="p-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <Badge
+                                variant="secondary"
+                                className="shrink-0 text-xs"
+                                style={{
+                                  backgroundColor: arrival.routeColor ? `#${arrival.routeColor}` : undefined,
+                                  color: arrival.routeColor ? '#fff' : undefined,
+                                }}
+                              >
+                                {arrival.routeShortName || arrival.routeId}
+                              </Badge>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-medium truncate">
+                                  {arrival.routeLongName || arrival.routeId}
                                 </p>
-                              )}
+                                {arrival.vehicleLabel && (
+                                  <p className="text-[10px] text-muted-foreground">
+                                    Όχημα: {arrival.vehicleLabel}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0 ml-2">
+                              <p className={`text-sm font-bold ${arrival.estimatedMinutes !== undefined && arrival.estimatedMinutes <= 2
+                                ? 'text-green-500'
+                                : arrival.estimatedMinutes !== undefined && arrival.estimatedMinutes <= 5
+                                  ? 'text-yellow-500'
+                                  : ''
+                                }`}>
+                                {formatArrivalTime(arrival.estimatedMinutes)}
+                              </p>
                             </div>
                           </div>
-                          <div className="text-right shrink-0 ml-2">
-                            <p className={`text-sm font-bold ${arrival.estimatedMinutes !== undefined && arrival.estimatedMinutes <= 2
-                              ? 'text-green-500'
-                              : arrival.estimatedMinutes !== undefined && arrival.estimatedMinutes <= 5
-                                ? 'text-yellow-500'
-                                : ''
-                              }`}>
-                              {formatArrivalTime(arrival.estimatedMinutes)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex gap-1 mt-2">
-                          <Button
-                            variant={watchedArrivals.has(arrival.tripId) ? "default" : "outline"}
-                            size="sm"
-                            className="flex-1 h-7 text-xs"
-                            onClick={() => toggleWatchArrival(arrival)}
-                          >
-                            {watchedArrivals.has(arrival.tripId) ? (
-                              <>
-                                <BellOff className="h-3 w-3 mr-1" />
-                                Ακύρωση
-                              </>
-                            ) : (
-                              <>
-                                <Bell className="h-3 w-3 mr-1" />
-                                Ειδοποίηση
-                              </>
-                            )}
-                          </Button>
-                          {arrival.vehicleId && (
+                          <div className="flex gap-1 mt-2">
                             <Button
-                              variant="outline"
+                              variant={isWatched ? "default" : "outline"}
                               size="sm"
                               className="flex-1 h-7 text-xs"
-                              onClick={() => handleTrackVehicle(arrival)}
+                              onClick={() => toggleWatchArrival(arrival)}
                             >
-                              <Bus className="h-3 w-3 mr-1" />
-                              Παρακολ.
+                              {isWatched ? (
+                                <>
+                                  <BellOff className="h-3 w-3 mr-1" />
+                                  Ακύρωση
+                                </>
+                              ) : (
+                                <>
+                                  <Bell className="h-3 w-3 mr-1" />
+                                  Ειδοποίηση
+                                </>
+                              )}
                             </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                            {arrival.vehicleId && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 h-7 text-xs"
+                                onClick={() => handleTrackVehicle(arrival)}
+                              >
+                                <Bus className="h-3 w-3 mr-1" />
+                                Παρακολ.
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </div>
