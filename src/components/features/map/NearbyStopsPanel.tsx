@@ -592,17 +592,21 @@ export function NearbyStopsPanel({
   const panelContent = (
     <div className="flex flex-col h-full bg-card rounded-lg border border-border overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-border bg-card/80">
+      {/* Header */}
+      <div
+        className="flex items-center justify-between p-3 border-b border-border"
+        style={{ backgroundColor: '#6B8E23' }}
+      >
         <div className="flex items-center gap-2">
-          <MapPin className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-sm">Κοντινότερη Στάση</span>
+          <MapPin className="h-5 w-5 text-white" />
+          <span className="font-semibold text-sm text-white">Κοντινότερη Στάση</span>
         </div>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setShowSettings(!showSettings)}
-            className="h-7 w-7"
+            className="h-7 w-7 text-white hover:bg-white/20"
           >
             <Settings className="h-4 w-4" />
           </Button>
@@ -611,7 +615,7 @@ export function NearbyStopsPanel({
             size="icon"
             onClick={getLocation}
             disabled={isLocating}
-            className="h-7 w-7"
+            className="h-7 w-7 text-white hover:bg-white/20"
           >
             {isLocating ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -630,7 +634,7 @@ export function NearbyStopsPanel({
                 setMobilePosition({ x: 0, y: 0 });
               }
             }}
-            className="h-7 w-7 md:hidden"
+            className="h-7 w-7 md:hidden text-white hover:bg-white/20"
             title={mobilePosition.x === 0 ? "Floating mode" : "Docked mode"}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -651,7 +655,7 @@ export function NearbyStopsPanel({
             variant="ghost"
             size="icon"
             onClick={() => setIsMinimized(true)}
-            className="h-7 w-7"
+            className="h-7 w-7 text-white hover:bg-white/20"
           >
             <Minimize2 className="h-4 w-4" />
           </Button>
@@ -659,7 +663,7 @@ export function NearbyStopsPanel({
             variant="ghost"
             size="icon"
             onClick={handleClosePanel}
-            className="h-7 w-7"
+            className="h-7 w-7 text-white hover:bg-white/20"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -732,8 +736,8 @@ export function NearbyStopsPanel({
                 <span className="text-xs font-medium">Ειδοποίηση για όλα τα λεωφορεία;</span>
                 <button
                   className={`relative w-10 h-5 rounded-full transition-colors ${getNotification(activeStop?.stop_id || '')?.notifyType === 'all'
-                      ? 'bg-blue-500'
-                      : 'bg-muted-foreground/30'
+                    ? 'bg-blue-500'
+                    : 'bg-muted-foreground/30'
                     }`}
                   onClick={() => {
                     const current = getNotification(activeStop?.stop_id || '');
@@ -752,8 +756,8 @@ export function NearbyStopsPanel({
                   }}
                 >
                   <div className={`absolute top-1 w-3 h-3 rounded-full bg-white shadow transition-transform ${getNotification(activeStop?.stop_id || '')?.notifyType === 'all'
-                      ? 'translate-x-6'
-                      : 'translate-x-1'
+                    ? 'translate-x-6'
+                    : 'translate-x-1'
                     }`} />
                 </button>
               </div>
