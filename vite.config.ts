@@ -6,7 +6,7 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  const base = process.env.GITHUB_PAGES === 'true' ? '/MotionAG/' : '/';
+  const base = '/MotionAG/';
 
   return {
     base,

@@ -143,11 +143,6 @@ export function UnifiedRoutePanel({
   onSwitchToStreet,
   onSwitchToOverview,
 }: UnifiedRoutePanelProps) {
-  // Safety check - don't render if no routeId or invalid routeId - MUST be before any hooks
-  if (!routeId || routeId === 'all' || routeId === '' || typeof routeId !== 'string') {
-    return null;
-  }
-
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<'stops' | 'live' | 'planner' | 'schedule'>('stops');
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -424,6 +419,11 @@ export function UnifiedRoutePanel({
       setActiveTab('live');
     }
   }, [followedVehicle]);
+
+  // Safety check - return null ONLY AFTER all hooks are called
+  if (!routeId || routeId === 'all' || routeId === '' || typeof routeId !== 'string') {
+    return null;
+  }
 
   // Panel content
   const panelContent = (
