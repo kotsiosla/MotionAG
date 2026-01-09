@@ -15,6 +15,9 @@ verify_jwt = false
 [functions.check-stop-arrivals]
 verify_jwt = false
 
+[functions.check-stop-arrivalsAG]
+verify_jwt = false
+
 [functions.generate-vapid-keys]
 verify_jwt = false
 
