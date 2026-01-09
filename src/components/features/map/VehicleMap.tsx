@@ -777,9 +777,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       spiderfyOnMaxZoom: false,
       showCoverageOnHover: false,
       maxClusterRadius: 50,
-      zoomToBoundsOnClick: true,
-      animate: false, // Disable all cluster animations
-      animateAddingMarkers: false,
+      zoomToBoundsOnClick: false, // Handle click manually for better control
+      animate: true,
+      animateAddingMarkers: true,
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
         const size = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
@@ -793,7 +793,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       },
     });
 
-    // Explicit cluster click handler to ensure zoom works
+    // Explicit cluster click handler
     vehicleMarkersRef.current.on('clusterclick', (e: any) => {
       const cluster = e.layer;
       if (cluster && typeof cluster.getBounds === 'function') {
@@ -801,8 +801,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         if (mapRef.current && bounds && bounds.isValid && bounds.isValid()) {
           mapRef.current.fitBounds(bounds, {
             padding: [50, 50],
-            maxZoom: 16,
+            maxZoom: 18,
             animate: true,
+            duration: 0.5
           });
         }
       }
@@ -814,9 +815,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       showCoverageOnHover: false,
       maxClusterRadius: 60,
       disableClusteringAtZoom: 15,
-      zoomToBoundsOnClick: true,
-      animate: false, // Disable all cluster animations
-      animateAddingMarkers: false,
+      zoomToBoundsOnClick: false, // Handle click manually
+      animate: true,
+      animateAddingMarkers: true,
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
         const size = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
@@ -838,8 +839,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         if (mapRef.current && bounds && bounds.isValid && bounds.isValid()) {
           mapRef.current.fitBounds(bounds, {
             padding: [50, 50],
-            maxZoom: 16,
+            maxZoom: 18,
             animate: true,
+            duration: 0.5
           });
         }
       }
@@ -1241,20 +1243,72 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
         // Click handler - opens route planner panel
         marker.on('click', () => {
-          // Close any existing popups
-          if (mapRef.current) {
-            mapRef.current.closePopup();
-          }
+          // Check if we have enough route info to show a panel
+          const effectiveRouteId = resolveRouteIdForVehicle(vehicle) || (selectedRoute !== 'all' ? selectedRoute : null);
+          const hasRouteInfo = effectiveRouteId && effectiveRouteId !== 'all';
 
-          setFollowedVehicleId(vehicleId);
-          onFollowVehicle?.(vehicleId);
-          // Match the behavior of external follow (e.g. from TripsTable): go to street mode immediately.
-          setViewMode('street');
-          // Close route planner when following a vehicle - UnifiedRoutePanel will show the route
-          setShowRoutePlanner(false);
-          setSelectedVehicleTrip(null);
-          setInitialOriginStop(null);
+          if (hasRouteInfo) {
+            // Close any existing popups only if we can show a panel
+            if (mapRef.current) {
+              mapRef.current.closePopup();
+            }
+
+            setFollowedVehicleId(vehicleId);
+            onFollowVehicle?.(vehicleId);
+            // Match the behavior of external follow (e.g. from TripsTable): go to street mode immediately.
+            setViewMode('street');
+            // Close route planner when following a vehicle - UnifiedRoutePanel will show the route
+            setShowRoutePlanner(false);
+            setSelectedVehicleTrip(null);
+            setInitialOriginStop(null);
+          } else {
+            // Fallback: Let the popup open 
+            console.log('[VehicleMap] No route info for vehicle, keeping popup open', vehicleId);
+            marker.openPopup();
+          }
         });
+
+        // Bind popup content for new markers so fallback works
+        const nextStop = getNextStopInfo(vehicle);
+        const etaHtml = nextStop ? `
+          <div class="mt-2 pt-2 border-t border-border">
+            <div class="flex items-center gap-1 text-primary font-medium mb-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Επόμενη στάση
+            </div>
+            <div class="text-sm">
+              <div class="font-medium">${nextStop.stopName}</div>
+              ${nextStop.arrivalTime ? `<div class="text-muted-foreground">Άφιξη: <span class="text-foreground font-mono">${formatETA(nextStop.arrivalTime)}</span> ${formatDelay(nextStop.arrivalDelay)}</div>` : ''}
+            </div>
+          </div>
+        ` : '';
+
+        marker.bindPopup(`
+          <div class="p-3 min-w-[220px]">
+            <div class="font-semibold text-base mb-2 flex items-center gap-2">
+              <span class="inline-block w-3 h-3 rounded-full" style="background: ${routeColor ? `#${routeColor}` : 'hsl(var(--primary))'}"></span>
+              Όχημα ${vehicleId}
+            </div>
+            <div class="space-y-1.5 text-sm">
+              ${vehicle.label ? `<div class="flex justify-between"><span class="text-muted-foreground">Ετικέτα:</span><span class="font-mono">${vehicle.label}</span></div>` : ''}
+              ${routeName ? `<div class="flex justify-between gap-2"><span class="text-muted-foreground">Γραμμή:</span><span class="text-right font-medium" style="color: ${routeColor ? `#${routeColor}` : 'inherit'}">${routeName}</span></div>` : ''}
+              <div class="flex justify-between"><span class="text-muted-foreground">Ταχύτητα:</span><span>${formatSpeed(vehicle.speed)}</span></div>
+              ${vehicle.bearing !== undefined ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατεύθυνση:</span><span>${vehicle.bearing.toFixed(0)}°</span></div>` : ''}
+              ${vehicle.currentStatus ? `<div class="flex justify-between"><span class="text-muted-foreground">Κατάσταση:</span><span>${vehicle.currentStatus}</span></div>` : ''}
+              <div class="flex justify-between items-center pt-1 border-t border-border mt-2">
+                <span class="text-muted-foreground">Ενημέρωση:</span>
+                <span class="flex items-center gap-1.5">
+                  ${(() => {
+            const relTime = getRelativeTime(vehicle.timestamp);
+            return `<span class="inline-block w-2 h-2 rounded-full ${relTime.isLive ? 'animate-pulse' : ''}" style="background: ${relTime.color}"></span>
+                    <span class="text-xs" style="color: ${relTime.color}">${relTime.text}</span>`;
+          })()}
+                </span>
+              </div>
+            </div>
+            ${etaHtml}
+          </div>
+        `);
 
         markerMapRef.current.set(vehicleId, marker);
         vehicleMarkersRef.current!.addLayer(marker);
