@@ -466,9 +466,12 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
             );
           })}
 
-          <div className="mt-4 p-3 rounded-lg bg-muted/50 text-center">
+          <div className="mt-4 p-3 rounded-lg bg-muted/50 text-center space-y-2">
             <p className="text-xs text-muted-foreground">
               Για περισσότερες πληροφορίες επικοινωνήστε με τον φορέα μεταφορών
+            </p>
+            <p className="text-[10px] text-muted-foreground/60 font-mono">
+              v1.1 (MotionAG) - Service Worker Fix
             </p>
           </div>
         </TabsContent>
