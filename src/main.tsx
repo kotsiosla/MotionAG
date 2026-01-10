@@ -4,36 +4,46 @@ import App from "./App.tsx";
 import "./index.css";
 
 // Register service worker for push notifications (Android only - iOS uses client-side)
+// Register service worker for push notifications (Android only - iOS uses client-side)
 if ('serviceWorker' in navigator) {
-  const basePath = import.meta.env.BASE_URL || (window.location.pathname.startsWith('/MotionBus_AI') ? '/MotionBus_AI/' : '/');
+  // Determine correct base path - handle both dev and prod (MotionAG)
+  // We prioritize the known deployment path if we detect we are on that URL
+  const isMotionAG = window.location.pathname.includes('/MotionAG/');
+  const basePath = isMotionAG ? '/MotionAG/' : (import.meta.env.BASE_URL || '/');
+
   const swPath = `${basePath}sw.js`.replace('//', '/');
-  
+
   // Wait for page to be fully loaded
   if (document.readyState === 'complete') {
     registerSW();
   } else {
     window.addEventListener('load', registerSW);
   }
-  
-  function registerSW() {
-    // Check if already registered to avoid duplicate registration
-    navigator.serviceWorker.getRegistrations().then((registrations) => {
-      if (registrations.length > 0) {
-        console.log('[main.tsx] ✅ Service worker already registered:', registrations[0].scope);
-        return;
+
+  async function registerSW() {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+
+      // Cleanup OLD or WRONG registrations (e.g. from MotionBus_AI or root if we are in MotionAG)
+      for (const registration of registrations) {
+        const scope = new URL(registration.scope).pathname;
+        if (scope !== basePath && scope !== basePath.slice(0, -1)) { // Handle trailing slash diffs
+          console.log('[main.tsx] 🗑️ Unregistering old/wrong scope:', scope, 'Current base:', basePath);
+          await registration.unregister();
+        }
       }
-      
-      // Register only if not already registered - NO update checking to prevent refresh loop
-      console.log('[main.tsx] Registering service worker:', swPath);
-      navigator.serviceWorker.register(swPath, { scope: basePath, updateViaCache: 'none' })
-        .then((registration) => {
-          console.log('[main.tsx] ✅ Service worker registered:', registration.scope);
-          // DON'T check for updates - this can cause refresh loops
-        })
-        .catch((error) => {
-          console.error('[main.tsx] ❌ Service worker registration failed:', error);
-        });
-    });
+
+      // Now register the CORRECT one always (updateViaCache: 'none' ensures we get fresh SW)
+      console.log('[main.tsx] Registering service worker:', swPath, 'Scope:', basePath);
+      const registration = await navigator.serviceWorker.register(swPath, {
+        scope: basePath,
+        updateViaCache: 'none'
+      });
+      console.log('[main.tsx] ✅ Service worker registered:', registration.scope);
+
+    } catch (error) {
+      console.error('[main.tsx] ❌ Service worker registration failed:', error);
+    }
   }
 }
 
