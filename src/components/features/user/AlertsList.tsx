@@ -102,7 +102,8 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
   const {
     notifications: stopNotifications,
     setNotification: updateNotification,
-    removeNotification
+    removeNotification,
+    clearAllNotifications
   } = useStopNotifications();
 
   // Toggle notification enabled state
@@ -225,9 +226,9 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
                   variant="outline"
                   size="sm"
                   className="text-xs text-muted-foreground hover:text-destructive gap-2"
-                  onClick={() => {
+                  onClick={async () => {
                     if (confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε όλες τις ειδοποιήσεις;')) {
-                      useStopNotifications().clearAllNotifications();
+                      await clearAllNotifications();
                       window.location.reload();
                     }
                   }}
@@ -490,7 +491,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               Για περισσότερες πληροφορίες επικοινωνήστε με τον φορέα μεταφορών
             </p>
             <p className="text-[10px] text-muted-foreground/60 font-mono">
-              v1.2 (MotionAG) - No Auto-Subscribe
+              v1.2.1 (MotionAG) - Async Reset Fix
             </p>
           </div>
         </TabsContent>
