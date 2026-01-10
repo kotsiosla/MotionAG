@@ -106,10 +106,7 @@ export function NearbyStopsPanel({
 
   // Fixed stop mode vs auto-track
   const [trackingMode, setTrackingMode] = useState<'auto' | 'fixed'>('fixed');
-  const [fixedStop, setFixedStop] = useState<{ stopId: string; stopName: string } | null>(() => {
-    const saved = localStorage.getItem('fixedStop');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [fixedStop, setFixedStop] = useState<{ stopId: string; stopName: string } | null>(null);
 
   const [isMinimized, setIsMinimized] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(70); // percentage of viewport height
@@ -148,7 +145,7 @@ export function NearbyStopsPanel({
   // MODIFIED: Only use fixedStop (manual selection). Ignore nearestStop for auto-selection.
   const activeStop = fixedStop
     ? { stop_id: fixedStop.stopId, stop_name: fixedStop.stopName }
-    : null;
+    : (selectedStop ? { stop_id: selectedStop.stop_id, stop_name: selectedStop.stop_name } : null);
 
   // Highlight nearest stop when panel opens
   useEffect(() => {
@@ -175,13 +172,7 @@ export function NearbyStopsPanel({
     localStorage.setItem('stopTrackingMode', trackingMode);
   }, [trackingMode]);
 
-  useEffect(() => {
-    if (fixedStop) {
-      localStorage.setItem('fixedStop', JSON.stringify(fixedStop));
-    } else {
-      localStorage.removeItem('fixedStop');
-    }
-  }, [fixedStop]);
+  // REMOVED: Saving fixedStop to localStorage (We want clean slate manual mode)
 
   // Function to set a stop as fixed
   const setAsFixedStop = useCallback((stop: { stop_id: string; stop_name: string }) => {
