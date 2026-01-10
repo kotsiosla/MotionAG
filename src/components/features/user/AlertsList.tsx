@@ -153,16 +153,16 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
 
         {/* Reminders Tab */}
         <TabsContent value="reminders" className="flex-1 overflow-auto p-4 space-y-3">
-          {stopNotifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
-              <Bell className="h-12 w-12 mb-2 opacity-50" />
-              <p className="font-medium">Δεν έχετε υπενθυμίσεις</p>
-              <p className="text-sm text-center px-4">
-                Πατήστε το κουμπί 🔔 σε μια στάση για να λαμβάνετε ειδοποιήσεις όταν πλησιάζει το λεωφορείο
-              </p>
-            </div>
+          <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+            <Bell className="h-12 w-12 mb-2 opacity-50" />
+            <p className="font-medium">Δεν έχετε υπενθυμίσεις</p>
+            <p className="text-sm text-center px-4">
+              Πατήστε το κουμπί 🔔 σε μια στάση για να λαμβάνετε ειδοποιήσεις όταν πλησιάζει το λεωφορείο
+            </p>
+          </div>
           ) : (
-            stopNotifications.map((notification) => (
+          <>
+            {stopNotifications.map((notification) => (
               <div
                 key={notification.stopId}
                 className={`rounded-lg border p-3 animate-fade-in ${notification.enabled
@@ -217,7 +217,25 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
                   </div>
                 </div>
               </div>
-            ))
+            ))}
+
+            <div className="pt-4 flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs text-muted-foreground hover:text-destructive gap-2"
+                onClick={() => {
+                  if (confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε όλες τις ειδοποιήσεις;')) {
+                    useStopNotifications().clearAllNotifications();
+                    window.location.reload();
+                  }
+                }}
+              >
+                <Trash2 className="h-3 w-3" />
+                Επαναφορά / Διαγραφή Όλων
+              </Button>
+            </div>
+          </>
           )}
         </TabsContent>
 
@@ -471,7 +489,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               Για περισσότερες πληροφορίες επικοινωνήστε με τον φορέα μεταφορών
             </p>
             <p className="text-[10px] text-muted-foreground/60 font-mono">
-              v1.1 (MotionAG) - Service Worker Fix
+              v1.2 (MotionAG) - No Auto-Subscribe
             </p>
           </div>
         </TabsContent>

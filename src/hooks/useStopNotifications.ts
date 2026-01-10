@@ -76,11 +76,6 @@ export function useStopNotifications() {
   const syncToServer = useCallback(async (notifs: StopNotificationSettings[]) => {
     const pushEnabledNotifs = notifs.filter(n => n.enabled && n.push);
 
-    if (pushEnabledNotifs.length === 0) {
-      console.log('[StopNotifications] No push-enabled notifications to sync');
-      return;
-    }
-
     const endpoint = await getPushEndpoint();
     if (!endpoint) {
       console.log('[StopNotifications] No push subscription, skipping sync');
@@ -103,7 +98,7 @@ export function useStopNotifications() {
         .maybeSingle();
 
       if (existing) {
-        // Update existing
+        // Update existing logic: ALWAYS update, even if empty, to clear server state
         const { error } = await supabase
           .from('stop_notification_subscriptions')
           .update({
@@ -119,20 +114,22 @@ export function useStopNotifications() {
           console.log('[StopNotifications] Updated', pushEnabledNotifs.length, 'notifications on server');
         }
       } else {
-        // Insert new
-        const { error } = await supabase
-          .from('stop_notification_subscriptions')
-          .insert([{
-            endpoint,
-            p256dh: keys.p256dh,
-            auth: keys.auth,
-            stop_notifications: JSON.parse(JSON.stringify(pushEnabledNotifs)),
-          }]);
+        // Insert new logic: Only insert if we actually have data (avoid creating empty rows)
+        if (pushEnabledNotifs.length > 0) {
+          const { error } = await supabase
+            .from('stop_notification_subscriptions')
+            .insert([{
+              endpoint,
+              p256dh: keys.p256dh,
+              auth: keys.auth,
+              stop_notifications: JSON.parse(JSON.stringify(pushEnabledNotifs)),
+            }]);
 
-        if (error) {
-          console.error('[StopNotifications] Insert error:', error);
-        } else {
-          console.log('[StopNotifications] Synced', pushEnabledNotifs.length, 'notifications to server');
+          if (error) {
+            console.error('[StopNotifications] Insert error:', error);
+          } else {
+            console.log('[StopNotifications] Synced', pushEnabledNotifs.length, 'notifications to server');
+          }
         }
       }
     } catch (error) {

@@ -1,4 +1,4 @@
-// Service Worker for Push Notifications
+// Service Worker for Push Notifications (v1.2 - Force Update)
 // Simple service worker without precaching to avoid refresh loops
 // This file is processed by VitePWA injectManifest strategy
 
@@ -23,7 +23,7 @@ self.addEventListener('activate', (event) => {
 // Push notification handler
 self.addEventListener('push', (event) => {
   console.log('Push event received:', event);
-  
+
   let data = {
     title: 'Motion Bus Cyprus',
     body: 'Νέα ειδοποίηση',
@@ -75,7 +75,7 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   const urlToOpen = event.notification.data?.url || '/';
-  
+
   // Validate URL
   let validatedUrl = '/';
   try {

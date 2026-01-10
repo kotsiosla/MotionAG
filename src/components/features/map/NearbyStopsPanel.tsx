@@ -208,51 +208,9 @@ export function NearbyStopsPanel({
     return false;
   }, []);
 
-  // Update notification settings when active stop changes or settings change
-  useEffect(() => {
-    if (!activeStop || !panelSettings.push) return;
-
-    // Only update if not currently processing
-    const updateNotification = async () => {
-      // Check permissions first
-      if (panelSettings.push) {
-        await ensurePermission();
-
-        // Register service worker if needed
-        if ('serviceWorker' in navigator && !navigator.serviceWorker.controller) {
-          try {
-            await navigator.serviceWorker.register('/sw.js');
-          } catch (e) {
-            console.error('SW registration failed:', e);
-          }
-        }
-      }
-
-      // Get existing settings to preserve watchedTrips
-      const existing = getNotification(activeStop.stop_id);
-
-      // Use shared hook to setting notification
-      // This will handle syncing to server and local storage
-      setNotification({
-        stopId: activeStop.stop_id,
-        stopName: activeStop.stop_name,
-        enabled: true,
-        sound: panelSettings.sound,
-        vibration: panelSettings.vibration,
-        voice: panelSettings.voice,
-        push: panelSettings.push,
-        beforeMinutes: Math.round(notificationDistance / 100),
-        watchedTrips: existing?.watchedTrips || [], // Preserve existing trips
-        // Default to 'selected' for NearbyStopsPanel to prevent spam
-        // User must toggle "Notify All" explicitly if they want that
-        notifyType: existing?.notifyType || 'selected',
-      });
-
-      console.log('[NearbyStopsPanel] Updated notification for stop:', activeStop.stop_name);
-    };
-
-    updateNotification();
-  }, [activeStop?.stop_id, panelSettings, notificationDistance, setNotification, ensurePermission]);
+  // REMOVED: Auto-update notification settings when active stop changes.
+  // This was causing the "System automatically chooses the closer bus stop" issue.
+  // Notification updates are now MANUAL ONLY via user interaction.
 
   // Toggle notification setting
   const togglePanelSetting = useCallback((key: keyof typeof panelSettings) => {
