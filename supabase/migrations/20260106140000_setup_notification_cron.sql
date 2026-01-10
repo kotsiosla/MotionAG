@@ -90,11 +90,11 @@ BEGIN
 END;
 $$;
 
--- Schedule cron job to run every 30 seconds
--- This checks for upcoming arrivals and sends push notifications
+-- Schedule cron job to run every 1 minute
+-- The Edge Function itself will loop for 55 seconds to handle "real-time" alerts
 SELECT cron.schedule(
   'check-stop-arrivals',
-  '*/30 * * * * *', -- Every 30 seconds (cron format: second minute hour day month weekday)
+  '* * * * *', -- Every minute (Standard stable cron)
   $$SELECT cron_check_stop_arrivals_v2();$$
 );
 
