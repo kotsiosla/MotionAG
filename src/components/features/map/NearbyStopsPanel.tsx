@@ -105,9 +105,7 @@ export function NearbyStopsPanel({
   const [isPanelOpen, setIsPanelOpen] = useState(false);
 
   // Fixed stop mode vs auto-track
-  const [trackingMode, setTrackingMode] = useState<'auto' | 'fixed'>(() => {
-    return localStorage.getItem('stopTrackingMode') as 'auto' | 'fixed' || 'auto';
-  });
+  const [trackingMode, setTrackingMode] = useState<'auto' | 'fixed'>('fixed');
   const [fixedStop, setFixedStop] = useState<{ stopId: string; stopName: string } | null>(() => {
     const saved = localStorage.getItem('fixedStop');
     return saved ? JSON.parse(saved) : null;
@@ -147,9 +145,10 @@ export function NearbyStopsPanel({
   const nearestStop = nearbyStops.length > 0 ? nearbyStops[0].stop : null;
 
   // Get active stop based on mode
-  const activeStop = trackingMode === 'fixed' && fixedStop
+  // MODIFIED: Only use fixedStop (manual selection). Ignore nearestStop for auto-selection.
+  const activeStop = fixedStop
     ? { stop_id: fixedStop.stopId, stop_name: fixedStop.stopName }
-    : nearestStop;
+    : null;
 
   // Highlight nearest stop when panel opens
   useEffect(() => {
@@ -518,9 +517,9 @@ export function NearbyStopsPanel({
         size="lg"
         className="fixed bottom-24 sm:bottom-20 right-4 z-40 h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-lg hover:scale-105 transition-transform"
         onClick={handleOpenPanel}
-        title="Κοντινότερη Στάση"
+        title="Στάσεις Κοντά μου"
       >
-        <LocateFixed className="h-5 w-5 sm:h-6 sm:w-6" />
+        <MapPin className="h-5 w-5 sm:h-6 sm:w-6" />
       </Button>
     );
   }
@@ -536,11 +535,9 @@ export function NearbyStopsPanel({
           onClick={() => setIsMinimized(false)}
         >
           <MapPin className="h-4 w-4 sm:h-5 sm:w-5" />
-          {nearestStop && (
-            <span className="text-xs sm:text-sm max-w-[100px] sm:max-w-[120px] truncate">
-              {nearestStop.stop_name}
-            </span>
-          )}
+          <span className="text-xs sm:text-sm max-w-[100px] sm:max-w-[120px] truncate">
+            Στάσεις Κοντά μου
+          </span>
         </Button>
       </div>
     );
@@ -557,7 +554,7 @@ export function NearbyStopsPanel({
       >
         <div className="flex items-center gap-2">
           <MapPin className="h-5 w-5 text-white" />
-          <span className="font-semibold text-sm text-white">Κοντινότερη Στάση</span>
+          <span className="font-semibold text-sm text-white">Στάσεις Κοντά μου</span>
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -746,64 +743,7 @@ export function NearbyStopsPanel({
               </div>
             )}
 
-            {/* Tracking mode toggle */}
-            {panelSettings.push && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Λειτουργία παρακολούθησης:</span>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant={trackingMode === 'auto' ? "default" : "outline"}
-                    size="sm"
-                    className="flex-1 h-8 text-xs"
-                    onClick={() => {
-                      setTrackingMode('auto');
-                    }}
-                  >
-                    <Navigation className="h-3 w-3 mr-1" />
-                    Αυτόματα (πλησιέστερη)
-                  </Button>
-                  <Button
-                    variant={trackingMode === 'fixed' ? "default" : "outline"}
-                    size="sm"
-                    className="flex-1 h-8 text-xs"
-                    onClick={() => {
-                      if (nearestStop) {
-                        setAsFixedStop(nearestStop);
-                      }
-                    }}
-                  >
-                    <MapPin className="h-3 w-3 mr-1" />
-                    Σταθερή
-                  </Button>
-                </div>
-
-                {/* Show current tracked stop */}
-                {activeStop && (
-                  <div className={`text-xs flex items-center justify-between p-2 rounded-md ${trackingMode === 'fixed' ? 'bg-primary/10 text-primary' : 'bg-green-500/10 text-green-500'}`}>
-                    <span className="flex items-center gap-1">
-                      {trackingMode === 'fixed' ? <MapPin className="h-3 w-3" /> : <Navigation className="h-3 w-3" />}
-                      {activeStop.stop_name.substring(0, 25)}
-                    </span>
-                    {trackingMode === 'fixed' && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-5 px-1 text-[10px]"
-                        onClick={() => {
-                          setTrackingMode('auto');
-                          setFixedStop(null);
-                          toast({ title: "Αλλαγή σε αυτόματη λειτουργία" });
-                        }}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Tracking mode toggle REMOVED (Manual selection only) */}
           </div>
         </CollapsibleContent>
       </Collapsible>

@@ -1,4 +1,4 @@
-// Service Worker for Push Notifications (v1.2 - Force Update)
+// Service Worker for Push Notifications (v1.2.2 - Manual Mode Update)
 // Simple service worker without precaching to avoid refresh loops
 // This file is processed by VitePWA injectManifest strategy
 
