@@ -153,89 +153,90 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
 
         {/* Reminders Tab */}
         <TabsContent value="reminders" className="flex-1 overflow-auto p-4 space-y-3">
-          <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
-            <Bell className="h-12 w-12 mb-2 opacity-50" />
-            <p className="font-medium">Δεν έχετε υπενθυμίσεις</p>
-            <p className="text-sm text-center px-4">
-              Πατήστε το κουμπί 🔔 σε μια στάση για να λαμβάνετε ειδοποιήσεις όταν πλησιάζει το λεωφορείο
-            </p>
-          </div>
+          {stopNotifications.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+              <Bell className="h-12 w-12 mb-2 opacity-50" />
+              <p className="font-medium">Δεν έχετε υπενθυμίσεις</p>
+              <p className="text-sm text-center px-4">
+                Πατήστε το κουμπί 🔔 σε μια στάση για να λαμβάνετε ειδοποιήσεις όταν πλησιάζει το λεωφορείο
+              </p>
+            </div>
           ) : (
-          <>
-            {stopNotifications.map((notification) => (
-              <div
-                key={notification.stopId}
-                className={`rounded-lg border p-3 animate-fade-in ${notification.enabled
-                  ? 'bg-primary/10 border-primary/30'
-                  : 'bg-muted/30 border-muted-foreground/20'
-                  }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${notification.enabled
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground'
-                      }`}
-                  >
-                    {notification.enabled ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-3 w-3 text-muted-foreground" />
-                      <h3 className="font-medium text-sm truncate">{notification.stopName}</h3>
-                    </div>
-                    <p className={`text-sm mt-1 ${notification.enabled ? 'text-primary' : 'text-muted-foreground'}`}>
-                      {notification.enabled ? '✓ Ενεργή ειδοποίηση' : 'Απενεργοποιημένη'}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                      <span>⏱️ {notification.beforeMinutes} λεπτά πριν</span>
-                      {notification.sound && <span>🔊</span>}
-                      {notification.vibration && <span>📳</span>}
-                      {notification.voice && <span>🗣️</span>}
-                      {notification.push && <span>📲</span>}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => toggleNotification(notification.stopId)}
-                      title={notification.enabled ? 'Απενεργοποίηση' : 'Ενεργοποίηση'}
+            <>
+              {stopNotifications.map((notification) => (
+                <div
+                  key={notification.stopId}
+                  className={`rounded-lg border p-3 animate-fade-in ${notification.enabled
+                    ? 'bg-primary/10 border-primary/30'
+                    : 'bg-muted/30 border-muted-foreground/20'
+                    }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${notification.enabled
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground'
+                        }`}
                     >
-                      {notification.enabled ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                      onClick={() => removeNotification(notification.stopId)}
-                      title="Διαγραφή"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                      {notification.enabled ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-3 w-3 text-muted-foreground" />
+                        <h3 className="font-medium text-sm truncate">{notification.stopName}</h3>
+                      </div>
+                      <p className={`text-sm mt-1 ${notification.enabled ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {notification.enabled ? '✓ Ενεργή ειδοποίηση' : 'Απενεργοποιημένη'}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                        <span>⏱️ {notification.beforeMinutes} λεπτά πριν</span>
+                        {notification.sound && <span>🔊</span>}
+                        {notification.vibration && <span>📳</span>}
+                        {notification.voice && <span>🗣️</span>}
+                        {notification.push && <span>📲</span>}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => toggleNotification(notification.stopId)}
+                        title={notification.enabled ? 'Απενεργοποίηση' : 'Ενεργοποίηση'}
+                      >
+                        {notification.enabled ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        onClick={() => removeNotification(notification.stopId)}
+                        title="Διαγραφή"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
 
-            <div className="pt-4 flex justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs text-muted-foreground hover:text-destructive gap-2"
-                onClick={() => {
-                  if (confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε όλες τις ειδοποιήσεις;')) {
-                    useStopNotifications().clearAllNotifications();
-                    window.location.reload();
-                  }
-                }}
-              >
-                <Trash2 className="h-3 w-3" />
-                Επαναφορά / Διαγραφή Όλων
-              </Button>
-            </div>
-          </>
+              <div className="pt-4 flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs text-muted-foreground hover:text-destructive gap-2"
+                  onClick={() => {
+                    if (confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε όλες τις ειδοποιήσεις;')) {
+                      useStopNotifications().clearAllNotifications();
+                      window.location.reload();
+                    }
+                  }}
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Επαναφορά / Διαγραφή Όλων
+                </Button>
+              </div>
+            </>
           )}
         </TabsContent>
 
