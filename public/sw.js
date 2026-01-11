@@ -1,4 +1,4 @@
-// Service Worker for Push Notifications (v1.3.3 - Icon Path Fix)
+// Service Worker for Push Notifications (v1.3.5 - Nuclear Test)
 // Simple service worker without precaching to avoid refresh loops
 // This file is processed by VitePWA injectManifest strategy
 
@@ -22,46 +22,24 @@ self.addEventListener('activate', (event) => {
 
 // Push notification handler
 self.addEventListener('push', (event) => {
-  console.log('Push event received:', event);
+  console.log('Push event received');
 
-  let data = {
-    title: 'Motion Bus Cyprus',
-    body: 'Νέα ειδοποίηση',
-    icon: '/MotionAG/pwa-192x192.png',
-    badge: '/MotionAG/pwa-192x192.png',
-    url: '/MotionAG/',
-    tag: 'motion-bus-notification',
-  };
-
-  if (event.data) {
-    try {
-      const jsonData = event.data.json();
-      data = { ...data, ...jsonData };
-    } catch (e) {
-      console.error('Error parsing push data:', e);
-    }
-  }
-
+  // NUCLEAR OPTION: Ignore payload, show hardcoded test
+  const title = '⚠️ SYSTEM CHECK';
   const options = {
-    body: data.body,
-    icon: data.icon && data.icon.startsWith('/') ? `/MotionAG${data.icon}` : '/MotionAG/pwa-192x192.png',
-    badge: data.badge && data.badge.startsWith('/') ? `/MotionAG${data.badge}` : '/MotionAG/pwa-192x192.png',
-    vibrate: [200, 100, 200, 100, 200],
-    tag: data.tag,
+    body: 'If you see this, the pipeline is working.',
+    icon: '/MotionAG/pwa-192x192.png',
+    tag: 'system-check-' + Date.now(),
     renotify: true,
     requireInteraction: true,
     data: {
-      url: data.url || '/MotionAG/',
+      url: '/MotionAG/',
       timestamp: Date.now(),
     },
-    actions: [
-      { action: 'open', title: '🚌 Άνοιγμα', icon: '/MotionAG/pwa-192x192.png' },
-      { action: 'close', title: '✕ Κλείσιμο' },
-    ],
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.registration.showNotification(title, options)
   );
 });
 
