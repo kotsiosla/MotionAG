@@ -1,4 +1,4 @@
-// Service Worker for Push Notifications (v1.3.5 - Nuclear Test)
+// Service Worker for Push Notifications (v1.3.6 - Stable)
 // Simple service worker without precaching to avoid refresh loops
 // This file is processed by VitePWA injectManifest strategy
 
@@ -24,22 +24,38 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
   console.log('Push event received');
 
-  // NUCLEAR OPTION: Ignore payload, show hardcoded test
-  const title = '⚠️ SYSTEM CHECK';
-  const options = {
-    body: 'If you see this, the pipeline is working.',
+  let data = {
+    title: 'Motion Bus Cyprus',
+    body: 'Νέα ειδοποίηση',
     icon: '/MotionAG/pwa-192x192.png',
-    tag: 'system-check-' + Date.now(),
+    badge: '/MotionAG/pwa-192x192.png',
+    url: '/MotionAG/',
+    tag: 'motion-bus-notification',
+  };
+
+  if (event.data) {
+    try {
+      const jsonData = event.data.json();
+      data = { ...data, ...jsonData };
+    } catch (e) {
+      console.error('Error parsing push data:', e);
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: data.icon && data.icon.startsWith('/') ? `/MotionAG${data.icon}` : '/MotionAG/pwa-192x192.png',
+    tag: data.tag,
     renotify: true,
     requireInteraction: true,
     data: {
-      url: '/MotionAG/',
+      url: data.url || '/MotionAG/',
       timestamp: Date.now(),
     },
   };
 
   event.waitUntil(
-    self.registration.showNotification(title, options)
+    self.registration.showNotification(data.title, options)
   );
 });
 

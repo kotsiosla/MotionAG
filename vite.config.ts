@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
           description: "Παρακολούθηση θέσεων λεωφορείων και δρομολογίων σε πραγματικό χρόνο",
           theme_color: "#0ea5e9",
           background_color: "#0a0a0b",
-          display: "fullscreen",
+          display: "standalone",
           orientation: "any",
           scope: base,
           start_url: base,
