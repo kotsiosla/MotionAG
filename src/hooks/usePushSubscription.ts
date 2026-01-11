@@ -54,23 +54,24 @@ export function usePushSubscription() {
       // iOS-specific checks
       if (isIOS()) {
         const iosVersion = getIOSVersion();
-        console.log('iOS detected, version:', iosVersion, 'standalone:', isStandalone());
+        const standalone = isStandalone();
+        console.log('iOS detected, version:', iosVersion, 'standalone:', standalone);
 
-        if (iosVersion && iosVersion < 16) {
-          console.log('iOS version too old for push notifications');
+        // Web Push on iOS was introduced in 16.4
+        if (iosVersion && iosVersion < 16.4) {
+          console.log('iOS version too old for Web Push notifications (min 16.4)');
           setIsSupported(false);
           setIosStatus('needs-update');
           setIsLoading(false);
           return;
         }
 
-        if (!isStandalone()) {
-          console.log('iOS Safari - client-side notifications only (no push)');
-          // Allow button to show for client-side notifications even in Safari
+        if (!standalone) {
+          console.log('iOS Safari not in PWA mode - client-side notifications only');
           setIsSupported(true);
           setIosStatus('needs-install');
           setIsLoading(false);
-          return; // Don't try to register service worker in Safari
+          return;
         } else {
           setIosStatus('supported');
         }

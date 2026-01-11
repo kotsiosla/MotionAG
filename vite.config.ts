@@ -29,6 +29,7 @@ export default defineConfig(({ mode }) => {
         },
         includeAssets: ["favicon.ico", "robots.txt", "pwa-192x192.png", "pwa-512x512.png", "images/bus-icon.png"],
         manifest: {
+          id: "com.motionbus.cyprus.pwa.v1",
           name: "Motion Bus - Ζωντανή Παρακολούθηση",
           short_name: "Motion Bus",
           description: "Παρακολούθηση θέσεων λεωφορείων και δρομολογίων σε πραγματικό χρόνο",

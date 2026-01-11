@@ -1,6 +1,5 @@
 
 import { Bell, BellOff, Loader2 } from 'lucide-react';
-import { AlertsList } from "@/components/features/user/AlertsList";
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -24,17 +23,31 @@ export function NotificationButton() {
   const getIOSWarning = () => {
     if (iosStatus === 'needs-update') {
       return (
-        <p className="text-xs text-destructive">
-          ⚠️ Απαιτείται iOS 16.4 ή νεότερο για push notifications.
-        </p>
+        <div className="p-2 rounded bg-destructive/10 border border-destructive/20">
+          <p className="text-xs text-destructive font-medium">
+            ⚠️ Απαιτείται iOS 16.4+
+          </p>
+          <p className="text-[10px] text-destructive/80 mt-1">
+            Παρακαλώ ενημερώστε το iPhone σας για να υποστηρίζει ειδοποιήσεις push.
+          </p>
+        </div>
       );
     }
     if (iosStatus === 'needs-install') {
       return (
-        <p className="text-xs text-amber-600 dark:text-amber-400">
-          📱 Για να λαμβάνετε ειδοποιήσεις, εγκαταστήστε την εφαρμογή:
-          Πατήστε το κουμπί "Κοινοποίηση" → "Προσθήκη στην Αρχική Οθόνη"
-        </p>
+        <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 animate-pulse-subtle">
+          <p className="text-xs text-primary font-semibold flex items-center gap-2">
+            📱 Εγκατάσταση Εφαρμογής
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
+            Για να λαμβάνετε ειδοποιήσεις στο iPhone:
+          </p>
+          <ol className="text-[10px] text-muted-foreground mt-1 space-y-1 list-decimal list-inside">
+            <li>Πατήστε το κουμπί <strong>"Κοινοποίηση"</strong> (Share) στο Safari</li>
+            <li>Επιλέξτε <strong>"Προσθήκη στην Αρχική Οθόνη"</strong></li>
+            <li>Ανοίξτε την εφαρμογή από την αρχική σας οθόνη</li>
+          </ol>
+        </div>
       );
     }
     return null;

@@ -24,12 +24,14 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  // iOS Robustness: Minimal options to prevent crashes
-  // We strip icon/badge for now to rule out 404/format errors causing failures
+  // iOS Robustness: Re-enable icon/badge with absolute paths if possible
+  // Using the scope-aware base path (/MotionAG/)
   const options = {
     body: data.body,
-    tag: data.tag || 'motion-bus-default', // Tag is safe and useful for grouping
-    renotify: true, // Required if tag is used
+    icon: data.icon || '/MotionAG/pwa-192x192.png',
+    badge: data.badge || '/MotionAG/pwa-192x192.png',
+    tag: data.tag || 'motion-bus-default',
+    renotify: true,
     data: {
       url: data.url || '/MotionAG/',
       timestamp: Date.now(),
@@ -40,8 +42,11 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(data.title, options)
       .catch(err => {
         console.error('ShowNotification failed:', err);
-        // Last ditch attempt with ZERO options
-        return self.registration.showNotification(data.title, { body: data.body });
+        // Fallback with minimal options
+        return self.registration.showNotification(data.title, {
+          body: data.body,
+          icon: '/MotionAG/pwa-192x192.png'
+        });
       })
   );
 });
