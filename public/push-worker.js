@@ -1,23 +1,5 @@
-// Service Worker for Push Notifications (v1.4.0 - Robust)
-// Simple service worker without precaching to avoid refresh loops
-// This file is processed by VitePWA injectManifest strategy
-
-// Precache manifest (injected by VitePWA during build)
-const precacheManifest = self.__WB_MANIFEST || [];
-
-// Install event
-self.addEventListener('install', (event) => {
-  console.log('Service Worker installing v1.4.0');
-  // Force new SW to enter waiting state immediately
-  self.skipWaiting();
-});
-
-// Activate event
-self.addEventListener('activate', (event) => {
-  console.log('Service Worker activating v1.4.0');
-  // Force new SW to take control of open pages immediately
-  event.waitUntil(self.clients.claim());
-});
+// Custom Push Notification Worker (v1.4.1 - Robust)
+// Included via importScripts in the main service worker
 
 // Push notification handler
 self.addEventListener('push', (event) => {
@@ -36,7 +18,6 @@ self.addEventListener('push', (event) => {
       console.log('Push data parsed:', data);
     } catch (e) {
       console.error('Error parsing push data:', e);
-      // Try text if JSON fails
       try {
         data.body = event.data.text();
       } catch (e2) { }
@@ -49,9 +30,9 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body,
     icon: icon,
-    badge: '/MotionAG/pwa-192x192.png', // Small icon for notification bar
+    badge: '/MotionAG/pwa-192x192.png',
     tag: data.tag || 'motion-bus-notification',
-    renotify: true, // Allow new notifications with same tag to vibrate
+    renotify: true,
     data: {
       url: data.url || '/MotionAG/',
       timestamp: Date.now(),
@@ -72,10 +53,10 @@ self.addEventListener('notificationclick', (event) => {
     return;
   }
 
-  const urlToOpen = event.notification.data?.url || '/';
+  const urlToOpen = event.notification.data?.url || '/MotionAG/';
 
   // Validate URL
-  let validatedUrl = '/';
+  let validatedUrl = '/MotionAG/';
   try {
     if (urlToOpen.startsWith('/') && !urlToOpen.startsWith('//')) {
       validatedUrl = urlToOpen;
@@ -91,13 +72,11 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Find existing client and focus it (don't navigate - causes refresh)
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
           return client.focus();
         }
       }
-      // Only open new window if no existing client
       if (clients.openWindow) {
         return clients.openWindow(validatedUrl);
       }

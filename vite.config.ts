@@ -18,15 +18,14 @@ export default defineConfig(({ mode }) => {
       react(),
       mode === "development" && componentTagger(),
       VitePWA({
-        registerType: "manual",
-        injectRegister: null,
-        // Disable workbox to use custom service worker
-        strategies: 'injectManifest',
-        srcDir: 'service-worker',
-        filename: 'service-worker.js',
-        injectManifest: {
-          // Empty globPatterns to avoid precaching
-          globPatterns: [],
+        registerType: "autoUpdate",
+        strategies: 'generateSW',
+        workbox: {
+          importScripts: ['push-worker.js'],
+          globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
+          cleanupOutdatedCaches: true,
+          clientsClaim: true,
+          skipWaiting: true
         },
         includeAssets: ["favicon.ico", "robots.txt", "pwa-192x192.png", "pwa-512x512.png", "images/bus-icon.png"],
         manifest: {
