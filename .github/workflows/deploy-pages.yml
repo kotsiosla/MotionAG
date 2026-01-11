@@ -24,10 +24,14 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Force Nuke .git (Sudo)
+      - name: Git Transplant (Fresh Init)
         run: |
-          sudo rm -rf .git
-          ls -la
+          rm -rf .git
+          git init
+          git config user.name "Builder"
+          git config user.email "builder@example.com"
+          git add .
+          git commit -m "Fresh build commit"
 
 
 
