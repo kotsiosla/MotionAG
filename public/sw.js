@@ -1,4 +1,4 @@
-// Service Worker for Push Notifications (v1.3.2 - Key Fix)
+// Service Worker for Push Notifications (v1.3.3 - Icon Path Fix)
 // Simple service worker without precaching to avoid refresh loops
 // This file is processed by VitePWA injectManifest strategy
 
@@ -27,9 +27,9 @@ self.addEventListener('push', (event) => {
   let data = {
     title: 'Motion Bus Cyprus',
     body: 'Νέα ειδοποίηση',
-    icon: '/pwa-192x192.png',
-    badge: '/pwa-192x192.png',
-    url: '/',
+    icon: '/MotionAG/pwa-192x192.png',
+    badge: '/MotionAG/pwa-192x192.png',
+    url: '/MotionAG/',
     tag: 'motion-bus-notification',
   };
 
@@ -44,18 +44,18 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body,
-    icon: data.icon,
-    badge: data.badge || '/pwa-192x192.png',
+    icon: data.icon && data.icon.startsWith('/') ? `/MotionAG${data.icon}` : '/MotionAG/pwa-192x192.png',
+    badge: data.badge && data.badge.startsWith('/') ? `/MotionAG${data.badge}` : '/MotionAG/pwa-192x192.png',
     vibrate: [200, 100, 200, 100, 200],
     tag: data.tag,
     renotify: true,
     requireInteraction: true,
     data: {
-      url: data.url,
+      url: data.url || '/MotionAG/',
       timestamp: Date.now(),
     },
     actions: [
-      { action: 'open', title: '🚌 Άνοιγμα', icon: '/pwa-192x192.png' },
+      { action: 'open', title: '🚌 Άνοιγμα', icon: '/MotionAG/pwa-192x192.png' },
       { action: 'close', title: '✕ Κλείσιμο' },
     ],
   };
