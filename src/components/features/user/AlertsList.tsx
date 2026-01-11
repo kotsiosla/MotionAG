@@ -491,7 +491,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               Για περισσότερες πληροφορίες επικοινωνήστε με τον φορέα μεταφορών
             </p>
             <div className="text-[10px] text-gray-300 font-mono text-center opacity-50 pb-safe">
-              v1.3.8 (MotionAG) - Debug
+              v1.3.9 (MotionAG) - Icon Probe
             </div>
           </div>
         </TabsContent>
@@ -503,21 +503,42 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
             alert('Permission: ' + Notification.permission);
             if (Notification.permission === 'granted') {
               navigator.serviceWorker.ready.then(reg => {
-                reg.showNotification('iOS TEST ✅', {
-                  body: 'Αν το βλέπεις, το SW δουλεύει σωστά',
+                reg.showNotification('iOS TEST (Icon) 🖼️', {
+                  body: 'Testing with Icon...',
                   icon: '/MotionAG/pwa-192x192.png'
-                });
-              }).catch(e => alert('SW Error: ' + e));
+                }).then(() => alert('Request SENT to System (Icon) 📤'))
+                  .catch(e => alert('Show Error: ' + e));
+              }).catch(e => alert('SW Ready Error: ' + e));
             } else {
               alert('Permission NOT granted');
             }
           }}
           className="w-full bg-blue-600 text-white rounded-lg py-3 font-medium active:scale-95 transition-transform"
         >
-          🔍 TEST iOS LOCAL NOTIFICATION
+          🖼️ TEST (WITH ICON)
         </button>
-        <p className="text-xs text-center text-muted-foreground">
-          Πατάς το κουμπί - Αν βγει ειδοποίηση, το app είναι ΟΚ (φταίει ο server).
+
+        <button
+          onClick={() => {
+            if (Notification.permission === 'granted') {
+              navigator.serviceWorker.ready.then(reg => {
+                reg.showNotification('iOS TEST (Plain) 📄', {
+                  body: 'Testing WITHOUT Icon...',
+                  // No icon property
+                }).then(() => alert('Request SENT to System (Plain) 📤'))
+                  .catch(e => alert('Show Error: ' + e));
+              }).catch(e => alert('SW Ready Error: ' + e));
+            } else {
+              alert('Permission NOT granted');
+            }
+          }}
+          className="w-full bg-slate-600 text-white rounded-lg py-3 font-medium active:scale-95 transition-transform"
+        >
+          📄 TEST (NO ICON) - SAFE
+        </button>
+
+        <p className="text-xs text-center text-muted-foreground mt-2">
+          Αν δεις "Request SENT" αλλά όχι banner, είναι 100% iOS Setting.
         </p>
       </div>
     </div>
