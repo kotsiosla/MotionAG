@@ -490,9 +490,9 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
             <p className="text-xs text-muted-foreground">
               Για περισσότερες πληροφορίες επικοινωνήστε με τον φορέα μεταφορών
             </p>
-            <p className="text-[10px] text-muted-foreground/60 font-mono">
-              v1.3.1 (MotionAG) - Force Update
-            </p>
+            <div className="text-[10px] text-gray-300 font-mono text-center opacity-50 pb-safe">
+              v1.3.2 (MotionAG) - Key Fix
+            </div>
           </div>
         </TabsContent>
       </Tabs>
