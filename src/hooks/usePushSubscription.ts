@@ -4,7 +4,11 @@ import { toast } from '@/hooks/use-toast';
 import { setPushEndpoint } from '@/hooks/useSavedTrips';
 
 // VAPID public key for push notifications - must match the one in Supabase secrets
-const VAPID_PUBLIC_KEY = 'BANXTqf4fsrCfS_g0072vs4QupJYZpxOLcOjHfUtcQVufSBkX8fAkv54bIHCU4fdf4BLIKz00Q2x6o1QiFB5vtU';
+// Prioritize environment variable, fallback to hardcoded (but warn)
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || 'BANXTqf4fsrCfS_g0072vs4QupJYZpxOLcOjHfUtcQVufSBkX8fAkv54bIHCU4fdf4BLIKz00Q2x6o1QiFB5vtU';
+
+console.log('[usePushSubscription] Using VAPID Public Key:', VAPID_PUBLIC_KEY.substring(0, 10) + '...');
+
 
 function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -27,7 +31,7 @@ function getIOSVersion(): number | null {
 }
 
 function isIOS(): boolean {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
@@ -50,7 +54,7 @@ export function usePushSubscription() {
       if (isIOS()) {
         const iosVersion = getIOSVersion();
         console.log('iOS detected, version:', iosVersion, 'standalone:', isStandalone());
-        
+
         if (iosVersion && iosVersion < 16) {
           console.log('iOS version too old for push notifications');
           setIsSupported(false);
@@ -58,7 +62,7 @@ export function usePushSubscription() {
           setIsLoading(false);
           return;
         }
-        
+
         if (!isStandalone()) {
           console.log('iOS Safari - client-side notifications only (no push)');
           // Allow button to show for client-side notifications even in Safari
@@ -109,16 +113,16 @@ export function usePushSubscription() {
         // DON'T register service worker here - use existing registration from main.tsx
         // This prevents refresh loops
         const existingRegistrations = await navigator.serviceWorker.getRegistrations();
-        
+
         if (existingRegistrations.length === 0) {
           console.log('No service worker registration found - waiting for main.tsx to register');
           setIsLoading(false);
           return; // Don't try to register here - main.tsx will do it
         }
-        
+
         const registration = existingRegistrations[0];
         console.log('Using existing service worker registration:', registration.scope);
-        
+
         // Wait for service worker to be ready (but don't wait forever)
         let registrationReady = registration;
         if (!registration.active) {
@@ -135,10 +139,10 @@ export function usePushSubscription() {
         // Check existing subscription
         const subscription = await registrationReady.pushManager.getSubscription();
         console.log('Existing subscription:', subscription);
-        
+
         if (subscription) {
           setIsSubscribed(true);
-          
+
           // Load subscribed routes from localStorage (can't SELECT from DB due to RLS)
           const storedRoutes = localStorage.getItem('push_subscribed_routes');
           if (storedRoutes) {
@@ -152,7 +156,7 @@ export function usePushSubscription() {
       } catch (error) {
         console.error('Error checking subscription:', error);
       }
-      
+
       setIsLoading(false);
     };
 
@@ -185,7 +189,7 @@ export function usePushSubscription() {
 
       // Check current permission status first
       console.log('Current notification permission:', Notification.permission);
-      
+
       // If already denied, we can't request again
       if (Notification.permission === 'denied') {
         toast({
@@ -200,7 +204,7 @@ export function usePushSubscription() {
       // Request notification permission
       const permission = await Notification.requestPermission();
       console.log('Permission result after request:', permission);
-      
+
       if (permission !== 'granted') {
         toast({
           title: 'Άδεια απορρίφθηκε',
@@ -218,7 +222,7 @@ export function usePushSubscription() {
         localStorage.setItem('push_subscription_routes', JSON.stringify(routeIds));
         setIsSubscribed(true);
         setSubscribedRoutes(routeIds);
-        
+
         toast({
           title: '✅ Ειδοποιήσεις ενεργοποιήθηκαν',
           description: 'Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό (Safari - client-side only)',
@@ -238,9 +242,9 @@ export function usePushSubscription() {
         setIsLoading(false);
         return false;
       }
-      
+
       const registration = existingRegistrations[0];
-      
+
       // First, unsubscribe from any existing subscription (important when VAPID key changes)
       const existingSubscription = await registration.pushManager.getSubscription();
       if (existingSubscription) {
@@ -251,7 +255,7 @@ export function usePushSubscription() {
           console.log('Failed to unsubscribe existing, continuing anyway:', e);
         }
       }
-      
+
       // Subscribe to push with new VAPID key
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -277,11 +281,11 @@ export function usePushSubscription() {
       // Extract keys
       const p256dhKey = subscription.getKey('p256dh');
       const authKey = subscription.getKey('auth');
-      
+
       if (!p256dhKey || !authKey) {
         throw new Error('Failed to get subscription keys');
       }
-      
+
       const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
       const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
 
@@ -302,10 +306,10 @@ export function usePushSubscription() {
       setIsSubscribed(true);
       setSubscribedRoutes(routeIds);
       localStorage.setItem('push_subscribed_routes', JSON.stringify(routeIds));
-      
+
       // Store endpoint for saved trips sync
       setPushEndpoint(subscription.endpoint);
-      
+
       toast({
         title: 'Επιτυχής εγγραφή',
         description: 'Θα λαμβάνετε ειδοποιήσεις για καθυστερήσεις',
@@ -315,7 +319,7 @@ export function usePushSubscription() {
     } catch (error: any) {
       console.error('Error subscribing to push:', error);
       console.error('Error details:', error?.message, error?.code, error?.name);
-      
+
       // Determine specific error message
       let errorMessage = 'Αποτυχία εγγραφής για ειδοποιήσεις';
       if (error?.message?.includes('permission') || error?.name === 'NotAllowedError') {
@@ -325,7 +329,7 @@ export function usePushSubscription() {
       } else if (error?.message) {
         errorMessage = error.message;
       }
-      
+
       toast({
         title: 'Σφάλμα',
         description: errorMessage,
@@ -375,10 +379,10 @@ export function usePushSubscription() {
         setIsLoading(false);
         return false;
       }
-      
+
       const registration = existingRegistrations[0];
       const subscription = await registration.pushManager.getSubscription();
-      
+
       if (subscription) {
         // Remove from database
         await supabase
@@ -393,7 +397,7 @@ export function usePushSubscription() {
       setIsSubscribed(false);
       setSubscribedRoutes([]);
       localStorage.removeItem('push_subscribed_routes');
-      
+
       toast({
         title: 'Απεγγραφή',
         description: 'Δεν θα λαμβάνετε πλέον ειδοποιήσεις',
@@ -421,10 +425,10 @@ export function usePushSubscription() {
         console.log('Service worker not ready for updateRoutes');
         return false;
       }
-      
+
       const registration = existingRegistrations[0];
       const subscription = await registration.pushManager.getSubscription();
-      
+
       if (!subscription) {
         // If not subscribed, subscribe with routes
         return subscribe(routeIds);
@@ -440,7 +444,7 @@ export function usePushSubscription() {
 
       setSubscribedRoutes(routeIds);
       localStorage.setItem('push_subscribed_routes', JSON.stringify(routeIds));
-      
+
       toast({
         title: 'Ενημέρωση',
         description: 'Οι γραμμές ειδοποιήσεων ενημερώθηκαν',

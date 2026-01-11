@@ -561,10 +561,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       // Delay slightly to allow state to settle after route change
       const timeoutId = setTimeout(() => {
         if (vehicle?.latitude && vehicle?.longitude && mapRef.current) {
-          mapRef.current.flyTo([vehicle.latitude, vehicle.longitude], 17, {
-            duration: 1.5,
-            easeLinearity: 0.25,
-          });
+          mapRef.current.setView([vehicle.latitude, vehicle.longitude], 17, { animate: false });
         }
       }, 100);
 
@@ -774,6 +771,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       maxZoom: 19,
       minZoom: 3,
       zoomControl: true,
+      zoomAnimation: false,
+      markerZoomAnimation: false,
+      fadeAnimation: false,
     });
 
 
@@ -783,7 +783,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       showCoverageOnHover: false,
       maxClusterRadius: 50,
       zoomToBoundsOnClick: false, // Handle click manually for better control
-      animate: true,
+      animate: false,
       animateAddingMarkers: false, // Remove adding animation as requested
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
@@ -897,6 +897,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       mapRef.current = null;
     };
   }, []);
+
+
 
 
 
@@ -1145,17 +1147,15 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         // const hasMovedSignificantly = latDiff > 0.000001 || lngDiff > 0.000001;
 
         // Force update to ensure simulation works
-        if (true) {
-          // DIRECT UPDATE - NO ANIMATION as requested
-          // This ensures the bus appears exactly where it is (snapped to shape if applicable)
-          // without any sliding or interpolation.
-          existingMarker.setLatLng(newLatLng);
+        // DIRECT UPDATE - NO ANIMATION as requested
+        // This ensures the bus appears exactly where it is (snapped to shape if applicable)
+        // without any sliding or interpolation.
+        existingMarker.setLatLng(newLatLng);
 
-          // Clear any transition styles if they existed
-          const markerElement = existingMarker.getElement();
-          if (markerElement) {
-            markerElement.style.transition = 'none';
-          }
+        // Clear any transition styles if they existed
+        const markerElement = existingMarker.getElement();
+        if (markerElement) {
+          markerElement.style.transition = 'none';
         }
 
         // Store current position
@@ -1174,7 +1174,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             mapRef.current.closePopup();
           }
 
-          setFollowedVehicleId(vehicleId);
+          // setFollowedVehicleId(vehicleId); // REMOVED to allow prop-driven effect trigger
           onFollowVehicle?.(vehicleId);
           setViewMode('street');
           setShowRoutePlanner(false);
@@ -1279,7 +1279,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             mapRef.current.closePopup();
           }
 
-          setFollowedVehicleId(vehicleId);
+          // setFollowedVehicleId(vehicleId); // REMOVED to allow prop-driven effect trigger
           onFollowVehicle?.(vehicleId);
           // Match the behavior of external follow (e.g. from TripsTable): go to street mode immediately.
           setViewMode('street');
@@ -1333,6 +1333,11 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
         markerMapRef.current.set(vehicleId, marker);
         vehicleMarkersRef.current!.addLayer(marker);
+      }
+
+      // Continuous follow: Ensure map stays centered on the followed vehicle
+      if (isFollowed && mapRef.current) {
+        mapRef.current.setView(newLatLng, mapRef.current.getZoom(), { animate: false });
       }
     });
 
@@ -1415,7 +1420,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
     if (userLocation && shouldCenter) {
       // If we already have location, just center
-      mapRef.current?.setView([userLocation.lat, userLocation.lng], 16, { animate: true });
+      mapRef.current?.setView([userLocation.lat, userLocation.lng], 16, { animate: false });
     }
 
     // Always ensure watcher is running
@@ -1440,7 +1445,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
           // Center map if requested
           if (shouldCenterOnLocationRef.current && mapRef.current) {
-            mapRef.current.setView([latitude, longitude], 16, { animate: true });
+            mapRef.current.setView([latitude, longitude], 16, { animate: false });
             shouldCenterOnLocationRef.current = false;
           }
         },
@@ -2213,10 +2218,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           // Find the vehicle directly from followedVehicleId if not already found
           const vehicle = followedVehicle || (followedVehicleId && Array.isArray(vehicles) ? vehicles.find((v) => v && (v.vehicleId || v.id) === followedVehicleId) : null);
 
-          // Debug check
-          // console.log('[VehicleMap] Render Panel:', { followedVehicleId, vehicleRouteId: vehicle?.routeId, selectedRoute });
-
           const effectiveRouteId = (vehicle ? resolveRouteIdForVehicle(vehicle) : null) || selectedRoute;
+
+          // Debug check
+          console.log('[VehicleMap] Render Panel:', { followedVehicleId, vehicleRouteId: vehicle?.routeId, selectedRoute, effectiveRouteId });
 
           // If we are following a vehicle, we REALLY want to show the panel, even if routeId is missing/weird
           // But UnifiedRoutePanel needs a routeId.

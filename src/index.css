@@ -356,10 +356,26 @@
 }
 
 /* Smooth vehicle movement on map */
+/* DISABLE ALL ANIMATIONS as requested */
 .leaflet-marker-icon.vehicle-marker,
 .leaflet-marker-icon.route-vehicle-marker {
-  transition: transform 4s linear !important;
-  will-change: transform;
+  transition: none !important;
+}
+
+/* Global Leaflet Animation Kill Switch */
+.leaflet-fade-anim .leaflet-tile,
+.leaflet-zoom-anim .leaflet-zoom-animated {
+  transition: none !important;
+}
+
+.leaflet-container .leaflet-marker-pane,
+.leaflet-container .leaflet-tile-pane,
+.leaflet-container .leaflet-map-pane {
+  transition: none !important;
+}
+
+.leaflet-zoom-anim .leaflet-zoom-animated {
+  transition: none !important;
 }
 
 /* Subtle pulse for followed/selected vehicle */
