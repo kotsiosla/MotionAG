@@ -21,8 +21,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        # Default fetch-depth is 1, which is sufficient and safer
+        with:
+          fetch-depth: 0
 
+      - name: Fix git permissions
+        run: |
+          git config --global --add safe.directory /github/workspace
+          git config --global --add safe.directory '*'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
