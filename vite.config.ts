@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
         injectRegister: null,
         // Disable workbox to use custom service worker
         strategies: 'injectManifest',
-        srcDir: 'public',
+        srcDir: 'service-worker',
         filename: 'sw.js',
         injectManifest: {
           // Empty globPatterns to avoid precaching
