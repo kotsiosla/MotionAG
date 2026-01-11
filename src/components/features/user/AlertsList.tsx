@@ -491,7 +491,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               Για περισσότερες πληροφορίες επικοινωνήστε με τον φορέα μεταφορών
             </p>
             <div className="text-[10px] text-gray-300 font-mono text-center opacity-50 pb-safe">
-              v1.3.9 (MotionAG) - Icon Probe
+              v1.3.10 (MotionAG) - Force Active
             </div>
           </div>
         </TabsContent>
