@@ -496,6 +496,5 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
         </div>
       </TabsContent>
     </Tabs>
-    </div >
   );
 }
