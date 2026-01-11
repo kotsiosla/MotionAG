@@ -24,10 +24,10 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Fix git permissions (System Level)
+      - name: Force Nuke .git (Sudo)
         run: |
-          sudo git config --system --add safe.directory '*'
-          git status
+          sudo rm -rf .git
+          ls -la
 
 
 
