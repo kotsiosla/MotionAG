@@ -26,7 +26,7 @@ jobs:
             -X POST \
             -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
             -H "Content-Type: application/json" \
-            "$SUPABASE_URL/functions/v1/check-stop-arrivalsAG")
+            "$SUPABASE_URL/functions/v1/check-stop-arrivals")
           
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | sed '$d')

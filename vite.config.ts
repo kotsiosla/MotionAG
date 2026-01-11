@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
         // Disable workbox to use custom service worker
         strategies: 'injectManifest',
         srcDir: 'service-worker',
-        filename: 'sw.js',
+        filename: 'service-worker.js',
         injectManifest: {
           // Empty globPatterns to avoid precaching
           globPatterns: [],
