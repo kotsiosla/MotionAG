@@ -1,0 +1,26 @@
+﻿[
+  {
+    "id": "1027ab30-0793-4396-9a5d-dde3aa7d8372",
+    "endpoint": "https://fcm.googleapis.com/fcm/send/cGP5ZI-xnPE:APA91bF6AjC7ulbll1E8SSaUqyFOnTA3lhzWIdpkSkyX10N5dfJiaNmmuY-IOhpSjkWRdvO_qoQFjE6LCEXgwme1xefpI0EW3ibSVMneDXw9fQUHcxmPcgA3Q0X8S6gXciUCLYQSildw",
+    "p256dh": "BD3B5JwJo6UlnOW2ytjdvIFqlb4QhUJVOHZKq7f1yiLavqVGHEu45tefY6J2m/rhoThayVYg9FxviytP8dYBClA=",
+    "auth": "8gqkbqc0OktVx21s2MBDhA==",
+    "stop_notifications": [
+      {
+        "push": true,
+        "sound": true,
+        "voice": true,
+        "stopId": "2810",
+        "enabled": true,
+        "stopName": "Lakatameia Health Centre 1",
+        "vibration": true,
+        "watchedTrips": [
+          "16981232"
+        ],
+        "beforeMinutes": 20
+      }
+    ],
+    "last_notified": {},
+    "created_at": "2026-01-11T15:46:58.844858+00:00",
+    "updated_at": "2026-01-11T15:46:58.844858+00:00"
+  }
+]

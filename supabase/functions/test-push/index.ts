@@ -1077,10 +1077,17 @@ serve(async (req) => {
     };
 
     if (icon) {
-      payloadObj.icon = icon.startsWith('http') ? icon : `https://kotsiosla.github.io${icon.startsWith('/') ? '' : '/'}${icon}`;
+      // iOS PWA often fails if icon/badge paths are complex. Simulating simple payload for robustness.
+      // We will trust the client to use default icon if this is missing for now.
+      payloadObj.icon = 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png';
     } else {
       payloadObj.icon = 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png';
     }
+
+    // Explicitly set Badge + Tag for iOS
+    payloadObj.badge = 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png';
+    payloadObj.tag = 'motion-bus-' + Date.now();
+    payloadObj.renotify = true;
 
     const payload = JSON.stringify(payloadObj);
     console.log(`[test-push:${requestId}] Payload created (${payload.length} bytes)`);

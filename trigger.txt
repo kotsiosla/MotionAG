@@ -1,0 +1,8 @@
+﻿Triggering check-stop-arrivals...
+STATUS: 200
+RESPONSE: {
+  "status": "ok",
+  "iterations": 5,
+  "totalSent": 0,
+  "errors": []
+}

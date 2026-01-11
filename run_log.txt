@@ -1,0 +1,58 @@
+﻿check-arrivals	Set up job	´╗┐2026-01-11T15:50:01.9113660Z Current runner version: '2.330.0'
+check-arrivals	Set up job	2026-01-11T15:50:01.9138781Z ##[group]Runner Image Provisioner
+check-arrivals	Set up job	2026-01-11T15:50:01.9139922Z Hosted Compute Agent
+check-arrivals	Set up job	2026-01-11T15:50:01.9140525Z Version: 20251211.462
+check-arrivals	Set up job	2026-01-11T15:50:01.9141159Z Commit: 6cbad8c2bb55d58165063d031ccabf57e2d2db61
+check-arrivals	Set up job	2026-01-11T15:50:01.9141936Z Build Date: 2025-12-11T16:28:49Z
+check-arrivals	Set up job	2026-01-11T15:50:01.9142573Z Worker ID: {4b7c6926-be75-4c95-94c2-2ad3d44c0e65}
+check-arrivals	Set up job	2026-01-11T15:50:01.9143290Z ##[endgroup]
+check-arrivals	Set up job	2026-01-11T15:50:01.9143882Z ##[group]Operating System
+check-arrivals	Set up job	2026-01-11T15:50:01.9144445Z Ubuntu
+check-arrivals	Set up job	2026-01-11T15:50:01.9144897Z 24.04.3
+check-arrivals	Set up job	2026-01-11T15:50:01.9145433Z LTS
+check-arrivals	Set up job	2026-01-11T15:50:01.9145892Z ##[endgroup]
+check-arrivals	Set up job	2026-01-11T15:50:01.9146374Z ##[group]Runner Image
+check-arrivals	Set up job	2026-01-11T15:50:01.9147223Z Image: ubuntu-24.04
+check-arrivals	Set up job	2026-01-11T15:50:01.9147760Z Version: 20260105.202.1
+check-arrivals	Set up job	2026-01-11T15:50:01.9148743Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260105.202/images/ubuntu/Ubuntu2404-Readme.md
+check-arrivals	Set up job	2026-01-11T15:50:01.9150173Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260105.202
+check-arrivals	Set up job	2026-01-11T15:50:01.9151348Z ##[endgroup]
+check-arrivals	Set up job	2026-01-11T15:50:01.9152510Z ##[group]GITHUB_TOKEN Permissions
+check-arrivals	Set up job	2026-01-11T15:50:01.9154561Z Contents: read
+check-arrivals	Set up job	2026-01-11T15:50:01.9155240Z Metadata: read
+check-arrivals	Set up job	2026-01-11T15:50:01.9155778Z Packages: read
+check-arrivals	Set up job	2026-01-11T15:50:01.9156276Z ##[endgroup]
+check-arrivals	Set up job	2026-01-11T15:50:01.9158559Z Secret source: Actions
+check-arrivals	Set up job	2026-01-11T15:50:01.9159312Z Prepare workflow directory
+check-arrivals	Set up job	2026-01-11T15:50:01.9479314Z Prepare all required actions
+check-arrivals	Set up job	2026-01-11T15:50:01.9591501Z Complete job name: check-arrivals
+check-arrivals	Call check-stop-arrivals function	´╗┐2026-01-11T15:50:02.0379656Z ##[group]Run SUPABASE_URL="***"
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0381461Z [36;1mSUPABASE_URL="***"[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0382859Z [36;1mSERVICE_ROLE_KEY="***"[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0384034Z [36;1m[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0385165Z [36;1mif [ -z "$SUPABASE_URL" ] || [ -z "$SERVICE_ROLE_KEY" ]; then[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0387724Z [36;1m  echo "ÔØî Missing Supabase credentials. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY secrets."[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0389749Z [36;1m  exit 1[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0390686Z [36;1mfi[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0391542Z [36;1m[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0392693Z [36;1mecho "­ƒöä Calling check-stop-arrivals function..."[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0394140Z [36;1mresponse=$(curl -s -w "\n%{http_code}" \[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0395328Z [36;1m  -X POST \[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0396750Z [36;1m  -H "Authorization: ***" \[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0397846Z [36;1m  -H "Content-Type: application/json" \[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0399309Z [36;1m  "$SUPABASE_URL/functions/v1/check-stop-arrivals")[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0400677Z [36;1m[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0401370Z [36;1mhttp_code=$(echo "$response" | tail -n1)[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0402222Z [36;1mbody=$(echo "$response" | sed '$d')[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0402855Z [36;1m[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0403347Z [36;1mif [ "$http_code" -eq 200 ]; then[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0404075Z [36;1m  echo "Ô£à Success: $body"[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0404688Z [36;1melse[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0405270Z [36;1m  echo "ÔØî Error ($http_code): $body"[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0405905Z [36;1m  exit 1[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.0406396Z [36;1mfi[0m
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.3358602Z shell: /usr/bin/bash -e {0}
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.3359879Z ##[endgroup]
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:50:02.3730839Z ­ƒöä Calling check-stop-arrivals function...
+check-arrivals	Call check-stop-arrivals function	2026-01-11T15:51:02.8283488Z Ô£à Success: {"status":"ok","iterations":4,"totalSent":0}
+check-arrivals	Complete job	´╗┐2026-01-11T15:51:02.8457416Z Cleaning up orphan processes

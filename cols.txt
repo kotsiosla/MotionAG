@@ -1,0 +1,47 @@
+﻿[
+  {
+    "id": "c277a229-6a54-4d67-8c2b-a56113a0e0c1",
+    "subscription_id": "4f7698ee-df9d-4c3a-9234-ea1d87d34035",
+    "stop_id": "2877",
+    "route_id": "5020012",
+    "alert_level": 5,
+    "sent_at": "2026-01-11T15:55:21.412059+00:00",
+    "metadata": {}
+  },
+  {
+    "id": "09a89e66-d402-460d-b6a1-364fa62e394e",
+    "subscription_id": "21f13a71-b7e9-4cb3-aa60-d13246e949ff",
+    "stop_id": "2877",
+    "route_id": "5020012",
+    "alert_level": 5,
+    "sent_at": "2026-01-11T15:55:21.209084+00:00",
+    "metadata": {}
+  },
+  {
+    "id": "43fe3440-aba0-4ce2-b6d2-331293644da7",
+    "subscription_id": "0f866b10-197b-4c6f-92f9-45265426c0d7",
+    "stop_id": "2877",
+    "route_id": "5020012",
+    "alert_level": 5,
+    "sent_at": "2026-01-11T15:55:21.00298+00:00",
+    "metadata": {}
+  },
+  {
+    "id": "8906d796-eb23-40d7-97da-f509909b6907",
+    "subscription_id": "57184774-6686-46d0-b3ab-78e00a77ee82",
+    "stop_id": "2877",
+    "route_id": "5020012",
+    "alert_level": 5,
+    "sent_at": "2026-01-11T15:55:20.79189+00:00",
+    "metadata": {}
+  },
+  {
+    "id": "e886fcac-d959-4732-bd68-abbfbdc83aac",
+    "subscription_id": "e3aad7d1-7679-41f7-b057-d739868865be",
+    "stop_id": "2877",
+    "route_id": "5020012",
+    "alert_level": 5,
+    "sent_at": "2026-01-11T15:55:20.478338+00:00",
+    "metadata": {}
+  }
+]

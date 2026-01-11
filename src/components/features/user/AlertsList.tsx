@@ -541,10 +541,14 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
                 localStorage.removeItem('push_subscribed_routes');
                 localStorage.removeItem('push_subscription_routes');
 
-                alert('🧼 Καθαρίστηκε! Κάνω refresh...');
+                // alert('🧼 Καθαρίστηκε! Κάνω refresh...'); // REMOVED BLOCKING ALERT
+                console.log('Reset complete, reloading... TS2:' + Date.now());
+                window.location.href = window.location.href;
                 window.location.reload();
               } catch (e) {
-                alert('Σφάλμα: ' + e);
+                console.error('Reset error:', e);
+                // Force reload anyway
+                window.location.href = window.location.href;
               }
             }
           }}
@@ -557,6 +561,6 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
           v1.4.0 χρησιμοποιεί Absolute URLs και renotify logic για εγγυημένη εμφάνιση (αν επιτρέπεται από το OS).
         </p>
       </div>
-    </div>
+    </div >
   );
 }

@@ -26,7 +26,7 @@ try {
 
                 console.log(`SUBSCRIPTIONS FOUND: ${subs.length}`);
 
-                const targetStop = '2811';
+                const targetStop = '2810';
                 const MATCHES = subs.filter(s =>
                     s.stop_notifications &&
                     s.stop_notifications.some(n => n.stopId === targetStop || n.stop_code === targetStop)
@@ -35,11 +35,9 @@ try {
                 console.log(`\nFound ${MATCHES.length} subscriptions for Stop ${targetStop}:`);
                 MATCHES.forEach((m, i) => {
                     console.log(`\nMatch #${i + 1}:`);
-                    // Find the specific notification for this stop
                     const notif = m.stop_notifications.find(n => n.stopId === targetStop || n.stop_code === targetStop);
-                    console.log(`  Stop Name: ${notif.stopName}`);
-                    console.log(`  Before Minutes: ${notif.beforeMinutes}`);
-                    console.log(`  Push Enabled: ${notif.push}`);
+                    console.log(`  Route: ${notif.routeName} (${notif.routeId}) | Stop: ${notif.stopName} (${notif.stopId})`);
+                    console.log(`  Alert Level: ${notif.beforeMinutes} mins | Push: ${notif.push}`);
                     console.log(`  Created At: ${m.created_at}`);
                     const endpointDomain = new URL(m.endpoint).hostname;
                     console.log(`  Endpoint Domain: ${endpointDomain}`);

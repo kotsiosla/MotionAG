@@ -1,0 +1,94 @@
+﻿FOUND 5 SUBS BY UPDATE TIME
+ID: 855b835c-1619-4a27-a926-5e839e7fd114
+Updated: 2026-01-11T16:20:49.443063+00:00
+Created: 2026-01-11T16:20:32.624263+00:00
+Endpoint: https://fcm.googleapis.com/fcm/send/cGP5ZI-xnPE:AP...
+Notifications: [
+  {
+    "push": true,
+    "sound": true,
+    "voice": true,
+    "stopId": "7313",
+    "enabled": true,
+    "stopName": "Ippokratus - Themistokleus",
+    "vibration": true,
+    "watchedTrips": [
+      "16981270"
+    ],
+    "beforeMinutes": 20
+  }
+]
+---
+ID: 744775cb-be04-489d-921a-5a8ba9689185
+Updated: 2026-01-11T14:29:31.086536+00:00
+Created: 2026-01-10T14:25:49.871872+00:00
+Endpoint: https://fcm.googleapis.com/fcm/send/dABOXSxyesE:AP...
+Notifications: [
+  {
+    "push": true,
+    "sound": true,
+    "voice": true,
+    "stopId": "2810",
+    "enabled": true,
+    "stopName": "Lakatameia Health Centre 1",
+    "vibration": true,
+    "watchedTrips": [
+      "16981137"
+    ],
+    "beforeMinutes": 5
+  },
+  {
+    "push": true,
+    "sound": true,
+    "voice": true,
+    "stopId": "2811",
+    "enabled": true,
+    "stopName": "Lakatameia Health Centre 2",
+    "vibration": true,
+    "watchedTrips": [
+      "16981138"
+    ],
+    "beforeMinutes": 5
+  }
+]
+---
+ID: 0471a091-bb4a-46d9-8944-6a02fb0119bd
+Updated: 2026-01-11T07:50:59.473735+00:00
+Created: 2026-01-11T07:11:00.938085+00:00
+Endpoint: https://fcm.googleapis.com/fcm/send/dTtEXYTN4A8:AP...
+Notifications: []
+---
+ID: 6cee2a6f-0965-4f47-91a6-b889065f9ca7
+Updated: 2026-01-09T21:56:57.122188+00:00
+Created: 2026-01-09T21:44:09.442177+00:00
+Endpoint: https://web.push.apple.com/QCDJor7MMmfq9PszSH0rKLV...
+Notifications: [
+  {
+    "push": true,
+    "sound": true,
+    "voice": true,
+    "stopId": "2877",
+    "enabled": true,
+    "stopName": "Ave. Archiepiskopou Makariou C - Promitheos",
+    "vibration": true,
+    "beforeMinutes": 20
+  }
+]
+---
+ID: 59b84e3b-cfed-4ffe-b861-513d25f0e5ad
+Updated: 2026-01-09T21:42:19.551538+00:00
+Created: 2026-01-09T21:19:52.127794+00:00
+Endpoint: https://web.push.apple.com/QI8PTgBfnTlbn2iv8j0re-8...
+Notifications: [
+  {
+    "push": true,
+    "sound": true,
+    "voice": true,
+    "stopId": "2877",
+    "enabled": true,
+    "stopName": "Ave. Archiepiskopou Makariou C - Promitheos",
+    "vibration": true,
+    "beforeMinutes": 20
+  }
+]
+---

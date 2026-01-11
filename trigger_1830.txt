@@ -1,0 +1,14 @@
+﻿Triggering check-stop-arrivals...
+STATUS: 200
+RESPONSE: {
+  "status": "ok",
+  "iterations": 6,
+  "totalSent": 5,
+  "errors": [
+    "Push Error 400: {\"reason\":\"VapidPkHashMismatch\"}",
+    "Push Error 400: {\"reason\":\"VapidPkHashMismatch\"}",
+    "Push Error 400: {\"reason\":\"VapidPkHashMismatch\"}",
+    "Push Error 400: {\"reason\":\"VapidPkHashMismatch\"}",
+    "Push Error 400: {\"reason\":\"VapidPkHashMismatch\"}"
+  ]
+}

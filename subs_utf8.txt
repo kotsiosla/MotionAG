@@ -1,0 +1,19 @@
+﻿SUBSCRIPTIONS FOUND: 20
+
+Found 2 subscriptions for Stop 2810:
+
+Match #1:
+  Stop Name: Lakatameia Health Centre 1
+  Before Minutes: 5
+  Push Enabled: true
+  Created At: 2026-01-10T14:25:49.871872+00:00
+  Endpoint Domain: fcm.googleapis.com
+  Device ID: 744775cb-b...
+
+Match #2:
+  Stop Name: Lakatameia Health Centre 1
+  Before Minutes: 20
+  Push Enabled: true
+  Created At: 2026-01-11T15:37:36.448808+00:00
+  Endpoint Domain: fcm.googleapis.com
+  Device ID: 51ba7b11-f...

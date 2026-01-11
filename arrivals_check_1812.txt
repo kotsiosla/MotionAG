@@ -1,0 +1,28 @@
+﻿{
+  "data": [
+    {
+      "stopId": "2810",
+      "routeId": "170022",
+      "tripId": "16981234",
+      "vehicleId": "4650",
+      "gtfsArrivalTime": 1768151376,
+      "gtfsArrivalDelay": -8,
+      "bestArrivalTime": 1768151376,
+      "confidence": "medium",
+      "source": "gtfs"
+    }
+  ],
+  "sources": {
+    "gtfs": {
+      "healthy": true,
+      "lastSuccess": 0
+    },
+    "siri": {
+      "healthy": true,
+      "lastSuccess": 0,
+      "available": false
+    }
+  },
+  "timestamp": 1768147943840,
+  "feedTimestamp": 1768147943
+}

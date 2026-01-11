@@ -1,0 +1,7 @@
+﻿Testing function: https://jftthfniwfarxyisszjh.supabase.co/functions/v1/test-push
+Request sent...
+Status Code: 200
+Response Body: {"sent":33,"failed":4,"total":37,"errors":["400: {\"reason\":\"VapidPkHashMismatch\"}","410: push subscription has unsubscribed or expired.\n","403: the VAPID credentials in the authorization header do not correspond to the credentials used to create the subscriptions.\n","400: {\"reason\":\"VapidPkHashMismatch\"}"],"duration":5091,"requestId":"sfv62","note":"Some failures are due to VAPID key mismatches. Users need to resubscribe with the new key."}
+---------------------------------------------------
+FINAL RESULT: SENT=33 | FAILED=4
+---------------------------------------------------

@@ -1,0 +1,10 @@
+﻿DETAILS FOR f6c06200:
+{
+  "id": "f6c06200-ca7d-43db-bab2-bdd65d1bcf7f",
+  "endpoint": "https://web.push.apple.com/QCxXpwW2PvYlVrDq7qXT9mw0gGY5h1i1vlwvHW7byc1Of4OniOn2Ac9WEKkQOXis8vLfudkHZm3T22jpdvQpLe9c_CkZGDNJ8fdZO5a4talMUCwAO6rFdEdf3aSPsGmhiU7gxikv1tHV6xIpmGF-x0IOZsm6gOu0za5MwhP4ZoU",
+  "p256dh": "BFx/ZWI/LD8P3Uq66AB+cJmYryXtpm3kDOFd4DFhThmL22yQktDDOJZBxvWk3mVjviyNyx/GuhyW9IzeO3yrT50=",
+  "auth": "/i1O8kU5De+9g/01ny57ig==",
+  "route_ids": [],
+  "created_at": "2026-01-11T16:20:30.384458+00:00",
+  "updated_at": "2026-01-11T16:20:30.384458+00:00"
+}

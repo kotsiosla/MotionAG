@@ -1,0 +1,16 @@
+﻿POLLING push_subscriptions:
+ID: f6c06200-ca7d-43db-bab2-bdd65d1bcf7f | Created: 2026-01-11T16:20:30.384458+00:00
+Endpoint: https://web.push.apple.com/QCxXpwW2PvYlV...
+---
+ID: 7984521e-5c50-4900-92e2-2a5aaa7f5789 | Created: 2026-01-11T16:18:34.572925+00:00
+Endpoint: https://web.push.apple.com/QDFz9SZylaOJV...
+---
+ID: c32cfef1-aef4-4762-89a9-92635581f86a | Created: 2026-01-11T00:17:01.45299+00:00
+Endpoint: https://web.push.apple.com/QAtdUiVr0R7WB...
+---
+ID: f085f355-97d3-4dbe-bc4c-af0b7560cf30 | Created: 2026-01-10T23:02:58.731275+00:00
+Endpoint: https://fcm.googleapis.com/fcm/send/dTtE...
+---
+ID: 19866962-5da0-4bfe-bd80-797b99ac360c | Created: 2026-01-10T22:39:01.985354+00:00
+Endpoint: https://web.push.apple.com/QNl2KBv8ri6S4...
+---

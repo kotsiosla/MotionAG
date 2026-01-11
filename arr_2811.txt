@@ -1,0 +1,5 @@
+﻿Fetching arrivals for Stop 2811...
+STATUS: 200
+ARRIVALS_COUNT: 1
+--- ALL ARRIVALS ---
+Route 170021 (4650) - 14 min [gtfs]

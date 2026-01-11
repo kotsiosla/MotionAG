@@ -3,9 +3,11 @@ const https = require('https');
 
 try {
     const key = fs.readFileSync('key.txt', 'utf8').trim();
+    const stopId = process.argv[2] || '2877';
+
     const options = {
         hostname: 'jftthfniwfarxyisszjh.supabase.co',
-        path: '/functions/v1/gtfs-proxy/arrivals?stopId=2877',
+        path: `/functions/v1/gtfs-proxy/arrivals?stopId=${stopId}`,
         method: 'GET',
         headers: {
             'Authorization': 'Bearer ' + key,
@@ -13,7 +15,7 @@ try {
         }
     };
 
-    console.log('Fetching arrivals for Stop 2877...');
+    console.log(`Fetching arrivals for Stop ${stopId}...`);
 
     const req = https.request(options, (res) => {
         console.log(`STATUS: ${res.statusCode}`);
@@ -27,15 +29,13 @@ try {
                     const arrivals = json.data || [];
                     console.log(`ARRIVALS_COUNT: ${arrivals.length}`);
 
-                    if (json.sources) {
-                        console.log('SOURCES: ' + JSON.stringify(json.sources));
-                    }
-
                     if (arrivals.length > 0) {
-                        console.log('--- NEXT 3 ARRIVALS ---');
-                        arrivals.slice(0, 3).forEach(a => {
-                            const eta = Math.round((a.bestArrivalTime - (Date.now() / 1000)) / 60);
-                            console.log(`Route ${a.routeId} (${a.vehicleId || '?'}) - ${eta} min - Source: ${a.source} - Conf: ${a.confidence || '?'}`);
+                        console.log('--- ALL ARRIVALS ---');
+                        arrivals.forEach(a => {
+                            const now = Date.now() / 1000;
+                            const eta = Math.round((a.bestArrivalTime - now) / 60);
+                            const vehicle = a.vehicleId || a.vehicleLabel || '?';
+                            console.log(`Route ${a.routeId} (${vehicle}) - ${eta} min [${a.source}]`);
                         });
                     } else {
                         console.log('NO_ARRIVALS_FOUND');

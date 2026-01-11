@@ -1,0 +1,41 @@
+﻿CHECKING LAST 10 SUBS:
+ID: 855b835c-1619-4a27-a926-5e839e7fd114 | Created: 2026-01-11T16:20:32.624263+00:00
+Endpoint: https://fcm.googleapis.com/fcm/send/cGP5...
+Notifs: [{"push":true,"sound":true,"voice":true,"stopId":"7313","enabled":true,"stopName":"Ippokratus - Themistokleus","vibration":true,"watchedTrips":["16981270"],"beforeMinutes":20}]
+---
+ID: 0471a091-bb4a-46d9-8944-6a02fb0119bd | Created: 2026-01-11T07:11:00.938085+00:00
+Endpoint: https://fcm.googleapis.com/fcm/send/dTtE...
+Notifs: []
+---
+ID: 744775cb-be04-489d-921a-5a8ba9689185 | Created: 2026-01-10T14:25:49.871872+00:00
+Endpoint: https://fcm.googleapis.com/fcm/send/dABO...
+Notifs: [{"push":true,"sound":true,"voice":true,"stopId":"2810","enabled":true,"stopName":"Lakatameia Health Centre 1","vibration":true,"watchedTrips":["16981137"],"beforeMinutes":5},{"push":true,"sound":true,"voice":true,"stopId":"2811","enabled":true,"stopName":"Lakatameia Health Centre 2","vibration":true,"watchedTrips":["16981138"],"beforeMinutes":5}]
+---
+ID: 6cee2a6f-0965-4f47-91a6-b889065f9ca7 | Created: 2026-01-09T21:44:09.442177+00:00
+Endpoint: https://web.push.apple.com/QCDJor7MMmfq9...
+Notifs: [{"push":true,"sound":true,"voice":true,"stopId":"2877","enabled":true,"stopName":"Ave. Archiepiskopou Makariou C - Promitheos","vibration":true,"beforeMinutes":20}]
+---
+ID: 59b84e3b-cfed-4ffe-b861-513d25f0e5ad | Created: 2026-01-09T21:19:52.127794+00:00
+Endpoint: https://web.push.apple.com/QI8PTgBfnTlbn...
+Notifs: [{"push":true,"sound":true,"voice":true,"stopId":"2877","enabled":true,"stopName":"Ave. Archiepiskopou Makariou C - Promitheos","vibration":true,"beforeMinutes":20}]
+---
+ID: 4f7698ee-df9d-4c3a-9234-ea1d87d34035 | Created: 2026-01-09T21:15:57.449876+00:00
+Endpoint: https://web.push.apple.com/QBPt41S8XvuDa...
+Notifs: [{"push":true,"sound":true,"voice":true,"stopId":"2877","enabled":true,"stopName":"Ave. Archiepiskopou Makariou C - Promitheos","vibration":true,"beforeMinutes":5}]
+---
+ID: 57184774-6686-46d0-b3ab-78e00a77ee82 | Created: 2026-01-09T21:03:16.660729+00:00
+Endpoint: https://web.push.apple.com/QDIGX7Ux-oLZI...
+Notifs: [{"push":true,"sound":true,"voice":true,"stopId":"2877","enabled":true,"stopName":"Ave. Archiepiskopou Makariou C - Promitheos","vibration":true,"beforeMinutes":5}]
+---
+ID: f691a189-5894-4061-8a42-f18329d50703 | Created: 2026-01-09T18:36:09.498728+00:00
+Endpoint: https://web.push.apple.com/QCCZGojcDdccG...
+Notifs: [{"push":true,"sound":true,"voice":true,"stopId":"2877","enabled":true,"stopName":"Ave. Archiepiskopou Makariou C - Promitheos","vibration":true,"beforeMinutes":20}]
+---
+ID: 21f13a71-b7e9-4cb3-aa60-d13246e949ff | Created: 2026-01-09T17:39:14.763419+00:00
+Endpoint: https://web.push.apple.com/QEyD93cMJvXjx...
+Notifs: [{"push":true,"sound":true,"voice":true,"stopId":"2877","enabled":true,"stopName":"Ave. Archiepiskopou Makariou C - Promitheos","vibration":true,"beforeMinutes":5}]
+---
+ID: 0f866b10-197b-4c6f-92f9-45265426c0d7 | Created: 2026-01-09T12:26:37.014084+00:00
+Endpoint: https://web.push.apple.com/QHbdSLrLDKaN7...
+Notifs: [{"push":true,"sound":true,"voice":true,"stopId":"2877","enabled":true,"stopName":"Ave. Archiepiskopou Makariou C - Promitheos","vibration":true,"beforeMinutes":5}]
+---
