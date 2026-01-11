@@ -491,10 +491,11 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               Για περισσότερες πληροφορίες επικοινωνήστε με τον φορέα μεταφορών
             </p>
             <div className="text-[10px] text-gray-300 font-mono text-center opacity-50 pb-safe">
-              v1.3.3 (MotionAG) - Icon Fix
-            </div>      </div>
-        </div>
-      </TabsContent>
-    </Tabs>
+              v1.3.4 (MotionAG) - Safe Mode
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
