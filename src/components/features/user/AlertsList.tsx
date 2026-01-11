@@ -491,7 +491,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               Για περισσότερες πληροφορίες επικοινωνήστε με τον φορέα μεταφορών
             </p>
             <p className="text-[10px] text-muted-foreground/60 font-mono">
-              v1.3.0 (MotionAG)
+              v1.3.1 (MotionAG) - Force Update
             </p>
           </div>
         </TabsContent>

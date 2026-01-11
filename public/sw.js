@@ -1,4 +1,4 @@
-// Service Worker for Push Notifications (v1.2.3 - Clean Slate)
+// Service Worker for Push Notifications (v1.3.1 - Force Update)
 // Simple service worker without precaching to avoid refresh loops
 // This file is processed by VitePWA injectManifest strategy
 

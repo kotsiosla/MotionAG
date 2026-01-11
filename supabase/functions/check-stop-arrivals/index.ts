@@ -32,6 +32,18 @@ serve(async (req) => {
     try {
         if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) throw new Error('VAPID Configuration Missing');
 
+        // CLEANUP: Remove logs older than 1 HOUR to prevent DB growth
+        const ONE_HOUR_MS = 60 * 60 * 1000;
+        const cleanupDate = new Date(Date.now() - ONE_HOUR_MS).toISOString();
+        const { error: cleanupError } = await supabase
+            .from('notifications_log')
+            .delete()
+            .lt('sent_at', cleanupDate);
+
+        if (cleanupError) {
+            console.error('[Worker] Cleanup Error:', cleanupError.message);
+        }
+
         // --- LOOP START ---
         while (Date.now() - START_TIME < MAX_DURATION_MS) {
             iterations++;
