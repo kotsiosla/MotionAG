@@ -24,8 +24,11 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Remove .git directory
-        run: rm -rf .git
+      - name: Fix git permissions (System Level)
+        run: |
+          sudo git config --system --add safe.directory '*'
+          git status
+
 
 
 
