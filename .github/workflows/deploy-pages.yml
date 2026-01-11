@@ -22,16 +22,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Git Transplant (Fresh Init)
-        run: |
-          rm -rf .git
-          git init
-          git config user.name "Builder"
-          git config user.email "builder@example.com"
-          git add .
-          git commit -m "Fresh build commit"
 
 
 
@@ -40,7 +33,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # cache: 'npm' - Disabled to rule out cache corruption
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
