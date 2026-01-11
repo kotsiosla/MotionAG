@@ -4,7 +4,7 @@ try {
     const key = fs.readFileSync('key.txt', 'utf8').trim();
     // Use the hostname found in check_log_table.cjs
     const projectUrl = 'https://jftthfniwfarxyisszjh.supabase.co';
-    const functionName = 'check-stop-arrivals'; // Switched to main function as AG version is deleted
+    const functionName = 'test-push'; // Targeting test-push for verification
     const url = `${projectUrl}/functions/v1/${functionName}`;
 
     console.log(`Testing function: ${url}`);
