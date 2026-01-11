@@ -1,4 +1,4 @@
-// Service Worker for Push Notifications (v1.3.6 - Stable)
+// Service Worker for Push Notifications (v1.3.7 - iOS Fix)
 // Simple service worker without precaching to avoid refresh loops
 // This file is processed by VitePWA injectManifest strategy
 
@@ -27,27 +27,21 @@ self.addEventListener('push', (event) => {
   let data = {
     title: 'Motion Bus Cyprus',
     body: 'Νέα ειδοποίηση',
-    icon: '/MotionAG/pwa-192x192.png',
-    badge: '/MotionAG/pwa-192x192.png',
-    url: '/MotionAG/',
-    tag: 'motion-bus-notification',
   };
 
   if (event.data) {
     try {
-      const jsonData = event.data.json();
-      data = { ...data, ...jsonData };
+      data = { ...data, ...event.data.json() };
     } catch (e) {
       console.error('Error parsing push data:', e);
     }
   }
 
+  // iOS-compatible options only
   const options = {
     body: data.body,
-    icon: data.icon && data.icon.startsWith('/') ? `/MotionAG${data.icon}` : '/MotionAG/pwa-192x192.png',
-    tag: data.tag,
-    renotify: true,
-    requireInteraction: true,
+    icon: '/MotionAG/pwa-192x192.png', // Fixed absolute path
+    tag: data.tag || 'motion-bus-notification',
     data: {
       url: data.url || '/MotionAG/',
       timestamp: Date.now(),
