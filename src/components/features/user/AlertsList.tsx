@@ -491,7 +491,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               Για περισσότερες πληροφορίες επικοινωνήστε με τον φορέα μεταφορών
             </p>
             <div className="text-[10px] text-gray-300 font-mono text-center opacity-50 pb-safe">
-              v1.3.10 (MotionAG) - Force Active
+              v1.4.0 (MotionAG) - Robust Mode
             </div>
           </div>
         </TabsContent>
@@ -499,46 +499,62 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
 
       <div className="p-4 space-y-2 pb-safe">
         <button
-          onClick={() => {
-            alert('Permission: ' + Notification.permission);
-            if (Notification.permission === 'granted') {
-              navigator.serviceWorker.ready.then(reg => {
-                reg.showNotification('iOS TEST (Icon) 🖼️', {
-                  body: 'Testing with Icon...',
-                  icon: '/MotionAG/pwa-192x192.png'
-                }).then(() => alert('Request SENT to System (Icon) 📤'))
-                  .catch(e => alert('Show Error: ' + e));
-              }).catch(e => alert('SW Ready Error: ' + e));
-            } else {
-              alert('Permission NOT granted');
+          onClick={async () => {
+            const permission = Notification.permission;
+            if (permission !== 'granted') {
+              alert('Notification permission: ' + permission + '\nΠρέπει να επιτρέψετε τις ειδοποιήσεις στις ρυθμίσεις!');
+              return;
+            }
+
+            try {
+              const reg = await navigator.serviceWorker.ready;
+              await reg.showNotification('🎉 Ειδοποίηση Δοκιμής', {
+                body: 'Αυτό είναι ένα τεστ για v1.4.0!',
+                icon: 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png',
+                badge: 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png',
+                renotify: true,
+                tag: 'test-' + Date.now()
+              });
+              alert('📤 Το αίτημα στάλθηκε στο σύστημα!');
+            } catch (e) {
+              alert('❌ Error: ' + e);
             }
           }}
           className="w-full bg-blue-600 text-white rounded-lg py-3 font-medium active:scale-95 transition-transform"
         >
-          🖼️ TEST (WITH ICON)
+          🔔 ΔΟΚΙΜΑΣΤΙΚΗ ΕΙΔΟΠΟΙΗΣΗ (v1.4.0)
         </button>
 
         <button
-          onClick={() => {
-            if (Notification.permission === 'granted') {
-              navigator.serviceWorker.ready.then(reg => {
-                reg.showNotification('iOS TEST (Plain) 📄', {
-                  body: 'Testing WITHOUT Icon...',
-                  // No icon property
-                }).then(() => alert('Request SENT to System (Plain) 📤'))
-                  .catch(e => alert('Show Error: ' + e));
-              }).catch(e => alert('SW Ready Error: ' + e));
-            } else {
-              alert('Permission NOT granted');
+          onClick={async () => {
+            if (confirm('Θέλεις να κάνεις "Nuclear Reset"; Αυτό θα διαγράψει όλες τις ειδοποιήσεις και θα κάνει refresh.')) {
+              try {
+                // Clear DB if possible
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (const reg of registrations) {
+                  const sub = await reg.pushManager.getSubscription();
+                  if (sub) await sub.unsubscribe();
+                  await reg.unregister();
+                }
+
+                // Clear local state
+                localStorage.removeItem('push_subscribed_routes');
+                localStorage.removeItem('push_subscription_routes');
+
+                alert('🧼 Καθαρίστηκε! Κάνω refresh...');
+                window.location.reload();
+              } catch (e) {
+                alert('Σφάλμα: ' + e);
+              }
             }
           }}
-          className="w-full bg-slate-600 text-white rounded-lg py-3 font-medium active:scale-95 transition-transform"
+          className="w-full bg-red-600/20 text-red-500 border border-red-500/30 rounded-lg py-3 text-sm active:scale-95 transition-transform"
         >
-          📄 TEST (NO ICON) - SAFE
+          ☢️ NUCLEAR RESET (Αν δεν δουλεύει τίποτα)
         </button>
 
-        <p className="text-xs text-center text-muted-foreground mt-2">
-          Αν δεις "Request SENT" αλλά όχι banner, είναι 100% iOS Setting.
+        <p className="text-[10px] text-center text-muted-foreground mt-2 px-4">
+          v1.4.0 χρησιμοποιεί Absolute URLs και renotify logic για εγγυημένη εμφάνιση (αν επιτρέπεται από το OS).
         </p>
       </div>
     </div>

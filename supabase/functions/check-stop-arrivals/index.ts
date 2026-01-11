@@ -130,8 +130,8 @@ serve(async (req) => {
                         const payload = JSON.stringify({
                             title: `${urgency} Bus ${routeName} in ${minsUntil}'`,
                             body: `Arriving at ${setting.stopName}`,
-                            icon: '/pwa-192x192.png',
-                            data: { url: `/?stop=${stopId}` }
+                            icon: 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png',
+                            data: { url: `https://kotsiosla.github.io/MotionAG/?stop=${stopId}` }
                         });
 
                         try {

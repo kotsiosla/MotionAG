@@ -24,6 +24,14 @@ try {
         res.on('data', chunk => data += chunk);
         res.on('end', () => {
             console.log('Response Body:', data);
+            try {
+                const responseJson = JSON.parse(data);
+                console.log('---------------------------------------------------');
+                console.log(`FINAL RESULT: SENT=${responseJson.sent} | FAILED=${responseJson.failed}`);
+                console.log('---------------------------------------------------');
+            } catch (e) {
+                console.error('Error parsing response data:', e);
+            }
         });
     });
 

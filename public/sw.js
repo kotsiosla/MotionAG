@@ -1,4 +1,4 @@
-// Service Worker for Push Notifications (v1.3.10 - Force Active)
+// Service Worker for Push Notifications (v1.4.0 - Robust)
 // Simple service worker without precaching to avoid refresh loops
 // This file is processed by VitePWA injectManifest strategy
 
@@ -7,14 +7,14 @@ const precacheManifest = self.__WB_MANIFEST || [];
 
 // Install event
 self.addEventListener('install', (event) => {
-  console.log('Service Worker installing, manifest entries:', precacheManifest.length);
+  console.log('Service Worker installing v1.4.0');
   // Force new SW to enter waiting state immediately
   self.skipWaiting();
 });
 
 // Activate event
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker activating');
+  console.log('Service Worker activating v1.4.0');
   // Force new SW to take control of open pages immediately
   event.waitUntil(self.clients.claim());
 });
@@ -26,21 +26,32 @@ self.addEventListener('push', (event) => {
   let data = {
     title: 'Motion Bus Cyprus',
     body: 'Νέα ειδοποίηση',
+    icon: '/MotionAG/pwa-192x192.png'
   };
 
   if (event.data) {
     try {
-      data = { ...data, ...event.data.json() };
+      const json = event.data.json();
+      data = { ...data, ...json };
+      console.log('Push data parsed:', data);
     } catch (e) {
       console.error('Error parsing push data:', e);
+      // Try text if JSON fails
+      try {
+        data.body = event.data.text();
+      } catch (e2) { }
     }
   }
 
-  // iOS-compatible options only
+  // Use full URL if possible for better reliability
+  const icon = data.icon || '/MotionAG/pwa-192x192.png';
+
   const options = {
     body: data.body,
-    icon: '/MotionAG/pwa-192x192.png', // Fixed absolute path
+    icon: icon,
+    badge: '/MotionAG/pwa-192x192.png', // Small icon for notification bar
     tag: data.tag || 'motion-bus-notification',
+    renotify: true, // Allow new notifications with same tag to vibrate
     data: {
       url: data.url || '/MotionAG/',
       timestamp: Date.now(),

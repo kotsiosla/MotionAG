@@ -1,0 +1,4 @@
+Testing function: https://jftthfniwfarxyisszjh.supabase.co/functions/v1/test-push
+Request sent...
+Status Code: 200
+Response Body: {"sent":34,"failed":1,"total":35,"errors":["400: {\"reason\":\"VapidPkHashMismatch\"}"],"duration":14157,"requestId":"1du027","note":"Some failures are due to VAPID key mismatches. Users need to resubscribe with the new key."}

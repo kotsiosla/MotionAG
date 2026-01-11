@@ -23,15 +23,27 @@ try {
         res.on('end', () => {
             try {
                 const subs = JSON.parse(data);
-                console.log("SUBSCRIPTIONS FOUND: " + subs.length);
-                subs.forEach(s => {
-                    if (s.stop_notifications) {
-                        const target = s.stop_notifications.find(n => n.stopId === '2877');
-                        if (target) {
-                            console.log("FOUND STOP 2877 SUB:");
-                            console.log(JSON.stringify(target, null, 2));
-                        }
-                    }
+
+                console.log(`SUBSCRIPTIONS FOUND: ${subs.length}`);
+
+                const targetStop = '2811';
+                const MATCHES = subs.filter(s =>
+                    s.stop_notifications &&
+                    s.stop_notifications.some(n => n.stopId === targetStop || n.stop_code === targetStop)
+                );
+
+                console.log(`\nFound ${MATCHES.length} subscriptions for Stop ${targetStop}:`);
+                MATCHES.forEach((m, i) => {
+                    console.log(`\nMatch #${i + 1}:`);
+                    // Find the specific notification for this stop
+                    const notif = m.stop_notifications.find(n => n.stopId === targetStop || n.stop_code === targetStop);
+                    console.log(`  Stop Name: ${notif.stopName}`);
+                    console.log(`  Before Minutes: ${notif.beforeMinutes}`);
+                    console.log(`  Push Enabled: ${notif.push}`);
+                    console.log(`  Created At: ${m.created_at}`);
+                    const endpointDomain = new URL(m.endpoint).hostname;
+                    console.log(`  Endpoint Domain: ${endpointDomain}`);
+                    console.log(`  Device ID: ${m.id ? m.id.substring(0, 10) : 'N/A'}...`);
                 });
             } catch (e) {
                 console.log("Error parsing: " + data);
