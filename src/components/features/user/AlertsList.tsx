@@ -491,11 +491,35 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               Για περισσότερες πληροφορίες επικοινωνήστε με τον φορέα μεταφορών
             </p>
             <div className="text-[10px] text-gray-300 font-mono text-center opacity-50 pb-safe">
-              v1.3.7 (MotionAG) - iOS Fix
+              v1.3.8 (MotionAG) - Debug
             </div>
           </div>
         </TabsContent>
       </Tabs>
+
+      <div className="p-4 space-y-2 pb-safe">
+        <button
+          onClick={() => {
+            alert('Permission: ' + Notification.permission);
+            if (Notification.permission === 'granted') {
+              navigator.serviceWorker.ready.then(reg => {
+                reg.showNotification('iOS TEST ✅', {
+                  body: 'Αν το βλέπεις, το SW δουλεύει σωστά',
+                  icon: '/MotionAG/pwa-192x192.png'
+                });
+              }).catch(e => alert('SW Error: ' + e));
+            } else {
+              alert('Permission NOT granted');
+            }
+          }}
+          className="w-full bg-blue-600 text-white rounded-lg py-3 font-medium active:scale-95 transition-transform"
+        >
+          🔍 TEST iOS LOCAL NOTIFICATION
+        </button>
+        <p className="text-xs text-center text-muted-foreground">
+          Πατάς το κουμπί - Αν βγει ειδοποίηση, το app είναι ΟΚ (φταίει ο server).
+        </p>
+      </div>
     </div>
   );
 }

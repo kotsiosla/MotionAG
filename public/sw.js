@@ -1,4 +1,4 @@
-// Service Worker for Push Notifications (v1.3.7 - iOS Fix)
+// Service Worker for Push Notifications (v1.3.8 - Debug)
 // Simple service worker without precaching to avoid refresh loops
 // This file is processed by VitePWA injectManifest strategy
 
