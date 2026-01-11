@@ -1,524 +1,171 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
+import { sendPushNotification } from './push.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface StopNotificationSettings {
-  stopId: string;
-  stopName: string;
-  enabled: boolean;
-  sound: boolean;
-  vibration: boolean;
-  voice: boolean;
-  push: boolean;
-  beforeMinutes: number;
-}
-
-interface StopSubscription {
-  id: string;
-  endpoint: string;
-  p256dh: string;
-  auth: string;
-  stop_notifications: StopNotificationSettings[];
-  last_notified: Record<string, number>;
-}
-
-// Base64url encode/decode utilities
-function base64UrlEncode(data: Uint8Array): string {
-  const base64 = btoa(String.fromCharCode(...data));
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function base64UrlDecode(str: string): Uint8Array {
-  const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-  const padding = (4 - (base64.length % 4)) % 4;
-  const padded = base64 + '='.repeat(padding);
-  const binary = atob(padded);
-  return Uint8Array.from(binary, c => c.charCodeAt(0));
-}
-
-// Create VAPID JWT token
-async function createVapidJwt(
-  audience: string,
-  subject: string,
-  privateKeyBase64: string
-): Promise<string> {
-  const header = { alg: 'ES256', typ: 'JWT' };
-  const now = Math.floor(Date.now() / 1000);
-  const payload = {
-    aud: audience,
-    exp: now + 86400,
-    sub: subject,
-  };
-
-  const headerB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
-  const payloadB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
-  const unsignedToken = `${headerB64}.${payloadB64}`;
-
-  // Import private key for signing
-  const privateKeyBytes = base64UrlDecode(privateKeyBase64);
-
-  // PKCS8 header for P-256 private key
-  const pkcs8Header = new Uint8Array([
-    0x30, 0x41, 0x02, 0x01, 0x00, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48,
-    0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03,
-    0x01, 0x07, 0x04, 0x27, 0x30, 0x25, 0x02, 0x01, 0x01, 0x04, 0x20
-  ]);
-
-  const pkcs8Key = new Uint8Array([...pkcs8Header, ...privateKeyBytes]);
-
-  const cryptoKey = await crypto.subtle.importKey(
-    'pkcs8',
-    pkcs8Key,
-    { name: 'ECDSA', namedCurve: 'P-256' },
-    false,
-    ['sign']
-  );
-
-  const signature = await crypto.subtle.sign(
-    { name: 'ECDSA', hash: 'SHA-256' },
-    cryptoKey,
-    new TextEncoder().encode(unsignedToken)
-  );
-
-  const rawSig = new Uint8Array(signature);
-  return `${unsignedToken}.${base64UrlEncode(rawSig)}`;
-}
-
-// Encrypt payload using ECDH and AES-GCM
-async function encryptPayload(
-  payload: string,
-  p256dhKey: string,
-  authSecret: string
-): Promise<{ ciphertext: Uint8Array; salt: Uint8Array; localPublicKey: Uint8Array }> {
-  // Generate local key pair
-  const localKeyPair = await crypto.subtle.generateKey(
-    { name: 'ECDH', namedCurve: 'P-256' },
-    true,
-    ['deriveBits']
-  );
-
-  // Export local public key
-  const localPublicKeyRaw = await crypto.subtle.exportKey('raw', localKeyPair.publicKey);
-  const localPublicKey = new Uint8Array(localPublicKeyRaw);
-
-  // Import subscriber's public key
-  const subscriberKeyBytes = base64UrlDecode(p256dhKey);
-  const subscriberPublicKey = await crypto.subtle.importKey(
-    'raw',
-    subscriberKeyBytes.buffer as ArrayBuffer,
-    { name: 'ECDH', namedCurve: 'P-256' },
-    false,
-    []
-  );
-
-  // Derive shared secret
-  const sharedSecret = await crypto.subtle.deriveBits(
-    { name: 'ECDH', public: subscriberPublicKey },
-    localKeyPair.privateKey,
-    256
-  );
-
-  // Generate salt
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const authSecretBytes = base64UrlDecode(authSecret);
-
-  // Derive encryption key using HKDF
-  const ikm = new Uint8Array(sharedSecret);
-
-  // PRK = HKDF-Extract(auth_secret, shared_secret)
-  const prkKey = await crypto.subtle.importKey(
-    'raw',
-    authSecretBytes.buffer as ArrayBuffer,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const prk = new Uint8Array(await crypto.subtle.sign('HMAC', prkKey, ikm));
-
-  // Create info for content encryption key
-  const keyInfoStr = 'Content-Encoding: aes128gcm\0';
-  const keyInfo = new TextEncoder().encode(keyInfoStr);
-
-  // Derive content encryption key
-  const cekKey = await crypto.subtle.importKey(
-    'raw',
-    prk,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const cekMaterial = new Uint8Array(await crypto.subtle.sign('HMAC', cekKey, new Uint8Array([...salt, ...keyInfo, 1])));
-  const cek = cekMaterial.slice(0, 16);
-
-  // Derive nonce
-  const nonceInfoStr = 'Content-Encoding: nonce\0';
-  const nonceInfo = new TextEncoder().encode(nonceInfoStr);
-  const nonceMaterial = new Uint8Array(await crypto.subtle.sign('HMAC', cekKey, new Uint8Array([...salt, ...nonceInfo, 1])));
-  const nonce = nonceMaterial.slice(0, 12);
-
-  // Encrypt with AES-GCM
-  const aesKey = await crypto.subtle.importKey(
-    'raw',
-    cek,
-    { name: 'AES-GCM' },
-    false,
-    ['encrypt']
-  );
-
-  // Add padding delimiter
-  const payloadBytes = new TextEncoder().encode(payload);
-  const paddedPayload = new Uint8Array([...payloadBytes, 2]); // 2 = final record
-
-  const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: nonce },
-    aesKey,
-    paddedPayload
-  );
-
-  return {
-    ciphertext: new Uint8Array(encrypted),
-    salt,
-    localPublicKey,
-  };
-}
-
-// Send push notification
-async function sendPushNotification(
-  endpoint: string,
-  p256dh: string,
-  auth: string,
-  payload: string,
-  vapidPublicKey: string,
-  vapidPrivateKey: string
-): Promise<{ success: boolean; statusCode?: number; error?: string }> {
-  try {
-    const url = new URL(endpoint);
-    console.log(`Sending push to: ${url.hostname}`);
-
-    // Create VAPID authorization
-    const audience = `${url.protocol}//${url.hostname}`;
-    const vapidToken = await createVapidJwt(audience, 'mailto:info@motionbus.cy', vapidPrivateKey);
-
-    // Encrypt the payload
-    const { ciphertext, salt, localPublicKey } = await encryptPayload(payload, p256dh, auth);
-
-    // Build body with aes128gcm format
-    const rs = new Uint8Array([0, 0, 16, 0]); // Record size: 4096
-    const idlen = new Uint8Array([65]); // Key ID length
-
-    const body = new Uint8Array([
-      ...salt,
-      ...rs,
-      ...idlen,
-      ...localPublicKey,
-      ...ciphertext,
-    ]);
-
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Encoding': 'aes128gcm',
-        'TTL': '86400',
-        'Urgency': 'high',
-        'Authorization': `vapid t=${vapidToken}, k=${vapidPublicKey}`,
-      },
-      body,
-    });
-
-    const responseText = await response.text();
-
-    if (!response.ok) {
-      console.log(`Push failed with status ${response.status}: ${responseText}`);
-      return { success: false, statusCode: response.status, error: responseText };
-    }
-
-    console.log(`Push succeeded with status ${response.status}`);
-    return { success: true, statusCode: response.status };
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('Push error:', errorMessage);
-    return { success: false, error: errorMessage };
-  }
-}
-
+// MAIN WORKER FUNCTION
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+    if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY');
     const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
 
-    if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
-      console.error('VAPID keys not configured');
-      return new Response(JSON.stringify({ error: 'VAPID keys not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log('VAPID keys loaded successfully');
+    // CONFIG: 55s Loop (Long Polling)
+    const MAX_DURATION_MS = 55 * 1000;
+    const POLL_INTERVAL_MS = 10 * 1000;
+    const START_TIME = Date.now();
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get all subscriptions with stop notifications
-    console.log('Fetching subscriptions from stop_notification_subscriptions...');
-    const { data: subscriptions, error: subError } = await supabase
-      .from('stop_notification_subscriptions')
-      .select('*')
-      .not('stop_notifications', 'is', null);
-
-    if (subError) {
-      console.error('Error fetching subscriptions:', subError);
-      console.error('Error details:', JSON.stringify(subError, null, 2));
-      return new Response(JSON.stringify({ error: 'Database error', details: subError }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log(`Found ${subscriptions?.length || 0} subscriptions (before filtering)`);
-
-    // Debug: Log all subscriptions
-    if (subscriptions && subscriptions.length > 0) {
-      subscriptions.forEach((sub, idx) => {
-        console.log(`Subscription ${idx + 1}:`, {
-          id: sub.id,
-          endpoint: sub.endpoint?.substring(0, 50) + '...',
-          stop_notifications_count: Array.isArray(sub.stop_notifications) ? sub.stop_notifications.length : 'not array',
-          stop_notifications: Array.isArray(sub.stop_notifications) ? sub.stop_notifications.map((s: any) => ({
-            stopId: s?.stopId,
-            stopName: s?.stopName,
-            enabled: s?.enabled,
-            push: s?.push,
-            beforeMinutes: s?.beforeMinutes
-          })) : sub.stop_notifications
-        });
-      });
-    }
-
-    if (!subscriptions || subscriptions.length === 0) {
-      console.log('No stop notification subscriptions found');
-      // Also check if there are any subscriptions at all (even without stop_notifications)
-      const { data: allSubs } = await supabase
-        .from('stop_notification_subscriptions')
-        .select('id, endpoint, stop_notifications');
-      console.log(`Total subscriptions in table (including null): ${allSubs?.length || 0}`);
-      if (allSubs && allSubs.length > 0) {
-        allSubs.forEach((sub, idx) => {
-          console.log(`All subscription ${idx + 1}:`, {
-            id: sub.id,
-            endpoint: sub.endpoint?.substring(0, 50) + '...',
-            has_stop_notifications: !!sub.stop_notifications,
-            stop_notifications_type: typeof sub.stop_notifications,
-            stop_notifications_is_array: Array.isArray(sub.stop_notifications),
-            stop_notifications_length: Array.isArray(sub.stop_notifications) ? sub.stop_notifications.length : 'N/A'
-          });
-        });
-      }
-      return new Response(JSON.stringify({ checked: 0, sent: 0, debug: { totalInTable: allSubs?.length || 0 } }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log(`Checking ${subscriptions.length} subscriptions for stop arrivals`);
-
-    // Fetch trip updates from gtfs-proxy
-    let tripUpdates: unknown[] = [];
+    console.log('[Worker-Manual-Adaptive] Starting 55s notification loop...');
+    let iterations = 0;
+    let totalSent = 0;
+    const errors: string[] = [];
 
     try {
-      const proxyResponse = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/trips?operator=all`, {
-        headers: {
-          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-        }
-      });
+        if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) throw new Error('VAPID Configuration Missing');
 
-      if (proxyResponse.ok) {
-        const proxyData = await proxyResponse.json();
-        if (proxyData.data && Array.isArray(proxyData.data)) {
-          tripUpdates = proxyData.data;
-          console.log(`Got ${tripUpdates.length} trip updates from gtfs-proxy`);
-        }
-      } else {
-        console.log('gtfs-proxy returned:', proxyResponse.status);
-      }
-    } catch (e) {
-      console.error('Error fetching from gtfs-proxy:', e);
-    }
+        // --- LOOP START ---
+        while (Date.now() - START_TIME < MAX_DURATION_MS) {
+            iterations++;
 
-    if (tripUpdates.length === 0) {
-      console.log('No trip updates available');
-      return new Response(JSON.stringify({ checked: subscriptions.length, sent: 0, reason: 'no_trips' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+            // 1. Fetch Active Subscriptions
+            const { data: subs, error: subError } = await supabase
+                .from('stop_notification_subscriptions')
+                .select('*')
+                .not('stop_notifications', 'is', null);
 
-    const nowSeconds = Math.floor(Date.now() / 1000);
-    const notificationsSent: string[] = [];
-
-    // Check each subscription
-    for (const sub of subscriptions as StopSubscription[]) {
-      const stopSettings = sub.stop_notifications || [];
-      const enabledSettings = Array.isArray(stopSettings)
-        ? stopSettings.filter(s => s && s.enabled && s.push)
-        : [];
-
-      if (enabledSettings.length === 0) continue;
-
-      const lastNotified = sub.last_notified || {};
-
-      for (const settings of enabledSettings) {
-        for (const trip of tripUpdates as Record<string, unknown>[]) {
-          const stopTimeUpdates = (trip.stopTimeUpdates || trip.stop_time_updates || []) as Record<string, unknown>[];
-          if (!Array.isArray(stopTimeUpdates)) continue;
-
-          for (const stu of stopTimeUpdates) {
-            const stuStopId = stu.stopId || stu.stop_id;
-            const arrival = stu.arrival as Record<string, unknown> | undefined;
-            const arrivalTime = (stu.arrivalTime || stu.arrival_time || (arrival && arrival.time)) as number | undefined;
-
-            if (stuStopId !== settings.stopId || !arrivalTime) continue;
-
-            const secondsUntil = arrivalTime - nowSeconds;
-            const minutesUntil = Math.round(secondsUntil / 60);
-
-            // Progressive notifications: Send at 5, 3, 2, and 1 minute intervals
-            // This ensures no bus is missed even if timing is off
-            const notificationIntervals = [5, 3, 2, 1];
-            const maxBeforeMinutes = Math.max(settings.beforeMinutes, 5); // At least 5 minutes
-
-            // Improved Logic:
-            // Check if we should send notification for any of the intervals
-            // We notify if:
-            // 1. We are within the interval (e.g. <= 5 mins)
-            // 2. We haven't notified for this specific interval yet
-            // 3. We haven't notified for a *closer* interval yet (e.g. if we are at 2 mins, don't send 5 min alert)
-
-            let shouldNotify = false;
-            let notificationInterval = 0;
-
-            const routeId = (trip.routeId || trip.route_id || 'unknown') as string;
-            const baseNotifKey = `${settings.stopId}-${routeId}-${Math.floor(arrivalTime / 60)}`;
-
-            // Sort intervals descending (5, 3, 2, 1)
-            // We want to find the *smallest* interval that we satisfy
-            // e.g. if we are at 2.5 mins, we satisfy 5 and 3. We want to send 3 (or 2 if we are close enough).
-
-            // Actually, we want to send the Alert for the specific bucket we are in.
-            // But to be safe, if we missed the 5 minute alert and we are now at 4 minutes, we should send the 5 minute alert (or a generic "approaching" alert).
-
-            for (const interval of notificationIntervals) {
-              if (interval > maxBeforeMinutes) continue;
-
-              // If we are significantly past this interval (e.g. at 2 mins vs 5 mins), 
-              // we don't need to send the 5-min alert if we are going to send the 2-min alert anyway.
-              // But if we missed the start, we might want to catch up.
-
-              const intervalKey = `${baseNotifKey}-${interval}`;
-              const hasSentThisInterval = lastNotified[intervalKey] > 0;
-
-              if (!hasSentThisInterval && minutesUntil <= interval) {
-                // We are within range and haven't sent this specific alert
-                shouldNotify = true;
-                notificationInterval = interval;
-
-                // Break so we prioritize the tightest valid interval
-                // e.g. at 1.5 mins, we match 5, 3, 2. We want to send the '2' or '1' alert? 
-                // We typically want the most urgent one that hasn't been sent.
-                // Since we iterate 5, 3, 2, 1... 
-                // If we match 2 (<=2), we set it. Then we check 1. If we match 1 (<=1), we overwrite.
-                // So we naturally select the smallest (most urgent) interval.
-              }
+            if (subError) throw subError;
+            if (!subs || subs.length === 0) {
+                await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+                continue;
             }
 
+            // 2. Group by StopId
+            const stopsToCheck = new Set<string>();
+            const subMap = new Map<string, any[]>();
 
-            if (shouldNotify && notificationInterval > 0) {
-              const routeId = (trip.routeId || trip.route_id || 'unknown') as string;
-              const routeName = (trip.routeShortName || trip.route_short_name || routeId) as string;
-              const baseNotifKey = `${settings.stopId}-${routeId}-${Math.floor(arrivalTime / 60)}`;
-              const intervalNotifKey = `${baseNotifKey}-${notificationInterval}`;
-              const lastNotifTime = lastNotified[intervalNotifKey] || 0;
+            for (const sub of subs) {
+                const settings = sub.stop_notifications || [];
+                for (const setting of settings) {
+                    if (setting.enabled && setting.push) {
+                        stopsToCheck.add(setting.stopId);
+                        if (!subMap.has(setting.stopId)) subMap.set(setting.stopId, []);
+                        subMap.get(setting.stopId)!.push({ sub, setting });
+                    }
+                }
+            }
 
-              // Prevent duplicate notifications within 30 seconds
-              if (nowSeconds - lastNotifTime < 30) {
-                continue;
-              }
-
-              try {
-                const urgencyEmoji = minutesUntil <= 1 ? '🚨' : minutesUntil <= 2 ? '⚠️' : minutesUntil <= 3 ? '🔔' : '🚌';
-                const urgencyText = minutesUntil <= 1 ? 'ΤΩΡΑ!' : minutesUntil <= 2 ? 'Σύντομα' : minutesUntil <= 3 ? 'Προσεχώς' : 'Ερχεται';
-
-                const payload = JSON.stringify({
-                  title: `${urgencyEmoji} ${routeName} ${urgencyText} - ${minutesUntil}'`,
-                  body: `Φτάνει στη στάση "${settings.stopName}"${minutesUntil <= 2 ? ' - Ετοιμάσου!' : ''}`,
-                  icon: '/pwa-192x192.png',
-                  url: `/?stop=${settings.stopId}`,
-                  tag: `arrival-${settings.stopId}-${routeId}-${notificationInterval}`,
-                  vibrate: minutesUntil <= 1 ? [300, 100, 300, 100, 300] : minutesUntil <= 2 ? [200, 100, 200, 100, 200] : [200, 100, 200],
-                  requireInteraction: minutesUntil <= 2,
-                  badge: '/pwa-192x192.png',
-                  timestamp: arrivalTime * 1000,
+            // 3. Process Each Stop
+            await Promise.all(Array.from(stopsToCheck).map(async (stopId) => {
+                // FETCH MERGED ARRIVALS
+                const resp = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/arrivals?stopId=${stopId}`, {
+                    headers: { 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` }
                 });
 
-                const result = await sendPushNotification(
-                  sub.endpoint,
-                  sub.p256dh,
-                  sub.auth,
-                  payload,
-                  VAPID_PUBLIC_KEY,
-                  VAPID_PRIVATE_KEY
-                );
+                if (!resp.ok) return;
+                const { data: arrivals } = await resp.json();
+                if (!arrivals || arrivals.length === 0) return;
 
-                if (result.success) {
-                  console.log(`✅ Push sent: stop ${settings.stopId}, route ${routeId}, ${minutesUntil} min (interval: ${notificationInterval})`);
-                  lastNotified[intervalNotifKey] = nowSeconds;
-                  notificationsSent.push(intervalNotifKey);
-                } else {
-                  console.error('❌ Push error:', result.statusCode, result.error);
+                const relevantSubs = subMap.get(stopId) || [];
 
-                  if (result.statusCode === 410 || result.statusCode === 404) {
-                    await supabase.from('stop_notification_subscriptions').delete().eq('id', sub.id);
-                    console.log('Removed invalid subscription');
-                  }
+                for (const { sub, setting } of relevantSubs) {
+                    for (const arrival of arrivals) {
+                        const routeId = arrival.routeId;
+                        const routeName = arrival.routeShortName;
+                        const arrivalTime = arrival.bestArrivalTime;
+                        if (!arrivalTime) continue;
+
+                        const nowSec = Math.floor(Date.now() / 1000);
+                        const minsUntil = Math.round((arrivalTime - nowSec) / 60);
+
+                        // Thresholds
+                        const userThreshold = setting.beforeMinutes || 10;
+                        const thresholds = [10, 5, 2].filter(t => t <= userThreshold);
+                        if (userThreshold > 10) thresholds.unshift(userThreshold);
+                        thresholds.sort((a, b) => b - a);
+
+                        let targetAlertLevel: number | null = null;
+                        for (const t of thresholds) {
+                            if (minsUntil <= t) {
+                                targetAlertLevel = t;
+                                break;
+                            }
+                        }
+
+                        if (!targetAlertLevel) continue;
+
+                        // Check Log
+                        const { data: logs } = await supabase
+                            .from('notifications_log')
+                            .select('alert_level, sent_at')
+                            .eq('subscription_id', sub.id)
+                            .eq('route_id', routeId)
+                            .gt('sent_at', new Date(Date.now() - 20 * 60 * 1000).toISOString())
+                            .lte('alert_level', targetAlertLevel);
+
+                        if (logs && logs.length > 0) continue;
+
+                        // SEND PUSH (Manual VAPID + TTL fix)
+                        const urgency = minsUntil <= 5 ? '🚨' : '🚌';
+                        const payload = JSON.stringify({
+                            title: `${urgency} Bus ${routeName} in ${minsUntil}'`,
+                            body: `Arriving at ${setting.stopName}`,
+                            icon: '/pwa-192x192.png',
+                            data: { url: `/?stop=${stopId}` }
+                        });
+
+                        try {
+                            const result = await sendPushNotification(
+                                sub.endpoint,
+                                sub.p256dh,
+                                sub.auth,
+                                payload,
+                                VAPID_PUBLIC_KEY,
+                                VAPID_PRIVATE_KEY
+                            );
+
+                            if (result.success) {
+                                console.log(`[Worker] Push Sent (Manual): Sub ${sub.id.slice(0, 4)} Route ${routeId} @ ${minsUntil}m`);
+                                totalSent++;
+                                await supabase.from('notifications_log').insert({
+                                    subscription_id: sub.id,
+                                    stop_id: stopId,
+                                    route_id: routeId,
+                                    alert_level: targetAlertLevel
+                                });
+                            } else {
+                                console.error('Push Service Error:', result.statusCode, result.error);
+                                errors.push(`Push Error ${result.statusCode}: ${result.error}`);
+                                if (result.statusCode === 410 || result.statusCode === 404) {
+                                    await supabase.from('stop_notification_subscriptions').delete().eq('id', sub.id);
+                                }
+                            }
+
+                        } catch (err) {
+                            console.error('Push Failed:', err);
+                            errors.push(String(err));
+                        }
+                    }
                 }
-              } catch (pushError: unknown) {
-                const errorMessage = pushError instanceof Error ? pushError.message : String(pushError);
-                console.error('Push error:', errorMessage);
-              }
-            }
-          }
+            }));
+
+            const elapsed = Date.now() - START_TIME;
+            if (elapsed > MAX_DURATION_MS) break;
+            await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
         }
-      }
 
-      if (Object.keys(lastNotified).length > 0) {
-        await supabase
-          .from('stop_notification_subscriptions')
-          .update({ last_notified: lastNotified })
-          .eq('id', sub.id);
-      }
+        return new Response(JSON.stringify({ status: 'ok', iterations, totalSent, errors }), { headers: corsHeaders });
+
+    } catch (e) {
+        console.error('[Worker] Fatal:', e);
+        return new Response(JSON.stringify({ error: String(e), errors }), { status: 500, headers: corsHeaders });
     }
-
-    console.log(`Checked ${subscriptions.length} subscriptions, sent ${notificationsSent.length} notifications`);
-
-    return new Response(JSON.stringify({
-      checked: subscriptions.length,
-      sent: notificationsSent.length
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    console.error('Error in check-stop-arrivals:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error', details: String(error) }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
 });

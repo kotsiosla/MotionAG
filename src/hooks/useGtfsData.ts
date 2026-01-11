@@ -270,3 +270,31 @@ export function useStopRoutes(stopId: string | null, operatorId?: string) {
     gcTime: 24 * 60 * 60 * 1000, // 24 hours
   });
 }
+
+export interface MergedArrival {
+  stopId: string;
+  routeId: string;
+  tripId?: string;
+  vehicleId?: string;
+  gtfsArrivalTime?: number;
+  gtfsArrivalDelay?: number;
+  siriExpectedArrivalTime?: number;
+  bestArrivalTime: number;
+  confidence: 'high' | 'medium' | 'low';
+  source: 'gtfs' | 'siri' | 'merged';
+}
+
+export function useStopArrivalsQuery(stopId: string | null, operatorId?: string) {
+  return useQuery({
+    queryKey: ['stop-arrivals', stopId, operatorId],
+    queryFn: async () => {
+      if (!stopId) return [];
+      // Pass stopId as query param
+      const result = await fetchFromProxy<MergedArrival[]>(`/arrivals?stopId=${stopId}`, operatorId);
+      return result.data || [];
+    },
+    enabled: !!stopId,
+    refetchInterval: 10000, // Refresh every 10s for real-time connection
+    staleTime: 5000,
+  });
+}

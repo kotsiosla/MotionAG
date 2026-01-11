@@ -6,6 +6,19 @@ A React + TypeScript project built with Vite, shadcn-ui, and Tailwind CSS.
 
 **GitHub:** https://github.com/kotsiosla/MotionBus_AI
 
+## 📅 Latest Updates (Jan 2026)
+
+### Notification System Refactor & Fixes
+- **Refactored `check-stop-arrivals`**: Split the monolithic Edge Function into modular components:
+  - `crypto.ts`: Handles VAPID key parsing (supporting both Raw and PKCS#8 formats) and payload encryption.
+  - `push.ts`: Encapsulates push notification sending logic with improved error handling.
+  - `index.ts`: Streamlined main logic for subscription matching and polling.
+- **Reliability Improvements**:
+  - Increased Push Notification **TTL to 86400s (24 hours)** to ensure delivery even if user devices are in "Doze" mode or offline.
+  - Fixed VAPID key parsing issues to prevent "InconsistentComponents" errors.
+- **Cleanup**: Removed deprecated `check-stop-arrivalsAG` function.
+- **Verification**: Validated the entire notification pipeline (DB -> API -> Proxy -> Push), confirming accurate alert triggering based on bus proximity (threshold logic).
+
 ## 🚀 Quick Start
 
 ### Sync Changes to GitHub

@@ -784,7 +784,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       maxClusterRadius: 50,
       zoomToBoundsOnClick: false, // Handle click manually for better control
       animate: true,
-      animateAddingMarkers: true,
+      animateAddingMarkers: false, // Remove adding animation as requested
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
         const size = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
@@ -807,8 +807,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           mapRef.current.fitBounds(bounds, {
             padding: [50, 50],
             maxZoom: 18,
-            animate: true,
-            duration: 0.5
+            animate: false,
+            duration: 0
           });
         }
       }
@@ -821,8 +821,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       maxClusterRadius: 60,
       disableClusteringAtZoom: 15,
       zoomToBoundsOnClick: false, // Handle click manually
-      animate: true,
-      animateAddingMarkers: true,
+      animate: false,
+      animateAddingMarkers: false, // Remove adding animation as requested
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
         const size = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
@@ -845,8 +845,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           mapRef.current.fitBounds(bounds, {
             padding: [50, 50],
             maxZoom: 18,
-            animate: true,
-            duration: 0.5
+            animate: false,
+            duration: 0
           });
         }
       }
@@ -897,6 +897,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       mapRef.current = null;
     };
   }, []);
+
+
 
   // Handle map clicks for route planner
   useEffect(() => {
@@ -1029,7 +1031,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         `);
 
       // Pan to the highlighted stop
-      mapRef.current.setView([highlightedStop.stop_lat, highlightedStop.stop_lon], 16, { animate: true });
+      mapRef.current.setView([highlightedStop.stop_lat, highlightedStop.stop_lon], 16, { animate: false });
     }
 
     return () => {
@@ -1105,19 +1107,19 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       let effectiveBearing = vehicle.bearing;
 
       // Check if this vehicle should snap to route shape
-      const vehicleRouteShape = isFollowed && effectiveRouteShapeData?.directions?.[0]?.shape;
+      const vehicleRouteShape = isFollowed && effectiveRouteShapeData?.directions?.[0]?.shape; // Prioritize actual API data
 
-      if (vehicleRouteShape) {
-        const shape = effectiveRouteShapeData.directions[0].shape;
-        const snapped = snapToRouteLine(vehicle.latitude!, vehicle.longitude!, shape);
-        console.log('[VehicleMap] Snap to route:', { vehicleId, snapped, shapeLength: shape.length });
+      // Also use for selected route if available to ensure smooth animation for all vehicles on line
+      const routeShapeToUse = vehicleRouteShape || (isOnSelectedRoute ? routeShapeData?.directions?.[0]?.shape : null);
+
+      if (routeShapeToUse) {
+        // Try snapping
+        const snapped = snapToRouteLine(vehicle.latitude!, vehicle.longitude!, routeShapeToUse);
         if (snapped) {
           targetLat = snapped.lat;
           targetLng = snapped.lng;
           effectiveBearing = snapped.bearing;
         }
-      } else if (isFollowed) {
-        console.log('[VehicleMap] No route shape for followed vehicle:', { vehicleId, hasEffectiveShape: !!effectiveRouteShapeData, followedVehicleRouteId });
       }
 
       // Calculate bearing from previous position if not provided
@@ -1132,34 +1134,53 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         }
       }
 
-      // Store current position for next bearing calculation
-      previousPositionsRef.current.set(vehicleId, { lat: targetLat, lng: targetLng });
-
       const newLatLng = L.latLng(targetLat, targetLng);
 
       if (existingMarker) {
         // Smooth animation: update position of existing marker
-        const currentLatLng = existingMarker.getLatLng();
 
         // Only animate if position actually changed significantly
-        const latDiff = Math.abs(currentLatLng.lat - newLatLng.lat);
-        const lngDiff = Math.abs(currentLatLng.lng - newLatLng.lng);
-        const hasMovedSignificantly = latDiff > 0.000001 || lngDiff > 0.000001;
+        // const latDiff = Math.abs(currentLatLng.lat - newLatLng.lat);
+        // const lngDiff = Math.abs(currentLatLng.lng - newLatLng.lng);
+        // const hasMovedSignificantly = latDiff > 0.000001 || lngDiff > 0.000001;
 
-        if (hasMovedSignificantly) {
-          // Get the marker's DOM element and add transition for smooth movement
+        // Force update to ensure simulation works
+        if (true) {
+          // DIRECT UPDATE - NO ANIMATION as requested
+          // This ensures the bus appears exactly where it is (snapped to shape if applicable)
+          // without any sliding or interpolation.
+          existingMarker.setLatLng(newLatLng);
+
+          // Clear any transition styles if they existed
           const markerElement = existingMarker.getElement();
           if (markerElement) {
-            // Use a smooth transition - 4s linear for fluid movement
-            markerElement.style.transition = 'transform 4s linear';
-            markerElement.style.willChange = 'transform';
+            markerElement.style.transition = 'none';
           }
-          existingMarker.setLatLng(newLatLng);
         }
+
+        // Store current position
+        previousPositionsRef.current.set(vehicleId, { lat: targetLat, lng: targetLng });
 
         // Update icon if needed (for rotation/bearing changes)
         existingMarker.setIcon(createVehicleIcon(effectiveBearing, isFollowed, routeColor, isOnSelectedRoute, routeInfo?.route_short_name));
         existingMarker.setZIndexOffset(isOnSelectedRoute ? 2000 : (isFollowed ? 1000 : 0));
+
+        // CRITICAL FIX: Re-bind click handler for existing markers to ensure they have the latest logic
+        existingMarker.off('click');
+        existingMarker.on('click', () => {
+          console.log('[VehicleMap] Bus clicked (existing):', vehicleId);
+
+          if (mapRef.current) {
+            mapRef.current.closePopup();
+          }
+
+          setFollowedVehicleId(vehicleId);
+          onFollowVehicle?.(vehicleId);
+          setViewMode('street');
+          setShowRoutePlanner(false);
+          setSelectedVehicleTrip(null);
+          setInitialOriginStop(null);
+        });
 
         // Update tooltip content for hover - compact for mobile
         // Truncate long route names
@@ -1248,29 +1269,24 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
         // Click handler - opens route planner panel
         marker.on('click', () => {
-          // Check if we have enough route info to show a panel
-          const effectiveRouteId = resolveRouteIdForVehicle(vehicle) || (selectedRoute !== 'all' ? selectedRoute : null);
-          const hasRouteInfo = effectiveRouteId && effectiveRouteId !== 'all';
+          // Check if we have enough route info (optional now, we try anyway)
+          // const effectiveRouteId = resolveRouteIdForVehicle(vehicle) || (selectedRoute !== 'all' ? selectedRoute : null);
 
-          if (hasRouteInfo) {
-            // Close any existing popups only if we can show a panel
-            if (mapRef.current) {
-              mapRef.current.closePopup();
-            }
+          console.log('[VehicleMap] Bus clicked:', vehicleId);
 
-            setFollowedVehicleId(vehicleId);
-            onFollowVehicle?.(vehicleId);
-            // Match the behavior of external follow (e.g. from TripsTable): go to street mode immediately.
-            setViewMode('street');
-            // Close route planner when following a vehicle - UnifiedRoutePanel will show the route
-            setShowRoutePlanner(false);
-            setSelectedVehicleTrip(null);
-            setInitialOriginStop(null);
-          } else {
-            // Fallback: Let the popup open 
-            console.log('[VehicleMap] No route info for vehicle, keeping popup open', vehicleId);
-            marker.openPopup();
+          // Close any existing popups
+          if (mapRef.current) {
+            mapRef.current.closePopup();
           }
+
+          setFollowedVehicleId(vehicleId);
+          onFollowVehicle?.(vehicleId);
+          // Match the behavior of external follow (e.g. from TripsTable): go to street mode immediately.
+          setViewMode('street');
+          // Close route planner when following a vehicle - UnifiedRoutePanel will show the route
+          setShowRoutePlanner(false);
+          setSelectedVehicleTrip(null);
+          setInitialOriginStop(null);
         });
 
         // Bind popup content for new markers so fallback works
@@ -1353,50 +1369,118 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     return stoppedAtStops;
   }, [vehicles]);
 
+  const watchIdRef = useRef<number | null>(null);
+
+  // Cleanup watcher on unmount
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
+
+  // Update user location marker position & creation
+  useEffect(() => {
+    if (!userLocation || !mapRef.current) return;
+
+    if (!userLocationMarkerRef.current) {
+      const userIcon = L.divIcon({
+        className: 'user-location-marker',
+        html: `
+          <div class="relative">
+            <div class="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-50"></div>
+            <div class="relative w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg"></div>
+          </div>
+        `,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      });
+
+      userLocationMarkerRef.current = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+        .bindPopup('<div class="p-2 text-sm font-medium">📍 Η τοποθεσία σας</div>')
+        .addTo(mapRef.current);
+    } else {
+      userLocationMarkerRef.current.setLatLng([userLocation.lat, userLocation.lng]);
+    }
+  }, [userLocation]);
+
   // Handle user location
-  const locateUser = () => {
-    if (!mapRef.current) return;
+  // Logic to center map when location is first found after request
+  const shouldCenterOnLocationRef = useRef(false);
 
-    setIsLocating(true);
+  const locateUser = (centerMap: boolean | any = true) => {
+    // Handle event object or boolean
+    const shouldCenter = typeof centerMap === 'boolean' ? centerMap : true;
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setUserLocation({ lat: latitude, lng: longitude });
+    if (userLocation && shouldCenter) {
+      // If we already have location, just center
+      mapRef.current?.setView([userLocation.lat, userLocation.lng], 16, { animate: true });
+    }
 
-        // Create or update user location marker
-        if (userLocationMarkerRef.current) {
-          userLocationMarkerRef.current.setLatLng([latitude, longitude]);
-        } else {
-          const userIcon = L.divIcon({
-            className: 'user-location-marker',
-            html: `
-              <div class="relative">
-                <div class="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-50"></div>
-                <div class="relative w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg"></div>
-              </div>
-            `,
-            iconSize: [16, 16],
-            iconAnchor: [8, 8],
-          });
+    // Always ensure watcher is running
+    if (watchIdRef.current === null) {
+      if (shouldCenter) {
+        shouldCenterOnLocationRef.current = true;
+        setIsLocating(true);
+      }
 
-          userLocationMarkerRef.current = L.marker([latitude, longitude], { icon: userIcon })
-            .bindPopup('<div class="p-2 text-sm font-medium">📍 Η τοποθεσία σας</div>')
-            .addTo(mapRef.current!);
-        }
+      // Stop existing watch if any (safeguard)
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
 
-        // Pan to user location
-        mapRef.current?.setView([latitude, longitude], 15, { animate: true });
-        setIsLocating(false);
-      },
-      (error) => {
-        console.error('Geolocation error:', error);
-        setIsLocating(false);
-        alert('Δεν ήταν δυνατή η εύρεση της τοποθεσίας σας. Βεβαιωθείτε ότι έχετε επιτρέψει την πρόσβαση στην τοποθεσία.');
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+
+          // Update state
+          setUserLocation({ lat: latitude, lng: longitude });
+          setIsLocating(false);
+
+          // Center map if requested
+          if (shouldCenterOnLocationRef.current && mapRef.current) {
+            mapRef.current.setView([latitude, longitude], 16, { animate: true });
+            shouldCenterOnLocationRef.current = false;
+          }
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+          setIsLocating(false);
+          shouldCenterOnLocationRef.current = false;
+
+          // Only show toast if user explicitly requested location (centerMap=true) 
+          // to avoid error spam on auto-start
+          if (shouldCenter) {
+            let errorMsg = "Δεν ήταν δυνατή η εύρεση της τοποθεσίας σας.";
+            switch (error.code) {
+              case error.PERMISSION_DENIED: errorMsg = "Η πρόσβαση στην τοποθεσία απορρίφθηκε."; break;
+              case error.POSITION_UNAVAILABLE: errorMsg = "Η τοποθεσία δεν είναι διαθέσιμη."; break;
+              case error.TIMEOUT: errorMsg = "Το αιτήμα τοποθεσίας έληξε."; break;
+            }
+
+            toast({
+              title: "Σφάλμα τοποθεσίας",
+              description: errorMsg,
+              variant: "destructive",
+            });
+          }
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
   };
+
+  // Auto-start location tracking if permission is granted
+  useEffect(() => {
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+        if (result.state === 'granted') {
+          locateUser(false); // Start watching but don't center
+        }
+      });
+    }
+  }, []);
 
   // Calculate distance between two points (Haversine formula)
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -1925,7 +2009,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     if (mapRef.current && routeShapeData?.directions[0]?.shape.length) {
       const shapePoints: L.LatLngExpression[] = routeShapeData.directions[0].shape.map(p => [p.lat, p.lng]);
       const bounds = L.latLngBounds(shapePoints);
-      mapRef.current.flyToBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: true, duration: 1 });
+      mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: false });
     }
   }, [routeShapeData]);
 
@@ -1934,11 +2018,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     setViewMode('street');
     const followedVehicle = vehicles.find((v) => (v.vehicleId || v.id) === followedVehicleId);
     if (followedVehicle?.latitude && followedVehicle?.longitude && mapRef.current) {
-      mapRef.current.flyTo([followedVehicle.latitude, followedVehicle.longitude], 18, {
-        animate: true,
-        duration: 1,
-        easeLinearity: 0.25
-      });
+      // Instant pan to followed vehicle
+      mapRef.current.setView([followedVehicle.latitude, followedVehicle.longitude], 18);
     }
   }, [vehicles, followedVehicleId]);
 
@@ -1962,7 +2043,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const handleStopClick = useCallback((stopId: string) => {
     const stop = stops.find(s => s.stop_id === stopId);
     if (stop && stop.stop_lat && stop.stop_lon && mapRef.current) {
-      mapRef.current.setView([stop.stop_lat, stop.stop_lon], 17, { animate: true });
+      mapRef.current.setView([stop.stop_lat, stop.stop_lon], 17, { animate: false });
     }
   }, [stops]);
 
@@ -2076,7 +2157,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     marker.bindPopup(`<div class="p-2 text-sm font-medium">${location.name}</div>`);
     routeMarkersRef.current.push(marker);
 
-    mapRef.current.setView([location.lat, location.lng], 15, { animate: true });
+    mapRef.current.setView([location.lat, location.lng], 15, { animate: false });
   }, []);
 
   // Clear route markers when planner closes
@@ -2121,7 +2202,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         }}
         onTripStopClick={(_stopId, lat, lng) => {
           if (mapRef.current) {
-            mapRef.current.setView([lat, lng], 17, { animate: true });
+            mapRef.current.setView([lat, lng], 17, { animate: false });
           }
         }}
       />
@@ -2131,13 +2212,25 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         try {
           // Find the vehicle directly from followedVehicleId if not already found
           const vehicle = followedVehicle || (followedVehicleId && Array.isArray(vehicles) ? vehicles.find((v) => v && (v.vehicleId || v.id) === followedVehicleId) : null);
+
+          // Debug check
+          // console.log('[VehicleMap] Render Panel:', { followedVehicleId, vehicleRouteId: vehicle?.routeId, selectedRoute });
+
           const effectiveRouteId = (vehicle ? resolveRouteIdForVehicle(vehicle) : null) || selectedRoute;
 
+          // If we are following a vehicle, we REALLY want to show the panel, even if routeId is missing/weird
+          // But UnifiedRoutePanel needs a routeId.
+          // If we can't find it, fallback to 'all' but that hides the panel?
+          // Actually, if we are following a vehicle, we should use its routeId. 
 
-          // Only show panel if we have a valid routeId (not 'all' or undefined or empty string)
-          if (!effectiveRouteId || effectiveRouteId === 'all' || effectiveRouteId === '' || typeof effectiveRouteId !== 'string') {
+          if ((!effectiveRouteId || effectiveRouteId === 'all' || effectiveRouteId === '') && !vehicle) {
             return null;
           }
+
+          // If we have a vehicle but no effective route ID, try to use any identifier to render *something* vs nothing
+          // But strict check below prevents it.
+          const routeIdToUse = effectiveRouteId && effectiveRouteId !== 'all' ? effectiveRouteId : (vehicle?.routeId || 'unknown');
+          if (routeIdToUse === 'all' && !vehicle) return null; // Still hide if just 'all' and no vehicle
 
           // Get route info for this vehicle's route
           const vehicleRouteInfo = vehicle?.routeId && routeNamesMap ? routeNamesMap.get(vehicle.routeId) : null;
@@ -2145,7 +2238,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           return (
             <ErrorBoundary>
               <UnifiedRoutePanel
-                routeId={effectiveRouteId}
+                routeId={routeIdToUse}
                 routeInfo={vehicleRouteInfo || followedRouteInfo || selectedRouteInfo || undefined}
                 trips={trips}
                 vehicles={vehicles}
@@ -2187,12 +2280,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
                 }}
                 onVehicleFocus={(vehicle) => {
                   if (vehicle.latitude && vehicle.longitude && mapRef.current) {
-                    // Smooth zoom to street level
-                    mapRef.current.flyTo([vehicle.latitude, vehicle.longitude], 18, {
-                      animate: true,
-                      duration: 1.5,
-                      easeLinearity: 0.25
-                    });
+                    // Instant zoom to street level, no "space" animation
+                    mapRef.current.setView([vehicle.latitude, vehicle.longitude], 18);
                   }
                 }}
                 onSwitchToStreet={switchToStreetView}
@@ -2270,7 +2359,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           title="Αρχική θέση"
           onClick={() => {
             if (mapRef.current) {
-              mapRef.current.setView([35.0, 33.0], 9, { animate: true });
+              mapRef.current.setView([35.0, 33.0], 9, { animate: false });
             }
           }}
         >

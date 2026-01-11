@@ -16,6 +16,8 @@ export interface StopArrival {
   headsign?: string;
   distanceFromVehicle?: number;
   estimatedMinutes?: number;
+  source?: 'gtfs' | 'siri' | 'merged';
+  confidence?: 'high' | 'medium' | 'low';
 }
 
 export interface NearbyStop {
@@ -33,8 +35,8 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   const Δλ = ((lon2 - lon1) * Math.PI) / 180;
 
   const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    Math.cos(φ1) * Math.cos(φ2) *
+    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return R * c;
@@ -88,13 +90,13 @@ export function useNearbyArrivals(
 
         // Skip if the bus has already passed this stop
         const vehicle = trip.tripId ? vehicleMap.get(trip.tripId) : null;
-        if (vehicle?.currentStopSequence && stopUpdate.stopSequence && 
-            stopUpdate.stopSequence < vehicle.currentStopSequence) {
+        if (vehicle?.currentStopSequence && stopUpdate.stopSequence &&
+          stopUpdate.stopSequence < vehicle.currentStopSequence) {
           return;
         }
 
         const routeInfo = trip.routeId ? routeNamesMap.get(trip.routeId) : null;
-        
+
         // Calculate arrival time and estimated minutes
         let arrivalTime = stopUpdate.arrivalTime;
         let estimatedMinutes: number | undefined;
@@ -179,13 +181,13 @@ export function useStopArrivals(
 
       // Skip if the bus has already passed this stop
       const vehicle = trip.tripId ? vehicleMap.get(trip.tripId) : null;
-      if (vehicle?.currentStopSequence && stopUpdate.stopSequence && 
-          stopUpdate.stopSequence < vehicle.currentStopSequence) {
+      if (vehicle?.currentStopSequence && stopUpdate.stopSequence &&
+        stopUpdate.stopSequence < vehicle.currentStopSequence) {
         return;
       }
 
       const routeInfo = trip.routeId ? routeNamesMap.get(trip.routeId) : null;
-      
+
       let arrivalTime = stopUpdate.arrivalTime;
       let estimatedMinutes: number | undefined;
 

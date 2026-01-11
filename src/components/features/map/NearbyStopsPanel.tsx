@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   MapPin,
   Navigation,
@@ -24,8 +24,9 @@ import { ResizableDraggablePanel } from "@/components/common/ResizableDraggableP
 import { toast } from "@/hooks/use-toast";
 // import { supabase } from "@/integrations/supabase/client";
 import type { StaticStop, Trip, Vehicle, RouteInfo } from "@/types/gtfs";
-import { useNearbyArrivals, useStopArrivals, type StopArrival } from "@/hooks/useNearbyArrivals";
+import { useNearbyArrivals, type StopArrival } from "@/hooks/useNearbyArrivals";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
+import { useStopArrivalsQuery, type MergedArrival } from "@/hooks/useGtfsData";
 
 // Detect iOS
 const isIOS = () => {
@@ -130,13 +131,33 @@ export function NearbyStopsPanel({
   );
 
   // Get arrivals for selected stop
-  const selectedStopArrivals = useStopArrivals(
-    selectedStop?.stop_id || null,
-    stops,
-    trips,
-    vehicles,
-    routeNamesMap
-  );
+  // Get arrivals for selected stop (SERVER-SIDE)
+  const { data: serverArrivals } = useStopArrivalsQuery(selectedStop?.stop_id || null);
+
+  const selectedStopArrivals: StopArrival[] = useMemo(() => {
+    if (!serverArrivals) return [];
+
+    const now = Math.floor(Date.now() / 1000);
+
+    return serverArrivals.map((arrival: MergedArrival) => {
+      const routeInfo = routeNamesMap.get(arrival.routeId);
+      const estimatedMinutes = Math.max(0, Math.round((arrival.bestArrivalTime - now) / 60));
+
+      return {
+        tripId: arrival.tripId || `siri-${arrival.routeId}-${arrival.bestArrivalTime}`,
+        routeId: arrival.routeId,
+        routeShortName: routeInfo?.route_short_name || arrival.routeId,
+        routeLongName: routeInfo?.route_long_name,
+        routeColor: routeInfo?.route_color,
+        vehicleId: arrival.vehicleId,
+        vehicleLabel: arrival.vehicleId,
+        arrivalTime: arrival.bestArrivalTime,
+        estimatedMinutes,
+        source: arrival.source,
+        confidence: arrival.confidence,
+      };
+    });
+  }, [serverArrivals, routeNamesMap]);
 
   // Get nearest stop for highlighting
   const nearestStop = nearbyStops.length > 0 ? nearbyStops[0].stop : null;
