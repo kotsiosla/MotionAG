@@ -1,10 +1,16 @@
 import { AlertTriangle, Info, AlertCircle, Clock, ExternalLink, Bus, Ticket, Calendar, MapPin, Bell, BellOff, Trash2, MessageSquare, Send } from "lucide-react";
-
-interface AlertsListProps {
-  alerts: Alert[];
-  trips: Trip[];
-  routeNamesMap?: Map<string, RouteInfo>;
-  isLoading: boolean;
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/hooks/use-toast";
+import { useStopNotifications } from "@/hooks/useStopNotifications";
+import type { Alert, Trip, RouteInfo } from "@/types/gtfs";
+alerts: Alert[];
+trips: Trip[];
+routeNamesMap ?: Map<string, RouteInfo>;
+isLoading: boolean;
 }
 
 
