@@ -1,0 +1,16 @@
+{
+    "name": "railway-poll",
+    "version": "1.0.0",
+    "type": "module",
+    "description": "10-second polling service for MotionBus notifications",
+    "main": "poll.js",
+    "scripts": {
+        "start": "node poll.js"
+    },
+    "dependencies": {
+        "node-fetch": "^3.3.2"
+    },
+    "engines": {
+        "node": ">=18"
+    }
+}
