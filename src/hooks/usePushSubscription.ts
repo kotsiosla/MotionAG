@@ -6,7 +6,7 @@ import { setPushEndpoint } from '@/hooks/useSavedTrips';
 // VAPID public key for push notifications - must match the one in Supabase secrets
 // Prioritize environment variable, fallback to hardcoded (but warn)
 // NOTE: For iOS stability, we strictly prefer the known working key if env is missing/mismatched
-const VAPID_PUBLIC_KEY = 'BLZVfHXkytFaecTL-oWSCnIRZHVg1p9fwPaRsmA1rsPS6U4EY6G-RGvt78VFVO0lb8CQJd0SrUmfwbz_vCMbmlw';
+const VAPID_PUBLIC_KEY = 'BG5VfDXkytFaecTL-oWSCnIRZHVg1p9fwPaRsmA1rsPS6U4EY6G-RGvt78VFVO0lb8CQJd0SrUmfwbz_vCMbmlw';
 
 console.log('[usePushSubscription] Using DIRECT Verified VAPID Key:', VAPID_PUBLIC_KEY.substring(0, 10) + '...');
 
