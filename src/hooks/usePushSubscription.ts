@@ -259,10 +259,27 @@ export function usePushSubscription() {
       }
 
       // Subscribe to push with new VAPID key
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-      });
+      let subscription;
+      try {
+        console.log('Attempting subscription with Uint8Array key...');
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+      } catch (subError: any) {
+        console.warn('Subscription with Uint8Array failed, retrying with ArrayBuffer...', subError);
+        try {
+          // Retry with ArrayBuffer directly (some browsers/versions prefer this)
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY).buffer,
+          });
+          console.log('Subscription with ArrayBuffer succeeded!');
+        } catch (retryError) {
+          console.error('Retry with ArrayBuffer also failed:', retryError);
+          throw subError; // Throw the original error
+        }
+      }
 
       console.log('Push subscription:', subscription);
 
@@ -323,17 +340,17 @@ export function usePushSubscription() {
       console.error('Error details:', error?.message, error?.code, error?.name);
 
       // Determine specific error message
-      let errorMessage = 'Αποτυχία εγγραφής για ειδοποιήσεις';
+      let errorMessage = 'Αποτυχία εγγραφής: ';
       if (error?.message?.includes('permission') || error?.name === 'NotAllowedError') {
-        errorMessage = 'Πρέπει να επιτρέψετε τις ειδοποιήσεις στις ρυθμίσεις του browser';
+        errorMessage = 'Δεν δόθηκε άδεια για ειδοποιήσεις.';
       } else if (error?.code === '42501' || error?.message?.includes('RLS')) {
-        errorMessage = 'Σφάλμα βάσης δεδομένων - παρακαλώ δοκιμάστε ξανά';
-      } else if (error?.message) {
-        errorMessage = error.message;
+        errorMessage = 'Σφάλμα βάσης δεδομένων.';
+      } else {
+        errorMessage += (error?.message || 'Άγνωστο σφάλμα');
       }
 
       toast({
-        title: 'Σφάλμα',
+        title: 'Σφάλμα Εγγραφής',
         description: errorMessage,
         variant: 'destructive',
       });
