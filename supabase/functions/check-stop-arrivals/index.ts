@@ -35,157 +35,183 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    console.log('[Worker-Manual-Adaptive] Starting 55s notification loop...');
-    let iterations = 0;
     let totalSent = 0;
     const errors: string[] = [];
 
     try {
+        console.log('[Worker-Manual-Adaptive] Starting 55s notification loop...');
         // Validation check removed, we use fallbacks above
 
-        // CLEANUP: Remove logs older than 1 HOUR to prevent DB growth
-        const ONE_HOUR_MS = 60 * 60 * 1000;
-        const cleanupDate = new Date(Date.now() - ONE_HOUR_MS).toISOString();
-        const { error: cleanupError } = await supabase
-            .from('notifications_log')
-            .delete()
-            .lt('sent_at', cleanupDate);
+        // 1. Fetch Active Subscriptions
+        const { data: subs, error: subError } = await supabase
+            .from('stop_notification_subscriptions')
+            .select('*')
+            .not('stop_notifications', 'is', null);
 
-        if (cleanupError) {
-            console.error('[Worker] Cleanup Error:', cleanupError.message);
+        if (subError) throw subError;
+        if (!subs || subs.length === 0) {
+            console.log('[Worker] No active subscriptions found');
+            return new Response(JSON.stringify({ status: 'ok', totalSent: 0, message: 'No subscriptions' }), { headers: corsHeaders });
         }
+        console.log(`[Worker] Found ${subs.length} total subscriptions`);
 
-        // --- LOOP START ---
-        while (Date.now() - START_TIME < MAX_DURATION_MS) {
-            iterations++;
+        // 2. Group by StopId
+        const stopsToCheck = new Set<string>();
+        const subMap = new Map<string, any[]>();
 
-            // 1. Fetch Active Subscriptions
-            const { data: subs, error: subError } = await supabase
-                .from('stop_notification_subscriptions')
-                .select('*')
-                .not('stop_notifications', 'is', null);
+        for (const sub of subs) {
+            console.log(`[Worker] Processing sub ${sub.id.slice(0, 8)}`);
+            const settings = sub.stop_notifications;
+            console.log(`[Worker]   - stop_notifications type: ${typeof settings}, isArray: ${Array.isArray(settings)}`);
 
-            if (subError) throw subError;
-            if (!subs || subs.length === 0) {
-                await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+            if (!Array.isArray(settings)) {
+                console.log(`[Worker]   - SKIPPING: not an array`);
                 continue;
             }
 
-            // 2. Group by StopId
-            const stopsToCheck = new Set<string>();
-            const subMap = new Map<string, any[]>();
+            console.log(`[Worker]   - Array length: ${settings.length}`);
+            for (const setting of settings) {
+                console.log(`[Worker]     - Checking setting for stop ${setting.stopId} (enabled: ${setting.enabled}, push: ${setting.push})`);
+                if (setting.enabled && setting.push) {
+                    console.log(`[Worker]       - ADDING stop ${setting.stopId} to check list`);
+                    stopsToCheck.add(setting.stopId);
+                    if (!subMap.has(setting.stopId)) subMap.set(setting.stopId, []);
+                    subMap.get(setting.stopId)!.push({ sub, setting });
+                }
+            }
+        }
 
-            for (const sub of subs) {
-                const settings = sub.stop_notifications || [];
-                for (const setting of settings) {
-                    if (setting.enabled && setting.push) {
-                        stopsToCheck.add(setting.stopId);
-                        if (!subMap.has(setting.stopId)) subMap.set(setting.stopId, []);
-                        subMap.get(setting.stopId)!.push({ sub, setting });
+        console.log(`[Worker] total stops to check: ${stopsToCheck.size}`);
+
+        // 3. Process Each Stop
+        await Promise.all(Array.from(stopsToCheck).map(async (stopId) => {
+            console.log(`[Worker] STOP ${stopId}: Entering processing map`);
+            // FETCH MERGED ARRIVALS
+            console.log(`[Worker] STOP ${stopId}: Fetching arrivals from proxy...`);
+            const arrivalsUrl = `${SUPABASE_URL}/functions/v1/gtfs-proxy/arrivals?stopId=${stopId}`;
+            console.log(`[Worker] STOP ${stopId}: URL: ${arrivalsUrl}`);
+
+            const resp = await fetch(arrivalsUrl, {
+                headers: { 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` }
+            });
+
+            if (!resp.ok) {
+                console.log(`[Worker] STOP ${stopId}: Failed to fetch arrivals: ${resp.status}`);
+                return;
+            }
+            const { data: arrivals } = await resp.json();
+            console.log(`[Worker] STOP ${stopId}: Found ${arrivals?.length || 0} arrivals`);
+            if (!arrivals || arrivals.length === 0) return;
+
+            const relevantSubs = subMap.get(stopId) || [];
+            console.log(`[Worker] STOP ${stopId}: Found ${relevantSubs.length} relevant subs`);
+
+            for (const { sub, setting } of relevantSubs) {
+                console.log(`[Worker] STOP ${stopId}: Processing sub ${sub.id.slice(0, 8)}`);
+                for (const arrival of arrivals) {
+                    const routeId = arrival.routeId;
+                    const routeName = arrival.routeShortName;
+                    const arrivalTime = arrival.bestArrivalTime;
+                    console.log(`[Worker] STOP ${stopId}:   Arrival ${routeName} (route ${routeId}) @ ${arrivalTime}`);
+
+                    if (!arrivalTime) {
+                        console.log(`[Worker] STOP ${stopId}:     SKIPPING: No arrivalTime`);
+                        continue;
+                    }
+
+                    const nowSec = Math.floor(Date.now() / 1000);
+                    const minsUntil = Math.round((arrivalTime - nowSec) / 60);
+                    console.log(`[Worker] STOP ${stopId}:     Minutes until: ${minsUntil}`);
+
+                    // Thresholds
+                    const userThreshold = setting.beforeMinutes || 10;
+                    console.log(`[Worker] STOP ${stopId}:     User threshold: ${userThreshold}`);
+                    const thresholds = [10, 5, 2].filter(t => t <= userThreshold);
+                    if (userThreshold > 10) thresholds.unshift(userThreshold);
+                    thresholds.sort((a, b) => b - a);
+
+                    let targetAlertLevel: number | null = null;
+                    for (const t of thresholds) {
+                        if (minsUntil <= t) {
+                            targetAlertLevel = t;
+                            break;
+                        }
+                    }
+
+                    if (!targetAlertLevel) {
+                        // console.log(`[Worker] STOP ${stopId}:     Arrival in ${minsUntil}m doesn't match any threshold`);
+                        continue;
+                    }
+                    console.log(`[Worker] STOP ${stopId}:     MATCH! Arrival ${minsUntil}m <= Threshold ${targetAlertLevel}`);
+
+                    // Check Log
+                    const { data: logEntries, error: logError } = await supabase
+                        .from('notifications_log')
+                        .select('id')
+                        .eq('subscription_id', sub.id)
+                        .eq('stop_id', stopId)
+                        .eq('route_id', routeId)
+                        .eq('alert_level', targetAlertLevel)
+                        .limit(1);
+
+                    if (logError) {
+                        console.error(`[Worker] STOP ${stopId}:     Error checking logs: ${logError.message}`);
+                    }
+
+                    if (logEntries && logEntries.length > 0) {
+                        console.log(`[Worker] STOP ${stopId}:     Already notified for level ${targetAlertLevel}`);
+                        continue;
+                    }
+
+                    console.log(`[Worker] STOP ${stopId}:     NOT previously notified for level ${targetAlertLevel}. Proceeding to send...`);
+
+                    // SEND PUSH (Manual VAPID + TTL fix)
+                    const urgency = minsUntil <= 5 ? '🚨' : '🚌';
+                    const payload = JSON.stringify({
+                        title: `${urgency} Bus ${routeName} in ${minsUntil}'`,
+                        body: `Arriving at ${setting.stopName}`,
+                        icon: 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png',
+                        data: { url: `https://kotsiosla.github.io/MotionAG/?stop=${stopId}` }
+                    });
+
+                    try {
+                        const result = await sendPushNotification(
+                            sub.endpoint,
+                            sub.p256dh,
+                            sub.auth,
+                            payload,
+                            VAPID_PUBLIC_KEY!,
+                            VAPID_PRIVATE_KEY!
+                        );
+
+                        if (result.success) {
+                            console.log(`[Worker] Push Sent (Manual): Sub ${sub.id.slice(0, 4)} Route ${routeId} @ ${minsUntil}m`);
+                            totalSent++;
+                            const { error: insError } = await supabase.from('notifications_log').insert({
+                                subscription_id: sub.id,
+                                stop_id: stopId,
+                                route_id: routeId,
+                                alert_level: targetAlertLevel,
+                                metadata: { trip_id: arrival.tripId || 'unknown' }
+                            });
+                            if (insError) console.error(`[Worker] Error logging notification: ${insError.message}`);
+                        } else {
+                            console.error('Push Service Error:', result.statusCode, result.error);
+                            errors.push(`Push Error ${result.statusCode}: ${result.error}`);
+                            if (result.statusCode === 410 || result.statusCode === 404) {
+                                await supabase.from('stop_notification_subscriptions').delete().eq('id', sub.id);
+                            }
+                        }
+
+                    } catch (err) {
+                        console.error('Push Failed:', err);
+                        errors.push(String(err));
                     }
                 }
             }
+        }));
 
-            // 3. Process Each Stop
-            await Promise.all(Array.from(stopsToCheck).map(async (stopId) => {
-                // FETCH MERGED ARRIVALS
-                const resp = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/arrivals?stopId=${stopId}`, {
-                    headers: { 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` }
-                });
-
-                if (!resp.ok) return;
-                const { data: arrivals } = await resp.json();
-                if (!arrivals || arrivals.length === 0) return;
-
-                const relevantSubs = subMap.get(stopId) || [];
-
-                for (const { sub, setting } of relevantSubs) {
-                    for (const arrival of arrivals) {
-                        const routeId = arrival.routeId;
-                        const routeName = arrival.routeShortName;
-                        const arrivalTime = arrival.bestArrivalTime;
-                        if (!arrivalTime) continue;
-
-                        const nowSec = Math.floor(Date.now() / 1000);
-                        const minsUntil = Math.round((arrivalTime - nowSec) / 60);
-
-                        // Thresholds
-                        const userThreshold = setting.beforeMinutes || 10;
-                        const thresholds = [10, 5, 2].filter(t => t <= userThreshold);
-                        if (userThreshold > 10) thresholds.unshift(userThreshold);
-                        thresholds.sort((a, b) => b - a);
-
-                        let targetAlertLevel: number | null = null;
-                        for (const t of thresholds) {
-                            if (minsUntil <= t) {
-                                targetAlertLevel = t;
-                                break;
-                            }
-                        }
-
-                        if (!targetAlertLevel) continue;
-
-                        // Check Log
-                        const { data: logs } = await supabase
-                            .from('notifications_log')
-                            .select('alert_level, sent_at')
-                            .eq('subscription_id', sub.id)
-                            .eq('route_id', routeId)
-                            .gt('sent_at', new Date(Date.now() - 20 * 60 * 1000).toISOString())
-                            .lte('alert_level', targetAlertLevel);
-
-                        if (logs && logs.length > 0) continue;
-
-                        // SEND PUSH (Manual VAPID + TTL fix)
-                        const urgency = minsUntil <= 5 ? '🚨' : '🚌';
-                        const payload = JSON.stringify({
-                            title: `${urgency} Bus ${routeName} in ${minsUntil}'`,
-                            body: `Arriving at ${setting.stopName}`,
-                            icon: 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png',
-                            data: { url: `https://kotsiosla.github.io/MotionAG/?stop=${stopId}` }
-                        });
-
-                        try {
-                            const result = await sendPushNotification(
-                                sub.endpoint,
-                                sub.p256dh,
-                                sub.auth,
-                                payload,
-                                VAPID_PUBLIC_KEY,
-                                VAPID_PRIVATE_KEY
-                            );
-
-                            if (result.success) {
-                                console.log(`[Worker] Push Sent (Manual): Sub ${sub.id.slice(0, 4)} Route ${routeId} @ ${minsUntil}m`);
-                                totalSent++;
-                                await supabase.from('notifications_log').insert({
-                                    subscription_id: sub.id,
-                                    stop_id: stopId,
-                                    route_id: routeId,
-                                    alert_level: targetAlertLevel
-                                });
-                            } else {
-                                console.error('Push Service Error:', result.statusCode, result.error);
-                                errors.push(`Push Error ${result.statusCode}: ${result.error}`);
-                                if (result.statusCode === 410 || result.statusCode === 404) {
-                                    await supabase.from('stop_notification_subscriptions').delete().eq('id', sub.id);
-                                }
-                            }
-
-                        } catch (err) {
-                            console.error('Push Failed:', err);
-                            errors.push(String(err));
-                        }
-                    }
-                }
-            }));
-
-            const elapsed = Date.now() - START_TIME;
-            if (elapsed > MAX_DURATION_MS) break;
-            await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
-        }
-
-        return new Response(JSON.stringify({ status: 'ok', iterations, totalSent, errors }), { headers: corsHeaders });
+        return new Response(JSON.stringify({ status: 'ok', totalSent, errors }), { headers: corsHeaders });
 
     } catch (e) {
         console.error('[Worker] Fatal:', e);

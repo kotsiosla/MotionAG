@@ -1,0 +1,18 @@
+[
+    {
+        "id": "8b07b295-f0c4-47c1-aa44-d3888fca6f97",
+        "endpoint": "https://web.push.apple.com/QDMM8A88a2dAG_KhKDqS2frqcLzNBclG",
+        "p256dh": "BMQ+g56OrGqv/BgEwJETsBnw/jDRgI4Ra9/remI=",
+        "auth": "dhPS1QvCuUFfVS2SG8J5qQ==",
+        "stop_notifications": [
+            {
+                "stopId": "2875",
+                "stopName": "Test Stop 2875",
+                "vibration": true,
+                "beforeMinutes": 60,
+                "enabled": true,
+                "push": true
+            }
+        ]
+    }
+]

@@ -1,0 +1,2 @@
+﻿[{"stop_notifications":[]}, 
+ {"stop_notifications":[{"push": true, "sound": true, "voice": false, "stopId": "2793", "enabled": true, "stopName": "Test Stop (Leof. Arch. Makariou III)", "vibration": true, "beforeMinutes": 60}]}]

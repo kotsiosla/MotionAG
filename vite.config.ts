@@ -19,8 +19,8 @@ export default defineConfig(({ mode }) => {
       mode === "development" && componentTagger(),
       VitePWA({
         registerType: "autoUpdate",
-        strategies: 'injectManifest',
-        injectManifest: { swSrc: 'src/sw.js' },
+        // strategies: 'injectManifest', // BROKEN BUILD due to rollup/sw issues
+        // injectManifest: { swSrc: 'src/sw.js' },
         workbox: {
           importScripts: ['push-worker.js'],
           globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
