@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MotionAG Push Subscription</title>
+</head>
+
+<body>
+    <h1>Creating Push Subscription…</h1>
+    <pre id="log"></pre>
+    <script>
+        const logEl = document.getElementById('log');
+        function log(msg) { console.log(msg); logEl.textContent += msg + '\n'; }
+        const VAPID_PUBLIC_KEY = 'BMJiK9p5Az8RiAE7ymzLtNrSkzOV4hNGmIES8swYJb5hatqImuUsmGJTO5Ql1cldnbFaMfMwAhFthpeP3Trp8jg';
+        const SERVICE_ROLE_KEY = 'sb_secret_aF18WmQ0BRDKhIYwj_-b9w_AEu4V2R0';
+        const SUPABASE_HOST = 'jftthfniwfarxyisszjh.supabase.co';
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+        async function createSubscription() {
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') { log('❌ Notification permission not granted'); return; }
+                if (!('serviceWorker' in navigator)) { log('❌ Service Worker not supported'); return; }
+                const regs = await navigator.serviceWorker.getRegistrations();
+                if (regs.length === 0) { log('❌ No Service Worker registration – ensure the MotionAG PWA is installed and opened'); return; }
+                const sw = regs[0];
+                const existing = await sw.pushManager.getSubscription();
+                if (existing) await existing.unsubscribe();
+                const sub = await sw.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+                });
+                const p256dh = btoa(String.fromCharCode.apply(null, new Uint8Array(sub.getKey('p256dh'))));
+                const auth = btoa(String.fromCharCode.apply(null, new Uint8Array(sub.getKey('auth'))));
+                const payload = {
+                    endpoint: sub.endpoint,
+                    p256dh,
+                    auth,
+                    route_ids: []
+                };
+                const resp = await fetch(`https://${SUPABASE_HOST}/rest/v1/push_subscriptions`, {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+                        apikey: SERVICE_ROLE_KEY,
+                        'Content-Type': 'application/json',
+                        Prefer: 'return=representation',
+                    },
+                    body: JSON.stringify(payload),
+                });
+                const data = await resp.json();
+                if (data && data[0] && data[0].id) {
+                    alert('✅ Subscription saved! ID: ' + data[0].id);
+                    log('✅ Subscription saved! ID: ' + data[0].id);
+                } else {
+                    alert('❌ Unexpected response from Supabase');
+                    log('❌ Unexpected response: ' + JSON.stringify(data));
+                }
+            } catch (e) {
+                alert('❌ Error: ' + e);
+                log('❌ Error: ' + e);
+            }
+        }
+        // Run on load
+        createSubscription();
+    </script>
+</body>
+
+</html>
