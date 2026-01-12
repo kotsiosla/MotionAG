@@ -18,8 +18,8 @@ serve(async (req) => {
     let VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
 
     // Hardcoded fallback keys (matching frontend)
-    const FALLBACK_VAPID_PUBLIC_KEY = 'BKfqwsl5WgvSdaNt8l1-BexhizH-ZgXHUCWr6aZaNEcd9smutBFmvoCmmsyoMdUtfNkwxNE21YPR3pRbVQ2M7qCs';
-    const FALLBACK_VAPID_PRIVATE_KEY = 'RTFWkanVSovUAH91Io_FYJUOyx30xdo4M60vGm3RHL4';
+    const FALLBACK_VAPID_PUBLIC_KEY = 'BG5VfDXkytFaecTL-oWSCnIRZHVg1p9fwPaRsmA1rsPS6U4EY6G-RGvt78VFVO0lb8CQJd0SrUmfwbz_vCMbmlw';
+    const FALLBACK_VAPID_PRIVATE_KEY = 'ynT-wYr9bdzGYOVDHiqIEbvXua5WynRuS9vNAXg62pk';
 
     // Auto-fix/Fallback Logic
     if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY || VAPID_PUBLIC_KEY.includes('+') || VAPID_PUBLIC_KEY.endsWith('=')) {

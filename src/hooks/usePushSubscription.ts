@@ -6,12 +6,12 @@ import { setPushEndpoint } from '@/hooks/useSavedTrips';
 // VAPID public key for push notifications - must match the one in Supabase secrets
 // Prioritize environment variable, fallback to hardcoded (but warn)
 // NOTE: For iOS stability, we strictly prefer the known working key if env is missing/mismatched
-const VAPID_PUBLIC_KEY = 'BKfqwsl5WgvSdaNt8l1-BexhizH-ZgXHUCWr6aZaNEcd9smutBFmvoCmmsyoMdUtfNkwxNE21YPR3pRbVQ2M7qCs';
+const VAPID_PUBLIC_KEY = 'BG5VfDXkytFaecTL-oWSCnIRZHVg1p9fwPaRsmA1rsPS6U4EY6G-RGvt78VFVO0lb8CQJd0SrUmfwbz_vCMbmlw';
 
-console.log('[usePushSubscription] Using HARDCODED Reliable VAPID Key:', VAPID_PUBLIC_KEY.substring(0, 10) + '...');
+console.log('[usePushSubscription] Using DIRECT Verified VAPID Key:', VAPID_PUBLIC_KEY.substring(0, 10) + '...');
 
 
-function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
@@ -19,7 +19,7 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   for (let i = 0; i < rawData.length; ++i) {
     outputArray[i] = rawData.charCodeAt(i);
   }
-  return outputArray.buffer as ArrayBuffer;
+  return outputArray;
 }
 
 // Helper to detect iOS and check version
