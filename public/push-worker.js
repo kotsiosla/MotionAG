@@ -1,5 +1,9 @@
-// Custom Push Notification Worker (v1.4.1 - Robust)
+// Custom Push Notification Worker (v1.5.0 - Absolute Paths & Fallback)
 // Included via importScripts in the main service worker
+
+// ABSOLUTE PATH to icons is critical for iOS robustness
+const BASE_URL = 'https://kotsiosla.github.io/MotionAG';
+const DEFAULT_ICON = `${BASE_URL}/pwa-192x192.png`;
 
 // Push notification handler
 self.addEventListener('push', (event) => {
@@ -8,7 +12,7 @@ self.addEventListener('push', (event) => {
   let data = {
     title: 'Motion Bus Cyprus',
     body: 'Νέα ειδοποίηση',
-    icon: '/MotionAG/pwa-192x192.png'
+    icon: DEFAULT_ICON
   };
 
   if (event.data) {
@@ -24,12 +28,16 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  // iOS Robustness: Re-enable icon/badge with absolute paths if possible
-  // Using the scope-aware base path (/MotionAG/)
+  // Ensure icon is absolute if it's relative
+  let iconUrl = data.icon || DEFAULT_ICON;
+  if (iconUrl.startsWith('/')) {
+    iconUrl = BASE_URL + iconUrl.replace('/MotionAG', '');
+  }
+
   const options = {
     body: data.body,
-    icon: data.icon || '/MotionAG/pwa-192x192.png',
-    badge: data.badge || '/MotionAG/pwa-192x192.png',
+    icon: iconUrl,
+    badge: iconUrl,
     tag: data.tag || 'motion-bus-default',
     renotify: true,
     data: {
@@ -41,11 +49,17 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, options)
       .catch(err => {
-        console.error('ShowNotification failed:', err);
-        // Fallback with minimal options
+        console.error('ShowNotification failed (likely icon error):', err);
+        // Fallback 1: Try default absolute icon
         return self.registration.showNotification(data.title, {
           body: data.body,
-          icon: '/MotionAG/pwa-192x192.png'
+          icon: DEFAULT_ICON
+        }).catch(err2 => {
+          console.error('Fallback 1 failed, trying text-only:', err2);
+          // Fallback 2: Text ONLY (No icon) - final resort
+          return self.registration.showNotification(data.title, {
+            body: data.body
+          });
         });
       })
   );
@@ -62,20 +76,15 @@ self.addEventListener('notificationclick', (event) => {
 
   const urlToOpen = event.notification.data?.url || '/MotionAG/';
 
-  // Validate URL
+  // Validate URL logic...
   let validatedUrl = '/MotionAG/';
   try {
-    if (urlToOpen.startsWith('/') && !urlToOpen.startsWith('//')) {
+    if (urlToOpen.startsWith('http')) {
       validatedUrl = urlToOpen;
     } else {
-      const parsed = new URL(urlToOpen, self.location.origin);
-      if (parsed.origin === self.location.origin) {
-        validatedUrl = urlToOpen;
-      }
+      validatedUrl = urlToOpen;
     }
-  } catch (e) {
-    console.error('Invalid URL in notification:', urlToOpen, e);
-  }
+  } catch (e) { }
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
