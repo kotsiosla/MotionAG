@@ -7,10 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import type { Alert, Trip, RouteInfo } from "@/types/gtfs";
-alerts: Alert[];
-trips: Trip[];
-routeNamesMap ?: Map<string, RouteInfo>;
-isLoading: boolean;
+
+interface AlertsListProps {
+  alerts: Alert[];
+  trips: Trip[];
+  routeNamesMap?: Map<string, RouteInfo>;
+  isLoading: boolean;
 }
 
 
