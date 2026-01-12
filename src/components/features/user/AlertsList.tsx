@@ -1,24 +1,4 @@
-import { useState, useEffect } from "react";
 import { AlertTriangle, Info, AlertCircle, Clock, ExternalLink, Bus, Ticket, Calendar, MapPin, Bell, BellOff, Trash2, MessageSquare, Send } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "@/hooks/use-toast";
-import { useStopNotifications } from "@/hooks/useStopNotifications";
-import type { Alert, Trip, RouteInfo } from "@/types/gtfs";
-
-interface StopNotification {
-  stopId: string;
-  stopName: string;
-  enabled: boolean;
-  sound: boolean;
-  vibration: boolean;
-  voice: boolean;
-  push: boolean;
-  beforeMinutes: number;
-}
 
 interface AlertsListProps {
   alerts: Alert[];
@@ -491,76 +471,13 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               Για περισσότερες πληροφορίες επικοινωνήστε με τον φορέα μεταφορών
             </p>
             <div className="text-[10px] text-gray-300 font-mono text-center opacity-50 pb-safe">
-              v1.4.1 (MotionAG) - Robust Mode
+              v1.5.0 (MotionAG)
             </div>
           </div>
         </TabsContent>
       </Tabs>
 
-      <div className="p-4 space-y-2 pb-safe">
-        <button
-          onClick={async () => {
-            const permission = Notification.permission;
-            if (permission !== 'granted') {
-              alert('Notification permission: ' + permission + '\nΠρέπει να επιτρέψετε τις ειδοποιήσεις στις ρυθμίσεις!');
-              return;
-            }
 
-            try {
-              const reg = await navigator.serviceWorker.ready;
-              await reg.showNotification('🎉 Ειδοποίηση Δοκιμής', {
-                body: 'Αυτό είναι ένα τεστ για v1.4.0!',
-                icon: 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png',
-                badge: 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png',
-                renotify: true,
-                tag: 'test-' + Date.now()
-              });
-              alert('📤 Το αίτημα στάλθηκε στο σύστημα!');
-            } catch (e) {
-              alert('❌ Error: ' + e);
-            }
-          }}
-          className="w-full bg-blue-600 text-white rounded-lg py-3 font-medium active:scale-95 transition-transform"
-        >
-          🔔 ΔΟΚΙΜΑΣΤΙΚΗ ΕΙΔΟΠΟΙΗΣΗ (v1.4.0)
-        </button>
-
-        <button
-          onClick={async () => {
-            if (confirm('Θέλεις να κάνεις "Nuclear Reset"; Αυτό θα διαγράψει όλες τις ειδοποιήσεις και θα κάνει refresh.')) {
-              try {
-                // Clear DB if possible
-                const registrations = await navigator.serviceWorker.getRegistrations();
-                for (const reg of registrations) {
-                  const sub = await reg.pushManager.getSubscription();
-                  if (sub) await sub.unsubscribe();
-                  await reg.unregister();
-                }
-
-                // Clear local state
-                localStorage.removeItem('push_subscribed_routes');
-                localStorage.removeItem('push_subscription_routes');
-
-                // alert('🧼 Καθαρίστηκε! Κάνω refresh...'); // REMOVED BLOCKING ALERT
-                console.log('Reset complete, reloading... TS2:' + Date.now());
-                window.location.href = window.location.href;
-                window.location.reload();
-              } catch (e) {
-                console.error('Reset error:', e);
-                // Force reload anyway
-                window.location.href = window.location.href;
-              }
-            }
-          }}
-          className="w-full bg-red-600/20 text-red-500 border border-red-500/30 rounded-lg py-3 text-sm active:scale-95 transition-transform"
-        >
-          ☢️ NUCLEAR RESET (Αν δεν δουλεύει τίποτα)
-        </button>
-
-        <p className="text-[10px] text-center text-muted-foreground mt-2 px-4">
-          v1.4.0 χρησιμοποιεί Absolute URLs και renotify logic για εγγυημένη εμφάνιση (αν επιτρέπεται από το OS).
-        </p>
-      </div>
     </div >
   );
 }
