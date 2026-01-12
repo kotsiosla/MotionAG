@@ -258,8 +258,8 @@ serve(async (req) => {
     let VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
 
     // Hardcoded fallback keys (correct format)
-    const FALLBACK_VAPID_PUBLIC_KEY = 'BMJiK9p5Az8RiAE7ymzLtNrSkzOV4hNGmIES8swYJb5hatqImuUsmGJTO5Ql1cldnbFaMfMwAhFthpeP3Trp8jg';
-    const FALLBACK_VAPID_PRIVATE_KEY = 'oUzNxmXbce-bOcyyzeCXRjUdaYx1V1ZevAIP5Gxdmso';
+    const FALLBACK_VAPID_PUBLIC_KEY = 'BI8fqvzilk9dOm-qzC13UJzDRE9ozlgKqkNcOmHkRHFZ_j8UlCNhRuc_ED2JzTF7leQErAHNGizfRCCLtNz0aDE';
+    const FALLBACK_VAPID_PRIVATE_KEY = 'UnuF9N7n9-A0qIdXoCFXKtRfcTw3CBVF19UZfilLP-c';
 
     console.log(`[test-push:${requestId}] Environment variables read - VAPID_PUBLIC_KEY exists: ${!!VAPID_PUBLIC_KEY}, VAPID_PRIVATE_KEY exists: ${!!VAPID_PRIVATE_KEY}`);
 
