@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: "autoUpdate",
         strategies: 'injectManifest',
+        injectManifest: { swSrc: 'src/sw.js' },
         workbox: {
           importScripts: ['push-worker.js'],
           globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
