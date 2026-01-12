@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
       mode === "development" && componentTagger(),
       VitePWA({
         registerType: "autoUpdate",
-        strategies: 'generateSW',
+        strategies: 'injectManifest',
         workbox: {
           importScripts: ['push-worker.js'],
           globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
