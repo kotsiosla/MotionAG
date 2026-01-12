@@ -13,8 +13,21 @@ export async function sendPushNotification(
     try {
         const endpointUrl = new URL(endpoint);
         const aud = `${endpointUrl.protocol}//${endpointUrl.hostname}`;
-        const jwt = await createVapidJwt(aud, fromEmail, vapidPrivateKey);
-        const { ciphertext, salt, localPublicKey } = await encryptPayload(payload, p256dh, auth);
+
+        console.log(`[Push] Sending to ${endpoint.slice(0, 30)}...`);
+        console.log(`[Push] Payload length: ${payload.length}`);
+
+        let jwt;
+        try {
+            jwt = await createVapidJwt(aud, fromEmail, vapidPublicKey, vapidPrivateKey);
+            console.log('[Push] JWT created');
+        } catch (e) { throw new Error(`CreateVapidJWT Failed: ${e}`); }
+
+        let ciphertext, salt, localPublicKey;
+        try {
+            ({ ciphertext, salt, localPublicKey } = await encryptPayload(payload, p256dh, auth));
+            console.log('[Push] Payload encrypted');
+        } catch (e) { throw new Error(`EncryptPayload Failed: ${e}`); }
 
         const body = new Uint8Array([...salt, 0, 0, 16, 0, 65, ...localPublicKey, ...ciphertext]);
 
@@ -37,6 +50,6 @@ export async function sendPushNotification(
             return { success: false, statusCode: pushResp.status, error: txt };
         }
     } catch (err) {
-        return { success: false, error: String(err) };
+        return { success: false, error: `TopLevel: ${String(err)}` };
     }
 }
