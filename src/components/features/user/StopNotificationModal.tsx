@@ -98,13 +98,17 @@ export function StopNotificationModal({
       const permission = await Notification.requestPermission();
       console.log('[StopNotificationModal] Notification permission:', permission);
 
-      // LOG STEP 1 - Use valid required columns
-      await (supabase as any).from('notifications_log').insert({
-        stop_id: stopId,
-        route_id: 'DIAGNOSTIC',
-        alert_level: 0,
-        metadata: { step: 'PERMISSION_RESULT', permission, platform: 'iOS' }
-      });
+      // LOG to notifications_log without foreign key constraints
+      try {
+        await (supabase as any).from('notifications_log').insert({
+          stop_id: stopId || 'UNKNOWN',
+          route_id: 'DIAGNOSTIC_V2',
+          alert_level: 0,
+          metadata: { step: 'PERMISSION_RESULT', permission, platform: 'Web', timestamp: new Date().toISOString() }
+        });
+      } catch (e) {
+        console.error('Logging failed:', e);
+      }
 
       if (permission !== 'granted') {
         toast({
@@ -123,22 +127,19 @@ export function StopNotificationModal({
           // Wait for service worker to be ready
           registration = await navigator.serviceWorker.ready;
           console.log('[StopNotificationModal] Service worker ready:', registration.scope);
-
-          await (supabase as any).from('notifications_log').insert({
-            stop_id: stopId,
-            route_id: 'DIAGNOSTIC',
-            alert_level: 0,
-            metadata: { step: 'SW_READY', scope: registration.scope }
-          });
         }
       } catch (swError) {
         console.error('[StopNotificationModal] Service worker failed:', swError);
-        await (supabase as any).from('notifications_log').insert({
-          stop_id: stopId,
-          route_id: 'DIAGNOSTIC',
-          alert_level: 0,
-          metadata: { step: 'SW_FAILED', error: String(swError) }
-        });
+        try {
+          await (supabase as any).from('notifications_log').insert({
+            stop_id: stopId || 'UNKNOWN',
+            route_id: 'DIAGNOSTIC_V2',
+            alert_level: 0,
+            metadata: { step: 'SW_FAILED', error: String(swError), timestamp: new Date().toISOString() }
+          });
+        } catch (e) {
+          console.error('Logging failed:', e);
+        }
       }
 
       // If no active service worker, use client-side only (like iOS)
@@ -183,24 +184,32 @@ export function StopNotificationModal({
           const vapidKeyArray = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
           subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: vapidKeyArray.buffer as ArrayBuffer,
+            applicationServerKey: vapidKeyArray as any, // Use Uint8Array directly for iOS
           });
 
-          await (supabase as any).from('notifications_log').insert({
-            stop_id: stopId,
-            route_id: 'DIAGNOSTIC',
-            alert_level: 0,
-            metadata: { step: 'SUB_CREATED', endpoint: subscription.endpoint }
-          });
+          try {
+            await (supabase as any).from('notifications_log').insert({
+              stop_id: stopId || 'UNKNOWN',
+              route_id: 'DIAGNOSTIC_V2',
+              alert_level: 0,
+              metadata: { step: 'SUB_CREATED', endpoint: subscription.endpoint, timestamp: new Date().toISOString() }
+            });
+          } catch (e) {
+            console.error('Logging failed:', e);
+          }
           console.log('[StopNotificationModal] ✅ Push subscription created');
         } catch (subError) {
           console.error('[StopNotificationModal] ❌ Push subscription failed:', subError);
-          await (supabase as any).from('notifications_log').insert({
-            stop_id: stopId,
-            route_id: 'DIAGNOSTIC',
-            alert_level: 0,
-            metadata: { step: 'SUB_FAILED', error: String(subError) }
-          });
+          try {
+            await (supabase as any).from('notifications_log').insert({
+              stop_id: stopId || 'UNKNOWN',
+              route_id: 'DIAGNOSTIC_V2',
+              alert_level: 0,
+              metadata: { step: 'SUB_FAILED', error: String(subError), timestamp: new Date().toISOString() }
+            });
+          } catch (e) {
+            console.error('Logging failed:', e);
+          }
           // Fallback to client-side only
           const settings: StopNotificationSettings = {
             stopId,
