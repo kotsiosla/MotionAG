@@ -1,0 +1,30 @@
+name: Push Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      description:
+        description: 'Run a test push notification'
+        required: false
+
+jobs:
+  test-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          repository: kotsiosla/MotionAG
+          path: repo
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: |
+          cd repo
+          npm ci
+      - name: Run test push script
+        run: |
+          cd repo
+          node local_worker_debug.cjs

@@ -5,61 +5,48 @@ const BASE_URL = 'https://kotsiosla.github.io/MotionAG';
 const DEFAULT_ICON = `${BASE_URL}/pwa-192x192.png`;
 
 // Push notification handler
+// Push notification handler
 self.addEventListener('push', (event) => {
     console.log('Push event received');
 
-    let data = {
-        title: 'Motion Bus Cyprus',
-        body: 'Νέα ειδοποίηση',
-        icon: DEFAULT_ICON
-    };
-
+    let data = {};
     if (event.data) {
         try {
-            const json = event.data.json();
-            data = { ...data, ...json };
+            data = event.data.json();
             console.log('Push data parsed:', data);
         } catch (e) {
             console.error('Error parsing push data:', e);
-            try {
-                data.body = event.data.text();
-            } catch (e2) { }
+            return;
         }
     }
 
-    // Ensure icon is absolute if it's relative
-    let iconUrl = data.icon || DEFAULT_ICON;
-    if (iconUrl.startsWith('/')) {
-        iconUrl = BASE_URL + iconUrl.replace('/MotionAG', '');
+    // iOS expects a `notification` wrapper
+    if (!data.notification) {
+        console.warn("Push payload missing `notification` field – ignored (or legacy payload)");
+        // Fallback for flat payload if needed, but primarily targeting nested
+        return;
     }
 
-    const options = {
-        body: data.body,
-        icon: iconUrl,
-        badge: iconUrl,
-        tag: data.tag || 'motion-bus-default',
-        renotify: true,
-        data: {
-            url: data.url || '/MotionAG/',
-            timestamp: Date.now(),
-        },
-    };
+    const { title, ...options } = data.notification;
+
+    // Ensure icon/badge are absolute if present
+    if (options.icon && options.icon.startsWith('/')) {
+        options.icon = BASE_URL + options.icon.replace('/MotionAG', '');
+    }
+    if (options.badge && options.badge.startsWith('/')) {
+        options.badge = BASE_URL + options.badge.replace('/MotionAG', '');
+    }
+
+    // Add tag to collapse notifications
+    options.tag = options.tag || 'motion-bus-default';
+    options.renotify = true;
 
     event.waitUntil(
-        self.registration.showNotification(data.title, options)
+        self.registration.showNotification(title, options)
             .catch(err => {
-                console.error('ShowNotification failed (likely icon error):', err);
-                // Fallback 1: Try default absolute icon
-                return self.registration.showNotification(data.title, {
-                    body: data.body,
-                    icon: DEFAULT_ICON
-                }).catch(err2 => {
-                    console.error('Fallback 1 failed, trying text-only:', err2);
-                    // Fallback 2: Text ONLY (No icon) - final resort
-                    return self.registration.showNotification(data.title, {
-                        body: data.body
-                    });
-                });
+                console.error('ShowNotification failed:', err);
+                // Fallback: minimal notification
+                return self.registration.showNotification(title, { body: options.body });
             })
     );
 });
