@@ -98,9 +98,12 @@ export function StopNotificationModal({
       const permission = await Notification.requestPermission();
       console.log('[StopNotificationModal] Notification permission:', permission);
 
-      // LOG STEP 1
-      await supabase.from('notifications_log').insert({
-        metadata: { step: 'PERMISSION_RESULT', permission, stopId, platform: 'iOS' }
+      // LOG STEP 1 - Use valid required columns
+      await (supabase as any).from('notifications_log').insert({
+        stop_id: stopId,
+        route_id: 'DIAGNOSTIC',
+        alert_level: 0,
+        metadata: { step: 'PERMISSION_RESULT', permission, platform: 'iOS' }
       });
 
       if (permission !== 'granted') {
@@ -121,14 +124,20 @@ export function StopNotificationModal({
           registration = await navigator.serviceWorker.ready;
           console.log('[StopNotificationModal] Service worker ready:', registration.scope);
 
-          await supabase.from('notifications_log').insert({
-            metadata: { step: 'SW_READY', scope: registration.scope, stopId }
+          await (supabase as any).from('notifications_log').insert({
+            stop_id: stopId,
+            route_id: 'DIAGNOSTIC',
+            alert_level: 0,
+            metadata: { step: 'SW_READY', scope: registration.scope }
           });
         }
       } catch (swError) {
         console.error('[StopNotificationModal] Service worker failed:', swError);
-        await supabase.from('notifications_log').insert({
-          metadata: { step: 'SW_FAILED', error: String(swError), stopId }
+        await (supabase as any).from('notifications_log').insert({
+          stop_id: stopId,
+          route_id: 'DIAGNOSTIC',
+          alert_level: 0,
+          metadata: { step: 'SW_FAILED', error: String(swError) }
         });
       }
 
@@ -177,14 +186,20 @@ export function StopNotificationModal({
             applicationServerKey: vapidKeyArray.buffer as ArrayBuffer,
           });
 
-          await supabase.from('notifications_log').insert({
-            metadata: { step: 'SUB_CREATED', endpoint: subscription.endpoint, stopId }
+          await (supabase as any).from('notifications_log').insert({
+            stop_id: stopId,
+            route_id: 'DIAGNOSTIC',
+            alert_level: 0,
+            metadata: { step: 'SUB_CREATED', endpoint: subscription.endpoint }
           });
           console.log('[StopNotificationModal] ✅ Push subscription created');
         } catch (subError) {
           console.error('[StopNotificationModal] ❌ Push subscription failed:', subError);
-          await supabase.from('notifications_log').insert({
-            metadata: { step: 'SUB_FAILED', error: String(subError), stopId }
+          await (supabase as any).from('notifications_log').insert({
+            stop_id: stopId,
+            route_id: 'DIAGNOSTIC',
+            alert_level: 0,
+            metadata: { step: 'SUB_FAILED', error: String(subError) }
           });
           // Fallback to client-side only
           const settings: StopNotificationSettings = {
@@ -269,7 +284,13 @@ export function StopNotificationModal({
 
       if (upsertError) {
         console.error('[StopNotificationModal] ❌ Upsert error:', upsertError);
-        console.error('[StopNotificationModal] Error details:', JSON.stringify(upsertError, null, 2));
+        toast({
+          title: "Σφάλμα Συγχρονισμού",
+          description: "Δεν ήταν δυνατή η αποθήκευση της ειδοποίησης στο διακομιστή.",
+          variant: "destructive",
+        });
+        setIsSaving(false);
+        return;
       } else {
         console.log('[StopNotificationModal] ✅ Push subscription saved to server');
         console.log('[StopNotificationModal] Saved data:', upsertData);
