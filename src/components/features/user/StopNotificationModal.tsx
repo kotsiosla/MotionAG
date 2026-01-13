@@ -313,13 +313,23 @@ export function StopNotificationModal({
       });
 
       onClose();
-    } catch (error) {
-      console.error('Error enabling notification:', error);
+    } catch (error: any) {
+      console.error('[StopNotificationModal] FATAL ERROR:', error);
       toast({
-        title: "Σφάλμα",
-        description: (error as Error).message,
+        title: "⛔ Κρίσιμο Σφάλμα",
+        description: error.message || String(error),
         variant: "destructive",
+        duration: 8000
       });
+      // Also attempt to log this fatal error
+      try {
+        await (supabase as any).from('notifications_log').insert({
+          stop_id: stopId || 'UNKNOWN',
+          route_id: 'FATAL_ERROR',
+          alert_level: 0,
+          metadata: { error: String(error), stack: error?.stack, timestamp: new Date().toISOString() }
+        });
+      } catch { }
     } finally {
       setIsSaving(false);
     }
