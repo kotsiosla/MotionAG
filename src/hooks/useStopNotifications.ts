@@ -81,23 +81,33 @@ export function useStopNotifications() {
     const endpoint = await getPushEndpoint();
     if (!endpoint) {
       console.log('[StopNotifications] No push subscription, skipping sync');
+      // Toast only if we expected it to work (not silent background sync)
       return;
     }
 
     const keys = await getPushSubscriptionKeys();
     if (!keys) {
-      console.log('[StopNotifications] Could not get push keys');
+      console.warn('[StopNotifications] Could not get push keys');
+      toast({
+        title: "⚠️ Σφάλμα Συγχρονισμού",
+        description: "Δεν βρέθηκαν κλειδιά κρυπτογράφησης push. Δοκιμάστε να απενεργοποιήσετε και να ενεργοποιήσετε ξανά τις ειδοποιήσεις από το κουμπί 'Καμπανάκι' στο μενού.",
+        variant: "destructive"
+      });
       return;
     }
 
     setIsSyncing(true);
     try {
       // First try to update existing subscription
-      const { data: existing } = await supabase
+      const { data: existing, error: selectError } = await supabase
         .from('stop_notification_subscriptions')
         .select('id')
         .eq('endpoint', endpoint)
         .maybeSingle();
+
+      if (selectError) {
+        throw new Error("Select failed: " + selectError.message);
+      }
 
       if (existing) {
         // Update existing logic: ALWAYS update, even if empty, to clear server state
@@ -112,6 +122,7 @@ export function useStopNotifications() {
 
         if (error) {
           console.error('[StopNotifications] Update error:', error);
+          throw new Error("Update failed: " + error.message);
         } else {
           console.log('[StopNotifications] Updated', pushEnabledNotifs.length, 'notifications on server');
         }
@@ -129,13 +140,24 @@ export function useStopNotifications() {
 
           if (error) {
             console.error('[StopNotifications] Insert error:', error);
+            throw new Error("Insert failed: " + error.message);
           } else {
             console.log('[StopNotifications] Synced', pushEnabledNotifs.length, 'notifications to server');
+            // Toast success for first sync
+            toast({
+              title: "✅ Επιτυχής Συγχρονισμός",
+              description: "Οι ρυθμίσεις ειδοποιήσεων αποθηκεύτηκαν στο διακομιστή.",
+            });
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[StopNotifications] Sync error:', error);
+      toast({
+        title: "❌ Σφάλμα Αποθήκευσης",
+        description: `Η ειδοποίηση είναι ενεργή τοπικά, αλλά απέτυχε η αποθήκευση στο cloud: ${error.message || String(error)}`,
+        variant: "destructive",
+      });
     } finally {
       setIsSyncing(false);
     }
