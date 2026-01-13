@@ -106,6 +106,18 @@ export function StopNotificationModal({
         return;
       }
 
+
+      // Auto-login to ensure we can save to DB
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.log('[StopNotificationModal] No session, signing in anonymously...');
+        const { error: authError } = await supabase.auth.signInAnonymously();
+        if (authError) {
+          console.error('Auth failed:', authError);
+          throw new Error('Could not sign in. Please reload.');
+        }
+      }
+
       console.log('[StopNotificationModal] Requesting permission...');
 
       // Timeout wrapper for permission

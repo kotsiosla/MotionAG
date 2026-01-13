@@ -98,11 +98,19 @@ export function useStopNotifications() {
 
     setIsSyncing(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      let { data: { user } } = await supabase.auth.getUser();
+
+      // Auto-login if no user found (recovery after hard reset)
       if (!user) {
-        console.error('[StopNotifications] No authenticated user found');
-        alert("Critical Error: You are not logged in! Notification cannot be saved.");
-        return;
+        console.log('[StopNotifications] No user found, attempting anonymous sign-in...');
+        const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+        if (authError || !authData.user) {
+          console.error('[StopNotifications] Anonymous sign-in failed:', authError);
+          alert("Critical Error: Could not sign in. Please reload the app.");
+          return;
+        }
+        user = authData.user;
+        console.log('[StopNotifications] Signed in anonymously:', user.id);
       }
 
       // ATOMIC UPSERT LOGIC (Matching StopNotificationModal)
