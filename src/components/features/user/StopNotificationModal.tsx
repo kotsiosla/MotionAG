@@ -150,15 +150,27 @@ export function StopNotificationModal({
         return;
       }
 
+      // Helper to ensure SW is registered
+      const ensureServiceWorker = async () => {
+        const basePath = window.location.pathname.includes('/MotionAG/') ? '/MotionAG/' : (import.meta.env.BASE_URL || '/');
+
+        if (!navigator.serviceWorker.controller) {
+          console.log('[StopNotificationModal] No controller found. Force registering...');
+          const swUrl = `${basePath}push-worker.js`.replace('//', '/'); // simple fix
+          await navigator.serviceWorker.register(swUrl);
+        }
+        return navigator.serviceWorker.ready;
+      };
+
       // Check if service worker is valid
       let registration: ServiceWorkerRegistration | undefined;
       try {
         if ('serviceWorker' in navigator) {
           console.log('[StopNotificationModal] Waiting for service worker ready...');
 
-          // Timeout wrapper for SW readiness
-          const readyPromise = navigator.serviceWorker.ready;
-          const swTimeoutPromise = new Promise<ServiceWorkerRegistration>((_, reject) => setTimeout(() => reject(new Error('Service Worker ready timed out')), 5000));
+          // Timeout wrapper for SW readiness (Increased to 15s for v1.5.11)
+          const readyPromise = ensureServiceWorker();
+          const swTimeoutPromise = new Promise<ServiceWorkerRegistration>((_, reject) => setTimeout(() => reject(new Error('Service Worker ready timed out')), 15000));
 
           registration = await Promise.race([readyPromise, swTimeoutPromise]);
 
@@ -503,7 +515,7 @@ export function StopNotificationModal({
           </div>
           <div className="pt-2 border-t border-border mt-2">
             <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground h-6" onClick={handleReset}>
-              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.10)
+              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.11)
             </Button>
           </div>
         </div>
