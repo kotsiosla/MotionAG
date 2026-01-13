@@ -51,6 +51,7 @@ export function StopNotificationModal({
 
   // Simple enable - request permission, subscribe, save to server
   const handleEnable = async () => {
+    alert('CLICKED');
     setIsSaving(true);
     try {
       // Unlock audio for notifications (required on iOS)
