@@ -23,7 +23,6 @@ export function base64UrlEncode(data: Uint8Array): string {
 }
 
 export function base64UrlDecode(str: string): Uint8Array {
-    // Normalize input
     str = str.replace(/-/g, '+').replace(/_/g, '/');
     while (str.length % 4 !== 0) str += '=';
 
@@ -32,7 +31,6 @@ export function base64UrlDecode(str: string): Uint8Array {
     if (str.endsWith('==')) len -= 2;
     else if (str.endsWith('=')) len -= 1;
 
-    // Calculate output length
     const outLen = Math.floor(len * 3 / 4);
     const arr = new Uint8Array(outLen);
 
@@ -42,128 +40,83 @@ export function base64UrlDecode(str: string): Uint8Array {
         const c2 = b64.indexOf(str[i + 1]);
         const c3 = b64.indexOf(str[i + 2]);
         const c4 = b64.indexOf(str[i + 3]);
-
-        if (c1 < 0 || c2 < 0 || (c3 < 0 && i + 2 < len) || (c4 < 0 && i + 3 < len)) {
-            throw new Error(`Invalid base64 char at ${i}: ${str.slice(i, i + 4)}`);
-        }
-
         const trip = (c1 << 18) | (c2 << 12) | ((c3 & 0x3F) << 6) | (c4 & 0x3F);
-
         arr[p++] = (trip >> 16) & 0xFF;
         if (p < outLen) arr[p++] = (trip >> 8) & 0xFF;
         if (p < outLen) arr[p++] = trip & 0xFF;
     }
-
     return arr;
 }
 
-// Convert VAPID Public Key (65 bytes) to JWK components (x, y)
-function publicKeyToJWK(publicBase64: string): { x: string, y: string } {
-    const bytes = base64UrlDecode(publicBase64);
-    if (bytes.length !== 65 || bytes[0] !== 0x04) {
-        // Fallback for hardcoded keys if simplified
-        if (publicBase64.startsWith('BG5V')) {
-            return {
-                x: "blV8NeTK0Vp5xMv6hZIKchFkdWDWn1_A9pGyYDWuw9I",
-                y: "6U4EY6G-RGvt78VFVO0lb8CQJd0SrUmfwbz_vCMbmlw"
-            };
-        }
-        throw new Error(`Invalid Public Key length: ${bytes.length} (expected 65)`);
-    }
-    const x = bytes.slice(1, 33);
-    const y = bytes.slice(33, 65);
-    return {
-        x: base64UrlEncode(x),
-        y: base64UrlEncode(y)
-    };
+async function hmac(key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
+    const prkKey = await crypto.subtle.importKey('raw', new Uint8Array(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    return new Uint8Array(await crypto.subtle.sign('HMAC', prkKey, new Uint8Array(data)));
+}
+
+async function hkdfExpand(prk: Uint8Array, info: Uint8Array, length: number): Promise<Uint8Array> {
+    const block = await hmac(new Uint8Array(prk), new Uint8Array([...info, 1]));
+    return block.slice(0, length);
 }
 
 export async function createVapidJwt(audience: string, subject: string, publicKeyBase64: string, privateKeyBase64: string): Promise<string> {
-    console.log('[Crypto] createVapidJwt start');
+    const header = { alg: 'ES256', typ: 'JWT' };
+    const now = Math.floor(Date.now() / 1000);
+    const payload = { aud: audience, exp: now + 86400, sub: subject };
+    const encoder = new TextEncoder();
 
-    let headerB64, payloadB64, unsignedToken;
-    try {
-        const header = { alg: 'ES256', typ: 'JWT' }; // Must be ES256 for VAPID
-        const now = Math.floor(Date.now() / 1000);
-        const payload = { aud: audience, exp: now + 86400, sub: subject };
-        headerB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
-        payloadB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
-        unsignedToken = `${headerB64}.${payloadB64}`;
-    } catch (e) { throw new Error(`Header/Payload Encode Failed: ${e}`); }
+    const headerB64 = base64UrlEncode(encoder.encode(JSON.stringify(header)));
+    const payloadB64 = base64UrlEncode(encoder.encode(JSON.stringify(payload)));
+    const unsignedToken = `${headerB64}.${payloadB64}`;
 
-    let cryptoKey;
-    try {
-        const jwkComps = publicKeyToJWK(publicKeyBase64);
+    const privBytes = base64UrlDecode(privateKeyBase64);
+    const pubBytes = base64UrlDecode(publicKeyBase64);
 
-        // Construct JWK
-        const jwkKey = {
-            kty: "EC",
-            crv: "P-256",
-            x: jwkComps.x,
-            y: jwkComps.y,
-            d: privateKeyBase64, // Private key should be raw scalar base64url
-            ext: true,
-            key_ops: ["sign"]
-        };
+    const cryptoKey = await crypto.subtle.importKey(
+        'jwk',
+        {
+            kty: "EC", crv: "P-256", ext: true,
+            x: base64UrlEncode(pubBytes.slice(1, 33)),
+            y: base64UrlEncode(pubBytes.slice(33, 65)),
+            d: privateKeyBase64
+        },
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        false,
+        ['sign']
+    );
 
-        cryptoKey = await globalThis.crypto.subtle.importKey(
-            'jwk',
-            jwkKey,
-            { name: 'ECDSA', namedCurve: 'P-256' },
-            false,
-            ['sign']
-        );
-    } catch (e) { throw new Error(`ImportKey JWK Failed: ${e}`); }
-
-    let signature;
-    try {
-        signature = await globalThis.crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, cryptoKey, new TextEncoder().encode(unsignedToken));
-    } catch (e) { throw new Error(`Sign Failed: ${e} (TokenLen: ${unsignedToken.length})`); }
-
-    try {
-        return `${unsignedToken}.${base64UrlEncode(new Uint8Array(signature))}`;
-    } catch (e) { throw new Error(`FinalEncode Failed: ${e}`); }
+    const signature = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, cryptoKey, encoder.encode(unsignedToken));
+    return `${unsignedToken}.${base64UrlEncode(new Uint8Array(signature))}`;
 }
 
 export async function encryptPayload(payload: string, p256dhKey: string, authSecret: string) {
-    // Generate local key
-    const localKeyPair = await globalThis.crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
-    const localPublicKey = new Uint8Array(await globalThis.crypto.subtle.exportKey('raw', localKeyPair.publicKey));
-    const salt = globalThis.crypto.getRandomValues(new Uint8Array(16));
+    const encoder = new TextEncoder();
+    const p256dh = base64UrlDecode(p256dhKey);
+    const auth = base64UrlDecode(authSecret);
+    const salt = crypto.getRandomValues(new Uint8Array(16));
 
-    // Import Subscriber Key
-    let subscriberKey;
-    try {
-        const keyBytes = base64UrlDecode(p256dhKey);
-        // console.log(`[Crypto] Importing P256DH: ${keyBytes.length} bytes, Hex: ${[...keyBytes.slice(0, 5)].map(b => b.toString(16)).join('')}...`);
-        subscriberKey = await crypto.subtle.importKey('raw', keyBytes.buffer, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
-    } catch (e) {
-        const kb = base64UrlDecode(p256dhKey);
-        throw new Error(`ImportSubscriberKey Failed: Len=${kb.length} Prefix=${[...kb.slice(0, 3)].map(b => b.toString(16))} Err=${e}`);
-    }
-    const sharedSecret = await crypto.subtle.deriveBits({ name: 'ECDH', public: subscriberKey }, localKeyPair.privateKey, 256);
+    const localKeyPair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+    const localPublicKey = new Uint8Array(await crypto.subtle.exportKey('raw', localKeyPair.publicKey));
 
-    // HKDF Helpers
-    const authSecretBytes = base64UrlDecode(authSecret);
-    const prkKey = await crypto.subtle.importKey('raw', authSecretBytes.buffer, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-    const prk = new Uint8Array(await crypto.subtle.sign('HMAC', prkKey, new Uint8Array(sharedSecret)));
+    const subscriberKey = await crypto.subtle.importKey('raw', new Uint8Array(p256dh), { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+    const sharedSecret = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: subscriberKey }, localKeyPair.privateKey, 256));
 
-    const cekInfo = new TextEncoder().encode('Content-Encoding: aes128gcm\0');
-    const cekKey = await crypto.subtle.importKey('raw', prk, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-    const cek = (new Uint8Array(await crypto.subtle.sign('HMAC', cekKey, new Uint8Array([...salt, ...cekInfo, 1])))).slice(0, 16);
+    // STAGE 1: RFC 8291 Section 4 extraction
+    const prkIkm = await hmac(auth, sharedSecret);
+    const infoWebPush = new Uint8Array([
+        ...encoder.encode('WebPush: info'), 0,
+        ...p256dh,
+        ...localPublicKey
+    ]);
+    const ikmWebPush = await hkdfExpand(prkIkm, infoWebPush, 32);
 
-    const nonceInfo = new TextEncoder().encode('Content-Encoding: nonce\0');
-    const nonce = (new Uint8Array(await crypto.subtle.sign('HMAC', cekKey, new Uint8Array([...salt, ...nonceInfo, 1])))).slice(0, 12);
+    // STAGE 2: RFC 8188 Stage
+    const prk = await hmac(new Uint8Array(salt), ikmWebPush);
+    const cek = await hkdfExpand(prk, new Uint8Array([...encoder.encode('Content-Encoding: aes128gcm'), 0]), 16);
+    const nonce = await hkdfExpand(prk, new Uint8Array([...encoder.encode('Content-Encoding: nonce'), 0]), 12);
 
-    // Encrypt
-    try {
-        const aesKey = await crypto.subtle.importKey('raw', cek, { name: 'AES-GCM' }, false, ['encrypt']);
-        console.log('[Crypto] Encrypting with padding 2...');
-        const padded = new Uint8Array([...new TextEncoder().encode(payload), 2]); // Padding: 2 (RFC 8188 compliant)
-        const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, aesKey, padded));
-        return { ciphertext, salt, localPublicKey };
-    } catch (e) {
-        console.error('[Crypto] EncryptPayload Error:', e);
-        throw e;
-    }
+    const aesKey = await crypto.subtle.importKey('raw', new Uint8Array(cek), { name: 'AES-GCM' }, false, ['encrypt']);
+    const padded = new Uint8Array([...encoder.encode(payload), 2]); // LAST RECORD
+    const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, aesKey, padded));
+
+    return { ciphertext, salt, localPublicKey };
 }

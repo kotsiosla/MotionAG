@@ -29,7 +29,13 @@ export async function sendPushNotification(
             console.log('[Push] Payload encrypted');
         } catch (e) { throw new Error(`EncryptPayload Failed: ${e}`); }
 
-        const body = new Uint8Array([...salt, 0, 0, 16, 0, 65, ...localPublicKey, ...ciphertext]);
+        const body = new Uint8Array(16 + 4 + 1 + localPublicKey.length + ciphertext.length);
+        let offset = 0;
+        body.set(salt, offset); offset += 16;
+        body.set([0, 0, 16, 0], offset); offset += 4; // Record Size (4096)
+        body.set([localPublicKey.length], offset); offset += 1;
+        body.set(localPublicKey, offset); offset += localPublicKey.length;
+        body.set(ciphertext, offset);
 
         const pushResp = await fetch(endpoint, {
             method: 'POST',
@@ -37,8 +43,8 @@ export async function sendPushNotification(
                 'Content-Type': 'application/octet-stream',
                 'Content-Encoding': 'aes128gcm',
                 'Authorization': `vapid t=${jwt}, k=${vapidPublicKey}`,
-                // CRITICAL: High TTL
-                'TTL': '86400'
+                'TTL': '86400',
+                'Urgency': 'high'
             },
             body
         });
