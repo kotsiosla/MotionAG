@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { Bell, BellOff, X, Clock, Loader2 } from "lucide-react";
+import { Bell, BellOff, X, Clock, Loader2, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { unlockAudio } from "@/hooks/useStopArrivalNotifications";
-import type { StopNotificationSettings } from "@/hooks/useStopNotifications";
+import { type StopNotificationSettings } from "@/hooks/useStopNotifications";
+import { usePushSubscription } from "@/hooks/usePushSubscription";
 
 interface StopNotificationModalProps {
   stopId: string;
@@ -42,6 +43,16 @@ export function StopNotificationModal({
   const [beforeMinutes, setBeforeMinutes] = useState(currentSettings?.beforeMinutes ?? 5);
   const [isSaving, setIsSaving] = useState(false);
   const isEnabled = currentSettings?.enabled ?? false;
+
+  const { unsubscribe } = usePushSubscription();
+
+  const handleReset = async () => {
+    if (confirm("Reset Push Permissions? This will verify if the app has a broken key.")) {
+      await unsubscribe();
+      alert("Reset Complete. Please try enabling the alarm again.");
+      onClose();
+    }
+  };
 
   // Detect iOS
   const isIOS = () => {
@@ -477,6 +488,11 @@ export function StopNotificationModal({
                 Ενεργοποίηση
               </Button>
             )}
+          </div>
+          <div className="pt-2 border-t border-border mt-2">
+            <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground h-6" onClick={handleReset}>
+              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push
+            </Button>
           </div>
         </div>
       </div>
