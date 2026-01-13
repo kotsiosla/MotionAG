@@ -503,7 +503,7 @@ export function StopNotificationModal({
           </div>
           <div className="pt-2 border-t border-border mt-2">
             <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground h-6" onClick={handleReset}>
-              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push
+              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.10)
             </Button>
           </div>
         </div>
