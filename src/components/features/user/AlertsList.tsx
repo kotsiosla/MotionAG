@@ -215,14 +215,28 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
                   size="sm"
                   className="text-xs text-muted-foreground hover:text-destructive gap-2"
                   onClick={async () => {
-                    if (confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε όλες τις ειδοποιήσεις;')) {
+                    if (confirm('ΠΡΟΣΟΧΗ: Αυτό θα διαγράψει ΟΛΕΣ τις ρυθμίσεις και θα κατεβάσει ξανά την εφαρμογή. Είστε σίγουροι;')) {
+                      // 1. Clear app notifications state
                       await clearAllNotifications();
+
+                      // 2. Unsubscribe from Push (Browser)
+                      if ('serviceWorker' in navigator) {
+                        const regs = await navigator.serviceWorker.getRegistrations();
+                        for (const reg of regs) {
+                          await reg.unregister();
+                        }
+                      }
+
+                      // 3. Clear Local Storage
+                      localStorage.clear();
+
+                      // 4. Force Reload
                       window.location.reload();
                     }
                   }}
                 >
                   <Trash2 className="h-3 w-3" />
-                  Επαναφορά / Διαγραφή Όλων
+                  Ολική Διαγραφή & Επαναφορά (Reset)
                 </Button>
               </div>
             </>
