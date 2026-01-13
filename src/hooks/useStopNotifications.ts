@@ -47,8 +47,10 @@ async function getPushSubscriptionKeys(): Promise<{ p256dh: string; auth: string
 
     if (!p256dhKey || !authKey) return null;
 
-    const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
-    const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
+    const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
     return { p256dh, auth };
   } catch {
