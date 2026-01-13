@@ -1,105 +1,90 @@
-// Custom Push Notification Worker (v1.6.0 - iOS Stability Fixes)
+// Custom Push Notification Worker (v1.7.0 - iOS Ultimate Hardening)
 
+const SW_VERSION = 'v1.7.0';
 const BASE_URL = 'https://kotsiosla.github.io/MotionAG';
-const DEFAULT_ICON = `${BASE_URL}/pwa-192x192.png`;
-const FALLBACK_URL = `${BASE_URL}/`;
+const DEFAULT_ICON = 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png';
+const FALLBACK_URL = '/MotionAG/';
 
 // Push notification handler
 self.addEventListener('push', (event) => {
-    console.log('Push event received');
+    console.log(`[Service Worker] ${SW_VERSION} Push Received.`);
 
-    let data = {};
-    try {
-        data = event.data ? event.data.json() : {};
-        console.log('Push data parsed:', data);
-    } catch (e) {
-        console.error('Error parsing push data:', e);
-        data = {};
-    }
+    event.waitUntil((async () => {
+        let title = 'Motion Bus Live';
+        let options = {
+            body: 'Νέα ενημέρωση δρομολογίου 🚌',
+            icon: DEFAULT_ICON,
+            badge: DEFAULT_ICON,
+            vibrate: [100, 50, 100],
+            data: { url: FALLBACK_URL },
+            tag: 'motion-bus-push',
+            renotify: true
+        };
 
-    // Default/Fallback notification values if payload is malformed or missing the 'notification' wrapper
-    const notification = data.notification || {
-        title: 'Motion Bus - MotionAG',
-        body: data.body || 'Νέα ειδοποίηση από την εφαρμογή',
-        icon: DEFAULT_ICON,
-        badge: DEFAULT_ICON,
-        data: { url: FALLBACK_URL }
-    };
+        try {
+            if (event.data) {
+                // Try to parse the payload safely
+                let payload = {};
+                try {
+                    payload = event.data.json();
+                } catch (e) {
+                    // If JSON fails, it might be a flat string
+                    const text = event.data.text();
+                    payload = { body: text };
+                }
 
-    const { title, ...options } = notification;
+                console.log('[Service Worker] Payload received:', JSON.stringify(payload));
 
-    // Ensure icon/badge are absolute if present
-    if (options.icon && options.icon.startsWith('/')) {
-        options.icon = BASE_URL + options.icon.replace('/MotionAG', '');
-    }
-    if (options.badge && options.badge.startsWith('/')) {
-        options.badge = BASE_URL + options.badge.replace('/MotionAG', '');
-    }
+                // Support both nested and flat structures
+                const data = payload.notification || payload;
 
-    // Safety check for absolute URLs if they don't have a protocol
-    if (options.icon && !options.icon.startsWith('http')) options.icon = DEFAULT_ICON;
-    if (options.badge && !options.badge.startsWith('http')) options.badge = DEFAULT_ICON;
+                if (data.title) title = data.title;
+                if (data.body) options.body = data.body;
+                if (data.icon) options.icon = data.icon;
+                if (data.badge) options.badge = data.badge;
 
-    // Ensure data exists and has a url
-    options.data = options.data || {};
-    options.data.url = options.data.url || FALLBACK_URL;
+                // Merge deep data
+                if (data.data) {
+                    options.data = { ...options.data, ...data.data };
+                }
+            }
+        } catch (e) {
+            console.error('[Service Worker] Massive failure in push handler:', e);
+        }
 
-    // Add tag to collapse notifications
-    options.tag = options.tag || 'motion-bus-default';
-    options.renotify = true;
+        // Final URL validation (must be absolute for iOS clicks)
+        const finalUrl = options.data.url || FALLBACK_URL;
+        if (!finalUrl.startsWith('http')) {
+            options.data.url = BASE_URL + (finalUrl.startsWith('/') ? '' : '/') + finalUrl;
+        }
 
-    event.waitUntil(
-        self.registration.showNotification(title, options)
-            .catch(err => {
-                console.error('ShowNotification failed:', err);
-                // Last resort fallback
-                return self.registration.showNotification('Motion Bus', {
-                    body: 'Ενημέρωση δρομολογίου',
-                    icon: DEFAULT_ICON,
-                    data: { url: FALLBACK_URL }
-                });
-            })
-    );
+        console.log(`[Service Worker] Final Title: ${title}`);
+        console.log(`[Service Worker] Final Options: ${JSON.stringify(options)}`);
+
+        return self.registration.showNotification(title, options);
+    })());
 });
 
 // Notification click handler
 self.addEventListener('notificationclick', (event) => {
-    console.log('Notification clicked:', event);
     event.notification.close();
 
-    if (event.action === 'close') {
-        return;
-    }
-
-    // Use Absolute URLs for iOS robustness
-    const urlToOpen = event.notification.data?.url || FALLBACK_URL;
-    let absoluteUrl = urlToOpen;
-
-    try {
-        if (!urlToOpen.startsWith('http')) {
-            absoluteUrl = new URL(urlToOpen, BASE_URL).href;
-        }
-    } catch (e) {
-        absoluteUrl = FALLBACK_URL;
-    }
+    const urlToOpen = event.notification.data?.url || (BASE_URL + FALLBACK_URL);
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-            // 1. Try to find an existing tab
             for (const client of clientList) {
-                if (client.url.startsWith(BASE_URL) && 'focus' in client) {
+                if (client.url.includes('/MotionAG') && 'focus' in client) {
                     return client.focus();
                 }
             }
-            // 2. If no tab found, open a new one
             if (clients.openWindow) {
-                return clients.openWindow(absoluteUrl);
+                return clients.openWindow(urlToOpen);
             }
         })
     );
 });
 
-// Handle push subscription changes
 self.addEventListener('pushsubscriptionchange', (event) => {
     console.log('Push subscription changed:', event);
 });
