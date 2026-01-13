@@ -18,9 +18,9 @@ interface StopNotificationModalProps {
 }
 
 // VAPID public key for push notifications - must match the one in secrets
-const VAPID_PUBLIC_KEY = 'BANXTqf4fsrCfS_g0072vs4QupJYZpxOLcOjHfUtcQVufSBkX8fAkv54bIHCU4fdf4BLIKz00Q2x6o1QiFB5vtU';
+const VAPID_PUBLIC_KEY = 'BG5VfDXkytFaecTL-oWSCnIRZHVg1p9fwPaRsmA1rsPS6U4EY6G-RGvt78VFVO0lb8CQJd0SrUmfwbz_vCMbmlw';
 
-function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
@@ -28,7 +28,7 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   for (let i = 0; i < rawData.length; ++i) {
     outputArray[i] = rawData.charCodeAt(i);
   }
-  return outputArray.buffer as ArrayBuffer;
+  return outputArray;
 }
 
 export function StopNotificationModal({
@@ -45,8 +45,8 @@ export function StopNotificationModal({
 
   // Detect iOS
   const isIOS = () => {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   };
 
   // Simple enable - request permission, subscribe, save to server
@@ -55,15 +55,18 @@ export function StopNotificationModal({
     try {
       // Unlock audio for notifications (required on iOS)
       unlockAudio();
-      
-      // Check iOS - iOS Safari doesn't support Web Push Notifications
-      if (isIOS()) {
+
+      // Check iOS standalone mode (iOS only supports Web Push in PWA mode)
+      const standalone = (window.matchMedia('(display-mode: standalone)').matches) ||
+        ('standalone' in window.navigator && (window.navigator as any).standalone === true);
+
+      if (isIOS() && !standalone) {
         toast({
-          title: "iOS Safari Limitation",
-          description: "Το iOS Safari δεν υποστηρίζει Web Push Notifications. Οι ειδοποιήσεις θα λειτουργούν μόνο όταν το app είναι ανοιχτό.",
+          title: "Safari Limitation",
+          description: "Για να λαμβάνετε ειδοποιήσεις στο iPhone, προσθέστε την εφαρμογή στην Οθόνη Αφετηρίας (Add to Home Screen).",
           variant: "default",
         });
-        // Continue with client-side notifications only (no push subscription)
+        // Continue with client-side only for non-PWA iOS
         const settings: StopNotificationSettings = {
           stopId,
           stopName,
@@ -71,9 +74,10 @@ export function StopNotificationModal({
           sound: true,
           vibration: true,
           voice: false,
-          push: false, // No push on iOS
+          push: false,
           beforeMinutes,
         };
+        // ... (rest of local storage logic)
         const stored = localStorage.getItem('stop_notifications');
         let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
         const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
@@ -89,7 +93,7 @@ export function StopNotificationModal({
         setIsSaving(false);
         return;
       }
-      
+
       // Request permission
       const permission = await Notification.requestPermission();
       console.log('[StopNotificationModal] Notification permission:', permission);
@@ -107,7 +111,7 @@ export function StopNotificationModal({
       // DON'T register again - just use existing one to avoid refresh loop
       // Wait for service worker to be stable (not updating) before using it
       let registration: ServiceWorkerRegistration | null = null;
-      
+
       // Retry mechanism: wait for service worker to be stable
       for (let attempt = 0; attempt < 5; attempt++) {
         try {
@@ -119,7 +123,7 @@ export function StopNotificationModal({
               installing: !!registration.installing,
               waiting: !!registration.waiting,
             });
-            
+
             // Only use if active and NOT updating (to prevent refresh loop)
             if (registration.active && !registration.installing && !registration.waiting) {
               console.log('[StopNotificationModal] ✅ Service worker is stable and ready');
@@ -154,7 +158,7 @@ export function StopNotificationModal({
           }
         }
       }
-      
+
       // If no active service worker, use client-side only (like iOS)
       if (!registration) {
         console.log('[StopNotificationModal] Using client-side notifications only');
@@ -178,9 +182,9 @@ export function StopNotificationModal({
         }
         localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
         onSave(settings);
-        toast({ 
-          title: "✅ Ειδοποίηση ενεργοποιήθηκε", 
-          description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό` 
+        toast({
+          title: "✅ Ειδοποίηση ενεργοποιήθηκε",
+          description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό`
         });
         onClose();
         setIsSaving(false);
@@ -190,16 +194,16 @@ export function StopNotificationModal({
       // Get or create push subscription (for Android)
       console.log('[StopNotificationModal] Setting up push notifications for Android...');
       let subscription = await registration.pushManager.getSubscription();
-      
+
       if (!subscription) {
         console.log('[StopNotificationModal] Creating new push subscription...');
         try {
           const vapidKeyArray = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
           subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: vapidKeyArray,
+            applicationServerKey: vapidKeyArray.buffer as ArrayBuffer,
           });
-          
+
           // Check if endpoint is WNS - WNS doesn't support Web Push/VAPID
           const endpointUrl = new URL(subscription.endpoint);
           if (endpointUrl.hostname.includes('wns.') || endpointUrl.hostname.includes('notify.windows.com')) {
@@ -207,7 +211,7 @@ export function StopNotificationModal({
             await subscription.unsubscribe();
             throw new Error('WNS endpoint not supported - please use Chrome, Firefox, or Edge (Chromium)');
           }
-          
+
           console.log('[StopNotificationModal] ✅ Push subscription created');
         } catch (subError) {
           console.error('[StopNotificationModal] ❌ Push subscription failed:', subError);
@@ -232,9 +236,9 @@ export function StopNotificationModal({
           }
           localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
           onSave(settings);
-          toast({ 
-            title: "✅ Ειδοποίηση ενεργοποιήθηκε", 
-            description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό` 
+          toast({
+            title: "✅ Ειδοποίηση ενεργοποιήθηκε",
+            description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό`
           });
           onClose();
           setIsSaving(false);
@@ -248,7 +252,7 @@ export function StopNotificationModal({
       if (!p256dhKey || !authKey) {
         throw new Error('Failed to get subscription keys');
       }
-      
+
       const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
       const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
 
@@ -276,11 +280,11 @@ export function StopNotificationModal({
       // Save to server
       const pushNotifications = allNotifications.filter(n => n.enabled && n.push);
       const pushNotificationsJson = JSON.parse(JSON.stringify(pushNotifications));
-      
+
       console.log('[StopNotificationModal] Saving to stop_notification_subscriptions...');
       console.log('[StopNotificationModal] Endpoint:', subscription.endpoint);
       console.log('[StopNotificationModal] Stop notifications to save:', pushNotificationsJson);
-      
+
       const { data: upsertData, error: upsertError } = await supabase
         .from('stop_notification_subscriptions')
         .upsert({
@@ -334,10 +338,10 @@ export function StopNotificationModal({
       if ('serviceWorker' in navigator && 'PushManager' in window) {
         const registration = await navigator.serviceWorker.ready;
         const subscription = await registration.pushManager.getSubscription();
-        
+
         if (subscription) {
           const remaining = allNotifications.filter(n => n.enabled && n.push);
-          
+
           if (remaining.length > 0) {
             // Ensure stop_notifications is properly formatted as JSONB
             const remainingJson = JSON.parse(JSON.stringify(remaining));
