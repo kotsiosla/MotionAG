@@ -474,7 +474,7 @@ export function StopNotificationModal({
                 ) : (
                   <Bell className="h-4 w-4 mr-2" />
                 )}
-                Ενεργοποίηση
+                TEST CLICK ME
               </Button>
             )}
           </div>
