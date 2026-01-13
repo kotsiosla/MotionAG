@@ -1,35 +1,67 @@
-// Custom Push Notification Worker (v1.11.0 - Loud & Simple)
+// Motion Bus Live - Production Push Worker (v2.0.0)
+// Fully compliant with RFC 8291 Section 4 (iOS/Safari Support)
 
-const SW_VERSION = 'v1.11.0';
+const SW_VERSION = 'v2.0.0';
+const BASE_URL = 'https://kotsiosla.github.io/MotionAG';
+const DEFAULT_ICON = 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png';
+const FALLBACK_URL = '/MotionAG/';
 
 self.addEventListener('push', (event) => {
-    console.log(`[Service Worker] ${SW_VERSION} Event`);
+    console.log(`[Service Worker] ${SW_VERSION} Push Received.`);
 
     event.waitUntil((async () => {
-        let title = 'PUSH SIGNAL';
-        let body = 'Awoken by server.';
+        let title = 'Motion Bus Live';
+        let options = {
+            body: 'Νέα ενημέρωση δρομολογίου 🚌',
+            icon: DEFAULT_ICON,
+            badge: DEFAULT_ICON,
+            data: { url: FALLBACK_URL },
+            tag: 'motion-bus-push',
+            renotify: true
+        };
 
-        if (event.data) {
-            try {
+        try {
+            if (event.data) {
+                // Decrypt RFC 8291 payload
                 const payload = event.data.json();
-                const notification = payload.notification || payload;
-                title = notification.title || 'ENCRYPTED PUSH';
-                body = notification.body || 'Content decrypted.';
-            } catch (e) {
-                title = 'DECRYPTION FAILED';
-                body = 'Signal received but content unreadable.';
+                const data = payload.notification || payload;
+
+                if (data.title) title = data.title;
+                if (data.body) options.body = data.body;
+                if (data.icon) options.icon = data.icon;
+                if (data.data) options.data = { ...options.data, ...data.data };
             }
+        } catch (e) {
+            console.error('[Service Worker] Error parsing encrypted payload:', e);
+            // Fallback stays as default title/body
         }
 
-        return self.registration.showNotification(title, {
-            body: body,
-            icon: 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png',
-            tag: 'v110-debug',
-            renotify: true
-        });
+        // Ensure absolute URLs for iOS compatibility
+        const finalUrl = options.data.url || FALLBACK_URL;
+        if (!finalUrl.startsWith('http')) {
+            options.data.url = BASE_URL + (finalUrl.startsWith('/') ? '' : '/') + finalUrl;
+        }
+
+        return self.registration.showNotification(title, options);
     })());
 });
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
+    const url = event.notification.data?.url || (BASE_URL + FALLBACK_URL);
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+            // Check if there's already a tab open with this app
+            for (const client of windowClients) {
+                if (client.url.includes('/MotionAG') && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            // If no window found, open a new one
+            if (clients.openWindow) {
+                return clients.openWindow(url);
+            }
+        })
+    );
 });
