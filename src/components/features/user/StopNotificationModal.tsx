@@ -163,7 +163,7 @@ export function StopNotificationModal({
           stop_id: stopId || 'UNKNOWN',
           route_id: 'DIAGNOSTIC_V2',
           alert_level: 0,
-          metadata: { step: 'PERMISSION_RESULT', permission, platform: 'Web', timestamp: new Date().toISOString() }
+          metadata: { step: 'PERMISSION_RESULT', permission, platform: 'Web', version: 'v1.5.15', timestamp: new Date().toISOString() }
         });
       } catch (e) {
         console.error('Logging failed:', e);
@@ -216,7 +216,7 @@ export function StopNotificationModal({
             metadata: {
               step: 'SW_FAILED',
               error: String(swError),
-              version: 'v1.5.14',
+              version: 'v1.5.15',
               attemptedPath: window.location.pathname.includes('MotionAG') ? '/MotionAG/push-worker.js' : '/push-worker.js',
               timestamp: new Date().toISOString()
             }
@@ -551,7 +551,7 @@ export function StopNotificationModal({
           </div>
           <div className="pt-2 border-t border-border mt-2">
             <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground h-6" onClick={handleReset}>
-              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.14)
+              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.15)
             </Button>
           </div>
         </div>

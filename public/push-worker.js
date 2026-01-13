@@ -1,10 +1,17 @@
-// Motion Bus Live - Production Push Worker (v2.0.0)
-// Fully compliant with RFC 8291 Section 4 (iOS/Safari Support)
-
-const SW_VERSION = 'v2.0.0';
+const SW_VERSION = 'v2.0.1';
 const BASE_URL = 'https://kotsiosla.github.io/MotionAG';
 const DEFAULT_ICON = 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png';
 const FALLBACK_URL = '/MotionAG/';
+
+self.addEventListener('install', (event) => {
+    console.log(`[Service Worker] ${SW_VERSION} Installing...`);
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+    console.log(`[Service Worker] ${SW_VERSION} Activating...`);
+    event.waitUntil(clients.claim());
+});
 
 self.addEventListener('push', (event) => {
     console.log(`[Service Worker] ${SW_VERSION} Push Received.`);
