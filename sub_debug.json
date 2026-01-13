@@ -1,0 +1,9 @@
+{
+  "id": "57d99f86-3d0e-4400-bb85-4dc0bd00b295",
+  "endpoint": "https://web.push.apple.com/QEV-l1zVegYps3vvnYaB8kzF7jgdbnqGFLtZRvoBd5pWzViCOZjsTKhwBglMzRrKh1YySKPiHGwZzW1g0-SEWbSi24n-T1SSrXZJNNa-hCtC71Y8rNHDH6JX1jgRqdOPyvZbAsMRsY6NZoiK8hMSKAdJ6OJKBakW8EPLDvGWedA",
+  "p256dh": "BEnKJBXHWIKeh7YgM06ugTUS3Zzor1C+53Rn1Dwirw8xBWKcUr1fY7wlxIrFMf4f4z+ygcZUNSB9wsxvCqR0SBo=",
+  "auth": "AFeibwkBZQPiA9En4ZY/mQ==",
+  "route_ids": [],
+  "created_at": "2026-01-13T07:04:38.322788+00:00",
+  "updated_at": "2026-01-13T07:04:38.322788+00:00"
+}

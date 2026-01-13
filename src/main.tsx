@@ -7,11 +7,11 @@ import "./index.css";
 // Register service worker for push notifications (Android only - iOS uses client-side)
 if ('serviceWorker' in navigator) {
   // Determine correct base path - handle both dev and prod (MotionAG)
-  // We prioritize the known deployment path if we detect we are on that URL
-  const isMotionAG = window.location.pathname.includes('/MotionAG/');
-  const basePath = isMotionAG ? '/MotionAG/' : (import.meta.env.BASE_URL || '/');
+  // We use includes('MotionAG') to be robust against trailing/non-trailing slashes
+  const isMotionAG = window.location.pathname.includes('MotionAG');
+  const basePath = isMotionAG ? '/MotionAG/' : '/';
 
-  const swPath = `${basePath}push-worker.js`.replace('//', '/');
+  const swPath = `${basePath}push-worker.js`.replace(/\/\/+/g, '/');
 
   // Wait for page to be fully loaded
   if (document.readyState === 'complete') {

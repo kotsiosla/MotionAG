@@ -181,11 +181,12 @@ export function StopNotificationModal({
 
       // Helper to ensure SW is registered
       const ensureServiceWorker = async () => {
-        const basePath = window.location.pathname.includes('/MotionAG/') ? '/MotionAG/' : (import.meta.env.BASE_URL || '/');
+        // Robust basePath: check if MotionAG is anywhere in path
+        const basePath = window.location.pathname.includes('MotionAG') ? '/MotionAG/' : '/';
+        const swUrl = `${basePath}push-worker.js`.replace(/\/\/+/g, '/');
 
         if (!navigator.serviceWorker.controller) {
-          console.log('[StopNotificationModal] No controller found. Force registering...');
-          const swUrl = `${basePath}push-worker.js`.replace('//', '/'); // simple fix
+          console.log('[StopNotificationModal] No controller found. Registering:', swUrl);
           await navigator.serviceWorker.register(swUrl);
         }
         return navigator.serviceWorker.ready;
@@ -212,7 +213,13 @@ export function StopNotificationModal({
             stop_id: stopId || 'UNKNOWN',
             route_id: 'DIAGNOSTIC_V2',
             alert_level: 0,
-            metadata: { step: 'SW_FAILED', error: String(swError), timestamp: new Date().toISOString() }
+            metadata: {
+              step: 'SW_FAILED',
+              error: String(swError),
+              version: 'v1.5.14',
+              attemptedPath: window.location.pathname.includes('MotionAG') ? '/MotionAG/push-worker.js' : '/push-worker.js',
+              timestamp: new Date().toISOString()
+            }
           });
         } catch (e) {
           console.error('Logging failed:', e);
