@@ -65,8 +65,15 @@ export function StopNotificationModal({
     // alert('CLICKED'); // DEBUG REMOVED
     setIsSaving(true);
     try {
+      // Immediate feedback
+      toast({ title: "🔄 Εναρξη συγχρονισμού...", description: "Παρακαλώ περιμένετε...", duration: 2000 });
+
       // Unlock audio for notifications (required on iOS)
       unlockAudio();
+
+      // Check iOS standalone mode (iOS only supports Web Push in PWA mode)
+      const standalone = (window.matchMedia('(display-mode: standalone)').matches) ||
+        ('standalone' in window.navigator && (window.navigator as any).standalone === true);
 
       // IMMEDIATE LOG for tracing
       try {
@@ -74,15 +81,27 @@ export function StopNotificationModal({
           stop_id: stopId || 'UNKNOWN',
           route_id: 'DIAGNOSTIC_V2',
           alert_level: 0,
-          metadata: { step: 'ATTEMPT_START', version: 'v1.5.12', timestamp: new Date().toISOString() }
+          metadata: {
+            step: 'ATTEMPT_START',
+            version: 'v1.5.13',
+            standalone,
+            ua: navigator.userAgent,
+            timestamp: new Date().toISOString()
+          }
         });
-      } catch (e) { console.error('Early log failed', e); }
-
-      // Check iOS standalone mode (iOS only supports Web Push in PWA mode)
-      const standalone = (window.matchMedia('(display-mode: standalone)').matches) ||
-        ('standalone' in window.navigator && (window.navigator as any).standalone === true);
+      } catch (e) { console.error('Early diagnostic log failed', e); }
 
       if (isIOS() && !standalone) {
+        console.log('[StopNotificationModal] iOS detected but not in standalone mode');
+        try {
+          await (supabase as any).from('notifications_log').insert({
+            stop_id: stopId || 'UNKNOWN',
+            route_id: 'DIAGNOSTIC_V2',
+            alert_level: 0,
+            metadata: { step: 'FALLBACK_TRIGGERED', reason: 'iOS_NOT_STANDALONE', timestamp: new Date().toISOString() }
+          });
+        } catch (e) { }
+
         toast({
           title: "Safari Limitation",
           description: "Για να λαμβάνετε ειδοποιήσεις στο iPhone, προσθέστε την εφαρμογή στην Οθόνη Αφετηρίας (Add to Home Screen).",
@@ -525,7 +544,7 @@ export function StopNotificationModal({
           </div>
           <div className="pt-2 border-t border-border mt-2">
             <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground h-6" onClick={handleReset}>
-              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.12)
+              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.13)
             </Button>
           </div>
         </div>

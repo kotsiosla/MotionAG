@@ -464,7 +464,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
           )}
           <div className="mt-4 p-2 text-center">
             <div className="text-[10px] text-muted-foreground font-mono opacity-50 pb-safe">
-              v1.5.12 (MotionAG)
+              v1.5.13 (MotionAG)
             </div>
           </div>
         </TabsContent>
