@@ -97,6 +97,12 @@ export function StopNotificationModal({
       // Request permission
       const permission = await Notification.requestPermission();
       console.log('[StopNotificationModal] Notification permission:', permission);
+
+      // LOG STEP 1
+      await supabase.from('notifications_log').insert({
+        metadata: { step: 'PERMISSION_RESULT', permission, stopId, platform: 'iOS' }
+      });
+
       if (permission !== 'granted') {
         toast({
           title: "Άδεια απορρίφθηκε",
@@ -114,9 +120,16 @@ export function StopNotificationModal({
           // Wait for service worker to be ready
           registration = await navigator.serviceWorker.ready;
           console.log('[StopNotificationModal] Service worker ready:', registration.scope);
+
+          await supabase.from('notifications_log').insert({
+            metadata: { step: 'SW_READY', scope: registration.scope, stopId }
+          });
         }
       } catch (swError) {
         console.error('[StopNotificationModal] Service worker failed:', swError);
+        await supabase.from('notifications_log').insert({
+          metadata: { step: 'SW_FAILED', error: String(swError), stopId }
+        });
       }
 
       // If no active service worker, use client-side only (like iOS)
@@ -164,17 +177,15 @@ export function StopNotificationModal({
             applicationServerKey: vapidKeyArray.buffer as ArrayBuffer,
           });
 
-          // Check if endpoint is WNS - WNS doesn't support Web Push/VAPID
-          const endpointUrl = new URL(subscription.endpoint);
-          if (endpointUrl.hostname.includes('wns.') || endpointUrl.hostname.includes('notify.windows.com')) {
-            console.warn('[StopNotificationModal] ⚠️ WNS endpoint detected - WNS doesn\'t support Web Push. Unsubscribing...');
-            await subscription.unsubscribe();
-            throw new Error('WNS endpoint not supported - please use Chrome, Firefox, or Edge (Chromium)');
-          }
-
+          await supabase.from('notifications_log').insert({
+            metadata: { step: 'SUB_CREATED', endpoint: subscription.endpoint, stopId }
+          });
           console.log('[StopNotificationModal] ✅ Push subscription created');
         } catch (subError) {
           console.error('[StopNotificationModal] ❌ Push subscription failed:', subError);
+          await supabase.from('notifications_log').insert({
+            metadata: { step: 'SUB_FAILED', error: String(subError), stopId }
+          });
           // Fallback to client-side only
           const settings: StopNotificationSettings = {
             stopId,
