@@ -51,7 +51,7 @@ export function StopNotificationModal({
 
   // Simple enable - request permission, subscribe, save to server
   const handleEnable = async () => {
-    alert('CLICKED');
+    // alert('CLICKED'); // DEBUG REMOVED
     setIsSaving(true);
     try {
       // Unlock audio for notifications (required on iOS)
@@ -413,7 +413,7 @@ export function StopNotificationModal({
               {isEnabled ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
             </div>
             <div>
-              <h3 className="font-semibold text-sm">Ειδοποίηση Στάσης <span className="text-[10px] text-primary">v1.5.1</span></h3>
+              <h3 className="font-semibold text-sm">Ειδοποίηση Στάσης</h3>
               <p className="text-xs text-muted-foreground truncate max-w-[180px]">{stopName}</p>
             </div>
           </div>
@@ -474,7 +474,7 @@ export function StopNotificationModal({
                 ) : (
                   <Bell className="h-4 w-4 mr-2" />
                 )}
-                TEST CLICK ME
+                Ενεργοποίηση
               </Button>
             )}
           </div>

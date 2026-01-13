@@ -341,8 +341,16 @@ export function NearbyStopsPanel({
 
 
   // Toggle watch for an specific arrival
-  const toggleWatchArrival = useCallback((arrival: StopArrival) => {
-    ensurePermission();
+  const toggleWatchArrival = useCallback(async (arrival: StopArrival) => {
+    const hasPermission = await ensurePermission();
+    if (!hasPermission) {
+      toast({
+        title: "⚠️ Απαιτείται άδεια",
+        description: "Οι ειδοποιήσεις είναι μπλοκαρισμένες. Παρακαλώ ενεργοποιήστε τις στις ρυθμίσεις του iPhone/Safari.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (!activeStop) return;
 
