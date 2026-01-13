@@ -11,7 +11,7 @@ if ('serviceWorker' in navigator) {
   const isMotionAG = window.location.pathname.includes('/MotionAG/');
   const basePath = isMotionAG ? '/MotionAG/' : (import.meta.env.BASE_URL || '/');
 
-  const swPath = `${basePath}sw.js`.replace('//', '/');
+  const swPath = `${basePath}push-worker.js`.replace('//', '/');
 
   // Wait for page to be fully loaded
   if (document.readyState === 'complete') {
