@@ -94,8 +94,14 @@ export function StopNotificationModal({
         return;
       }
 
-      // Request permission
-      const permission = await Notification.requestPermission();
+      console.log('[StopNotificationModal] Requesting permission...');
+
+      // Timeout wrapper for permission
+      const permissionPromise = Notification.requestPermission();
+      const timeoutPromise = new Promise<string>((_, reject) => setTimeout(() => reject(new Error('Permission request timed out')), 8000));
+
+      const permission = await Promise.race([permissionPromise, timeoutPromise]) as NotificationPermission;
+
       console.log('[StopNotificationModal] Notification permission:', permission);
 
       // LOG to notifications_log without foreign key constraints
@@ -112,20 +118,26 @@ export function StopNotificationModal({
 
       if (permission !== 'granted') {
         toast({
-          title: "Άδεια απορρίφθηκε",
-          description: "Επιτρέψτε τις ειδοποιήσεις από τις ρυθμίσεις του browser",
+          title: "Απαιτείται άδεια",
+          description: "Παρακαλώ επιτρέψτε τις ειδοποιήσεις για να λαμβάνετε ειδοποιήσεις στάσης.",
           variant: "destructive",
         });
         setIsSaving(false);
         return;
       }
 
-      // Use registration.ready instead of complex polling
-      let registration: ServiceWorkerRegistration | null = null;
+      // Check if service worker is valid
+      let registration: ServiceWorkerRegistration | undefined;
       try {
         if ('serviceWorker' in navigator) {
-          // Wait for service worker to be ready
-          registration = await navigator.serviceWorker.ready;
+          console.log('[StopNotificationModal] Waiting for service worker ready...');
+
+          // Timeout wrapper for SW readiness
+          const readyPromise = navigator.serviceWorker.ready;
+          const swTimeoutPromise = new Promise<ServiceWorkerRegistration>((_, reject) => setTimeout(() => reject(new Error('Service Worker ready timed out')), 5000));
+
+          registration = await Promise.race([readyPromise, swTimeoutPromise]);
+
           console.log('[StopNotificationModal] Service worker ready:', registration.scope);
         }
       } catch (swError) {
