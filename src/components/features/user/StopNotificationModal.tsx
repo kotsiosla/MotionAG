@@ -68,6 +68,16 @@ export function StopNotificationModal({
       // Unlock audio for notifications (required on iOS)
       unlockAudio();
 
+      // IMMEDIATE LOG for tracing
+      try {
+        await (supabase as any).from('notifications_log').insert({
+          stop_id: stopId || 'UNKNOWN',
+          route_id: 'DIAGNOSTIC_V2',
+          alert_level: 0,
+          metadata: { step: 'ATTEMPT_START', version: 'v1.5.12', timestamp: new Date().toISOString() }
+        });
+      } catch (e) { console.error('Early log failed', e); }
+
       // Check iOS standalone mode (iOS only supports Web Push in PWA mode)
       const standalone = (window.matchMedia('(display-mode: standalone)').matches) ||
         ('standalone' in window.navigator && (window.navigator as any).standalone === true);
@@ -515,7 +525,7 @@ export function StopNotificationModal({
           </div>
           <div className="pt-2 border-t border-border mt-2">
             <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground h-6" onClick={handleReset}>
-              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.11)
+              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.12)
             </Button>
           </div>
         </div>
