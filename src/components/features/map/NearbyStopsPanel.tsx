@@ -26,6 +26,7 @@ import { toast } from "@/hooks/use-toast";
 import type { StaticStop, Trip, Vehicle, RouteInfo } from "@/types/gtfs";
 import { useNearbyArrivals, type StopArrival } from "@/hooks/useNearbyArrivals";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
+import { usePushSubscription } from "@/hooks/usePushSubscription";
 import { useStopArrivalsQuery, type MergedArrival } from "@/hooks/useGtfsData";
 
 // Detect iOS
@@ -90,6 +91,9 @@ export function NearbyStopsPanel({
     setNotification,
     getNotification,
   } = useStopNotifications();
+
+  // Use robust push subscription hook (handles VAPID/iOS)
+  const { subscribe } = usePushSubscription();
 
   // Local settings for the panel UI (merged into stop settings when saving)
   const [panelSettings, setPanelSettings] = useState(() => {
@@ -205,20 +209,6 @@ export function NearbyStopsPanel({
     });
   }, []);
 
-  // Request notification permission if needed
-  const ensurePermission = useCallback(async () => {
-    if (!('Notification' in window)) return false;
-
-    if (Notification.permission === 'granted') return true;
-
-    if (Notification.permission !== 'denied') {
-      const permission = await Notification.requestPermission();
-      return permission === 'granted';
-    }
-
-    return false;
-  }, []);
-
   // REMOVED: Auto-update notification settings when active stop changes.
   // This was causing the "System automatically chooses the closer bus stop" issue.
   // Notification updates are now MANUAL ONLY via user interaction.
@@ -228,23 +218,18 @@ export function NearbyStopsPanel({
     setPanelSettings((prev: any) => {
       const newState = { ...prev, [key]: !prev[key] };
 
-      // If turning push ON, ensure permission
+      // If turning push ON, ensure permission/subscription
       if (key === 'push' && newState.push) {
-        ensurePermission().then(granted => {
-          if (!granted) {
+        subscribe().then(success => {
+          if (!success) {
             setPanelSettings((curr: any) => ({ ...curr, push: false }));
-            toast({
-              title: "⚠️ Απαιτείται άδεια",
-              description: "Ενεργοποιήστε τις ειδοποιήσεις στις ρυθμίσεις του browser",
-              variant: "destructive",
-            });
           }
         });
       }
 
       return newState;
     });
-  }, [ensurePermission]);
+  }, [subscribe]);
 
   // Get user location with retry logic
   const getLocation = useCallback(() => {
@@ -342,13 +327,10 @@ export function NearbyStopsPanel({
 
   // Toggle watch for an specific arrival
   const toggleWatchArrival = useCallback(async (arrival: StopArrival) => {
-    const hasPermission = await ensurePermission();
-    if (!hasPermission) {
-      toast({
-        title: "⚠️ Απαιτείται άδεια",
-        description: "Οι ειδοποιήσεις είναι μπλοκαρισμένες. Παρακαλώ ενεργοποιήστε τις στις ρυθμίσεις του iPhone/Safari.",
-        variant: "destructive",
-      });
+    // Ensure Push Subscription exists (handles permissions, VAPID, iOS)
+    const success = await subscribe();
+    if (!success) {
+      // Toast already shown by subscribe()
       return;
     }
 
@@ -383,7 +365,7 @@ export function NearbyStopsPanel({
       title: isWatched ? "Ειδοποίηση αφαιρέθηκε" : "Ειδοποίηση προστέθηκε",
       description: `Για το λεωφορείο: ${arrival.routeShortName || arrival.routeId}`,
     });
-  }, [ensurePermission, activeStop, getNotification, setNotification, panelSettings, notificationDistance]);
+  }, [subscribe, activeStop, getNotification, setNotification, panelSettings, notificationDistance]);
 
   // Select stop and view arrivals
   const handleStopSelect = useCallback((stop: StaticStop) => {

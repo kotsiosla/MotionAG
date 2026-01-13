@@ -98,57 +98,29 @@ export function useStopNotifications() {
 
     setIsSyncing(true);
     try {
-      // First try to update existing subscription
-      const { data: existing, error: selectError } = await supabase
+      // ATOMIC UPSERT LOGIC (Matching StopNotificationModal)
+      const { data: upsertData, error: upsertError } = await supabase
         .from('stop_notification_subscriptions')
-        .select('id')
-        .eq('endpoint', endpoint)
-        .maybeSingle();
+        .upsert({
+          endpoint,
+          p256dh: keys.p256dh,
+          auth: keys.auth,
+          stop_notifications: JSON.parse(JSON.stringify(pushEnabledNotifs)),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'endpoint' })
+        .select();
 
-      if (selectError) {
-        throw new Error("Select failed: " + selectError.message);
-      }
-
-      if (existing) {
-        // Update existing logic: ALWAYS update, even if empty, to clear server state
-        const { error } = await supabase
-          .from('stop_notification_subscriptions')
-          .update({
-            p256dh: keys.p256dh,
-            auth: keys.auth,
-            stop_notifications: JSON.parse(JSON.stringify(pushEnabledNotifs)),
-          })
-          .eq('endpoint', endpoint);
-
-        if (error) {
-          console.error('[StopNotifications] Update error:', error);
-          throw new Error("Update failed: " + error.message);
-        } else {
-          console.log('[StopNotifications] Updated', pushEnabledNotifs.length, 'notifications on server');
-        }
+      if (upsertError) {
+        console.error('[StopNotifications] Sync upsert error:', upsertError);
+        throw new Error("Update failed: " + upsertError.message);
       } else {
-        // Insert new logic: Only insert if we actually have data (avoid creating empty rows)
+        console.log('[StopNotifications] Synced', pushEnabledNotifs.length, 'notifications to server');
+        // Only toast on manual action (heuristic: if notifs > 0) or rely on calling component to toast
         if (pushEnabledNotifs.length > 0) {
-          const { error } = await supabase
-            .from('stop_notification_subscriptions')
-            .insert([{
-              endpoint,
-              p256dh: keys.p256dh,
-              auth: keys.auth,
-              stop_notifications: JSON.parse(JSON.stringify(pushEnabledNotifs)),
-            }]);
-
-          if (error) {
-            console.error('[StopNotifications] Insert error:', error);
-            throw new Error("Insert failed: " + error.message);
-          } else {
-            console.log('[StopNotifications] Synced', pushEnabledNotifs.length, 'notifications to server');
-            // Toast success for first sync
-            toast({
-              title: "✅ Επιτυχής Συγχρονισμός",
-              description: "Οι ρυθμίσεις ειδοποιήσεων αποθηκεύτηκαν στο διακομιστή.",
-            });
-          }
+          // We typically rely on the component (toggleWatchArrival) to show the "Added" toast
+          // But showing a "Saved to Cloud" confirmation might be nice, or too noisy.
+          // I'll keep it silent for success to avoid double toasts, as toggleWatchArrival shows one.
+          // actually, for the first sync it might be useful.
         }
       }
     } catch (error: any) {
