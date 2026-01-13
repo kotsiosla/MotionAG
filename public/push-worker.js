@@ -1,64 +1,69 @@
-// Custom Push Notification Worker (v1.9.1 - Split Diagnostics)
+// Custom Push Notification Worker (v1.10.0 - Phone Home)
 
-const SW_VERSION = 'v1.9.1';
+const SW_VERSION = 'v1.10.0';
 const BASE_URL = 'https://kotsiosla.github.io/MotionAG';
-const DEFAULT_ICON = 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png';
+const SUPABASE_URL = "https://jftthfniwfarxyisszjh.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzcwOTMyMSwiZXhwIjoyMDgzMjg1MzIxfQ.1WOlUNRcE0WBqg8uY--mL0eSlIiMlB49Mg4byOkigGE";
+
+async function logToSupabase(msg, data = {}) {
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/notifications_log`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'apikey': SUPABASE_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+                metadata: { msg, version: SW_VERSION, ...data, timestamp: new Date().toISOString() }
+            })
+        });
+    } catch (e) {
+        console.error('Logging failed', e);
+    }
+}
 
 self.addEventListener('push', (event) => {
-    console.log(`[Service Worker] ${SW_VERSION} Push Received.`);
+    console.log(`[Service Worker] ${SW_VERSION} Event received`);
 
     event.waitUntil((async () => {
-        // DIAGNOSTIC 1: Always show this immediately to confirm EVENT reached the device
-        await self.registration.showNotification('SIGNAL REACHED PHONE', {
-            body: 'Service worker is waking up...',
-            tag: 'debug-stage-1',
-            silent: true // Make it quiet so as not to annoy, but visible in center
-        });
+        // PHONE HOME: Notify the server we woke up
+        await logToSupabase('PUSH_EVENT_FIRED', { hasData: !!event.data });
 
         let title = 'Motion Bus Live';
-        let options = {
-            body: 'Νέα ενημέρωση δρομολογίου 🚌',
-            icon: DEFAULT_ICON,
-            badge: DEFAULT_ICON,
-            data: { url: '/MotionAG/' },
-            tag: 'motion-bus-push',
-            renotify: true
-        };
+        let body = 'Νέα ενημέρωση δρομολογίου 🚌';
 
-        try {
-            if (event.data) {
-                // This is where it fails if encryption is wrong
+        if (event.data) {
+            try {
                 const payload = event.data.json();
-                console.log('[Service Worker] Decrypted Payload:', JSON.stringify(payload));
+                const notification = payload.notification || payload;
+                if (notification.title) title = notification.title;
+                if (notification.body) body = notification.body;
 
-                const data = payload.notification || payload;
-                if (data.title) title = data.title;
-                if (data.body) options.body = data.body;
-                if (data.data) options.data = { ...options.data, ...data.data };
-            } else {
-                title = 'Empty Push';
-                options.body = 'No payload data found.';
+                await logToSupabase('DECRYPTION_SUCCESS', { title });
+            } catch (e) {
+                console.error('Decryption failed', e);
+                title = 'ERROR: BROADCAST DISRUPTED';
+                body = 'Unable to read the encrypted message.';
+                await logToSupabase('DECRYPTION_ERROR', { error: e.message });
             }
-        } catch (e) {
-            console.error('[Service Worker] Decryption/Parse Error:', e);
-            title = 'DECRYPTION FAILED';
-            options.body = 'The message was reached but could not be read.';
+        } else {
+            title = 'PING RECEIVED';
+            body = 'The connection is active.';
         }
 
-        // Final UI Notification
-        return self.registration.showNotification(title, options);
+        return self.registration.showNotification(title, {
+            body: body,
+            icon: `${BASE_URL}/pwa-192x192.png`,
+            tag: 'motion-bus-push',
+            renotify: true,
+            data: { url: '/MotionAG/' }
+        });
     })());
 });
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const url = event.notification.data?.url || (BASE_URL + '/MotionAG/');
-    event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((ls) => {
-            for (const c of ls) {
-                if (c.url.includes('/MotionAG') && 'focus' in c) return c.focus();
-            }
-            if (clients.openWindow) return clients.openWindow(url);
-        })
-    );
+    event.waitUntil(clients.openWindow(`${BASE_URL}/MotionAG/`));
 });
