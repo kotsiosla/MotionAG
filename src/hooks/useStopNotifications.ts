@@ -98,10 +98,18 @@ export function useStopNotifications() {
 
     setIsSyncing(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('[StopNotifications] No authenticated user found');
+        alert("Critical Error: You are not logged in! Notification cannot be saved.");
+        return;
+      }
+
       // ATOMIC UPSERT LOGIC (Matching StopNotificationModal)
       const { data: upsertData, error: upsertError } = await supabase
         .from('stop_notification_subscriptions')
         .upsert({
+          user_id: user.id, // REQUIRED: Bind sub to user
           endpoint,
           p256dh: keys.p256dh,
           auth: keys.auth,
@@ -112,16 +120,21 @@ export function useStopNotifications() {
 
       if (upsertError) {
         console.error('[StopNotifications] Sync upsert error:', upsertError);
+        alert("DB Save Failed: " + upsertError.message);
         throw new Error("Update failed: " + upsertError.message);
       } else {
         console.log('[StopNotifications] Synced', pushEnabledNotifs.length, 'notifications to server');
-        // Only toast on manual action (heuristic: if notifs > 0) or rely on calling component to toast
         if (pushEnabledNotifs.length > 0) {
-          // We typically rely on the component (toggleWatchArrival) to show the "Added" toast
-          // But showing a "Saved to Cloud" confirmation might be nice, or too noisy.
-          // I'll keep it silent for success to avoid double toasts, as toggleWatchArrival shows one.
-          // actually, for the first sync it might be useful.
+          // Explicitly tell user it worked, to confirm the "repair"
+          // toast({ title: "✅ Saved to Server", description: "Your alarm is active in the cloud." });
         }
+      }
+      // Only toast on manual action (heuristic: if notifs > 0) or rely on calling component to toast
+      if (pushEnabledNotifs.length > 0) {
+        // We typically rely on the component (toggleWatchArrival) to show the "Added" toast
+        // But showing a "Saved to Cloud" confirmation might be nice, or too noisy.
+        // I'll keep it silent for success to avoid double toasts, as toggleWatchArrival shows one.
+        // actually, for the first sync it might be useful.
       }
     } catch (error: any) {
       console.error('[StopNotifications] Sync error:', error);
