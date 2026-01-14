@@ -28,11 +28,29 @@ if (typeof window !== 'undefined') {
       const supabaseUrl = 'https://jftthfniwfarxyisszjh.supabase.co';
       const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.gPUAizcb955wy6-c_krSAx00_0VNsZc4J3C0I2tmrnw';
       const sb = createClient(supabaseUrl, supabaseKey);
+
+      let swSupport = false;
+      let regCount = 0;
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        swSupport = true;
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          regCount = regs.length;
+        } catch (e) { }
+      }
+
       await sb.from('notifications_log').insert({
         stop_id: 'BOOTSTRAP',
         route_id: 'APP_BOOT',
         alert_level: 0,
-        metadata: { step: 'BOOTSTRAP', version: 'v1.5.17.9.2', href: window.location.href, timestamp: new Date().toISOString() }
+        metadata: {
+          step: 'BOOTSTRAP',
+          version: 'v1.5.17.9.2',
+          href: window.location.href,
+          sw_supported: swSupport,
+          reg_count: regCount,
+          timestamp: new Date().toISOString()
+        }
       });
     } catch { }
   })();
@@ -81,8 +99,45 @@ if ('serviceWorker' in navigator) {
       });
       console.log('[main.tsx] ✅ SW registered:', registration.scope);
 
+      // Log success to DB
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseUrl = 'https://jftthfniwfarxyisszjh.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.gPUAizcb955wy6-c_krSAx00_0VNsZc4J3C0I2tmrnw';
+        const sb = createClient(supabaseUrl, supabaseKey);
+        await sb.from('notifications_log').insert({
+          stop_id: 'BOOTSTRAP',
+          route_id: 'SW_REG_OK',
+          alert_level: 0,
+          metadata: {
+            step: 'SW_REGISTERED_MAIN',
+            scope: registration.scope,
+            version: 'v1.5.17.9.2',
+            timestamp: new Date().toISOString()
+          }
+        });
+      } catch { }
+
     } catch (error) {
       console.error('[main.tsx] ❌ Service worker registration failed:', error);
+      // Log failure to DB
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseUrl = 'https://jftthfniwfarxyisszjh.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.gPUAizcb955wy6-c_krSAx00_0VNsZc4J3C0I2tmrnw';
+        const sb = createClient(supabaseUrl, supabaseKey);
+        await sb.from('notifications_log').insert({
+          stop_id: 'BOOTSTRAP',
+          route_id: 'SW_REG_FAIL',
+          alert_level: 0,
+          metadata: {
+            step: 'SW_REGISTER_FAILED',
+            error: String(error),
+            version: 'v1.5.17.9.2',
+            timestamp: new Date().toISOString()
+          }
+        });
+      } catch { }
     }
   }
 }
