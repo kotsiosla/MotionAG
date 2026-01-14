@@ -9,6 +9,27 @@ import { unlockAudio } from "@/hooks/useStopArrivalNotifications";
 import { type StopNotificationSettings } from "@/hooks/useStopNotifications";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 
+const FALLBACK_SB_URL = 'https://jftthfniwfarxyisszjh.supabase.co';
+const FALLBACK_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.gPUAizcb955wy6-c_krSAx00_0VNsZc4J3C0I2tmrnw';
+
+const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const sb = createClient(FALLBACK_SB_URL, FALLBACK_SB_KEY);
+    await sb.from('notifications_log').insert({
+      stop_id: stopId || 'DIAGNOSTIC',
+      route_id: 'DIAGNOSTIC_V2',
+      alert_level: 0,
+      metadata: {
+        ...metadata,
+        step,
+        version: 'v1.5.16.6',
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (e) { console.error('[Diagnostic] Failed:', e); }
+};
+
 interface StopNotificationModalProps {
   stopId: string;
   stopName: string;
@@ -60,54 +81,28 @@ export function StopNotificationModal({
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   };
 
-  // Simple enable - request permission, subscribe, save to server
   const handleEnable = async () => {
-    // alert('CLICKED'); // DEBUG REMOVED
     setIsSaving(true);
     try {
-      // Immediate feedback
       toast({ title: "🔄 Εναρξη συγχρονισμού...", description: "Παρακαλώ περιμένετε...", duration: 2000 });
-
-      // Unlock audio for notifications (required on iOS)
       unlockAudio();
 
-      // Check iOS standalone mode (iOS only supports Web Push in PWA mode)
       const standalone = (window.matchMedia('(display-mode: standalone)').matches) ||
         ('standalone' in window.navigator && (window.navigator as any).standalone === true);
 
       // IMMEDIATE LOG for tracing
-      try {
-        await (supabase as any).from('notifications_log').insert({
-          stop_id: stopId || 'UNKNOWN',
-          route_id: 'DIAGNOSTIC_V2',
-          alert_level: 0,
-          metadata: {
-            step: 'ATTEMPT_START',
-            version: 'v1.5.16.5',
-            standalone,
-            ua: navigator.userAgent,
-            timestamp: new Date().toISOString()
-          }
-        });
-      } catch (e) { console.error('Early diagnostic log failed', e); }
+      await logDiagnostic(stopId || 'UNKNOWN', 'ATTEMPT_START', { standalone, ua: navigator.userAgent });
 
       if (isIOS() && !standalone) {
         console.log('[StopNotificationModal] iOS detected but not in standalone mode');
-        try {
-          await (supabase as any).from('notifications_log').insert({
-            stop_id: stopId || 'UNKNOWN',
-            route_id: 'DIAGNOSTIC_V2',
-            alert_level: 0,
-            metadata: { step: 'FALLBACK_TRIGGERED', reason: 'iOS_NOT_STANDALONE', timestamp: new Date().toISOString() }
-          });
-        } catch (e) { }
+        await logDiagnostic(stopId || 'UNKNOWN', 'FALLBACK_TRIGGERED', { reason: 'iOS_NOT_STANDALONE' });
 
         toast({
           title: "Safari Limitation",
           description: "Για να λαμβάνετε ειδοποιήσεις στο iPhone, προσθέστε την εφαρμογή στην Οθόνη Αφετηρίας (Add to Home Screen).",
           variant: "default",
         });
-        // Continue with client-side only for non-PWA iOS
+
         const settings: StopNotificationSettings = {
           stopId,
           stopName,
@@ -118,7 +113,6 @@ export function StopNotificationModal({
           push: false,
           beforeMinutes,
         };
-        // ... (rest of local storage logic)
         const stored = localStorage.getItem('stop_notifications');
         let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
         const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
@@ -135,46 +129,22 @@ export function StopNotificationModal({
         return;
       }
 
-
-      // Auto-login to ensure we can save to DB
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.log('[StopNotificationModal] No session, signing in anonymously...');
-        const { error: authError } = await supabase.auth.signInAnonymously();
-        if (authError) {
-          console.error('Auth failed:', authError);
-          throw new Error('Could not sign in. Please reload.');
+      // Auto-login (Note: if shared supabase client is broken, this MIGHT fail but diagnostics will continue)
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          await supabase.auth.signInAnonymously();
         }
+      } catch (e) {
+        console.error('[StopNotificationModal] Auth pre-check failed (expected if key is missing):', e);
       }
 
       console.log('[StopNotificationModal] Requesting permission...');
-
-      // Timeout wrapper for permission
       const permissionPromise = Notification.requestPermission();
       const timeoutPromise = new Promise<string>((_, reject) => setTimeout(() => reject(new Error('Permission request timed out')), 8000));
-
       const permission = await Promise.race([permissionPromise, timeoutPromise]) as NotificationPermission;
 
-      console.log('[StopNotificationModal] Notification permission:', permission);
-
-      // LOG to notifications_log without foreign key constraints
-      try {
-        await (supabase as any).from('notifications_log').insert({
-          stop_id: stopId || 'UNKNOWN',
-          route_id: 'DIAGNOSTIC_V2',
-          alert_level: 0,
-          metadata: {
-            step: 'PERMISSION_RESULT',
-            permission,
-            platform: 'Web',
-            version: 'v1.5.16.5',
-            href: window.location.href,
-            timestamp: new Date().toISOString()
-          }
-        });
-      } catch (e) {
-        console.error('Logging failed:', e);
-      }
+      await logDiagnostic(stopId || 'UNKNOWN', 'PERMISSION_RESULT', { permission, platform: 'Web', href: window.location.href });
 
       if (permission !== 'granted') {
         toast({
@@ -186,195 +156,106 @@ export function StopNotificationModal({
         return;
       }
 
-      // Helper to ensure SW is registered
       const ensureServiceWorker = async () => {
-        // Robust basePath: check if MotionAG is anywhere in path
         const basePath = window.location.pathname.includes('MotionAG') ? '/MotionAG/' : '/';
         const swUrl = `${basePath}push-worker.js`.replace(/\/\/+/g, '/');
-
-        console.log('[StopNotificationModal] Registering SW with path:', swUrl, ' (No explicit scope)');
-        await navigator.serviceWorker.register(swUrl, {
-          updateViaCache: 'none'
-        });
+        console.log('[StopNotificationModal] Registering SW:', swUrl);
+        await navigator.serviceWorker.register(swUrl, { updateViaCache: 'none' });
         return navigator.serviceWorker.ready;
       };
 
-      // Check if service worker is valid
       let registration: ServiceWorkerRegistration | undefined;
       try {
         if ('serviceWorker' in navigator) {
           console.log('[StopNotificationModal] Waiting for service worker ready...');
-
-          // Timeout wrapper for SW readiness (Increased to 15s for v1.5.11)
           const readyPromise = ensureServiceWorker();
-          const swTimeoutPromise = new Promise<ServiceWorkerRegistration>((_, reject) => setTimeout(() => reject(new Error('Service Worker ready timed out (v1.5.16.2)')), 15000));
-
+          const swTimeoutPromise = new Promise<ServiceWorkerRegistration>((_, reject) => setTimeout(() => reject(new Error('Service Worker ready timed out (v1.5.16.6)')), 15000));
           registration = await Promise.race([readyPromise, swTimeoutPromise]);
-
           console.log('[StopNotificationModal] Service worker ready:', registration.scope);
         }
       } catch (swError) {
         console.error('[StopNotificationModal] Service worker failed:', swError);
-        try {
-          await (supabase as any).from('notifications_log').insert({
-            stop_id: stopId || 'UNKNOWN',
-            route_id: 'DIAGNOSTIC_V2',
-            alert_level: 0,
-            metadata: {
-              step: 'SW_FAILED',
-              error: String(swError),
-              version: 'v1.5.16.5',
-              href: window.location.href,
-              controller: !!navigator.serviceWorker.controller,
-              basePath: window.location.pathname.includes('MotionAG') ? '/MotionAG/' : '/',
-              attemptedPath: window.location.pathname.includes('MotionAG') ? '/MotionAG/push-worker.js' : '/push-worker.js',
-              timestamp: new Date().toISOString()
-            }
-          });
-        } catch (e) {
-          console.error('Logging failed:', e);
-        }
+        await logDiagnostic(stopId || 'UNKNOWN', 'SW_FAILED', {
+          error: String(swError),
+          href: window.location.href,
+          controller: !!navigator.serviceWorker.controller,
+          basePath: window.location.pathname.includes('MotionAG') ? '/MotionAG/' : '/',
+          attemptedPath: window.location.pathname.includes('MotionAG') ? '/MotionAG/push-worker.js' : '/push-worker.js'
+        });
       }
 
-      // If no active service worker, use client-side only (like iOS)
       if (!registration) {
         console.log('[StopNotificationModal] Using client-side notifications only');
         const settings: StopNotificationSettings = {
-          stopId,
-          stopName,
-          enabled: true,
-          sound: true,
-          vibration: true,
-          voice: false,
-          push: false, // No push - client-side only
-          beforeMinutes,
+          stopId, stopName, enabled: true, sound: true, vibration: true, voice: false, push: false, beforeMinutes,
         };
         const stored = localStorage.getItem('stop_notifications');
         let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
         const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
-        if (existingIndex >= 0) {
-          allNotifications[existingIndex] = settings;
-        } else {
-          allNotifications.push(settings);
-        }
+        if (existingIndex >= 0) allNotifications[existingIndex] = settings;
+        else allNotifications.push(settings);
         localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
         onSave(settings);
-        toast({
-          title: "✅ Ειδοποίηση ενεργοποιήθηκε",
-          description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό`
-        });
+        toast({ title: "✅ Ειδοποίηση ενεργοποιήθηκε", description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό` });
         onClose();
         setIsSaving(false);
         return;
       }
 
-      // Get or create push subscription (for Android)
-      console.log('[StopNotificationModal] Setting up push notifications for Android...');
+      console.log('[StopNotificationModal] Setting up push notifications...');
       let subscription = await registration.pushManager.getSubscription();
 
       if (!subscription) {
-        console.log('[StopNotificationModal] Creating new push subscription...');
         try {
           const vapidKeyArray = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
           subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: vapidKeyArray as any, // Use Uint8Array directly for iOS
+            applicationServerKey: vapidKeyArray as any,
           });
-
-          try {
-            await (supabase as any).from('notifications_log').insert({
-              stop_id: stopId || 'UNKNOWN',
-              route_id: 'DIAGNOSTIC_V2',
-              alert_level: 0,
-              metadata: { step: 'SUB_CREATED', endpoint: subscription.endpoint, timestamp: new Date().toISOString() }
-            });
-          } catch (e) {
-            console.error('Logging failed:', e);
-          }
-          console.log('[StopNotificationModal] ✅ Push subscription created');
+          await logDiagnostic(stopId || 'UNKNOWN', 'SUB_CREATED', { endpoint: subscription.endpoint });
         } catch (subError) {
-          console.error('[StopNotificationModal] ❌ Push subscription failed:', subError);
-          try {
-            await (supabase as any).from('notifications_log').insert({
-              stop_id: stopId || 'UNKNOWN',
-              route_id: 'DIAGNOSTIC_V2',
-              alert_level: 0,
-              metadata: { step: 'SUB_FAILED', error: String(subError), timestamp: new Date().toISOString() }
-            });
-          } catch (e) {
-            console.error('Logging failed:', e);
-          }
-          // Fallback to client-side only
+          console.error('[StopNotificationModal] Push subscription failed:', subError);
+          await logDiagnostic(stopId || 'UNKNOWN', 'SUB_FAILED', { error: String(subError) });
+
           const settings: StopNotificationSettings = {
-            stopId,
-            stopName,
-            enabled: true,
-            sound: true,
-            vibration: true,
-            voice: false,
-            push: false,
-            beforeMinutes,
+            stopId, stopName, enabled: true, sound: true, vibration: true, voice: false, push: false, beforeMinutes,
           };
           const stored = localStorage.getItem('stop_notifications');
           let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
           const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
-          if (existingIndex >= 0) {
-            allNotifications[existingIndex] = settings;
-          } else {
-            allNotifications.push(settings);
-          }
+          if (existingIndex >= 0) allNotifications[existingIndex] = settings;
+          else allNotifications.push(settings);
           localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
           onSave(settings);
-          toast({
-            title: "✅ Ειδοποίηση ενεργοποιήθηκε",
-            description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό`
-          });
+          toast({ title: "✅ Ειδοποίηση ενεργοποιήθηκε", description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό` });
           onClose();
           setIsSaving(false);
           return;
         }
       }
 
-      // Extract keys and save to server
       const p256dhKey = subscription.getKey('p256dh');
       const authKey = subscription.getKey('auth');
-      if (!p256dhKey || !authKey) {
-        throw new Error('Failed to get subscription keys');
-      }
+      if (!p256dhKey || !authKey) throw new Error('Failed to get subscription keys');
 
       const p256dh = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(p256dhKey))));
       const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
 
       const settings: StopNotificationSettings = {
-        stopId,
-        stopName,
-        enabled: true,
-        sound: true,
-        vibration: true,
-        voice: false,
-        push: true, // Push enabled for Android
-        beforeMinutes,
+        stopId, stopName, enabled: true, sound: true, vibration: true, voice: false, push: true, beforeMinutes,
       };
 
       const stored = localStorage.getItem('stop_notifications');
       let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
-      const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
-      if (existingIndex >= 0) {
-        allNotifications[existingIndex] = settings;
-      } else {
-        allNotifications.push(settings);
-      }
+      const existingKey = allNotifications.findIndex(n => n.stopId === stopId);
+      if (existingKey >= 0) allNotifications[existingKey] = settings;
+      else allNotifications.push(settings);
       localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
 
-      // Save to server
       const pushNotifications = allNotifications.filter(n => n.enabled && n.push);
       const pushNotificationsJson = JSON.parse(JSON.stringify(pushNotifications));
 
-      console.log('[StopNotificationModal] Saving to stop_notification_subscriptions...');
-      console.log('[StopNotificationModal] Endpoint:', subscription.endpoint);
-      console.log('[StopNotificationModal] Stop notifications to save:', pushNotificationsJson);
-
-      const { data: upsertData, error: upsertError } = await supabase
+      const { error: upsertError } = await (supabase as any)
         .from('stop_notification_subscriptions')
         .upsert({
           endpoint: subscription.endpoint,
@@ -382,103 +263,55 @@ export function StopNotificationModal({
           auth,
           stop_notifications: pushNotificationsJson,
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'endpoint' })
-        .select();
+        }, { onConflict: 'endpoint' });
 
       if (upsertError) {
-        console.error('[StopNotificationModal] ❌ Upsert error:', upsertError);
-        toast({
-          title: "Σφάλμα Συγχρονισμού",
-          description: "Δεν ήταν δυνατή η αποθήκευση της ειδοποίησης στο διακομιστή.",
-          variant: "destructive",
-        });
+        console.error('[StopNotificationModal] Upsert error:', upsertError);
+        // If shared client fails, we try one last ditch log with robust client
+        await logDiagnostic(stopId, 'UPSERT_FAILED', { error: upsertError });
+        toast({ title: "Σφάλμα Συγχρονισμού", description: "Δεν ήταν δυνατή η αποθήκευση στο διακομιστή.", variant: "destructive" });
         setIsSaving(false);
         return;
-      } else {
-        console.log('[StopNotificationModal] ✅ Push subscription saved to server');
-        console.log('[StopNotificationModal] Saved data:', upsertData);
       }
 
       onSave(settings);
-
-      toast({
-        title: "🔔 Ειδοποίηση ενεργοποιήθηκε",
-        description: `${beforeMinutes} λεπτά πριν τη στάση "${stopName}"`,
-      });
-
+      toast({ title: "🔔 Ειδοποίηση ενεργοποιήθηκε", description: `${beforeMinutes} λεπτά πριν τη στάση "${stopName}"` });
       onClose();
     } catch (error: any) {
-      console.error('[StopNotificationModal] FATAL ERROR:', error);
-      toast({
-        title: "⛔ Κρίσιμο Σφάλμα",
-        description: error.message || String(error),
-        variant: "destructive",
-        duration: 8000
-      });
-      // Also attempt to log this fatal error
-      try {
-        await (supabase as any).from('notifications_log').insert({
-          stop_id: stopId || 'UNKNOWN',
-          route_id: 'FATAL_ERROR',
-          alert_level: 0,
-          metadata: { error: String(error), stack: error?.stack, timestamp: new Date().toISOString() }
-        });
-      } catch { }
+      console.error('[StopNotificationModal] FATAL:', error);
+      await logDiagnostic(stopId || 'UNKNOWN', 'FATAL_ERROR', { error: String(error), stack: error?.stack });
+      toast({ title: "⛔ Κρίσιμο Σφάλμα", description: error.message || String(error), variant: "destructive", duration: 8000 });
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Simple disable - remove from localStorage and server
   const handleDisable = async () => {
     setIsSaving(true);
     try {
-      // Remove from localStorage
       const stored = localStorage.getItem('stop_notifications');
       let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
       allNotifications = allNotifications.filter(n => n.stopId !== stopId);
       localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
 
-      // Update server
       if ('serviceWorker' in navigator && 'PushManager' in window) {
         const registration = await navigator.serviceWorker.ready;
         const subscription = await registration.pushManager.getSubscription();
-
         if (subscription) {
           const remaining = allNotifications.filter(n => n.enabled && n.push);
-
           if (remaining.length > 0) {
-            // Ensure stop_notifications is properly formatted as JSONB
-            const remainingJson = JSON.parse(JSON.stringify(remaining));
-            await supabase
-              .from('stop_notification_subscriptions')
-              .update({ stop_notifications: remainingJson })
-              .eq('endpoint', subscription.endpoint);
+            await supabase.from('stop_notification_subscriptions').update({ stop_notifications: JSON.parse(JSON.stringify(remaining)) }).eq('endpoint', subscription.endpoint);
           } else {
-            await supabase
-              .from('stop_notification_subscriptions')
-              .delete()
-              .eq('endpoint', subscription.endpoint);
+            await supabase.from('stop_notification_subscriptions').delete().eq('endpoint', subscription.endpoint);
           }
         }
       }
-
-      // Call parent callback
       onRemove(stopId);
-
-      toast({
-        title: "🔕 Ειδοποίηση απενεργοποιήθηκε",
-        description: stopName,
-      });
-
+      toast({ title: "🔕 Ειδοποίηση απενεργοποιήθηκε", description: stopName });
       onClose();
     } catch (error) {
-      console.error('Error disabling notification:', error);
-      toast({
-        title: "Σφάλμα",
-        description: (error as Error).message,
-        variant: "destructive",
-      });
+      console.error('Error disabling:', error);
+      toast({ title: "Σφάλμα", description: (error as Error).message, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -487,7 +320,6 @@ export function StopNotificationModal({
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-background border border-border rounded-xl shadow-2xl w-[90%] max-w-sm mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border bg-muted/50">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isEnabled ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
@@ -503,9 +335,7 @@ export function StopNotificationModal({
           </Button>
         </div>
 
-        {/* Content */}
         <div className="p-4 space-y-4">
-          {/* Before minutes slider */}
           <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -528,40 +358,22 @@ export function StopNotificationModal({
             </p>
           </div>
 
-          {/* Action buttons */}
           <div className="flex gap-2">
             {isEnabled ? (
-              <Button
-                variant="destructive"
-                className="flex-1"
-                onClick={handleDisable}
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <BellOff className="h-4 w-4 mr-2" />
-                )}
+              <Button variant="destructive" className="flex-1" onClick={handleDisable} disabled={isSaving}>
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <BellOff className="h-4 w-4 mr-2" />}
                 Απενεργοποίηση
               </Button>
             ) : (
-              <Button
-                className="flex-1"
-                onClick={handleEnable}
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Bell className="h-4 w-4 mr-2" />
-                )}
+              <Button className="flex-1" onClick={handleEnable} disabled={isSaving}>
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Bell className="h-4 w-4 mr-2" />}
                 Ενεργοποίηση
               </Button>
             )}
           </div>
           <div className="pt-2 border-t border-border mt-2">
             <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground h-6" onClick={handleReset}>
-              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.16.5)
+              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.16.6)
             </Button>
           </div>
         </div>

@@ -16,7 +16,7 @@ if (typeof window !== 'undefined') {
         stop_id: 'RUNTIME_ERROR',
         route_id: 'RUNTIME_CRASH',
         alert_level: 0,
-        metadata: { message, source, lineno, colno, error: String(error), version: 'v1.5.16.5', timestamp: new Date().toISOString() }
+        metadata: { message, source, lineno, colno, error: String(error), version: 'v1.5.16.6', timestamp: new Date().toISOString() }
       });
     } catch { }
   };
@@ -32,7 +32,7 @@ if (typeof window !== 'undefined') {
         stop_id: 'BOOTSTRAP',
         route_id: 'APP_BOOT',
         alert_level: 0,
-        metadata: { step: 'BOOTSTRAP', version: 'v1.5.16.5', href: window.location.href, timestamp: new Date().toISOString() }
+        metadata: { step: 'BOOTSTRAP', version: 'v1.5.16.6', href: window.location.href, timestamp: new Date().toISOString() }
       });
     } catch { }
   })();
