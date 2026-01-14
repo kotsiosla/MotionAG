@@ -103,7 +103,11 @@ export function useStopNotifications() {
     const pushEnabledNotifs = notifs.filter(n => n.enabled && n.push);
 
     // DIAGNOSTIC: Start Sync
-    await logDiagnostic('SYNC_START', { notifs: pushEnabledNotifs.length });
+    await logDiagnostic('SYNC_START', {
+      notifs: pushEnabledNotifs.length,
+      full_count: notifs.length,
+      raw_data: JSON.stringify(notifs).slice(0, 100) // First 100 chars
+    });
 
     const endpoint = await getPushEndpoint();
     if (!endpoint) {
