@@ -244,6 +244,28 @@
 
                 await reg.showNotification(title, options);
                 log(`✅ TRIGGER SENT to Worker at ${reg.active.state}`);
+
+                // Log to DB that we triggered a local test
+                try {
+                    fetch('https://jftthfniwfarxyisszjh.supabase.co/rest/v1/notifications_log', {
+                        method: 'POST',
+                        headers: {
+                            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.gPUAizcb955wy6-c_krSAx00_0VNsZc4J3C0I2tmrnwjA4MzI4NTMyMX0.',
+                            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.gPUAizcb955wy6-c_krSAx00_0VNsZc4J3C0I2tmrnwjA4MzI4NTMyMX0.',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            stop_id: 'DEBUG',
+                            route_id: 'LOCAL_TEST',
+                            alert_level: 0,
+                            metadata: {
+                                step: 'LOCAL_NOTIF_TRIGGERED',
+                                version: 'v2.1',
+                                timestamp: new Date().toISOString()
+                            }
+                        })
+                    });
+                } catch (e) { console.error('DB log failed', e); }
             } catch (e) {
                 log(`❌ FATAL Error: ${e.message}`, true);
             }
