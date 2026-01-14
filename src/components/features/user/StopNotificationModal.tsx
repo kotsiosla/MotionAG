@@ -149,8 +149,21 @@ export function StopNotificationModal({
           await new Promise(r => setTimeout(r, 500));
         }
 
-        console.log('[StopNotificationModal] No registration found after polling.');
-        return null;
+        console.log('[StopNotificationModal] No registration found after polling. Attempting SELF-HEALING...');
+
+        try {
+          const basePath = window.location.pathname.includes('MotionAG') ? '/MotionAG/' : '/';
+          const swPath = `${basePath}sw.js`.replace(/\/\/+/g, '/');
+          const scope = basePath;
+
+          console.log('[StopNotificationModal] Force registering:', swPath, scope);
+          const reg = await navigator.serviceWorker.register(swPath, { scope: scope, updateViaCache: 'none' });
+          console.log('[StopNotificationModal] Self-healing success:', reg);
+          return reg;
+        } catch (e) {
+          console.error('[StopNotificationModal] Self-healing failed:', e);
+          return null;
+        }
       };
 
       let registration: ServiceWorkerRegistration | null = null;
