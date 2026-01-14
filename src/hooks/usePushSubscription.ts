@@ -411,24 +411,13 @@ export function usePushSubscription() {
       // Get existing registration (don't use ready - causes refresh loop)
       const existingRegistrations = await navigator.serviceWorker.getRegistrations();
       if (existingRegistrations.length === 0 || !existingRegistrations[0].active) {
-        // Just clear localStorage for iOS Safari
-        if (isIOS() && !isStandalone()) {
-          localStorage.removeItem('push_subscription_routes');
-          setIsSubscribed(false);
-          setSubscribedRoutes([]);
-          toast({
-            title: 'Ειδοποιήσεις απενεργοποιήθηκαν',
-          });
-          setIsLoading(false);
-          return true;
-        }
-        toast({
-          title: 'Service Worker δεν είναι έτοιμο',
-          description: 'Παρακαλώ περιμένετε 2-3 δευτερόλεπτα και δοκιμάστε ξανά',
-          variant: 'destructive',
-        });
+        // SW is dead or missing. Just clean up local state and DB if possible.
+        console.log('[usePushSubscription] No active SW found during unsubscribe. Forcing local cleanup.');
+        setIsSubscribed(false);
+        setSubscribedRoutes([]);
+        localStorage.removeItem('push_subscribed_routes');
         setIsLoading(false);
-        return false;
+        return true;
       }
 
       const registration = existingRegistrations[0];
