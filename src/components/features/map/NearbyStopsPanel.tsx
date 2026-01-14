@@ -365,10 +365,7 @@ export function NearbyStopsPanel({
       watchedTrips: newWatched,
     });
 
-    // Force sync immediately to ensure DB is updated
-    setTimeout(() => {
-      forceSync();
-    }, 100);
+
 
     toast({
       title: isWatched ? "Ειδοποίηση αφαιρέθηκε" : "Ειδοποίηση προστέθηκε",

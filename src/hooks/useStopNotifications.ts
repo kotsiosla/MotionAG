@@ -274,9 +274,14 @@ export function useStopNotifications() {
   }, [notifications]);
 
   // Force sync all notifications to server
-  const forceSync = useCallback(async () => {
-    await logDiagnostic('BOOTSTRAP', { version: 'v1.5.17.7', href: window.location.href });
-    await syncToServer(notifications);
+  const forceSync = useCallback(async (manualNotifs?: StopNotificationSettings[]) => {
+    const toSync = manualNotifs || notifications;
+    await logDiagnostic('BOOTSTRAP', {
+      version: 'v1.5.17.9.2',
+      href: window.location.href,
+      count: toSync.length
+    });
+    await syncToServer(toSync);
   }, [notifications, syncToServer]);
 
   // Clear all notifications locally and on server
