@@ -25,9 +25,12 @@ self.addEventListener('push', (event) => {
             data: { url: FALLBACK_URL },
             tag: 'motion-bus-push',
             renotify: true,
-            vibrate: [200, 100, 200], // Force vibration
-            requireInteraction: true, // Keep on screen
-            silent: false
+            vibrate: [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40, 500],
+            requireInteraction: true,
+            silent: false,
+            actions: [
+                { action: 'open', title: '🚌 View Arrival' }
+            ]
         };
 
         try {

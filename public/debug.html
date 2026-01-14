@@ -142,12 +142,24 @@
                 if (!reg || !reg.active) return log('❌ No Active Service Worker');
 
                 // We use showNotification from the registration directly
-                await reg.showNotification('Test SW', {
-                    body: 'This is from the Service Worker Registration',
+                const title = '🚨 LOUD TEST ' + new Date().toLocaleTimeString();
+                const options = {
+                    body: 'If you see this pop up, the Priority is FIXED! \n(Vibration + Heads-up Test)',
                     icon: '/MotionAG/pwa-192x192.png',
-                    tag: 'debug-sw'
-                });
-                log('✅ SW Notification trigger sent');
+                    badge: '/MotionAG/pwa-192x192.png',
+                    tag: 'debug-sw-' + Date.now(),
+                    vibrate: [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40, 500], // SOS pattern
+                    requireInteraction: true,
+                    silent: false,
+                    renotify: true,
+                    actions: [
+                        { action: 'open', title: '✅ Open App' },
+                        { action: 'close', title: '❌ Close' }
+                    ]
+                };
+
+                await reg.showNotification(title, options);
+                log(`✅ LOUD Notification trigger sent\n   Title: ${title}`);
             } catch (e) {
                 log(`❌ SW Error: ${e.message}`);
             }
