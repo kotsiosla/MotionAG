@@ -68,8 +68,15 @@ export function StopNotificationModal({
   const handleReset = async () => {
     if (confirm("Reset Push Permissions? This will verify if the app has a broken key.")) {
       await unsubscribe();
+      // Nuclear: Unregister all SWs too
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (let reg of regs) {
+          await reg.unregister();
+        }
+      }
       alert("Reset Complete. Please try enabling the alarm again.");
-      onClose();
+      window.location.reload();
     }
   };
 
@@ -363,7 +370,7 @@ export function StopNotificationModal({
           </div>
           <div className="pt-2 border-t border-border mt-2">
             <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground h-6" onClick={handleReset}>
-              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.17.7)
+              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.17.9.2)
             </Button>
           </div>
         </div>
