@@ -83,7 +83,7 @@ export function StopNotificationModal({
           alert_level: 0,
           metadata: {
             step: 'ATTEMPT_START',
-            version: 'v1.5.13',
+            version: 'v1.5.16',
             standalone,
             ua: navigator.userAgent,
             timestamp: new Date().toISOString()
