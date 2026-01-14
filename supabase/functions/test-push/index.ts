@@ -33,8 +33,11 @@ serve(async (req) => {
     const FALLBACK_VAPID_PRIVATE_KEY = 'ynT-wYr9bdzGYOVDHiqIEbvXua5WynRuS9vNAXg62pk';
 
     // 2. Prepare VAPID Keys (Raw Base64URL)
-    let pubKey = VAPID_PUBLIC_KEY || FALLBACK_VAPID_PUBLIC_KEY;
-    let privKey = VAPID_PRIVATE_KEY || FALLBACK_VAPID_PRIVATE_KEY;
+    // CRITICAL FIX: Prioritize HARDCODED keys because the environment variables seem to be mismatched
+    // The frontend is using the hardcoded key starting with 'BG5V...'
+    // So the backend MUST use the corresponding private key 'ynT-...'
+    let pubKey = FALLBACK_VAPID_PUBLIC_KEY || VAPID_PUBLIC_KEY;
+    let privKey = FALLBACK_VAPID_PRIVATE_KEY || VAPID_PRIVATE_KEY;
 
     // Clean keys
     pubKey = pubKey.trim().replace(/\s/g, '');
