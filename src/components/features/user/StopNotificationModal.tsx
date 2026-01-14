@@ -137,29 +137,20 @@ export function StopNotificationModal({
 
       const getReadyServiceWorker = async () => {
         if (!('serviceWorker' in navigator)) return null;
-        console.log('[StopNotificationModal] Waiting for service worker ready...');
+        console.log('[StopNotificationModal] Polling for existing registration...');
 
-        // Try standard ready first
-        try {
-          const readyPromise = navigator.serviceWorker.ready;
-          const timeoutPromise = new Promise<null>((resolve) =>
-            setTimeout(() => resolve(null), 5000)
-          );
-          const result = await Promise.race([readyPromise, timeoutPromise]);
-          if (result) return result;
-        } catch (e) {
-          console.log('[StopNotificationModal] Ready check failed, trying fallback...');
+        // Poll for 5 seconds (10 attempts x 500ms)
+        for (let i = 0; i < 10; i++) {
+          const reg = await navigator.serviceWorker.getRegistration();
+          if (reg && (reg.active || reg.waiting || reg.installing)) {
+            console.log('[StopNotificationModal] Found registration after attempt', i + 1, reg);
+            return reg;
+          }
+          await new Promise(r => setTimeout(r, 500));
         }
 
-        // Fallback: Check for any registration
-        const reg = await navigator.serviceWorker.getRegistration();
-        if (reg && (reg.active || reg.waiting || reg.installing)) {
-          console.log('[StopNotificationModal] Found existing registration (Fallback):', reg);
-          return reg;
-        }
-
-        console.log('[StopNotificationModal] No registration found in fallback.');
-        return null; // Give up
+        console.log('[StopNotificationModal] No registration found after polling.');
+        return null;
       };
 
       let registration: ServiceWorkerRegistration | null = null;
@@ -167,10 +158,7 @@ export function StopNotificationModal({
         registration = await getReadyServiceWorker();
 
         if (!registration) {
-          // Try one last desperate re-register if main.tsx failed?
-          // No, main.tsx logs say it worked. 
-          // Just throw error to trigger UI message.
-          throw new Error('Service Worker not found after fallback check');
+          throw new Error('Service Worker not found - Timed out polling');
         }
 
         if (registration) {
