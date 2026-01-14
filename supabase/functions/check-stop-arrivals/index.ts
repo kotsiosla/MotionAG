@@ -171,7 +171,19 @@ serve(async (req) => {
                         title: `${urgency} Bus ${routeName} in ${minsUntil}'`,
                         body: `Arriving at ${setting.stopName}`,
                         icon: 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png',
-                        data: { url: `https://kotsiosla.github.io/MotionAG/?stop=${stopId}` }
+                        badge: 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png',
+                        vibrate: [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40, 500],
+                        requireInteraction: true,
+                        data: {
+                            url: `https://kotsiosla.github.io/MotionAG/?stop=${stopId}`,
+                            logUrl: SUPABASE_URL,
+                            logKey: SUPABASE_SERVICE_ROLE_KEY.slice(0, 10) === 'eyJhbGciOi' ? Deno.env.get('SUPABASE_ANON_KEY') : SUPABASE_SERVICE_ROLE_KEY, // Prefer anon key if possible, but need a key for logging
+                            stopId: stopId,
+                            tripId: arrival.tripId
+                        },
+                        actions: [
+                            { action: 'open', title: '🚌 View Live' }
+                        ]
                     });
 
                     try {
@@ -192,12 +204,31 @@ serve(async (req) => {
                                 stop_id: stopId,
                                 route_id: routeId,
                                 alert_level: targetAlertLevel,
-                                metadata: { trip_id: arrival.tripId || 'unknown' }
+                                metadata: {
+                                    trip_id: arrival.tripId || 'unknown',
+                                    push_success: true,
+                                    status_code: result.statusCode
+                                }
                             });
                             if (insError) console.error(`[Worker] Error logging notification: ${insError.message}`);
                         } else {
                             console.error('Push Service Error:', result.statusCode, result.error);
                             errors.push(`Push Error ${result.statusCode}: ${result.error}`);
+
+                            // Log the error even on failure
+                            await supabase.from('notifications_log').insert({
+                                subscription_id: sub.id,
+                                stop_id: stopId,
+                                route_id: routeId,
+                                alert_level: targetAlertLevel,
+                                metadata: {
+                                    trip_id: arrival.tripId || 'unknown',
+                                    push_success: false,
+                                    status_code: result.statusCode,
+                                    error: result.error
+                                }
+                            });
+
                             if (result.statusCode === 410 || result.statusCode === 404) {
                                 await supabase.from('stop_notification_subscriptions').delete().eq('id', sub.id);
                             }

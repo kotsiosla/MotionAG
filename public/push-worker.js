@@ -33,6 +33,11 @@ self.addEventListener('push', (event) => {
             ]
         };
 
+        let logUrl = null;
+        let logKey = null;
+        let stopId = 'UNKNOWN';
+        let tripId = 'UNKNOWN';
+
         try {
             if (event.data) {
                 // Decrypt RFC 8291 payload
@@ -42,7 +47,13 @@ self.addEventListener('push', (event) => {
                 if (data.title) title = data.title;
                 if (data.body) options.body = data.body;
                 if (data.icon) options.icon = data.icon;
-                if (data.data) options.data = { ...options.data, ...data.data };
+                if (data.data) {
+                    options.data = { ...options.data, ...data.data };
+                    if (data.data.logUrl) logUrl = data.data.logUrl;
+                    if (data.data.logKey) logKey = data.data.logKey;
+                    if (data.data.stopId) stopId = data.data.stopId;
+                    if (data.data.tripId) tripId = data.data.tripId;
+                }
                 // Ensure defaults stick if not overridden
                 if (data.vibrate) options.vibrate = data.vibrate;
                 if (data.requireInteraction !== undefined) options.requireInteraction = data.requireInteraction;
@@ -50,6 +61,30 @@ self.addEventListener('push', (event) => {
         } catch (e) {
             console.error('[Service Worker] Error parsing encrypted payload:', e);
             // Fallback stays as default title/body
+        }
+
+        // REMOTE LOGGING (Diagnostic)
+        if (logUrl && logKey) {
+            try {
+                fetch(`${logUrl}/rest/v1/notifications_log`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': logKey,
+                        'Authorization': `Bearer ${logKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        stop_id: stopId,
+                        route_id: tripId,
+                        alert_level: 1,
+                        metadata: {
+                            step: 'PUSH_RECEIVED',
+                            version: SW_VERSION,
+                            timestamp: new Date().toISOString()
+                        }
+                    })
+                });
+            } catch (e) { console.error('SW Logging failed', e); }
         }
 
         // Ensure absolute URLs for iOS compatibility
