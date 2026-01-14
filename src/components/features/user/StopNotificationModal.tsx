@@ -83,7 +83,7 @@ export function StopNotificationModal({
           alert_level: 0,
           metadata: {
             step: 'ATTEMPT_START',
-            version: 'v1.5.16',
+            version: 'v1.5.16.2',
             standalone,
             ua: navigator.userAgent,
             timestamp: new Date().toISOString()
@@ -225,7 +225,7 @@ export function StopNotificationModal({
             metadata: {
               step: 'SW_FAILED',
               error: String(swError),
-              version: 'v1.5.16',
+              version: 'v1.5.16.2',
               href: window.location.href,
               controller: !!navigator.serviceWorker.controller,
               basePath: window.location.pathname.includes('MotionAG') ? '/MotionAG/' : '/',

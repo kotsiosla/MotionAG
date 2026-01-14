@@ -4,6 +4,22 @@ if (window.location.pathname === '/MotionAG') {
   window.location.replace(window.location.href + '/');
 }
 
+// GLOBAL ERROR LOGGING to Supabase
+if (typeof window !== 'undefined') {
+  window.onerror = async function (message, source, lineno, colno, error) {
+    try {
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseUrl = 'https://jftthfniwfarxyisszjh.supabase.co';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.UvY6oT8U7GoymO-4rI5-P_1S23yI19iV6Lh8R8E9O0s';
+      const sb = createClient(supabaseUrl, supabaseKey);
+      await sb.from('notifications_log').insert({
+        route_id: 'RUNTIME_CRASH',
+        metadata: { message, source, lineno, colno, error: String(error), version: 'v1.5.16.2', timestamp: new Date().toISOString() }
+      });
+    } catch { }
+  };
+}
+
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
