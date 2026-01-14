@@ -64,33 +64,35 @@ self.addEventListener('push', (event) => {
         }
 
         // REMOTE LOGGING (Diagnostic)
-        if (logUrl && logKey) {
-            try {
-                fetch(`${logUrl}/rest/v1/notifications_log`, {
-                    method: 'POST',
-                    headers: {
-                        'apikey': logKey,
-                        'Authorization': `Bearer ${logKey}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        stop_id: stopId,
-                        route_id: tripId,
-                        alert_level: 1,
-                        metadata: {
-                            step: 'PUSH_RECEIVED',
-                            version: SW_VERSION,
-                            timestamp: new Date().toISOString()
-                        }
-                    })
-                });
-            } catch (e) { console.error('SW Logging failed', e); }
-        }
+        const VERIFIED_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.gPUAizcb955wy6-c_krSAx00_0VNsZc4J3C0I2tmrnw';
+        const finalUrl = logUrl || 'https://jftthfniwfarxyisszjh.supabase.co';
+        const finalKey = (logKey && logKey.length > 50) ? logKey : VERIFIED_KEY;
+
+        try {
+            fetch(`${finalUrl}/rest/v1/notifications_log`, {
+                method: 'POST',
+                headers: {
+                    'apikey': finalKey,
+                    'Authorization': `Bearer ${finalKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    stop_id: stopId,
+                    route_id: tripId,
+                    alert_level: 1,
+                    metadata: {
+                        step: 'PUSH_RECEIVED',
+                        version: SW_VERSION,
+                        timestamp: new Date().toISOString()
+                    }
+                })
+            });
+        } catch (e) { console.error('SW Logging failed', e); }
 
         // Ensure absolute URLs for iOS compatibility
-        const finalUrl = options.data.url || FALLBACK_URL;
-        if (!finalUrl.startsWith('http')) {
-            options.data.url = BASE_URL + (finalUrl.startsWith('/') ? '' : '/') + finalUrl;
+        const targetUrl = options.data.url || FALLBACK_URL;
+        if (!targetUrl.startsWith('http')) {
+            options.data.url = BASE_URL + (targetUrl.startsWith('/') ? '' : '/') + targetUrl;
         }
 
         return self.registration.showNotification(title, options);
