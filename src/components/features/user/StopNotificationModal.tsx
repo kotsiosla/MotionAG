@@ -190,7 +190,6 @@ export function StopNotificationModal({
       const ensureServiceWorker = async () => {
         // Robust basePath: check if MotionAG is anywhere in path
         const basePath = window.location.pathname.includes('MotionAG') ? '/MotionAG/' : '/';
-        const regScope = window.location.pathname.includes('MotionAG') ? '/MotionAG' : '/';
         const swUrl = `${basePath}push-worker.js`.replace(/\/\/+/g, '/');
 
         console.log('[StopNotificationModal] Registering SW with path:', swUrl, ' (No explicit scope)');
@@ -224,7 +223,7 @@ export function StopNotificationModal({
             metadata: {
               step: 'SW_FAILED',
               error: String(swError),
-              version: 'v1.5.16.2',
+              version: 'v1.5.16.4',
               href: window.location.href,
               controller: !!navigator.serviceWorker.controller,
               basePath: window.location.pathname.includes('MotionAG') ? '/MotionAG/' : '/',
@@ -562,7 +561,7 @@ export function StopNotificationModal({
           </div>
           <div className="pt-2 border-t border-border mt-2">
             <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground h-6" onClick={handleReset}>
-              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.16.2)
+              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.16.4)
             </Button>
           </div>
         </div>
