@@ -21,6 +21,14 @@ async function run() {
     if (v173.length > 0) console.log('Sample:', JSON.stringify(v173[0], null, 2));
 
     // 2. Sync Check
+    const v4Logs = logs.filter(l => JSON.stringify(l).includes('v1.5.17.4'));
+    console.log('v1.5.17.4 Log Count:', v4Logs.length);
+    if (v4Logs.length > 0) {
+        console.log('Latest v1.5.17.4 Log:', JSON.stringify(v4Logs[0], null, 2));
+    } else {
+        console.log('Latest Log (Any Version):', JSON.stringify(logs[0] || 'NONE', null, 2));
+    }
+    // Original Sync Check (kept for context, but the instruction implies replacement or addition)
     const syncs = logs.filter(l => l.metadata?.step?.includes('SYNC'));
     console.log(`SYNC Logs Found: ${syncs.length}`);
     if (syncs.length > 0) {
