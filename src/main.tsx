@@ -7,9 +7,9 @@ import "./index.css";
 // Register service worker for push notifications (Android only - iOS uses client-side)
 if ('serviceWorker' in navigator) {
   // Determine correct base path - handle both dev and prod (MotionAG)
-  // We use includes('MotionAG') to be robust against trailing/non-trailing slashes
   const isMotionAG = window.location.pathname.includes('MotionAG');
   const basePath = isMotionAG ? '/MotionAG/' : '/';
+  const regScope = isMotionAG ? '/MotionAG' : '/';
 
   const swPath = `${basePath}push-worker.js`.replace(/\/\/+/g, '/');
 
@@ -24,22 +24,23 @@ if ('serviceWorker' in navigator) {
     try {
       const registrations = await navigator.serviceWorker.getRegistrations();
 
-      // Cleanup OLD or WRONG registrations (e.g. from MotionBus_AI or root if we are in MotionAG)
+      // Cleanup OLD or WRONG registrations
       for (const registration of registrations) {
         const scope = new URL(registration.scope).pathname;
-        if (scope !== basePath && scope !== basePath.slice(0, -1)) { // Handle trailing slash diffs
-          console.log('[main.tsx] 🗑️ Unregistering old/wrong scope:', scope, 'Current base:', basePath);
+        // If scope is exactly /MotionAG/ (old way) but we want /MotionAG (inclusive)
+        if (scope.includes('MotionAG') && scope !== regScope && scope !== regScope + '/') {
+          console.log('[main.tsx] 🗑️ Unregistering old/wrong scope:', scope);
           await registration.unregister();
         }
       }
 
       // Now register the CORRECT one always (updateViaCache: 'none' ensures we get fresh SW)
-      console.log('[main.tsx] Registering service worker:', swPath, 'Scope:', basePath);
+      console.log('[main.tsx] Registering SW:', swPath, 'Scope:', regScope);
       const registration = await navigator.serviceWorker.register(swPath, {
-        scope: basePath,
+        scope: regScope,
         updateViaCache: 'none'
       });
-      console.log('[main.tsx] ✅ Service worker registered:', registration.scope);
+      console.log('[main.tsx] ✅ SW registered:', registration.scope);
 
     } catch (error) {
       console.error('[main.tsx] ❌ Service worker registration failed:', error);
