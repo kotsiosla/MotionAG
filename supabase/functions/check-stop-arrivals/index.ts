@@ -167,23 +167,23 @@ serve(async (req) => {
 
                     // SEND PUSH (Manual VAPID + TTL fix)
                     const urgency = minsUntil <= 5 ? '🚨' : '🚌';
+                    // iOS PWA prefers 'notification' wrapper for structure
                     const payload = JSON.stringify({
-                        title: `${urgency} Bus ${routeName} in ${minsUntil}'`,
-                        body: `Arriving at ${setting.stopName}`,
-                        icon: 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png',
-                        badge: 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png',
-                        vibrate: [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40, 500],
-                        requireInteraction: true,
-                        data: {
-                            url: `https://kotsiosla.github.io/MotionAG/?stop=${stopId}`,
-                            logUrl: SUPABASE_URL,
-                            logKey: SUPABASE_SERVICE_ROLE_KEY.slice(0, 10) === 'eyJhbGciOi' ? Deno.env.get('SUPABASE_ANON_KEY') : SUPABASE_SERVICE_ROLE_KEY, // Prefer anon key if possible, but need a key for logging
-                            stopId: stopId,
-                            tripId: arrival.tripId
-                        },
-                        actions: [
-                            { action: 'open', title: '🚌 View Live' }
-                        ]
+                        notification: {
+                            title: `${urgency} Bus ${routeName} in ${minsUntil}'`,
+                            body: `Arriving at ${setting.stopName}`,
+                            icon: 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png',
+                            badge: 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png',
+                            vibrate: [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40, 500],
+                            requireInteraction: true,
+                            data: {
+                                url: `https://kotsiosla.github.io/MotionAG/?stop=${stopId}`,
+                                logUrl: SUPABASE_URL,
+                                logKey: SUPABASE_SERVICE_ROLE_KEY.slice(0, 10) === 'eyJhbGciOi' ? Deno.env.get('SUPABASE_ANON_KEY') : SUPABASE_SERVICE_ROLE_KEY,
+                                stopId: stopId,
+                                tripId: arrival.tripId
+                            }
+                        }
                     });
 
                     try {

@@ -40,11 +40,11 @@ export async function sendPushNotification(
         const pushResp = await fetch(endpoint, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/octet-stream',
-                'Content-Encoding': 'aes128gcm',
-                'Authorization': `vapid t=${jwt}, k=${vapidPublicKey}`,
-                'TTL': '3600',
-                'Urgency': 'high'
+                'content-type': 'application/octet-stream',
+                'content-encoding': 'aes128gcm',
+                'authorization': `vapid t=${jwt}, k=${vapidPublicKey}`,
+                'ttl': '3600',
+                'urgency': 'high'
             },
             body
         });
