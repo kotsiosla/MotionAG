@@ -167,7 +167,7 @@ export function StopNotificationModal({
             step: 'PERMISSION_RESULT',
             permission,
             platform: 'Web',
-            version: 'v1.5.16',
+            version: 'v1.5.16.2',
             href: window.location.href,
             timestamp: new Date().toISOString()
           }
@@ -193,9 +193,8 @@ export function StopNotificationModal({
         const regScope = window.location.pathname.includes('MotionAG') ? '/MotionAG' : '/';
         const swUrl = `${basePath}push-worker.js`.replace(/\/\/+/g, '/');
 
-        console.log('[StopNotificationModal] Registering SW with path:', swUrl, 'and scope:', regScope);
+        console.log('[StopNotificationModal] Registering SW with path:', swUrl, ' (No explicit scope)');
         await navigator.serviceWorker.register(swUrl, {
-          scope: regScope,
           updateViaCache: 'none'
         });
         return navigator.serviceWorker.ready;
@@ -209,7 +208,7 @@ export function StopNotificationModal({
 
           // Timeout wrapper for SW readiness (Increased to 15s for v1.5.11)
           const readyPromise = ensureServiceWorker();
-          const swTimeoutPromise = new Promise<ServiceWorkerRegistration>((_, reject) => setTimeout(() => reject(new Error('Service Worker ready timed out (v1.5.16)')), 15000));
+          const swTimeoutPromise = new Promise<ServiceWorkerRegistration>((_, reject) => setTimeout(() => reject(new Error('Service Worker ready timed out (v1.5.16.2)')), 15000));
 
           registration = await Promise.race([readyPromise, swTimeoutPromise]);
 
@@ -563,7 +562,7 @@ export function StopNotificationModal({
           </div>
           <div className="pt-2 border-t border-border mt-2">
             <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground h-6" onClick={handleReset}>
-              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.16)
+              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.16.2)
             </Button>
           </div>
         </div>
