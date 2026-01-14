@@ -6,31 +6,41 @@ const sb = createClient(
 );
 
 async function run() {
-    console.log('Checking recent log versions...');
+    console.log('--- LOG VERIFICATION ---');
     const { data: logs, error } = await sb
         .from('notifications_log')
         .select('sent_at, metadata')
         .order('sent_at', { ascending: false })
-        .limit(30);
+        .limit(50);
 
-    if (error) {
-        console.error('Error:', error);
-        return;
+    if (error) { console.error('Log Error:', error); return; }
+
+    // 1. Version Check
+    const v173 = logs.filter(l => l.metadata?.version === 'v1.5.17.3');
+    console.log(`v1.5.17.3 Logs Found: ${v173.length}`);
+    if (v173.length > 0) console.log('Sample:', JSON.stringify(v173[0], null, 2));
+
+    // 2. Sync Check
+    const syncs = logs.filter(l => l.metadata?.step?.includes('SYNC'));
+    console.log(`SYNC Logs Found: ${syncs.length}`);
+    if (syncs.length > 0) {
+        console.log('Latest Sync:', JSON.stringify(syncs[0], null, 2));
+    } else {
+        console.log('NO SYNC LOGS FOUND (Critical)');
     }
 
-    const counts = {};
-    logs.forEach(l => {
-        const v = l.metadata?.version || 'unknown';
-        counts[v] = (counts[v] || 0) + 1;
-    });
+    // 3. Subscription Check
+    console.log('\n--- SUBSCRIPTION VERIFICATION ---');
+    const { data: subs, error: subError } = await sb.from('stop_notification_subscriptions').select('*');
+    if (subError) { console.error('Sub Error:', subError); return; }
 
-    console.log('Version Distribution (Last 30 logs):', counts);
-
-    const latest = logs[0];
-    if (latest) {
-        console.log('Most recent log:', latest.sent_at, latest.metadata?.version, latest.metadata?.step);
+    const target = subs.filter(s => JSON.stringify(s.stop_notifications).includes('2793'));
+    console.log(`Stop 2793 Subscriptions: ${target.length}`);
+    if (target.length > 0) {
+        console.log('Subscription Data:', JSON.stringify(target[0].stop_notifications, null, 2));
+        console.log('Associated User:', target[0].user_id);
     } else {
-        console.log('No logs found.');
+        console.log('STOP 2793 NOT FOUND IN DB');
     }
 }
 
