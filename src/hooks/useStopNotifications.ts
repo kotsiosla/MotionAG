@@ -8,7 +8,7 @@ const logDiagnostic = async (step: string, metadata: any) => {
       stop_id: 'SYNC_DEBUG',
       route_id: 'STOP_NOTIFS',
       alert_level: 0,
-      metadata: { ...metadata, step, version: 'v1.5.17.6', timestamp: new Date().toISOString() }
+      metadata: { ...metadata, step, version: 'v1.5.17.7', timestamp: new Date().toISOString() }
     });
   } catch (e) {
     console.error('Failed to log sync diagnostic:', e);
@@ -149,7 +149,7 @@ export function useStopNotifications() {
       // Fixes: 
       // 1. Race conditions (atomic in Postgres)
       // 2. Clear column name: stop_notifications
-      const { data: upsertData, error: upsertError } = await supabase
+      const { error: upsertError } = await supabase
         .from('stop_notification_subscriptions')
         .upsert({
           endpoint: endpoint,
@@ -157,8 +157,7 @@ export function useStopNotifications() {
           auth: keys.auth,
           stop_notifications: pushEnabledNotifs as any,
           updated_at: new Date().toISOString()
-        }, { onConflict: 'endpoint' })
-        .select();
+        }, { onConflict: 'endpoint' });
 
       if (upsertError) {
         console.error('[StopNotifications] Sync upsert error:', upsertError);
@@ -276,7 +275,7 @@ export function useStopNotifications() {
 
   // Force sync all notifications to server
   const forceSync = useCallback(async () => {
-    await logDiagnostic('BOOTSTRAP', { version: 'v1.5.17.3', href: window.location.href });
+    await logDiagnostic('BOOTSTRAP', { version: 'v1.5.17.7', href: window.location.href });
     await syncToServer(notifications);
   }, [notifications, syncToServer]);
 
