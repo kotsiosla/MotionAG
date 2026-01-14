@@ -24,7 +24,10 @@ self.addEventListener('push', (event) => {
             badge: DEFAULT_ICON,
             data: { url: FALLBACK_URL },
             tag: 'motion-bus-push',
-            renotify: true
+            renotify: true,
+            vibrate: [200, 100, 200], // Force vibration
+            requireInteraction: true, // Keep on screen
+            silent: false
         };
 
         try {
@@ -37,6 +40,9 @@ self.addEventListener('push', (event) => {
                 if (data.body) options.body = data.body;
                 if (data.icon) options.icon = data.icon;
                 if (data.data) options.data = { ...options.data, ...data.data };
+                // Ensure defaults stick if not overridden
+                if (data.vibrate) options.vibrate = data.vibrate;
+                if (data.requireInteraction !== undefined) options.requireInteraction = data.requireInteraction;
             }
         } catch (e) {
             console.error('[Service Worker] Error parsing encrypted payload:', e);
