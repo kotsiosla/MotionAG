@@ -83,7 +83,7 @@ export function StopNotificationModal({
           alert_level: 0,
           metadata: {
             step: 'ATTEMPT_START',
-            version: 'v1.5.16.2',
+            version: 'v1.5.16.5',
             standalone,
             ua: navigator.userAgent,
             timestamp: new Date().toISOString()
@@ -167,7 +167,7 @@ export function StopNotificationModal({
             step: 'PERMISSION_RESULT',
             permission,
             platform: 'Web',
-            version: 'v1.5.16.2',
+            version: 'v1.5.16.5',
             href: window.location.href,
             timestamp: new Date().toISOString()
           }
@@ -223,7 +223,7 @@ export function StopNotificationModal({
             metadata: {
               step: 'SW_FAILED',
               error: String(swError),
-              version: 'v1.5.16.4',
+              version: 'v1.5.16.5',
               href: window.location.href,
               controller: !!navigator.serviceWorker.controller,
               basePath: window.location.pathname.includes('MotionAG') ? '/MotionAG/' : '/',
@@ -561,7 +561,7 @@ export function StopNotificationModal({
           </div>
           <div className="pt-2 border-t border-border mt-2">
             <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground h-6" onClick={handleReset}>
-              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.16.4)
+              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.16.5)
             </Button>
           </div>
         </div>
