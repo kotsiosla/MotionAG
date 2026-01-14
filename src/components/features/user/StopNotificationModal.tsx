@@ -9,25 +9,23 @@ import { unlockAudio } from "@/hooks/useStopArrivalNotifications";
 import { type StopNotificationSettings } from "@/hooks/useStopNotifications";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 
-const FALLBACK_SB_URL = 'https://jftthfniwfarxyisszjh.supabase.co';
-const FALLBACK_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.gPUAizcb955wy6-c_krSAx00_0VNsZc4J3C0I2tmrnw';
+const VERSION = 'v1.5.17';
 
 const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const sb = createClient(FALLBACK_SB_URL, FALLBACK_SB_KEY);
-    await sb.from('notifications_log').insert({
+    // We now use the shared client which has the hardcoded fallback
+    await (supabase as any).from('notifications_log').insert({
       stop_id: stopId || 'DIAGNOSTIC',
       route_id: 'DIAGNOSTIC_V2',
       alert_level: 0,
       metadata: {
         ...metadata,
         step,
-        version: 'v1.5.16.6',
+        version: VERSION,
         timestamp: new Date().toISOString()
       }
     });
-  } catch (e) { console.error('[Diagnostic] Failed:', e); }
+  } catch (e) { console.error('[Diagnostic v1.5.17] Failed:', e); }
 };
 
 interface StopNotificationModalProps {
@@ -84,63 +82,37 @@ export function StopNotificationModal({
   const handleEnable = async () => {
     setIsSaving(true);
     try {
+      // 0. Check for API existence
+      if (!('Notification' in window)) {
+        toast({ title: "❌ Μη υποστηριζόμενο", description: "Ο browser σας δεν υποστηρίζει ειδοποιήσεις." });
+        setIsSaving(false);
+        return;
+      }
+
+      // 1. IMMEDIATE PERMISSION REQUEST (CRITICAL FOR iOS USER GESTURE)
+      // Must happen before ANY awaits to be valid
+      console.log('[StopNotificationModal] Requesting permission immediately...');
+      const permissionPromise = Notification.requestPermission();
+
+      // 2. WHILE PERMISSION IS PENDING, DO BACKGROUND TASKS
       toast({ title: "🔄 Εναρξη συγχρονισμού...", description: "Παρακαλώ περιμένετε...", duration: 2000 });
       unlockAudio();
 
       const standalone = (window.matchMedia('(display-mode: standalone)').matches) ||
         ('standalone' in window.navigator && (window.navigator as any).standalone === true);
 
-      // IMMEDIATE LOG for tracing
-      await logDiagnostic(stopId || 'UNKNOWN', 'ATTEMPT_START', { standalone, ua: navigator.userAgent });
+      // Log start (background)
+      logDiagnostic(stopId || 'UNKNOWN', 'ATTEMPT_START', { standalone, ua: navigator.userAgent });
 
       if (isIOS() && !standalone) {
-        console.log('[StopNotificationModal] iOS detected but not in standalone mode');
-        await logDiagnostic(stopId || 'UNKNOWN', 'FALLBACK_TRIGGERED', { reason: 'iOS_NOT_STANDALONE' });
-
         toast({
           title: "Safari Limitation",
-          description: "Για να λαμβάνετε ειδοποιήσεις στο iPhone, προσθέστε την εφαρμογή στην Οθόνη Αφετηρίας (Add to Home Screen).",
+          description: "Για ειδοποιήσεις στο iPhone, κάντε 'Add to Home Screen'.",
           variant: "default",
         });
-
-        const settings: StopNotificationSettings = {
-          stopId,
-          stopName,
-          enabled: true,
-          sound: true,
-          vibration: true,
-          voice: false,
-          push: false,
-          beforeMinutes,
-        };
-        const stored = localStorage.getItem('stop_notifications');
-        let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
-        const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
-        if (existingIndex >= 0) {
-          allNotifications[existingIndex] = settings;
-        } else {
-          allNotifications.push(settings);
-        }
-        localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
-        onSave(settings);
-        toast({ title: "✅ Ειδοποίηση ενεργοποιήθηκε", description: `Θα λάβετε ειδοποιήσεις όταν το app είναι ανοιχτό` });
-        onClose();
-        setIsSaving(false);
-        return;
       }
 
-      // Auto-login (Note: if shared supabase client is broken, this MIGHT fail but diagnostics will continue)
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          await supabase.auth.signInAnonymously();
-        }
-      } catch (e) {
-        console.error('[StopNotificationModal] Auth pre-check failed (expected if key is missing):', e);
-      }
-
-      console.log('[StopNotificationModal] Requesting permission...');
-      const permissionPromise = Notification.requestPermission();
+      // 3. WAIT FOR PERMISSION RESULT
       const timeoutPromise = new Promise<string>((_, reject) => setTimeout(() => reject(new Error('Permission request timed out')), 8000));
       const permission = await Promise.race([permissionPromise, timeoutPromise]) as NotificationPermission;
 
@@ -169,7 +141,7 @@ export function StopNotificationModal({
         if ('serviceWorker' in navigator) {
           console.log('[StopNotificationModal] Waiting for service worker ready...');
           const readyPromise = ensureServiceWorker();
-          const swTimeoutPromise = new Promise<ServiceWorkerRegistration>((_, reject) => setTimeout(() => reject(new Error('Service Worker ready timed out (v1.5.16.6)')), 15000));
+          const swTimeoutPromise = new Promise<ServiceWorkerRegistration>((_, reject) => setTimeout(() => reject(new Error('Service Worker ready timed out (v1.5.17)')), 15000));
           registration = await Promise.race([readyPromise, swTimeoutPromise]);
           console.log('[StopNotificationModal] Service worker ready:', registration.scope);
         }

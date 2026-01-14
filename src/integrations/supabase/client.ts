@@ -10,8 +10,9 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY |
     const stored = localStorage.getItem('supabase_anon_key');
     if (stored) return stored;
   }
-  // Return empty string - will show error in console
-  return '';
+  // FINAL FALLBACK: Verified hardcoded anon key to ensure diagnostic logging always works
+  const VERIFIED_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.gPUAizcb955wy6-c_krSAx00_0VNsZc4J3C0I2tmrnw';
+  return VERIFIED_ANON_KEY;
 })();
 
 // Debug: Log Supabase configuration

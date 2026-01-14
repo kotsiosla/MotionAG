@@ -10,6 +10,25 @@ const VAPID_PUBLIC_KEY = 'BG5VfDXkytFaecTL-oWSCnIRZHVg1p9fwPaRsmA1rsPS6U4EY6G-RG
 
 console.log('[usePushSubscription] Using DIRECT Verified VAPID Key:', VAPID_PUBLIC_KEY.substring(0, 10) + '...');
 
+const VERSION = 'v1.5.17';
+
+const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
+  try {
+    // Use any to bypass TS error as notifications_log is not in the generated types
+    await (supabase as any).from('notifications_log').insert({
+      stop_id: stopId || 'DIAGNOSTIC',
+      route_id: 'DIAGNOSTIC_V2',
+      alert_level: 0,
+      metadata: {
+        ...metadata,
+        step,
+        version: VERSION,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (e) { console.error('[usePushSubscription Diagnostic] Failed:', e); }
+};
+
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -178,6 +197,13 @@ export function usePushSubscription() {
     try {
       setIsLoading(true);
 
+      // DIAGNOSTIC START
+      await logDiagnostic(routeIds[0] || 'GENERAL', 'ATTEMPT_START', {
+        standalone: isStandalone(),
+        ua: navigator.userAgent,
+        routeIds
+      });
+
       // Check if Notification API is available
       if (!('Notification' in window)) {
         toast({
@@ -206,6 +232,8 @@ export function usePushSubscription() {
       // Request notification permission
       const permission = await Notification.requestPermission();
       console.log('Permission result after request:', permission);
+
+      await logDiagnostic(routeIds[0] || 'GENERAL', 'PERMISSION_RESULT', { permission, platform: 'Web', href: window.location.href });
 
       if (permission !== 'granted') {
         toast({
