@@ -16,7 +16,7 @@ if (typeof window !== 'undefined') {
         stop_id: 'RUNTIME_ERROR',
         route_id: 'RUNTIME_CRASH',
         alert_level: 0,
-        metadata: { message, source, lineno, colno, error: String(error), version: 'v1.5.17.8', timestamp: new Date().toISOString() }
+        metadata: { message, source, lineno, colno, error: String(error), version: 'v1.5.17.9', timestamp: new Date().toISOString() }
       });
     } catch { }
   };
@@ -32,7 +32,7 @@ if (typeof window !== 'undefined') {
         stop_id: 'BOOTSTRAP',
         route_id: 'APP_BOOT',
         alert_level: 0,
-        metadata: { step: 'BOOTSTRAP', version: 'v1.5.17.8', href: window.location.href, timestamp: new Date().toISOString() }
+        metadata: { step: 'BOOTSTRAP', version: 'v1.5.17.9', href: window.location.href, timestamp: new Date().toISOString() }
       });
     } catch { }
   })();
@@ -50,7 +50,7 @@ if ('serviceWorker' in navigator) {
   const basePath = isMotionAG ? '/MotionAG/' : '/';
   const regScope = isMotionAG ? '/MotionAG' : '/';
 
-  const swPath = `${basePath}push-worker.js`.replace(/\/\/+/g, '/');
+  const swPath = `${basePath}sw.js`.replace(/\/\/+/g, '/');
 
   // Wait for page to be fully loaded
   if (document.readyState === 'complete') {

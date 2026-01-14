@@ -9,7 +9,7 @@ import { unlockAudio } from "@/hooks/useStopArrivalNotifications";
 import { type StopNotificationSettings } from "@/hooks/useStopNotifications";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 
-const VERSION = 'v1.5.17.8';
+const VERSION = 'v1.5.17.9';
 
 const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
   try {
@@ -130,9 +130,13 @@ export function StopNotificationModal({
 
       const ensureServiceWorker = async () => {
         const basePath = window.location.pathname.includes('MotionAG') ? '/MotionAG/' : '/';
-        const swUrl = `${basePath}push-worker.js`.replace(/\/\/+/g, '/');
-        console.log('[StopNotificationModal] Registering SW:', swUrl);
-        await navigator.serviceWorker.register(swUrl, { updateViaCache: 'none' });
+        const regScope = window.location.pathname.includes('MotionAG') ? '/MotionAG/' : '/';
+        const swUrl = `${basePath}sw.js`.replace(/\/\/+/g, '/');
+        console.log('[StopNotificationModal] Registering SW:', swUrl, 'Scope:', regScope);
+        await navigator.serviceWorker.register(swUrl, {
+          scope: regScope,
+          updateViaCache: 'none'
+        });
         return navigator.serviceWorker.ready;
       };
 
