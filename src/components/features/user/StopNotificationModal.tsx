@@ -190,12 +190,14 @@ export function StopNotificationModal({
       const ensureServiceWorker = async () => {
         // Robust basePath: check if MotionAG is anywhere in path
         const basePath = window.location.pathname.includes('MotionAG') ? '/MotionAG/' : '/';
+        const regScope = window.location.pathname.includes('MotionAG') ? '/MotionAG' : '/';
         const swUrl = `${basePath}push-worker.js`.replace(/\/\/+/g, '/');
 
-        if (!navigator.serviceWorker.controller) {
-          console.log('[StopNotificationModal] No controller found. Registering:', swUrl);
-          await navigator.serviceWorker.register(swUrl);
-        }
+        console.log('[StopNotificationModal] Registering SW with path:', swUrl, 'and scope:', regScope);
+        await navigator.serviceWorker.register(swUrl, {
+          scope: regScope,
+          updateViaCache: 'none'
+        });
         return navigator.serviceWorker.ready;
       };
 
