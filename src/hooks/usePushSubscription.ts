@@ -10,7 +10,7 @@ const VAPID_PUBLIC_KEY = 'BG5VfDXkytFaecTL-oWSCnIRZHVg1p9fwPaRsmA1rsPS6U4EY6G-RG
 
 console.log('[usePushSubscription] Using DIRECT Verified VAPID Key:', VAPID_PUBLIC_KEY.substring(0, 10) + '...');
 
-const VERSION = 'v1.5.17';
+const VERSION = 'v1.5.17.1';
 
 const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
   try {
@@ -264,6 +264,8 @@ export function usePushSubscription() {
       // Get existing registration (don't use ready - causes refresh loop)
       const existingRegistrations = await navigator.serviceWorker.getRegistrations();
       if (existingRegistrations.length === 0 || !existingRegistrations[0].active) {
+        console.warn('No active service worker found');
+        await logDiagnostic(routeIds[0] || 'GENERAL', 'SW_FAILED', { reason: 'NO_ACTIVE_SW' });
         toast({
           title: 'Service Worker δεν είναι έτοιμο',
           description: 'Παρακαλώ περιμένετε 2-3 δευτερόλεπτα και δοκιμάστε ξανά',
@@ -310,6 +312,7 @@ export function usePushSubscription() {
       }
 
       console.log('Push subscription:', subscription);
+      await logDiagnostic(routeIds[0] || 'GENERAL', 'SUB_CREATED', { endpoint: subscription.endpoint });
 
       // Check if endpoint is WNS - WNS doesn't support Web Push/VAPID
       const endpointUrl = new URL(subscription.endpoint);
@@ -365,6 +368,7 @@ export function usePushSubscription() {
       return true;
     } catch (error: any) {
       console.error('Error subscribing to push:', error);
+      await logDiagnostic(routeIds[0] || 'GENERAL', 'SUB_FAILED', { error: String(error) });
       console.error('Error details:', error?.message, error?.code, error?.name);
 
       // Determine specific error message
