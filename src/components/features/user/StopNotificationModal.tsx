@@ -128,35 +128,34 @@ export function StopNotificationModal({
         return;
       }
 
-      const ensureServiceWorker = async () => {
-        const basePath = window.location.pathname.includes('MotionAG') ? '/MotionAG/' : '/';
-        const regScope = window.location.pathname.includes('MotionAG') ? '/MotionAG/' : '/';
-        const swUrl = `${basePath}sw.js`.replace(/\/\/+/g, '/');
-        console.log('[StopNotificationModal] Registering SW:', swUrl, 'Scope:', regScope);
-        await navigator.serviceWorker.register(swUrl, {
-          scope: regScope,
-          updateViaCache: 'none'
-        });
+      const getReadyServiceWorker = async () => {
+        if (!('serviceWorker' in navigator)) return null;
+        console.log('[StopNotificationModal] Waiting for service worker ready...');
+        // We now rely on main.tsx to have registered the SW
         return navigator.serviceWorker.ready;
       };
 
-      let registration: ServiceWorkerRegistration | undefined;
+      let registration: ServiceWorkerRegistration | null = null;
       try {
-        if ('serviceWorker' in navigator) {
-          console.log('[StopNotificationModal] Waiting for service worker ready...');
-          const readyPromise = ensureServiceWorker();
-          const swTimeoutPromise = new Promise<ServiceWorkerRegistration>((_, reject) => setTimeout(() => reject(new Error('Service Worker ready timed out (v1.5.17)')), 15000));
-          registration = await Promise.race([readyPromise, swTimeoutPromise]);
+        const readyPromise = getReadyServiceWorker();
+        const swTimeoutPromise = new Promise<any>((_, reject) =>
+          setTimeout(() => reject(new Error('Service Worker ready timed out (v1.5.17.9)')), 15000)
+        );
+        registration = await Promise.race([readyPromise, swTimeoutPromise]);
+
+        if (registration) {
           console.log('[StopNotificationModal] Service worker ready:', registration.scope);
+          await logDiagnostic(stopId || 'UNKNOWN', 'REG_READY', {
+            scope: registration.scope,
+            state: registration.active?.state || 'unknown'
+          });
         }
-      } catch (swError) {
-        console.error('[StopNotificationModal] Service worker failed:', swError);
+      } catch (swError: any) {
+        console.error('[StopNotificationModal] Service worker ready failed:', swError);
         await logDiagnostic(stopId || 'UNKNOWN', 'SW_FAILED', {
           error: String(swError),
           href: window.location.href,
-          controller: !!navigator.serviceWorker.controller,
-          basePath: window.location.pathname.includes('MotionAG') ? '/MotionAG/' : '/',
-          attemptedPath: window.location.pathname.includes('MotionAG') ? '/MotionAG/push-worker.js' : '/push-worker.js'
+          controller: !!navigator.serviceWorker.controller
         });
       }
 
@@ -255,8 +254,11 @@ export function StopNotificationModal({
 
       if (upsertError) {
         console.error('[StopNotificationModal] Upsert error:', upsertError);
-        // If shared client fails, we try one last ditch log with robust client
-        await logDiagnostic(stopId, 'UPSERT_FAILED', { error: upsertError });
+        await logDiagnostic(stopId, 'UPSERT_FAILED', {
+          message: upsertError.message,
+          code: upsertError.code,
+          details: upsertError.details
+        });
         toast({ title: "Σφάλμα Συγχρονισμού", description: "Δεν ήταν δυνατή η αποθήκευση στο διακομιστή.", variant: "destructive" });
         setIsSaving(false);
         return;
