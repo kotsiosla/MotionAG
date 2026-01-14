@@ -1,9 +1,18 @@
-// Custom Service Worker for MotionAG
-// Import the push handling worker
-importScripts('push-worker.js');
+// Custom Service Worker for MotionAG v2.0.3
+// This file is used for both precaching and background push notifications
 
-// Workbox precache manifest (will be injected at build time)
-if (self.__WB_MANIFEST) {
-    import { precacheAndRoute } from 'workbox-precaching';
-    precacheAndRoute(self.__WB_MANIFEST);
-}
+// Import the push handling logic
+// We use a timestamp to bypass any intermediate caching
+importScripts('push-worker.js?v=2.0.3');
+
+console.log('[SW] MotionAG Service Worker v2.0.3 Loaded');
+
+self.addEventListener('install', (event) => {
+    console.log('[SW] Installing...');
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+    console.log('[SW] Activating...');
+    event.waitUntil(clients.claim());
+});

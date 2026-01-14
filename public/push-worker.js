@@ -1,4 +1,4 @@
-const SW_VERSION = 'v2.0.2';
+const SW_VERSION = 'v2.0.3';
 const BASE_URL = 'https://kotsiosla.github.io/MotionAG';
 const DEFAULT_ICON = 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png';
 const FALLBACK_URL = '/MotionAG/';
