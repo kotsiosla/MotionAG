@@ -1,9 +1,14 @@
+// Force trailing slash for MotionAG to ensure Service Worker scope is always valid
+if (window.location.pathname === '/MotionAG') {
+  console.log('[main.tsx] 🔄 Force redirecting to trailing slash for SW scope...');
+  window.location.replace(window.location.href + '/');
+}
+
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-// Register service worker for push notifications (Android only - iOS uses client-side)
 // Register service worker for push notifications (Android only - iOS uses client-side)
 if ('serviceWorker' in navigator) {
   // Determine correct base path - handle both dev and prod (MotionAG)
