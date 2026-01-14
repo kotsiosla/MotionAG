@@ -4,164 +4,241 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Motion Bus Debug</title>
+    <title>Motion Bus Debug v2.1</title>
     <style>
         body {
             font-family: system-ui, -apple-system, sans-serif;
             padding: 20px;
             max-width: 600px;
-            mx-auto;
-            background: #f0f0f0;
+            margin: 0 auto;
+            background: #0f172a;
+            color: #f8fafc;
         }
 
         .card {
-            background: white;
+            background: #1e293b;
             padding: 20px;
             border-radius: 12px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
+            border: 1px solid #334155;
         }
 
         h1 {
             margin-top: 0;
             font-size: 1.5rem;
+            color: #38bdf8;
+        }
+
+        h3 {
+            margin-top: 0;
+            color: #94a3b8;
         }
 
         button {
             background: #0ea5e9;
             color: white;
             border: none;
-            padding: 12px 20px;
+            padding: 14px 20px;
             border-radius: 8px;
             font-size: 1rem;
             width: 100%;
-            margin: 5px 0;
+            margin: 8px 0;
             cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.1s;
         }
 
         button:active {
-            opacity: 0.8;
+            transform: scale(0.98);
+            opacity: 0.9;
         }
 
         button.secondary {
-            background: #64748b;
+            background: #475569;
         }
 
         button.danger {
             background: #ef4444;
         }
 
-        .status {
+        button.warning {
+            background: #f59e0b;
+            color: #000;
+        }
+
+        .status-box {
             font-family: monospace;
-            background: #1e293b;
+            background: #020617;
             color: #4ade80;
-            padding: 10px;
+            padding: 15px;
             border-radius: 6px;
             overflow-x: auto;
             white-space: pre-wrap;
             font-size: 0.85rem;
             margin-top: 10px;
+            border: 1px solid #1e293b;
+            max-height: 250px;
+            overflow-y: auto;
         }
 
         .row {
             display: flex;
             justify-content: space-between;
-            margin: 5px 0;
-            border-bottom: 1px solid #eee;
+            margin: 8px 0;
+            border-bottom: 1px solid #334155;
             padding-bottom: 5px;
+        }
+
+        .val {
+            font-weight: bold;
+        }
+
+        .val.ok {
+            color: #4ade80;
+        }
+
+        .val.bad {
+            color: #f87171;
+        }
+
+        .ios-alert {
+            background: #450a0a;
+            border: 2px solid #ef4444;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #fecaca;
+            display: none;
         }
     </style>
 </head>
 
 <body>
-    <h1>🛠️ Motion Debugger</h1>
+    <h1>🛠️ Motion Debug v2.1</h1>
 
-    <div class="card">
-        <h3>1. Status Check</h3>
-        <div class="row"><span>Permission:</span> <b id="perm-status">---</b></div>
-        <div class="row"><span>SW Active:</span> <b id="sw-status">---</b></div>
-        <div class="row"><span>Context:</span> <b id="context-status">---</b></div>
-        <button class="secondary" onclick="checkStatus()">Refresh Status</button>
+    <div id="ios-box" class="ios-alert">
+        <strong>⚠️ CRITICAL IPHONE STEP:</strong><br>
+        You are in a Safari tab. Notifications are <b>LOCKED</b> by Apple here.<br><br>
+        1. Tap <b>Share</b> [↑]<br>
+        2. Tap <b>"Add to Home Screen"</b><br>
+        3. OPEN THE NEW ICON on your screen!
     </div>
 
     <div class="card">
-        <h3>2. Actions</h3>
+        <h3>1. System Environment</h3>
+        <div class="row"><span>Context:</span> <b id="context-status" class="val">---</b></div>
+        <div class="row"><span>Permission:</span> <b id="perm-status" class="val">---</b></div>
+        <div class="row"><span>Service Worker:</span> <b id="sw-status" class="val">---</b></div>
+        <button class="secondary" onclick="checkStatus()">🔄 Refresh Status</button>
+    </div>
+
+    <div class="card">
+        <h3>2. Repair Tools</h3>
+        <p style="font-size: 0.8rem; color: #94a3b8;">If SW is "Missing", tap below:</p>
+        <button class="warning" onclick="forceRegister()">🛠️ Nuclear SW Re-Register</button>
         <button onclick="reqPerm()">🔑 Request Permission</button>
-        <button onclick="testWindowNotif()">📱 Test Local Notification (Window)</button>
-        <button onclick="testSWNotif()">⚙️ Test SW Notification (Worker)</button>
     </div>
 
     <div class="card">
-        <h3>3. Logs</h3>
-        <div id="logs" class="status">Ready...</div>
-        <button class="danger" onclick="document.getElementById('logs').innerHTML=''">Clear Logs</button>
+        <h3>3. Real Test (The Beep)</h3>
+        <button onclick="testSWNotif()" style="background: #22c55e; height: 60px; font-size: 1.2rem;">🚨 TEST LOUD
+            BEEP</button>
+    </div>
+
+    <div class="card">
+        <h3>📝 Execution Logs</h3>
+        <div id="logs" class="status-box">Ready...</div>
+        <button class="secondary" style="width: auto; padding: 5px 10px; font-size: 0.7rem;"
+            onclick="document.getElementById('logs').innerHTML='Ready...'">Clear Logs</button>
     </div>
 
     <script>
-        function log(msg) {
+        function log(msg, isError = false) {
             const el = document.getElementById('logs');
-            el.innerHTML = `> ${msg}\n${el.innerHTML}`;
-            console.log(msg);
+            const time = new Date().toLocaleTimeString();
+            const color = isError ? '#f87171' : '#4ade80';
+            el.innerHTML = `<div style="color: ${color}">[${time}] ${msg}</div>${el.innerHTML}`;
         }
 
         async function checkStatus() {
             // Permission
-            document.getElementById('perm-status').innerText = Notification.permission;
+            const perm = Notification.permission;
+            const pEl = document.getElementById('perm-status');
+            pEl.innerText = perm;
+            pEl.className = 'val ' + (perm === 'granted' ? 'ok' : 'bad');
 
             // SW
-            const reg = await navigator.serviceWorker.getRegistration();
-            document.getElementById('sw-status').innerText = reg ? (reg.active ? 'Active ✅' : 'Waiting ⏳') : 'Missing ❌';
+            try {
+                const reg = await navigator.serviceWorker.getRegistration();
+                const sEl = document.getElementById('sw-status');
+                sEl.innerText = reg ? (reg.active ? 'Active ✅' : 'Waiting ⏳') : 'Missing ❌';
+                sEl.className = 'val ' + (reg && reg.active ? 'ok' : 'bad');
+            } catch (e) {
+                document.getElementById('sw-status').innerText = 'Error ❌';
+            }
 
             // Context
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-            document.getElementById('context-status').innerText = isStandalone ? 'PWA (Installed)' : 'Browser Tab';
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+            const cEl = document.getElementById('context-status');
+            cEl.innerText = isStandalone ? 'PWA App ✅' : 'Safari/Chrome Tab ❌';
+            cEl.className = 'val ' + (isStandalone ? 'ok' : 'bad');
 
-            log('Status refreshed');
+            // iOS Warning
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            if (isIOS && !isStandalone) {
+                document.getElementById('ios-box').style.display = 'block';
+            } else {
+                document.getElementById('ios-box').style.display = 'none';
+            }
+            log('Status updated');
+        }
+
+        async function forceRegister() {
+            log('Starting Nuclear Registration...');
+            try {
+                const reg = await navigator.serviceWorker.register('sw.js?v=' + Date.now());
+                log('Success! SW Target: ' + reg.scope);
+                setTimeout(checkStatus, 1000);
+            } catch (e) {
+                log('FAIL: ' + e.message, true);
+            }
         }
 
         function reqPerm() {
+            log('Requesting permission...');
             Notification.requestPermission().then(p => {
-                log(`Permission result: ${p}`);
+                log(`Permission: ${p}`);
                 checkStatus();
             });
         }
 
-        function testWindowNotif() {
-            try {
-                if (Notification.permission !== 'granted') return log('❌ Permission not granted');
-                new Notification('Test Window', { body: 'This is from the Main Thread' });
-                log('✅ Window Notification sent');
-            } catch (e) {
-                log(`❌ Window Error: ${e.message}`);
-            }
-        }
-
         async function testSWNotif() {
+            log('Preparing Loud Notification...');
             try {
                 const reg = await navigator.serviceWorker.getRegistration();
-                if (!reg || !reg.active) return log('❌ No Active Service Worker');
+                if (!reg || !reg.active) {
+                    log('❌ ERROR: No Active Worker found!', true);
+                    return;
+                }
 
-                // We use showNotification from the registration directly
-                const title = '🚨 LOUD TEST ' + new Date().toLocaleTimeString();
+                const title = '🚨 LOUD ALERT ' + new Date().toLocaleTimeString();
                 const options = {
-                    body: 'If you see this pop up, the Priority is FIXED! \n(Vibration + Heads-up Test)',
+                    body: 'IS IT VIBRATING? \nChecking SOS Pattern...',
                     icon: '/MotionAG/pwa-192x192.png',
                     badge: '/MotionAG/pwa-192x192.png',
-                    tag: 'debug-sw-' + Date.now(),
-                    vibrate: [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40, 500], // SOS pattern
+                    tag: 'debug-urgent-' + Date.now(),
+                    vibrate: [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40, 500],
                     requireInteraction: true,
                     silent: false,
                     renotify: true,
-                    actions: [
-                        { action: 'open', title: '✅ Open App' },
-                        { action: 'close', title: '❌ Close' }
-                    ]
+                    actions: [{ action: 'open', title: '✅ Open App' }]
                 };
 
                 await reg.showNotification(title, options);
-                log(`✅ LOUD Notification trigger sent\n   Title: ${title}`);
+                log(`✅ TRIGGER SENT to Worker at ${reg.active.state}`);
             } catch (e) {
-                log(`❌ SW Error: ${e.message}`);
+                log(`❌ FATAL Error: ${e.message}`, true);
             }
         }
 
