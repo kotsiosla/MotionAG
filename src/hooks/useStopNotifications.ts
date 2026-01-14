@@ -145,15 +145,24 @@ export function useStopNotifications() {
       console.log('[StopNotifications] Syncing to DB...', { endpoint: endpoint.slice(0, 20), notifs: pushEnabledNotifs.length });
       await logDiagnostic('SYNC_ATTEMPT', { count: pushEnabledNotifs.length, endpoint: endpoint.slice(-10), userId: user.id });
 
+      // ATOMIC REPLACEMENT (Delete then Insert)
+      // Fixes: 
+      // 1. "Duplicate Key" on Android keys (race condition)
+      // 2. "notification_settings" column error (it was a typo, correct is stop_notifications)
+
+      // 1. Delete (ignore if missing)
+      await supabase.from('stop_notification_subscriptions').delete().eq('endpoint', endpoint);
+
+      // 2. Insert
       const { data: upsertData, error: upsertError } = await supabase
         .from('stop_notification_subscriptions')
-        .upsert({
+        .insert({
           endpoint: endpoint,
           p256dh: keys.p256dh,
           auth: keys.auth,
-          notification_settings: pushEnabledNotifs as any, // Cast to any to avoid type mismatch with JSONB
+          stop_notifications: pushEnabledNotifs as any, // Correct column: stop_notifications
           updated_at: new Date().toISOString()
-        }, { onConflict: 'endpoint' })
+        })
         .select();
 
       if (upsertError) {
