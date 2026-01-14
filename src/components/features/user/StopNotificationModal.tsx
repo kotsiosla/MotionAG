@@ -25,7 +25,7 @@ const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
         timestamp: new Date().toISOString()
       }
     });
-  } catch (e) { console.error('[Diagnostic v1.5.17.7] Failed:', e); }
+  } catch (e) { console.error('[Diagnostic v1.5.17.8] Failed:', e); }
 };
 
 interface StopNotificationModalProps {
@@ -175,6 +175,11 @@ export function StopNotificationModal({
       }
 
       console.log('[StopNotificationModal] Setting up push notifications...');
+      await logDiagnostic(stopId || 'UNKNOWN', 'REG_STATE', {
+        hasReg: !!registration,
+        hasPush: !!registration?.pushManager,
+        swState: registration?.active?.state || 'no-active'
+      });
       let subscription = await registration.pushManager.getSubscription();
 
       if (!subscription) {
@@ -185,9 +190,14 @@ export function StopNotificationModal({
             applicationServerKey: vapidKeyArray as any,
           });
           await logDiagnostic(stopId || 'UNKNOWN', 'SUB_CREATED', { endpoint: subscription.endpoint });
-        } catch (subError) {
+        } catch (subError: any) {
           console.error('[StopNotificationModal] Push subscription failed:', subError);
-          await logDiagnostic(stopId || 'UNKNOWN', 'SUB_FAILED', { error: String(subError) });
+          await logDiagnostic(stopId || 'UNKNOWN', 'SUB_FAILED', {
+            error: String(subError),
+            name: subError?.name,
+            message: subError?.message,
+            code: subError?.code
+          });
 
           const settings: StopNotificationSettings = {
             stopId, stopName, enabled: true, sound: true, vibration: true, voice: false, push: false, beforeMinutes,
