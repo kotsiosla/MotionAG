@@ -138,17 +138,40 @@ export function StopNotificationModal({
       const getReadyServiceWorker = async () => {
         if (!('serviceWorker' in navigator)) return null;
         console.log('[StopNotificationModal] Waiting for service worker ready...');
-        // We now rely on main.tsx to have registered the SW
-        return navigator.serviceWorker.ready;
+
+        // Try standard ready first
+        try {
+          const readyPromise = navigator.serviceWorker.ready;
+          const timeoutPromise = new Promise<null>((resolve) =>
+            setTimeout(() => resolve(null), 5000)
+          );
+          const result = await Promise.race([readyPromise, timeoutPromise]);
+          if (result) return result;
+        } catch (e) {
+          console.log('[StopNotificationModal] Ready check failed, trying fallback...');
+        }
+
+        // Fallback: Check for any registration
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg && (reg.active || reg.waiting || reg.installing)) {
+          console.log('[StopNotificationModal] Found existing registration (Fallback):', reg);
+          return reg;
+        }
+
+        console.log('[StopNotificationModal] No registration found in fallback.');
+        return null; // Give up
       };
 
       let registration: ServiceWorkerRegistration | null = null;
       try {
-        const readyPromise = getReadyServiceWorker();
-        const swTimeoutPromise = new Promise<any>((_, reject) =>
-          setTimeout(() => reject(new Error('Service Worker ready timed out (v1.5.17.9)')), 15000)
-        );
-        registration = await Promise.race([readyPromise, swTimeoutPromise]);
+        registration = await getReadyServiceWorker();
+
+        if (!registration) {
+          // Try one last desperate re-register if main.tsx failed?
+          // No, main.tsx logs say it worked. 
+          // Just throw error to trigger UI message.
+          throw new Error('Service Worker not found after fallback check');
+        }
 
         if (registration) {
           console.log('[StopNotificationModal] Service worker ready:', registration.scope);
