@@ -66,7 +66,7 @@ if ('serviceWorker' in navigator) {
   // Determine correct base path - handle both dev and prod (MotionAG)
   const isMotionAG = window.location.pathname.includes('MotionAG');
   const basePath = isMotionAG ? '/MotionAG/' : '/';
-  const regScope = isMotionAG ? '/MotionAG' : '/';
+  const regScope = isMotionAG ? '/MotionAG/' : '/';
 
   const swPath = `${basePath}sw.js`.replace(/\/\/+/g, '/');
 
