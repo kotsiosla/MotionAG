@@ -8,7 +8,7 @@ const logDiagnostic = async (step: string, metadata: any) => {
       stop_id: 'SYNC_DEBUG',
       route_id: 'STOP_NOTIFS',
       alert_level: 0,
-      metadata: { ...metadata, step, version: 'v1.5.17.5', timestamp: new Date().toISOString() }
+      metadata: { ...metadata, step, version: 'v1.5.17.6', timestamp: new Date().toISOString() }
     });
   } catch (e) {
     console.error('Failed to log sync diagnostic:', e);

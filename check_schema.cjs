@@ -44,6 +44,41 @@ async function run() {
         // Cleanup
         await sb.from('stop_notification_subscriptions').delete().eq('endpoint', 'https://test.com/' + testId + '_2');
     }
+    console.log('\n--- Attempt 3: Insert with stop_notifications ---');
+    const { error: err3 } = await sb
+        .from('stop_notification_subscriptions')
+        .insert({
+            endpoint: 'https://test.com/' + testId + '_3',
+            p256dh: 'test',
+            auth: 'test',
+            // This was the old key name
+            stop_notifications: []
+        });
+
+    if (err3) {
+        console.log('❌ FAILED (stop_notifications):', err3.message);
+    } else {
+        console.log('✅ SUCCEEDED (stop_notifications exists)');
+        await sb.from('stop_notification_subscriptions').delete().eq('endpoint', 'https://test.com/' + testId + '_3');
+    }
+
+    console.log('\n--- Attempt 4: Insert with notification_settings ---');
+    const { error: err4 } = await sb
+        .from('stop_notification_subscriptions')
+        .insert({
+            endpoint: 'https://test.com/' + testId + '_4',
+            p256dh: 'test',
+            auth: 'test',
+            // This is what failed in the app
+            notification_settings: []
+        });
+
+    if (err4) {
+        console.log('❌ FAILED (notification_settings):', err4.message);
+    } else {
+        console.log('✅ SUCCEEDED (notification_settings exists)');
+        await sb.from('stop_notification_subscriptions').delete().eq('endpoint', 'https://test.com/' + testId + '_4');
+    }
 }
 
 run();
