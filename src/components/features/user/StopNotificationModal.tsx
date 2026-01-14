@@ -9,7 +9,7 @@ import { unlockAudio } from "@/hooks/useStopArrivalNotifications";
 import { type StopNotificationSettings } from "@/hooks/useStopNotifications";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 
-const VERSION = 'v1.5.17.6';
+const VERSION = 'v1.5.17.7';
 
 const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
   try {
@@ -25,7 +25,7 @@ const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
         timestamp: new Date().toISOString()
       }
     });
-  } catch (e) { console.error('[Diagnostic v1.5.17.6] Failed:', e); }
+  } catch (e) { console.error('[Diagnostic v1.5.17.7] Failed:', e); }
 };
 
 interface StopNotificationModalProps {
@@ -347,7 +347,7 @@ export function StopNotificationModal({
           </div>
           <div className="pt-2 border-t border-border mt-2">
             <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground h-6" onClick={handleReset}>
-              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.17.6)
+              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.17.7)
             </Button>
           </div>
         </div>
