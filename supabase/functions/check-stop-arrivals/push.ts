@@ -43,7 +43,7 @@ export async function sendPushNotification(
                 'Content-Type': 'application/octet-stream',
                 'Content-Encoding': 'aes128gcm',
                 'Authorization': `vapid t=${jwt}, k=${vapidPublicKey}`,
-                'TTL': '86400',
+                'TTL': '3600',
                 'Urgency': 'high'
             },
             body
