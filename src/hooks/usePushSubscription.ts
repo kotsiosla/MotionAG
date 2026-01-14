@@ -10,7 +10,7 @@ const VAPID_PUBLIC_KEY = 'BG5VfDXkytFaecTL-oWSCnIRZHVg1p9fwPaRsmA1rsPS6U4EY6G-RG
 
 console.log('[usePushSubscription] Using DIRECT Verified VAPID Key:', VAPID_PUBLIC_KEY.substring(0, 10) + '...');
 
-const VERSION = 'v1.5.17.9';
+const VERSION = 'v1.5.17.9.2';
 
 const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
   try {
