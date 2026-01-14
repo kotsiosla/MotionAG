@@ -36,7 +36,14 @@ async function getPushEndpoint(): Promise<string | null> {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       return null;
     }
-    const registration = await navigator.serviceWorker.ready;
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    const registration = registrations.find(r => r.active) || registrations[0];
+
+    if (!registration) {
+      console.log('[StopNotifications] No SW registration found for endpoint');
+      return null;
+    }
+
     const subscription = await registration.pushManager.getSubscription();
     return subscription?.endpoint || null;
   } catch {
@@ -50,7 +57,11 @@ async function getPushSubscriptionKeys(): Promise<{ p256dh: string; auth: string
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       return null;
     }
-    const registration = await navigator.serviceWorker.ready;
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    const registration = registrations.find(r => r.active) || registrations[0];
+
+    if (!registration) return null;
+
     const subscription = await registration.pushManager.getSubscription();
 
     if (!subscription) return null;
@@ -91,9 +102,13 @@ export function useStopNotifications() {
   const syncToServer = useCallback(async (notifs: StopNotificationSettings[]) => {
     const pushEnabledNotifs = notifs.filter(n => n.enabled && n.push);
 
+    // DIAGNOSTIC: Start Sync
+    await logDiagnostic('SYNC_START', { notifs: pushEnabledNotifs.length });
+
     const endpoint = await getPushEndpoint();
     if (!endpoint) {
       console.log('[StopNotifications] No push subscription, skipping sync');
+      await logDiagnostic('SYNC_ABORT', { reason: 'NO_ENDPOINT' });
       // Toast only if we expected it to work (not silent background sync)
       return;
     }
@@ -258,6 +273,7 @@ export function useStopNotifications() {
 
   // Force sync all notifications to server
   const forceSync = useCallback(async () => {
+    await logDiagnostic('BOOTSTRAP', { version: 'v1.5.17.3', href: window.location.href });
     await syncToServer(notifications);
   }, [notifications, syncToServer]);
 
