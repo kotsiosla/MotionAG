@@ -207,7 +207,7 @@ export function StopNotificationModal({
 
           // Timeout wrapper for SW readiness (Increased to 15s for v1.5.11)
           const readyPromise = ensureServiceWorker();
-          const swTimeoutPromise = new Promise<ServiceWorkerRegistration>((_, reject) => setTimeout(() => reject(new Error('Service Worker ready timed out')), 15000));
+          const swTimeoutPromise = new Promise<ServiceWorkerRegistration>((_, reject) => setTimeout(() => reject(new Error('Service Worker ready timed out (v1.5.16)')), 15000));
 
           registration = await Promise.race([readyPromise, swTimeoutPromise]);
 
