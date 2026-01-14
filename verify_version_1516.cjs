@@ -31,11 +31,11 @@ async function verify() {
         const bundle = await fetch(bundleUrl);
 
         // Check for the unique string we added
-        const hasVersion = bundle.includes("v1.5.16.5");
+        const hasVersion = bundle.includes("v1.5.16.6");
         const hasBoot = bundle.includes("APP_BOOT");
 
         if (hasVersion && hasBoot) {
-            console.log("✅ VERIFIED: Found 'v1.5.16.5' AND 'APP_BOOT' in code!");
+            console.log("✅ VERIFIED: Found 'v1.5.16.6' AND 'APP_BOOT' in code!");
             console.log("🚀 Deployment is FULLY LIVE.");
             process.exit(0);
         } else {

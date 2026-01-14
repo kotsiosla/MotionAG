@@ -2,6 +2,19 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
+const logDiagnostic = async (step: string, metadata: any) => {
+  try {
+    await (supabase as any).from('notifications_log').insert({
+      stop_id: 'SYNC_DEBUG',
+      route_id: 'STOP_NOTIFS',
+      alert_level: 0,
+      metadata: { ...metadata, step, timestamp: new Date().toISOString() }
+    });
+  } catch (e) {
+    console.error('Failed to log sync diagnostic:', e);
+  }
+};
+
 export interface StopNotificationSettings {
   stopId: string;
   stopName: string;
@@ -114,6 +127,9 @@ export function useStopNotifications() {
       }
 
       // ATOMIC UPSERT LOGIC (Matching StopNotificationModal)
+      console.log('[StopNotifications] Syncing to DB...', { endpoint: endpoint.slice(0, 20), notifs: pushEnabledNotifs.length });
+      await logDiagnostic('SYNC_ATTEMPT', { count: pushEnabledNotifs.length, endpoint: endpoint.slice(-10), userId: user.id });
+
       const { data: upsertData, error: upsertError } = await supabase
         .from('stop_notification_subscriptions')
         .upsert({
@@ -128,10 +144,12 @@ export function useStopNotifications() {
 
       if (upsertError) {
         console.error('[StopNotifications] Sync upsert error:', upsertError);
+        await logDiagnostic('SYNC_FAILED', { error: upsertError });
         alert("DB Save Failed: " + upsertError.message);
         throw new Error("Update failed: " + upsertError.message);
       } else {
         console.log('[StopNotifications] Synced', pushEnabledNotifs.length, 'notifications to server');
+        await logDiagnostic('SYNC_SUCCESS', { count: pushEnabledNotifs.length });
         if (pushEnabledNotifs.length > 0) {
           // Explicitly tell user it worked, to confirm the "repair"
           // toast({ title: "✅ Saved to Server", description: "Your alarm is active in the cloud." });

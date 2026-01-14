@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
+import { usePushSubscription } from "@/hooks/usePushSubscription";
 import type { Alert, Trip, RouteInfo } from "@/types/gtfs";
 
 interface AlertsListProps {
@@ -69,7 +70,6 @@ const formatPeriod = (start?: number, end?: number) => {
       month: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: false,
     });
   };
 
@@ -91,8 +91,11 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
     notifications: stopNotifications,
     setNotification: updateNotification,
     removeNotification,
-    clearAllNotifications
+    clearAllNotifications,
+    forceSync, // Added forceSync
   } = useStopNotifications();
+
+  const { subscribe } = usePushSubscription();
 
   // Toggle notification enabled state
   const toggleNotification = (stopId: string) => {
@@ -220,12 +223,20 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
                       await clearAllNotifications();
 
                       // 2. Unsubscribe from Push (Browser)
+                      // Ensure Push Subscription exists (handles permissions, VAPID, iOS)
+                      // Pass empty array as we don't need generic route subs, useStopNotifications handles specific logic
+                      const success = await subscribe([]); // Call subscribe to ensure service worker is registered and push is unsubscribed
                       if ('serviceWorker' in navigator) {
                         const regs = await navigator.serviceWorker.getRegistrations();
                         for (const reg of regs) {
                           await reg.unregister();
                         }
                       }
+
+                      // Force sync immediately to ensure DB is updated
+                      setTimeout(() => {
+                        forceSync();
+                      }, 100);
 
                       // 3. Clear Local Storage
                       localStorage.clear();
@@ -464,7 +475,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
           )}
           <div className="mt-4 p-2 text-center">
             <div className="text-[10px] text-muted-foreground font-mono opacity-50 pb-safe">
-              v1.5.17.1 (MotionAG)
+              v1.5.17.2 (MotionAG)
             </div>
           </div>
         </TabsContent>

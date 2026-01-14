@@ -90,6 +90,9 @@ export function NearbyStopsPanel({
   const {
     setNotification,
     getNotification,
+    removeNotification,
+    clearAllNotifications,
+    forceSync, // Added forceSync
   } = useStopNotifications();
 
   // Use robust push subscription hook (handles VAPID/iOS)
@@ -328,7 +331,8 @@ export function NearbyStopsPanel({
   // Toggle watch for an specific arrival
   const toggleWatchArrival = useCallback(async (arrival: StopArrival) => {
     // Ensure Push Subscription exists (handles permissions, VAPID, iOS)
-    const success = await subscribe();
+    // Pass empty array as we don't need generic route subs, useStopNotifications handles specific logic
+    const success = await subscribe([]); // FIXED: Pass empty array
     if (!success) {
       // Toast already shown by subscribe()
       return;
@@ -361,11 +365,16 @@ export function NearbyStopsPanel({
       watchedTrips: newWatched,
     });
 
+    // Force sync immediately to ensure DB is updated
+    setTimeout(() => {
+      forceSync();
+    }, 100);
+
     toast({
       title: isWatched ? "Ειδοποίηση αφαιρέθηκε" : "Ειδοποίηση προστέθηκε",
       description: `Για το λεωφορείο: ${arrival.routeShortName || arrival.routeId}`,
     });
-  }, [subscribe, activeStop, getNotification, setNotification, panelSettings, notificationDistance]);
+  }, [subscribe, activeStop, getNotification, setNotification, panelSettings, notificationDistance, forceSync]);
 
   // Select stop and view arrivals
   const handleStopSelect = useCallback((stop: StaticStop) => {
