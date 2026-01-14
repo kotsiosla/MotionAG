@@ -227,23 +227,17 @@ export function StopNotificationModal({
       const pushNotifications = allNotifications.filter(n => n.enabled && n.push);
       const pushNotificationsJson = JSON.parse(JSON.stringify(pushNotifications));
 
-      // CRITICAL FIX: Upsert is failing with 409 Duplicate Key for some Android devices.
-      // We switch to explicit DELETE then INSERT to ensure success.
-      // We already have the full state in pushNotificationsJson.
-
-      // 1. Delete existing (ignore error if not found)
-      await (supabase as any).from('stop_notification_subscriptions').delete().eq('endpoint', subscription.endpoint);
-
-      // 2. Insert fresh
+      // ATOMIC UPSERT 
+      // Prevents race conditions and ensures one set of settings per endpoint.
       const { error: upsertError } = await (supabase as any)
         .from('stop_notification_subscriptions')
-        .insert({
+        .upsert({
           endpoint: subscription.endpoint,
           p256dh,
           auth,
           stop_notifications: pushNotificationsJson,
           updated_at: new Date().toISOString(),
-        });
+        }, { onConflict: 'endpoint' });
 
       if (upsertError) {
         console.error('[StopNotificationModal] Upsert error:', upsertError);
