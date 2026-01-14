@@ -8,7 +8,7 @@ const logDiagnostic = async (step: string, metadata: any) => {
       stop_id: 'SYNC_DEBUG',
       route_id: 'STOP_NOTIFS',
       alert_level: 0,
-      metadata: { ...metadata, step, version: 'v1.5.17.4', timestamp: new Date().toISOString() }
+      metadata: { ...metadata, step, version: 'v1.5.17.5', timestamp: new Date().toISOString() }
     });
   } catch (e) {
     console.error('Failed to log sync diagnostic:', e);
@@ -148,12 +148,11 @@ export function useStopNotifications() {
       const { data: upsertData, error: upsertError } = await supabase
         .from('stop_notification_subscriptions')
         .upsert({
-          user_id: user.id, // REQUIRED: Bind sub to user
-          endpoint,
+          endpoint: endpoint,
           p256dh: keys.p256dh,
           auth: keys.auth,
-          stop_notifications: JSON.parse(JSON.stringify(pushEnabledNotifs)),
-          updated_at: new Date().toISOString(),
+          notification_settings: pushEnabledNotifs as any, // Cast to any to avoid type mismatch with JSONB
+          updated_at: new Date().toISOString()
         }, { onConflict: 'endpoint' })
         .select();
 

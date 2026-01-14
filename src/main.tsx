@@ -32,7 +32,7 @@ if (typeof window !== 'undefined') {
         stop_id: 'BOOTSTRAP',
         route_id: 'APP_BOOT',
         alert_level: 0,
-        metadata: { step: 'BOOTSTRAP', version: 'v1.5.17.2', href: window.location.href, timestamp: new Date().toISOString() }
+        metadata: { step: 'BOOTSTRAP', version: 'v1.5.17.5', href: window.location.href, timestamp: new Date().toISOString() }
       });
     } catch { }
   })();
