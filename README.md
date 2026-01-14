@@ -19,6 +19,29 @@ A React + TypeScript project built with Vite, shadcn-ui, and Tailwind CSS.
 - **Cleanup**: Removed deprecated `check-stop-arrivalsAG` function.
 - **Verification**: Validated the entire notification pipeline (DB -> API -> Proxy -> Push), confirming accurate alert triggering based on bus proximity (threshold logic).
 
+### 🍎 iOS PWA Push Notifications (Critical Configuration)
+**Do not modify without reading this.**
+
+To ensure reliable delivery to iOS devices (which are stricter than Android), the following configuration MUST be maintained:
+
+1.  **Headers**: Apple's APNS requires **lowercase** HTTP/2 headers.
+    -   Use `urgency: 'high'` (not `Urgency`).
+    -   Use `ttl: '3600'` (not `TTL`).
+2.  **Payload Structure**: The JSON payload must be wrapped in a `notification` object.
+    -   Correct: `{ "notification": { "title": "...", "body": "..." } }`
+    -   Incorrect: `{ "title": "...", "body": "..." }` (Works on Android, fails silently on iOS).
+3.  **Service Worker**:
+    -   Must be a **Single File** (`sw.js`). Do not use `importScripts()` as it causes caching/network issues on iOS.
+    -   Registration scope must include the trailing slash: `/MotionAG/`.
+
+## ☁️ Deployment
+This project uses **Supabase Edge Functions**.
+To deploy changes to the backend logic (e.g. `check-stop-arrivals`):
+
+```bash
+npx supabase functions deploy check-stop-arrivals --project-ref jftthfniwfarxyisszjh
+```
+
 ## 🚀 Quick Start
 
 ### Sync Changes to GitHub
