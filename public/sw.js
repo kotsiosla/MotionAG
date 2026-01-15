@@ -1,9 +1,10 @@
-const SW_VERSION = 'v2.0.4 - SINGLE FILE';
+const SW_VERSION = 'v2.0.5 - REVERT';
 const BASE_URL = 'https://kotsiosla.github.io/MotionAG';
-const DEFAULT_ICON = 'https://kotsiosla.github.io/MotionAG/pwa-192x192.png';
-const FALLBACK_URL = '/MotionAG/';
 
-console.log(`[SW] MotionAG Single-File Service Worker ${SW_VERSION} Loaded`);
+// Revert to split-file for iOS compatibility as single-file failed
+importScripts(`push-worker.js?v=2.0.5`);
+
+console.log(`[SW] MotionAG Service Worker ${SW_VERSION} Loaded`);
 
 self.addEventListener('install', (event) => {
     console.log(`[Service Worker] ${SW_VERSION} Installing...`);
@@ -13,110 +14,4 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
     console.log(`[Service Worker] ${SW_VERSION} Activating...`);
     event.waitUntil(clients.claim());
-});
-
-self.addEventListener('push', (event) => {
-    console.log(`[Service Worker] ${SW_VERSION} Push Received.`);
-
-    event.waitUntil((async () => {
-        let title = 'Motion Bus Live';
-        let options = {
-            body: 'Νέα ενημέρωση δρομολογίου 🚌',
-            icon: DEFAULT_ICON,
-            badge: DEFAULT_ICON,
-            data: { url: FALLBACK_URL },
-            tag: 'motion-bus-push',
-            renotify: true,
-            vibrate: [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40, 500],
-            requireInteraction: true,
-            silent: false,
-            actions: [
-                { action: 'open', title: '🚌 View Arrival' }
-            ]
-        };
-
-        let logUrl = null;
-        let logKey = null;
-        let stopId = 'UNKNOWN';
-        let tripId = 'UNKNOWN';
-
-        try {
-            if (event.data) {
-                // Decrypt RFC 8291 payload
-                const payload = event.data.json();
-                const data = payload.notification || payload;
-
-                if (data.title) title = data.title;
-                if (data.body) options.body = data.body;
-                if (data.icon) options.icon = data.icon;
-                if (data.data) {
-                    options.data = { ...options.data, ...data.data };
-                    if (data.data.logUrl) logUrl = data.data.logUrl;
-                    if (data.data.logKey) logKey = data.data.logKey;
-                    if (data.data.stopId) stopId = data.data.stopId;
-                    if (data.data.tripId) tripId = data.data.tripId;
-                }
-                // Ensure defaults stick if not overridden
-                if (data.vibrate) options.vibrate = data.vibrate;
-                if (data.requireInteraction !== undefined) options.requireInteraction = data.requireInteraction;
-            }
-        } catch (e) {
-            console.error('[Service Worker] Error parsing encrypted payload:', e);
-            // Fallback stays as default title/body
-        }
-
-        // REMOTE LOGGING (Diagnostic)
-        const VERIFIED_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdHRoZm5pd2Zhcnh5aXNzempoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MDkzMjEsImV4cCI6MjA4MzI4NTMyMX0.gPUAizcb955wy6-c_krSAx00_0VNsZc4J3C0I2tmrnw';
-        const finalUrl = logUrl || 'https://jftthfniwfarxyisszjh.supabase.co';
-        const finalKey = (logKey && logKey.length > 50) ? logKey : VERIFIED_KEY;
-
-        try {
-            fetch(`${finalUrl}/rest/v1/notifications_log`, {
-                method: 'POST',
-                headers: {
-                    'apikey': finalKey,
-                    'Authorization': `Bearer ${finalKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    stop_id: stopId,
-                    route_id: tripId,
-                    alert_level: 1,
-                    metadata: {
-                        step: 'PUSH_RECEIVED',
-                        version: SW_VERSION,
-                        timestamp: new Date().toISOString()
-                    }
-                })
-            });
-        } catch (e) { console.error('SW Logging failed', e); }
-
-        // Ensure absolute URLs for iOS compatibility
-        const targetUrl = options.data.url || FALLBACK_URL;
-        if (!targetUrl.startsWith('http')) {
-            options.data.url = BASE_URL + (targetUrl.startsWith('/') ? '' : '/') + targetUrl;
-        }
-
-        return self.registration.showNotification(title, options);
-    })());
-});
-
-self.addEventListener('notificationclick', (event) => {
-    event.notification.close();
-    const url = event.notification.data?.url || (BASE_URL + FALLBACK_URL);
-
-    event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-            // Check if there's already a tab open with this app
-            for (const client of windowClients) {
-                if (client.url.includes('/MotionAG') && 'focus' in client) {
-                    return client.focus();
-                }
-            }
-            // If no window found, open a new one
-            if (clients.openWindow) {
-                return clients.openWindow(url);
-            }
-        })
-    );
 });

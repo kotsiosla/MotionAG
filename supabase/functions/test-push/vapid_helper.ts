@@ -126,32 +126,47 @@ export async function createVapidJwt(audience: string, subject: string, publicKe
 }
 
 export async function encryptPayload(payload: string, p256dhKey: string, authSecret: string) {
+    const p256dhBytes = base64UrlDecode(p256dhKey);
+    const authSecretBytes = base64UrlDecode(authSecret);
+    const salt = globalThis.crypto.getRandomValues(new Uint8Array(16));
+
     // Generate local key
     const localKeyPair = await globalThis.crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
     const localPublicKey = new Uint8Array(await globalThis.crypto.subtle.exportKey('raw', localKeyPair.publicKey));
-    const salt = globalThis.crypto.getRandomValues(new Uint8Array(16));
 
     // Import Subscriber Key
-    const subscriberKey = await crypto.subtle.importKey('raw', base64UrlDecode(p256dhKey).buffer, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
-    const sharedSecret = await crypto.subtle.deriveBits({ name: 'ECDH', public: subscriberKey }, localKeyPair.privateKey, 256);
+    const subscriberKey = await crypto.subtle.importKey('raw', p256dhBytes.buffer, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+    const sharedSecret = await crypto.subtle.deriveBits({ name: 'ECDH', public: subscriberKey }, localKeyPair.privateKey as CryptoKey, 256);
 
     // HKDF Helpers
-    const authSecretBytes = base64UrlDecode(authSecret);
-    const prkKey = await crypto.subtle.importKey('raw', authSecretBytes.buffer, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-    const prk = new Uint8Array(await crypto.subtle.sign('HMAC', prkKey, new Uint8Array(sharedSecret)));
+    async function hmac(key: Uint8Array, data: Uint8Array) {
+        const k = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+        return new Uint8Array(await crypto.subtle.sign('HMAC', k, data));
+    }
 
-    const cekInfo = new TextEncoder().encode('Content-Encoding: aes128gcm\0');
-    const cekKey = await crypto.subtle.importKey('raw', prk, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-    const cek = (new Uint8Array(await crypto.subtle.sign('HMAC', cekKey, new Uint8Array([...salt, ...cekInfo, 1])))).slice(0, 16);
+    async function hkdfExpand(prk: Uint8Array, info: Uint8Array, length: number) {
+        const cekInput = new Uint8Array(info.length + 1);
+        cekInput.set(info);
+        cekInput.set([1], info.length);
+        const block = await hmac(prk, cekInput);
+        return block.slice(0, length);
+    }
 
-    const nonceInfo = new TextEncoder().encode('Content-Encoding: nonce\0');
-    const nonce = (new Uint8Array(await crypto.subtle.sign('HMAC', cekKey, new Uint8Array([...salt, ...nonceInfo, 1])))).slice(0, 12);
+    // --- RFC 8291 Section 4 Extraction (MANDATORY FOR iOS) ---
+    const encoder = new TextEncoder();
+    const prkIkm = await hmac(authSecretBytes, new Uint8Array(sharedSecret));
+    const infoWebPush = new Uint8Array([...encoder.encode('WebPush: info'), 0, ...p256dhBytes, ...localPublicKey]);
+    const ikmWebPush = await hkdfExpand(prkIkm, infoWebPush, 32);
+
+    // RFC 8188 Stage
+    const prk = await hmac(salt, ikmWebPush);
+    const cek = await hkdfExpand(prk, encoder.encode("Content-Encoding: aes128gcm\0"), 16);
+    const nonce = await hkdfExpand(prk, encoder.encode("Content-Encoding: nonce\0"), 12);
 
     // Encrypt
     try {
         const aesKey = await crypto.subtle.importKey('raw', cek, { name: 'AES-GCM' }, false, ['encrypt']);
-        console.log('[Crypto] Encrypting with padding 2...');
-        const padded = new Uint8Array([...new TextEncoder().encode(payload), 2]); // Padding: 2 (RFC 8188 compliant)
+        const padded = new Uint8Array([...encoder.encode(payload), 2]); // Padding: 2 (RFC 8188 compliant)
         const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, aesKey, padded));
         return { ciphertext, salt, localPublicKey };
     } catch (e) {

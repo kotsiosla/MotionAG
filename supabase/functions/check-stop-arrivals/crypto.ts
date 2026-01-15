@@ -66,50 +66,49 @@ export async function createVapidJwt(aud: string, sub: string, pub: string, priv
 }
 
 export async function encryptPayload(payloadStr: string, p256dh: string, auth: string) {
+    const p256dhBytes = base64UrlDecode(p256dh);
+    const authBytes = base64UrlDecode(auth);
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+
     // Generate Local Key
     const localKeyPair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
     const localPub = new Uint8Array(await crypto.subtle.exportKey('raw', localKeyPair.publicKey));
-    const salt = crypto.getRandomValues(new Uint8Array(16));
 
     // Shared Secret
-    const subscriberKey = await crypto.subtle.importKey('raw', base64UrlDecode(p256dh), { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+    const subscriberKey = await crypto.subtle.importKey('raw', p256dhBytes, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
     const sharedSecret = await crypto.subtle.deriveBits({ name: 'ECDH', public: subscriberKey }, localKeyPair.privateKey as CryptoKey, 256);
 
-    // HKDF / PRK
-    const authBytes = base64UrlDecode(auth);
-    const prkKey = await crypto.subtle.importKey('raw', authBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-    const prk = await crypto.subtle.sign('HMAC', prkKey, sharedSecret);
+    // HKDF Helper
+    async function hmac(key: Uint8Array, data: Uint8Array) {
+        const k = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+        return new Uint8Array(await crypto.subtle.sign('HMAC', k, data));
+    }
 
-    // CEK
+    async function hkdfExpand(prk: Uint8Array, info: Uint8Array, length: number) {
+        const cekInput = new Uint8Array(info.length + 1);
+        cekInput.set(info);
+        cekInput.set([1], info.length);
+        const block = await hmac(prk, cekInput);
+        return block.slice(0, length);
+    }
+
+    // --- RFC 8291 Section 4 Extraction (MANDATORY FOR iOS) ---
     const encoder = new TextEncoder();
-    const infoBuffer = encoder.encode("Content-Encoding: aes128gcm\0");
-    const cekKeyImport = await crypto.subtle.importKey('raw', prk, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const prkIkm = await hmac(authBytes, new Uint8Array(sharedSecret));
+    const infoWebPush = new Uint8Array([...encoder.encode('WebPush: info'), 0, ...p256dhBytes, ...localPub]);
+    const ikmWebPush = await hkdfExpand(prkIkm, infoWebPush, 32);
 
-    // Concat: [salt, infoBuffer, 0x01]
-    const cekInput = new Uint8Array(salt.length + infoBuffer.length + 1);
-    cekInput.set(salt);
-    cekInput.set(infoBuffer, salt.length);
-    cekInput.set([1], salt.length + infoBuffer.length);
-
-    const cekSig = await crypto.subtle.sign('HMAC', cekKeyImport, cekInput);
-    const cek = new Uint8Array(cekSig).slice(0, 16);
-
-    // Nonce
-    const nonceInfo = encoder.encode("Content-Encoding: nonce\0");
-    const nonceInput = new Uint8Array(salt.length + nonceInfo.length + 1);
-    nonceInput.set(salt);
-    nonceInput.set(nonceInfo, salt.length);
-    nonceInput.set([1], salt.length + nonceInfo.length);
-
-    const nonceSig = await crypto.subtle.sign('HMAC', cekKeyImport, nonceInput);
-    const nonce = new Uint8Array(nonceSig).slice(0, 12);
+    // RFC 8188 Stage
+    const prk = await hmac(salt, ikmWebPush);
+    const cek = await hkdfExpand(prk, encoder.encode("Content-Encoding: aes128gcm\0"), 16);
+    const nonce = await hkdfExpand(prk, encoder.encode("Content-Encoding: nonce\0"), 12);
 
     // Encrypt
     const aesKey = await crypto.subtle.importKey('raw', cek, { name: 'AES-GCM' }, false, ['encrypt']);
     const payloadBytes = encoder.encode(payloadStr);
     const plaintext = new Uint8Array(payloadBytes.length + 1);
     plaintext.set(payloadBytes);
-    plaintext.set([2], payloadBytes.length); // Padding delimiter
+    plaintext.set([2], payloadBytes.length); // Padding delimiter (2 = LAST)
 
     const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, aesKey, plaintext);
 
