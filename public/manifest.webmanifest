@@ -1,12 +1,12 @@
 {
-    "name": "Motion Bus",
+    "name": "Motion Bus - Live Tracking",
     "short_name": "Motion Bus",
-    "description": "Ζωντανή παρακολούθηση λεωφορείων και ειδοποιήσεις",
+    "description": "Παρακολούθηση θέσεων λεωφορείων και δρομολογίων σε πραγματικό χρόνο",
     "start_url": "/MotionAG/",
     "display": "standalone",
-    "background_color": "#0ea5e9",
+    "background_color": "#0a0a0b",
     "theme_color": "#0ea5e9",
-    "orientation": "portrait-primary",
+    "orientation": "any",
     "icons": [
         {
             "src": "/MotionAG/pwa-192x192.png",

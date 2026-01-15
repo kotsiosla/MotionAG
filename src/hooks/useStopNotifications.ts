@@ -8,7 +8,7 @@ const logDiagnostic = async (step: string, metadata: any) => {
       stop_id: 'SYNC_DEBUG',
       route_id: 'STOP_NOTIFS',
       alert_level: 0,
-      metadata: { ...metadata, step, version: 'v1.5.17.9.2', timestamp: new Date().toISOString() }
+      metadata: { ...metadata, step, version: 'v1.5.17.9.4', timestamp: new Date().toISOString() }
     });
   } catch (e) {
     console.error('Failed to log sync diagnostic:', e);
@@ -281,7 +281,7 @@ export function useStopNotifications() {
   const forceSync = useCallback(async (manualNotifs?: StopNotificationSettings[]) => {
     const toSync = manualNotifs || notifications;
     await logDiagnostic('BOOTSTRAP', {
-      version: 'v1.5.17.9.2',
+      version: 'v1.5.17.9.4',
       href: window.location.href,
       count: toSync.length
     });

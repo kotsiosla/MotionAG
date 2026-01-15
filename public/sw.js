@@ -1,4 +1,4 @@
-const SW_VERSION = 'v2.0.5 - REVERT';
+const SW_VERSION = 'v2.0.6';
 const BASE_URL = 'https://kotsiosla.github.io/MotionAG';
 
 // Revert to split-file for iOS compatibility as single-file failed

@@ -143,7 +143,7 @@ serve(async (req) => {
                     }
 
                     // --- NEW: Watched Trips Filtering ---
-                    const notifyType = setting.notifyType || 'selected';
+                    const notifyType = setting.notifyType || 'all';
                     const watchedTrips = setting.watchedTrips || [];
                     const isWatched = watchedTrips.includes(arrival.tripId);
 

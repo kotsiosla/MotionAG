@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => {
         includeAssets: ["favicon.ico", "robots.txt", "pwa-192x192.png", "pwa-512x512.png", "images/bus-icon.png"],
         manifest: {
           id: "com.motionbus.cyprus.pwa.v1",
-          name: "Motion Bus - Ζωντανή Παρακολούθηση",
+          name: "Motion Bus - Live Tracking",
           short_name: "Motion Bus",
           description: "Παρακολούθηση θέσεων λεωφορείων και δρομολογίων σε πραγματικό χρόνο",
           theme_color: "#0ea5e9",
@@ -57,17 +57,17 @@ export default defineConfig(({ mode }) => {
           ],
           icons: [
             {
-              src: `${base}images/bus-icon.png`,
+              src: `${base}pwa-192x192.png`,
               sizes: "192x192",
               type: "image/png",
             },
             {
-              src: `${base}images/bus-icon.png`,
+              src: `${base}pwa-512x512.png`,
               sizes: "512x512",
               type: "image/png",
             },
             {
-              src: `${base}images/bus-icon.png`,
+              src: `${base}pwa-512x512.png`,
               sizes: "512x512",
               type: "image/png",
               purpose: "maskable",
@@ -75,7 +75,7 @@ export default defineConfig(({ mode }) => {
           ],
           screenshots: [
             {
-              src: `${base}images/bus-icon.png`,
+              src: `${base}pwa-512x512.png`,
               sizes: "512x512",
               type: "image/png",
               form_factor: "narrow"

@@ -9,7 +9,7 @@ import { unlockAudio } from "@/hooks/useStopArrivalNotifications";
 import { type StopNotificationSettings } from "@/hooks/useStopNotifications";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 
-const VERSION = 'v1.5.17.9.2';
+const VERSION = 'v1.5.17.9.4';
 
 const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
   try {
@@ -193,7 +193,16 @@ export function StopNotificationModal({
       if (!registration) {
         console.log('[StopNotificationModal] Using client-side notifications only');
         const settings: StopNotificationSettings = {
-          stopId, stopName, enabled: true, sound: true, vibration: true, voice: false, push: false, beforeMinutes,
+          stopId,
+          stopName,
+          enabled: true,
+          sound: true,
+          vibration: true,
+          voice: false,
+          push: false,
+          beforeMinutes,
+          notifyType: 'all',
+          watchedTrips: [],
         };
         const stored = localStorage.getItem('stop_notifications');
         let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
@@ -234,7 +243,16 @@ export function StopNotificationModal({
           });
 
           const settings: StopNotificationSettings = {
-            stopId, stopName, enabled: true, sound: true, vibration: true, voice: false, push: false, beforeMinutes,
+            stopId,
+            stopName,
+            enabled: true,
+            sound: true,
+            vibration: true,
+            voice: false,
+            push: false,
+            beforeMinutes,
+            notifyType: 'all',
+            watchedTrips: [],
           };
           const stored = localStorage.getItem('stop_notifications');
           let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
@@ -258,7 +276,16 @@ export function StopNotificationModal({
       const auth = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(authKey))));
 
       const settings: StopNotificationSettings = {
-        stopId, stopName, enabled: true, sound: true, vibration: true, voice: false, push: true, beforeMinutes,
+        stopId,
+        stopName,
+        enabled: true,
+        sound: true,
+        vibration: true,
+        voice: false,
+        push: true,
+        beforeMinutes,
+        notifyType: 'all',
+        watchedTrips: [],
       };
 
       const stored = localStorage.getItem('stop_notifications');
