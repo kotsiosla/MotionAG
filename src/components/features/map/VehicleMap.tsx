@@ -852,8 +852,22 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       fadeAnimation: false,
     });
 
+    // Create a custom high-priority pane for vehicle markers
+    // This ensures they stay on top of other map elements and are easier to click
+    const vehiclePane = mapRef.current.createPane('vehicle-pane');
+    vehiclePane.style.zIndex = '800'; // Above default popup pane (700)
+    vehiclePane.style.pointerEvents = 'none'; // Pane itself doesn't block, children do
 
     vehicleMarkersRef.current = L.markerClusterGroup({
+      chunkedLoading: true,
+      spiderfyOnMaxZoom: false,
+      showCoverageOnHover: false,
+      maxClusterRadius: 50,
+      zoomToBoundsOnClick: false, // Handle click manually for better control
+      animate: false,
+      animateAddingMarkers: false, // Remove adding animation as requested
+      // Use the custom pane for the cluster markers themselves
+      clusterPane: 'vehicle-pane',
       chunkedLoading: true,
       spiderfyOnMaxZoom: false,
       showCoverageOnHover: false,
@@ -1358,6 +1372,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           zIndexOffset: isOnSelectedRoute ? 2000 : (isFollowed ? 1000 : 0),
           interactive: true,
           bubblingMouseEvents: false, // Prevent click from bubbling to map
+          pane: 'vehicle-pane' // Use the custom high-priority pane
         });
 
         // Click handler - opens route planner panel with projected route

@@ -289,6 +289,28 @@
   display: block !important;
   width: 100% !important;
   height: 100% !important;
+  /* Ensure container doesn't block events but allows propagation */
+  pointer-events: auto;
+}
+
+/* Global fix for Leaflet panes: pan itself shouldn't block, but contents should */
+.leaflet-pane {
+  pointer-events: none !important;
+}
+
+.leaflet-marker-pane,
+.leaflet-popup-pane,
+.leaflet-overlay-pane,
+.leaflet-tile-pane {
+  pointer-events: none !important;
+}
+
+/* Re-enable pointer events for actual interactive content */
+.leaflet-marker-icon,
+.leaflet-popup,
+.leaflet-zoom-animated,
+.leaflet-interactive {
+  pointer-events: auto !important;
 }
 
 .leaflet-container .leaflet-pane {

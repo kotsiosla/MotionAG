@@ -375,7 +375,9 @@ export function StopNotificationModal({
             </div>
             <div>
               <h3 className="font-semibold text-sm">Ειδοποίηση Στάσης</h3>
-              <p className="text-xs text-muted-foreground truncate max-w-[180px]">{stopName}</p>
+              <p className="text-[10px] text-muted-foreground font-mono mt-4 pt-4 border-t border-border/50">
+                Internal Ref: MOT-LOG-V1.5.19.2-ARRIVAL
+              </p>
             </div>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} disabled={isSaving}>
@@ -385,6 +387,10 @@ export function StopNotificationModal({
 
         <div className="p-4 space-y-4">
           <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+            <div className="absolute top-2 right-2 flex flex-col items-end gap-1 opacity-20 hover:opacity-100 transition-opacity">
+              <span className="text-[10px] font-mono">v1.5.19.2</span>
+              <span className="text-[8px] font-mono uppercase bg-primary/20 px-1 rounded">Diagnostic Mode</span>
+            </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
