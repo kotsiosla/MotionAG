@@ -20,6 +20,7 @@ import { SmartTripPlanner } from "@/components/features/planning/SmartTripPlanne
 import { AnimatedLogo } from "@/components/common/AnimatedLogo";
 import type { RouteInfo, StaticStop } from "@/types/gtfs";
 import type { FavoriteRoute } from "@/hooks/useFavoriteRoutes";
+import type { OptimizationPreference } from "@/hooks/useSmartTripPlan";
 
 interface LocationInfo {
   lat: number;
@@ -52,7 +53,13 @@ interface HeaderProps {
     departureTime: string,
     departureDate: Date,
     originLocation?: LocationInfo,
-    destLocation?: LocationInfo
+    destLocation?: LocationInfo,
+    options?: {
+      maxWalkingDistance: number;
+      maxTransfers: number;
+      preference: OptimizationPreference;
+      includeNightBuses: boolean;
+    }
   ) => void;
   favorites?: FavoriteRoute[];
   onRemoveFavorite?: (id: string) => void;

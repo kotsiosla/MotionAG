@@ -3,18 +3,15 @@ import {
   MapPin, ArrowDownUp, Search, Navigation, Loader2, Clock,
   Star, ChevronDown, Trash2, CalendarIcon, Building2,
   Footprints, Route as RouteIcon, MapPinned,
-  Mic, MicOff, X
+  Mic, MicOff, X, Settings2, Accessibility, ArrowRightLeft,
+  ChevronRight, Lightbulb
 } from "lucide-react";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +19,11 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import {
   useGeocode,
@@ -33,6 +35,7 @@ import { useVoiceSearch } from "@/hooks/useVoiceSearch";
 import { CYPRUS_POI, getCategoryIcon, type PointOfInterest } from "@/data/cyprusPOI";
 import type { StaticStop } from "@/types/gtfs";
 import type { FavoriteRoute } from "@/hooks/useFavoriteRoutes";
+import type { OptimizationPreference } from "@/hooks/useSmartTripPlan";
 
 interface SmartTripPlannerProps {
   stops: StaticStop[];
@@ -44,6 +47,12 @@ interface SmartTripPlannerProps {
     departureDate: Date,
     originLocation?: { name: string; lat: number; lon: number },
     destinationLocation?: { name: string; lat: number; lon: number },
+    options?: {
+      maxWalkingDistance: number;
+      maxTransfers: number;
+      preference: OptimizationPreference;
+      includeNightBuses: boolean;
+    },
     walkingInfo?: {
       originWalkingMeters: number;
       originWalkingMinutes: number;
@@ -248,6 +257,7 @@ function LocationSearchInput({
                       clearResults();
                     }}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground"
+                    title="Καθαρισμός αναζήτησης"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -418,6 +428,13 @@ export function SmartTripPlanner({
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
 
+  // Advanced options
+  const [maxTransfers, setMaxTransfers] = useState<number>(2);
+  const [maxWalkingDistance, setMaxWalkingDistance] = useState<number>(1000);
+  const [optimizationPreference, setOptimizationPreference] = useState<OptimizationPreference>('balanced');
+  const [includeNightBuses, setIncludeNightBuses] = useState<boolean>(true);
+  const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
+
   // Compute the actual departure time to pass to search
   const departureTime = useMemo(() => {
     if (timeMode === 'now') return 'now';
@@ -537,6 +554,12 @@ export function SmartTripPlanner({
       departureDate,
       originLocation,
       destLocation,
+      {
+        maxWalkingDistance,
+        maxTransfers,
+        preference: optimizationPreference,
+        includeNightBuses
+      },
       walkingInfo
     );
   };
@@ -692,6 +715,7 @@ export function SmartTripPlanner({
                           ? "bg-primary text-primary-foreground"
                           : "hover:bg-accent"
                       )}
+                      title="Αναχώρηση τώρα"
                     >
                       <Clock className="h-4 w-4" />
                       <span>Τώρα</span>
@@ -709,6 +733,7 @@ export function SmartTripPlanner({
                           ? "bg-primary text-primary-foreground"
                           : "hover:bg-accent"
                       )}
+                      title="Όλη η μέρα"
                     >
                       <CalendarIcon className="h-4 w-4" />
                       <span>Όλη η μέρα</span>
@@ -785,6 +810,7 @@ export function SmartTripPlanner({
                             e.stopPropagation();
                             onRemoveFavorite(fav.id);
                           }}
+                          title="Αφαίρεση από αγαπημένα"
                         >
                           <Trash2 className="h-3 w-3 text-destructive" />
                         </Button>
@@ -801,6 +827,7 @@ export function SmartTripPlanner({
             onClick={handleSearch}
             disabled={!originStop || !destinationStop || isLoading}
             className="flex-1 sm:flex-initial h-10 sm:h-9 gap-2"
+            title="Αναζήτηση διαδρομής"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -810,6 +837,119 @@ export function SmartTripPlanner({
             <span>Αναζήτηση</span>
           </Button>
         </div>
+
+        {/* Improved Row 3: Advanced Settings Callout */}
+        <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced} className="w-full">
+          <div className="flex items-center justify-between px-1">
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Settings2 className={cn("h-3 w-3 transition-transform duration-200", showAdvanced && "rotate-90")} />
+              <span>Περισσότερες Επιλογές</span>
+              <ChevronRight className={cn("h-3 w-3 transition-transform", showAdvanced && "rotate-90")} />
+            </button>
+
+            {!showAdvanced && (
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground/60 hidden sm:flex">
+                <span className="flex items-center gap-1">
+                  <ArrowRightLeft className="h-2.5 w-2.5" />
+                  {maxTransfers === 0 ? 'Χωρίς αλλαγή' : `Έως ${maxTransfers} αλλαγές`}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Footprints className="h-2.5 w-2.5" />
+                  {maxWalkingDistance >= 2000 ? 'Απεριόριστο' : `${maxWalkingDistance}m`}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Lightbulb className="h-2.5 w-2.5" />
+                  {optimizationPreference === 'fastest' ? 'Ταχύτερο' :
+                    optimizationPreference === 'least_walking' ? 'Λιγότερο περπάτημα' :
+                      optimizationPreference === 'fewest_transfers' ? 'Λιγότερες αλλαγές' : 'Ισορροπημένο'}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <CollapsibleContent className="pt-3 pb-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-3 rounded-lg border border-border/50 bg-secondary/20">
+              {/* Max Transfers */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <ArrowRightLeft className="h-3.5 w-3.5 text-primary" />
+                  <Label className="text-xs font-medium">Μέγιστες μετεπιβιβάσεις</Label>
+                </div>
+                <Select value={maxTransfers.toString()} onValueChange={(v) => setMaxTransfers(parseInt(v))}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0" className="text-xs">Καμία (Απευθείας)</SelectItem>
+                    <SelectItem value="1" className="text-xs">Έως 1 αλλαγή</SelectItem>
+                    <SelectItem value="2" className="text-xs">Έως 2 αλλαγές</SelectItem>
+                    <SelectItem value="3" className="text-xs">Έως 3 αλλαγές</SelectItem>
+                    <SelectItem value="5" className="text-xs">Απεριόριστες</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Max Walking */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Footprints className="h-3.5 w-3.5 text-primary" />
+                    <Label className="text-xs font-medium">Μέγιστο περπάτημα</Label>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">{maxWalkingDistance}m</span>
+                </div>
+                <div className="pt-1">
+                  <Slider
+                    value={[maxWalkingDistance]}
+                    onValueChange={([val]) => setMaxWalkingDistance(val)}
+                    max={2000}
+                    min={200}
+                    step={100}
+                    className="py-2"
+                  />
+                </div>
+              </div>
+
+              {/* Optimization */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Accessibility className="h-3.5 w-3.5 text-primary" />
+                  <Label className="text-xs font-medium">Προτίμηση διαδρομής</Label>
+                </div>
+                <Select value={optimizationPreference} onValueChange={(v: any) => setOptimizationPreference(v)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fastest" className="text-xs">Πιο γρήγορη</SelectItem>
+                    <SelectItem value="least_walking" className="text-xs">Λιγότερο περπάτημα</SelectItem>
+                    <SelectItem value="fewest_transfers" className="text-xs">Λιγότερες αλλαγές</SelectItem>
+                    <SelectItem value="balanced" className="text-xs">Ισορροπημένη</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Night Buses toggle moved here for better layout */}
+              <div className="sm:col-span-3 flex items-center justify-between pt-2 border-t border-border/30 mt-1">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5 text-primary" />
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium">Περίληψη νυχτερινών γραμμών</span>
+                    <span className="text-[10px] text-muted-foreground">Εμφάνιση δρομολογίων που λειτουργούν τη νύχτα</span>
+                  </div>
+                </div>
+                <Switch
+                  checked={includeNightBuses}
+                  onCheckedChange={setIncludeNightBuses}
+                  className="scale-75"
+                />
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Walking info summary */}
         {totalWalkingTime > 0 && origin && destination && (

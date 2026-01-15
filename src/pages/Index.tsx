@@ -5,8 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Header } from "@/components/layout/Header";
 import { ErrorBanner } from "@/components/common/ErrorBanner";
 import { VehicleMap, MapStyleType } from "@/components/features/map/VehicleMap";
-import { TripPlanner } from "@/components/features/planning/TripPlanner";
-import { SmartTripPlanner } from "@/components/features/planning/SmartTripPlanner";
 import { TripsTable } from "@/components/features/schedule/TripsTable";
 import { StopsView } from "@/components/features/schedule/StopsView";
 import { AlertsList } from "@/components/features/user/AlertsList";
@@ -14,12 +12,11 @@ import { ScheduleView } from "@/components/features/schedule/ScheduleView";
 import { SmartTripResults } from "@/components/features/planning/SmartTripResults";
 import { NearbyStopsPanel } from "@/components/features/map/NearbyStopsPanel";
 import { SavedTripsPanel } from "@/components/features/user/SavedTripsPanel";
-import { AnimatedLogo } from "@/components/common/AnimatedLogo";
 import { PWAInstallBanner } from "@/components/common/PWAInstallBanner";
 import { PullToRefresh } from "@/components/common/PullToRefresh";
 import { useSavedTrips } from "@/hooks/useSavedTrips";
 import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } from "@/hooks/useGtfsData";
-import { useSmartTripPlan } from "@/hooks/useSmartTripPlan";
+import { useSmartTripPlan, type OptimizationPreference } from "@/hooks/useSmartTripPlan";
 import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import { useStopArrivalNotifications, unlockAudio } from "@/hooks/useStopArrivalNotifications";
@@ -66,8 +63,11 @@ const Index = () => {
 
   const [maxWalkingDistance, setMaxWalkingDistance] = useState<number>(() => {
     const saved = localStorage.getItem('maxWalkingDistance');
-    return saved ? parseInt(saved, 10) : 0; // Default to unlimited (0)
+    return saved ? parseInt(saved, 10) : 1000; // Default to 1km
   });
+  const [maxTransfers, setMaxTransfers] = useState<number>(2);
+  const [optimizationPreference, setOptimizationPreference] = useState<OptimizationPreference>('balanced');
+  const [includeNightBuses, setIncludeNightBuses] = useState<boolean>(true);
 
   // Highlighted stop (for nearby stops panel)
   const [highlightedStop, setHighlightedStop] = useState<StaticStop | null>(null);
@@ -259,10 +259,14 @@ const Index = () => {
   const tripPlanQuery = useSmartTripPlan(
     tripOrigin,
     tripDestination,
-
-    tripDepartureTime,
-    tripDepartureDate,
-    maxWalkingDistance
+    {
+      departureTime: tripDepartureTime,
+      departureDate: tripDepartureDate,
+      maxWalkingDistance,
+      maxTransfers,
+      preference: optimizationPreference,
+      includeNightBuses
+    }
   );
 
   // Save walking distance preference
@@ -508,11 +512,17 @@ const Index = () => {
         liveRoutesCount={liveRoutes.size}
         stops={staticStopsQuery.data?.data || []}
         stopsLoading={staticStopsQuery.isLoading}
-        onTripSearch={(origin, destination, departureTime, departureDate, _originLocation, _destLocation) => {
+        onTripSearch={(origin, destination, departureTime, departureDate, _originLocation, _destLocation, options) => {
           setTripOrigin(origin);
           setTripDestination(destination);
           setTripDepartureTime(departureTime);
           setTripDepartureDate(departureDate);
+          if (options) {
+            setMaxWalkingDistance(options.maxWalkingDistance);
+            setMaxTransfers(options.maxTransfers);
+            setOptimizationPreference(options.preference);
+            setIncludeNightBuses(options.includeNightBuses);
+          }
           setShowTripResults(true);
         }}
         favorites={favorites}
