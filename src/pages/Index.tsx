@@ -110,6 +110,24 @@ const Index = () => {
     };
   }, []);
 
+  // Handle back button for modal
+  useEffect(() => {
+    if (showTripResults) {
+      // Push specific state for modal
+      window.history.pushState({ modal: 'tripResults' }, '');
+
+      const handlePopState = (e: PopStateEvent) => {
+        // If we popped back, close the modal
+        setShowTripResults(false);
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+      };
+    }
+  }, [showTripResults]);
+
   // Sync theme and map style
   const handleThemeToggle = useCallback(() => {
     const newIsDark = !isDark;
@@ -374,7 +392,9 @@ const Index = () => {
       }
     }
 
-    setSearchParams(newParams, { replace: true });
+    // Push to history if we have params (so back button works), otherwise replace (cleanup)
+    const shouldPush = params.route || params.stop;
+    setSearchParams(newParams, { replace: !shouldPush });
   }, [searchParams, setSearchParams]);
 
   // Update URL when route changes
@@ -558,7 +578,7 @@ const Index = () => {
           data={tripPlanQuery.data}
           isLoading={tripPlanQuery.isLoading}
           error={tripPlanQuery.error}
-          onClose={() => setShowTripResults(false)}
+          onClose={() => window.history.back()}
           isFavorite={tripOrigin && tripDestination ? isFavorite(tripOrigin.stop_id, tripDestination.stop_id) : false}
           onToggleFavorite={() => {
             if (tripOrigin && tripDestination) {

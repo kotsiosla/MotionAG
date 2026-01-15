@@ -13,6 +13,7 @@ interface ArrivalInfo {
   minutesUntil: number;
   confidence?: 'high' | 'medium' | 'low';
   source?: string;
+  delaySeconds?: number;
 }
 
 
@@ -115,6 +116,17 @@ export const speak = (text: string) => {
     utterance.rate = 0.9;
     utterance.pitch = 1;
     utterance.volume = 1;
+
+    // Try to find a Greek voice
+    const voices = speechSynthesis.getVoices();
+    const greekVoice = voices.find(v => v.lang.startsWith('el'));
+    if (greekVoice) {
+      utterance.voice = greekVoice;
+      console.log('[Audio] Using specific Greek voice:', greekVoice.name);
+    } else {
+      console.log('[Audio] Using default voice with lang el-GR');
+    }
+
     speechSynthesis.speak(utterance);
   }
 };
@@ -377,6 +389,12 @@ export function useStopArrivalNotifications(
       message += ` σε ${arrival.minutesUntil} λεπτά`;
     }
 
+    // Add delay info if significant (> 2 mins)
+    if (arrival.delaySeconds && arrival.delaySeconds > 120) {
+      const delayMins = Math.round(arrival.delaySeconds / 60);
+      message += ` (Καθυστέρηση ${delayMins}')`;
+    }
+
     // Sound notification
     if (settings.sound) {
       playSound(urgency);
@@ -533,6 +551,7 @@ export function useStopArrivalNotifications(
             minutesUntil,
             confidence: 'medium',
             source: 'gtfs',
+            delaySeconds: stu.arrivalDelay
           }, settings);
         }
       });

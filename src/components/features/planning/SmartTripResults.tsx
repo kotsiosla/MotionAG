@@ -406,7 +406,7 @@ export function SmartTripResults({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-background/80 backdrop-blur-xl transition-all duration-500 animate-in fade-in">
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-2 sm:p-4 bg-background/80 backdrop-blur-xl transition-all duration-500 animate-in fade-in">
       <div className="bg-card/90 border border-border/80 shadow-[0_0_50px_-12px_rgba(0,0,0,0.3)] w-full max-w-2xl h-full max-h-[95vh] flex flex-col rounded-3xl overflow-hidden animate-in zoom-in-95 duration-300">
 
         {/* Header Section */}
@@ -474,7 +474,7 @@ export function SmartTripResults({
                     <SelectValue />
                   </div>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[3000]">
                   {SORT_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -486,7 +486,7 @@ export function SmartTripResults({
                     <SelectValue />
                   </div>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[3000]">
                   {TRANSFER_FILTER_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value.toString()} className="text-xs">{opt.label}</SelectItem>)}
                 </SelectContent>
               </Select>
