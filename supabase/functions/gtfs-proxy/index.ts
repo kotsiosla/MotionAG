@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { GTFS_STATIC_URLS } from "../_shared/gtfs-constants.ts";
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -994,16 +995,7 @@ function extractAlerts(feed: GtfsRealtimeFeed) {
         }));
 }
 
-// Static GTFS data URLs by operator
-const GTFS_STATIC_URLS: Record<string, string> = {
-    '2': 'https://www.motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C2_google_transit.zip&rel=True', // OSYPA
-    '4': 'https://www.motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C4_google_transit.zip&rel=True', // OSEA
-    '5': 'https://www.motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C5_google_transit.zip&rel=True', // Intercity
-    '6': 'https://www.motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C6_google_transit.zip&rel=True', // EMEL
-    '9': 'https://www.motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C9_google_transit.zip&rel=True', // NPT
-    '10': 'https://www.motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C10_google_transit.zip&rel=True', // LPT
-    '11': 'https://www.motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C11_google_transit.zip&rel=True', // PAME EXPRESS
-};
+
 
 // Simple in-memory cache for routes, stops, shapes, and stop_times
 const routesCache: Map<string, { data: RouteInfo[]; timestamp: number }> = new Map();

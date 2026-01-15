@@ -297,9 +297,9 @@ function LocationSearchInput({
             {isListening && (
               <div className="mt-2 flex items-center gap-2 text-xs text-primary animate-pulse">
                 <div className="flex gap-0.5">
-                  <span className="w-1 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <span className="voice-feedback-bar voice-feedback-bar-0" />
+                  <span className="voice-feedback-bar voice-feedback-bar-1" />
+                  <span className="voice-feedback-bar voice-feedback-bar-2" />
                 </div>
                 <span>Ακούω...</span>
               </div>

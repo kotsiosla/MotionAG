@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.test-push]
 verify_jwt = false
+
+[functions.route-planner]
+verify_jwt = false
