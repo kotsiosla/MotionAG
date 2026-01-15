@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/MotionAG/sw.js', { scope: '/MotionAG/' })})}
