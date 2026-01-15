@@ -26,8 +26,24 @@ let audioContext: AudioContext | null = null;
 // Pre-loaded audio element for iOS fallback
 let fallbackAudio: HTMLAudioElement | null = null;
 
+// Track if audio is already unlocked to prevent spamming
+let isAudioUnlocked = false;
+
 // iOS Audio unlock - must be called from user interaction
-export const unlockAudio = () => {
+export const unlockAudio = async (): Promise<boolean> => {
+  if (isAudioUnlocked && audioContext?.state === 'running') {
+    return true;
+  }
+
+  // Prevent multiple parallel unlock attempts (e.g. from rapid touch events)
+  if ((window as any)._isUnlockingAudio) {
+    return false;
+  }
+  (window as any)._isUnlockingAudio = true;
+
+  // Reset unlock lock after 1s in case of failure/stuck
+  setTimeout(() => { (window as any)._isUnlockingAudio = false; }, 1000);
+
   try {
     // Create and unlock audio context
     if (!audioContext) {
@@ -36,9 +52,7 @@ export const unlockAudio = () => {
 
     // Resume if suspended (iOS requirement)
     if (audioContext.state === 'suspended') {
-      audioContext.resume().then(() => {
-        console.log('[Audio] AudioContext resumed via user interaction');
-      });
+      await audioContext.resume();
     }
 
     // Play a silent buffer to unlock - this is required on iOS
@@ -56,19 +70,29 @@ export const unlockAudio = () => {
       fallbackAudio.load();
       // Play and immediately pause to unlock
       fallbackAudio.volume = 0.01;
-      fallbackAudio.play().then(() => {
-        fallbackAudio?.pause();
-        fallbackAudio!.currentTime = 0;
-        fallbackAudio!.volume = 0.7;
-        console.log('[Audio] HTML5 Audio unlocked for iOS');
-      }).catch(() => {
-        // Ignore - will try again on next interaction
-      });
+
+      try {
+        await fallbackAudio.play();
+        fallbackAudio.pause();
+        fallbackAudio.currentTime = 0;
+        fallbackAudio.volume = 0.7;
+        isAudioUnlocked = true;
+      } catch (e) {
+        // Ignore play error
+      }
+    } else {
+      isAudioUnlocked = true;
     }
 
-    console.log('[Audio] iOS audio unlocked');
+    if (!isAudioUnlocked) {
+      // We set it to true here, assuming Web Audio worked even if HTML5 is still pending
+      isAudioUnlocked = true;
+    }
+
+    return true;
   } catch (e) {
-    console.log('[Audio] Could not unlock audio:', e);
+    // console.log('[Audio] Could not unlock audio:', e);
+    return false;
   }
 };
 

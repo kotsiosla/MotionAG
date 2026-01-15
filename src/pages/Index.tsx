@@ -92,8 +92,12 @@ const Index = () => {
 
   // Unlock audio on any user interaction (required for iOS)
   useEffect(() => {
-    const handleInteraction = () => {
-      unlockAudio();
+    const handleInteraction = async () => {
+      const unlocked = await unlockAudio();
+      if (unlocked) {
+        document.removeEventListener('touchstart', handleInteraction);
+        document.removeEventListener('click', handleInteraction);
+      }
     };
 
     // Listen for various interaction events

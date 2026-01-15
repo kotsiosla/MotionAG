@@ -140,7 +140,7 @@ export function RoutePlannerPanel({
   const [expandedStep, setExpandedStep] = useState<number | null>(null);
   const [selectingOnMap, setSelectingOnMap] = useState<'origin' | 'destination' | null>(null);
   const stopsListRef = useRef<HTMLDivElement>(null);
-  const currentStopRef = useRef<HTMLButtonElement>(null);
+  const currentStopRef = useRef<HTMLDivElement>(null);
   const [lastCurrentStopId, setLastCurrentStopId] = useState<string | null>(null);
   const [watchedStopId, setWatchedStopId] = useState<string | null>(null);
   const [notifiedStops, setNotifiedStops] = useState<Set<string>>(new Set());
@@ -1108,15 +1108,23 @@ export function RoutePlannerPanel({
           <div ref={stopsListRef} className="flex-1 overflow-y-auto p-2">
             <div className="space-y-1">
               {selectedVehicleTripInfo.stops.map((stop, index) => (
-                <button
+                <div
                   key={`${stop.stopId}-${index}`}
+                  role="button"
+                  tabIndex={0}
                   ref={stop.isCurrent ? currentStopRef : null}
                   onClick={() => {
                     if (stop.stopLat !== undefined && stop.stopLon !== undefined) {
                       onTripStopClick?.(stop.stopId, stop.stopLat, stop.stopLon);
                     }
                   }}
-                  disabled={stop.stopLat === undefined || stop.stopLon === undefined}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      if (stop.stopLat !== undefined && stop.stopLon !== undefined) {
+                        onTripStopClick?.(stop.stopId, stop.stopLat, stop.stopLon);
+                      }
+                    }
+                  }}
                   className={`w-full text-left flex items-start gap-3 p-2 rounded-lg transition-all duration-300 cursor-pointer ${stop.isCurrent
                     ? 'bg-primary/20 border border-primary/30 shadow-md animate-pulse-subtle'
                     : stop.isPassed
@@ -1223,7 +1231,7 @@ export function RoutePlannerPanel({
                       </div>
                     )}
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </div>
@@ -1568,6 +1576,8 @@ export function RoutePlannerPanel({
       )}
     </>
   );
+
+  if (!isOpen) return null;
 
   // Mobile layout - bottom sheet
   if (isMobile) {

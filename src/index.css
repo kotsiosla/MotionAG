@@ -415,10 +415,9 @@
 }
 
 /* Smooth vehicle movement on map */
-/* DISABLE ALL ANIMATIONS as requested */
 .leaflet-marker-icon.vehicle-marker,
 .leaflet-marker-icon.route-vehicle-marker {
-  transition: none !important;
+  transition: transform 1s linear, opacity 0.3s ease-out;
 }
 
 /* Global Leaflet Animation Kill Switch */

@@ -53,7 +53,7 @@ const createVehicleIcon = (_bearing?: number, isFollowed?: boolean, routeColor?:
   // Professional bus marker with image
   if (isOnSelectedRoute || isFollowed) {
     return L.divIcon({
-      className: 'route-vehicle-marker',
+      className: 'route-vehicle-marker cursor-pointer pointer-events-auto leaflet-interactive',
       html: `
         <div style="
           position: relative;
@@ -95,7 +95,7 @@ const createVehicleIcon = (_bearing?: number, isFollowed?: boolean, routeColor?:
 
   // Standard marker for all other vehicles - also use the bus icon but smaller
   return L.divIcon({
-    className: 'vehicle-marker',
+    className: 'vehicle-marker cursor-pointer pointer-events-auto leaflet-interactive',
     html: `
       <div style="
         width: ${iconSize}px;
@@ -986,6 +986,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       const target = (e.originalEvent?.target as HTMLElement)?.closest('.leaflet-marker-icon, .leaflet-cluster-animated');
       if (target) {
         // Click is on a marker or cluster - let MarkerClusterGroup handle it
+        console.log('[VehicleMap] Map click ignored - target is a marker/cluster');
         return;
       }
 
@@ -1222,16 +1223,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         // const hasMovedSignificantly = latDiff > 0.000001 || lngDiff > 0.000001;
 
         // Force update to ensure simulation works
-        // DIRECT UPDATE - NO ANIMATION as requested
-        // This ensures the bus appears exactly where it is (snapped to shape if applicable)
-        // without any sliding or interpolation.
+        // Allow CSS transition to handle the smooth movement
         existingMarker.setLatLng(newLatLng);
-
-        // Clear any transition styles if they existed
-        const markerElement = existingMarker.getElement();
-        if (markerElement) {
-          markerElement.style.transition = 'none';
-        }
 
         // Store current position
         previousPositionsRef.current.set(vehicleId, { lat: targetLat, lng: targetLng });
@@ -1360,6 +1353,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         const marker = L.marker([vehicle.latitude!, vehicle.longitude!], {
           icon: createVehicleIcon(vehicle.bearing, isFollowed, routeColor, isOnSelectedRoute, routeInfo?.route_short_name),
           zIndexOffset: isOnSelectedRoute ? 2000 : (isFollowed ? 1000 : 0),
+          interactive: true,
+          bubblingMouseEvents: false, // Prevent click from bubbling to map
         });
 
         // Click handler - opens route planner panel with projected route

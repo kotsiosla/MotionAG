@@ -9,7 +9,7 @@ import { unlockAudio } from "@/hooks/useStopArrivalNotifications";
 import { type StopNotificationSettings } from "@/hooks/useStopNotifications";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 
-const VERSION = 'v1.5.17.9.4';
+const VERSION = 'v1.5.18';
 
 const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
   try {
@@ -25,7 +25,7 @@ const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
         timestamp: new Date().toISOString()
       }
     });
-  } catch (e) { console.error('[Diagnostic v1.5.17.8] Failed:', e); }
+  } catch (e) { console.error('[Diagnostic v1.5.18] Failed:', e); }
 };
 
 interface StopNotificationModalProps {
