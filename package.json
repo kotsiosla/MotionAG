@@ -1,7 +1,7 @@
 {
   "name": "motion-ag",
   "private": true,
-  "version": "1.5.19",
+  "version": "1.5.19.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

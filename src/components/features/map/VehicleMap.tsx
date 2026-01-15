@@ -53,7 +53,7 @@ const createVehicleIcon = (_bearing?: number, isFollowed?: boolean, routeColor?:
   // Professional bus marker with image
   if (isOnSelectedRoute || isFollowed) {
     return L.divIcon({
-      className: 'route-vehicle-marker cursor-pointer pointer-events-auto leaflet-interactive',
+      className: 'route-vehicle-marker cursor-pointer pointer-events-auto leaflet-interactive leaflet-marker-icon',
       html: `
         <div style="
           position: relative;
@@ -95,7 +95,7 @@ const createVehicleIcon = (_bearing?: number, isFollowed?: boolean, routeColor?:
 
   // Standard marker for all other vehicles - also use the bus icon but smaller
   return L.divIcon({
-    className: 'vehicle-marker cursor-pointer pointer-events-auto leaflet-interactive',
+    className: 'vehicle-marker cursor-pointer pointer-events-auto leaflet-interactive leaflet-marker-icon',
     html: `
       <div style="
         width: ${iconSize}px;
@@ -575,6 +575,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
     const handleContainerClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
+      console.log('[VehicleMap] Map container clicked - Target:', target.tagName, target.className);
 
       // Stop Notification Button
       const notifyBtn = target.closest('.stop-notification-btn');
@@ -867,7 +868,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         const iconSize = sizeMap[size];
         return L.divIcon({
           html: `<div><span>${count}</span></div>`,
-          className: `vehicle-cluster vehicle-cluster-${size}`,
+          className: `vehicle-cluster vehicle-cluster-${size} leaflet-marker-icon`,
           iconSize: L.point(iconSize, iconSize),
         });
       },
@@ -1235,9 +1236,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
         // Update click handler with latest logic
         existingMarker.off('click');
-        existingMarker.on('click', () => {
+        existingMarker.on('click', (e: L.LeafletMouseEvent) => {
+          L.DomEvent.stopPropagation(e as any); // Stop propagation to map
           const effectiveRouteId = resolveRouteIdForVehicle(vehicle);
-          console.log('[VehicleMap] Bus clicked (existing) - Projecting route:', vehicleId, 'Trip:', vehicle.tripId, 'Route:', effectiveRouteId);
+          console.log('[VehicleMap] Bus clicked (existing) - ID:', vehicleId, 'Trip:', vehicle.tripId, 'Route:', effectiveRouteId);
 
           if (mapRef.current) {
             mapRef.current.closePopup();
@@ -1247,6 +1249,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           setViewMode('street');
 
           if (vehicle.tripId) {
+            console.log('[VehicleMap] Opening RoutePlanner for trip:', vehicle.tripId);
             setSelectedVehicleTrip({
               vehicleId: vehicleId,
               tripId: vehicle.tripId,
@@ -1358,10 +1361,11 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         });
 
         // Click handler - opens route planner panel with projected route
-        marker.on('click', () => {
+        marker.on('click', (e: L.LeafletMouseEvent) => {
+          L.DomEvent.stopPropagation(e as any); // Stop propagation to map
           const effectiveRouteId = resolveRouteIdForVehicle(vehicle);
 
-          console.log('[VehicleMap] Bus clicked - Projecting route:', vehicleId, 'Trip:', vehicle.tripId, 'Route:', effectiveRouteId);
+          console.log('[VehicleMap] Bus clicked (new) - ID:', vehicleId, 'Trip:', vehicle.tripId, 'Route:', effectiveRouteId);
 
           // Close any existing popups
           if (mapRef.current) {
@@ -1374,6 +1378,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
           // Project the route planner for this specific trip
           if (vehicle.tripId) {
+            console.log('[VehicleMap] Opening RoutePlanner for trip:', vehicle.tripId);
             setSelectedVehicleTrip({
               vehicleId: vehicleId,
               tripId: vehicle.tripId,

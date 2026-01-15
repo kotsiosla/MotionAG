@@ -9,7 +9,7 @@ import { unlockAudio } from "@/hooks/useStopArrivalNotifications";
 import { type StopNotificationSettings } from "@/hooks/useStopNotifications";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 
-const VERSION = 'v1.5.19';
+const VERSION = 'v1.5.19.1';
 
 const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
   try {
