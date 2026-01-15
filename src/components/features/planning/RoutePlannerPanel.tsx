@@ -227,17 +227,20 @@ export function RoutePlannerPanel({
 
   // Set initial origin from bus current stop
   useEffect(() => {
-    if (initialOriginStop && !origin) {
-      const location: Location = {
-        lat: initialOriginStop.lat,
-        lng: initialOriginStop.lng,
-        name: initialOriginStop.stopName,
-        type: 'stop',
-        stopId: initialOriginStop.stopId,
-      };
-      setOrigin(location);
-      setOriginQuery(initialOriginStop.stopName);
-      onLocationSelect?.('origin', location);
+    if (initialOriginStop) {
+      // Only set if different from current origin to avoid infinite loops or jarring updates
+      if (!origin || origin.stopId !== initialOriginStop.stopId || origin.name !== initialOriginStop.stopName) {
+        const location: Location = {
+          lat: initialOriginStop.lat,
+          lng: initialOriginStop.lng,
+          name: initialOriginStop.stopName,
+          type: 'stop',
+          stopId: initialOriginStop.stopId,
+        };
+        setOrigin(location);
+        setOriginQuery(initialOriginStop.stopName);
+        onLocationSelect?.('origin', location);
+      }
     }
   }, [initialOriginStop, origin, onLocationSelect]);
 

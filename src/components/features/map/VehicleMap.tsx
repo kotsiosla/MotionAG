@@ -569,17 +569,91 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     }
   }, [followVehicleId, followedVehicleId, vehicles]);
 
-  // Listen for custom event to open notification modal from popup button
+  // Handle clicks on elements inside popups via delegation on the map container
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const handleContainerClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+
+      // Stop Notification Button
+      const notifyBtn = target.closest('.stop-notification-btn');
+      if (notifyBtn) {
+        const stopId = notifyBtn.getAttribute('data-stop-id');
+        const stopName = notifyBtn.getAttribute('data-stop-name');
+        if (stopId && stopName) {
+          openStopPanel(stopId, stopName);
+          mapRef.current?.closePopup();
+        }
+        return;
+      }
+
+      // "Plan from here" Button
+      const planFromBtn = target.closest('.plan-from-here-btn');
+      if (planFromBtn) {
+        const stopId = planFromBtn.getAttribute('data-stop-id');
+        const stopName = planFromBtn.getAttribute('data-stop-name');
+        const lat = parseFloat(planFromBtn.getAttribute('data-lat') || '0');
+        const lng = parseFloat(planFromBtn.getAttribute('data-lng') || '0');
+
+        if (stopId && stopName && lat && lng) {
+          console.log('[VehicleMap] Planning FROM stop:', stopName);
+          setInitialOriginStop({ stopId, stopName, lat, lng });
+          setSelectedVehicleTrip(null);
+          setShowRoutePlanner(true);
+          mapRef.current?.closePopup();
+        }
+        return;
+      }
+
+      // "Plan to here" Button
+      const planToBtn = target.closest('.plan-to-here-btn');
+      if (planToBtn) {
+        const stopId = planToBtn.getAttribute('data-stop-id');
+        const stopName = planToBtn.getAttribute('data-stop-name');
+        const lat = parseFloat(planToBtn.getAttribute('data-lat') || '0');
+        const lng = parseFloat(planToBtn.getAttribute('data-lng') || '0');
+
+        if (stopId && stopName && lat && lng) {
+          console.log('[VehicleMap] Planning TO stop:', stopName);
+          // For "Plan to", we can use setMapClickLocation to simulate a map selection
+          setMapClickLocation({
+            type: 'destination',
+            lat,
+            lng
+          });
+          setSelectedVehicleTrip(null);
+          setShowRoutePlanner(true);
+          mapRef.current?.closePopup();
+        }
+        return;
+      }
+    };
+
+    const container = containerRef.current;
+    container.addEventListener('click', handleContainerClick);
+    return () => {
+      container.removeEventListener('click', handleContainerClick);
+    };
+  }, [openStopPanel]);
+
+  // Listen for custom event to open notification modal (legacy or external)
   useEffect(() => {
     const handleOpenNotification = (e: CustomEvent<{ stopId: string; stopName: string }>) => {
       openStopPanel(e.detail.stopId, e.detail.stopName);
-      // Close any open popup
+      mapRef.current?.closePopup();
+    };
+
+    const handleSelectRoute = (e: CustomEvent<{ routeId: string }>) => {
+      // Just a sink here, parent handles it
       mapRef.current?.closePopup();
     };
 
     window.addEventListener('openStopNotification', handleOpenNotification as EventListener);
+    window.addEventListener('selectRoute', handleSelectRoute as EventListener);
     return () => {
       window.removeEventListener('openStopNotification', handleOpenNotification as EventListener);
+      window.removeEventListener('selectRoute', handleSelectRoute as EventListener);
     };
   }, [openStopPanel]);
 
@@ -708,6 +782,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       const stopInfo = stopMap && stopMap.size > 0 ? stopMap.get(nextStopUpdate.stopId) : null;
 
       return {
+        stopId: nextStopUpdate.stopId,
         stopName: stopInfo?.stop_name || nextStopUpdate.stopId || 'Επόμενη στάση',
         arrivalTime: nextStopUpdate.arrivalTime,
         arrivalDelay: nextStopUpdate.arrivalDelay,
@@ -1165,21 +1240,41 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         existingMarker.setIcon(createVehicleIcon(effectiveBearing, isFollowed, routeColor, isOnSelectedRoute, routeInfo?.route_short_name));
         existingMarker.setZIndexOffset(isOnSelectedRoute ? 2000 : (isFollowed ? 1000 : 0));
 
-        // CRITICAL FIX: Re-bind click handler for existing markers to ensure they have the latest logic
+        // Update click handler with latest logic
         existingMarker.off('click');
         existingMarker.on('click', () => {
-          console.log('[VehicleMap] Bus clicked (existing):', vehicleId);
+          const effectiveRouteId = resolveRouteIdForVehicle(vehicle);
+          console.log('[VehicleMap] Bus clicked (existing) - Projecting route:', vehicleId, 'Trip:', vehicle.tripId, 'Route:', effectiveRouteId);
 
           if (mapRef.current) {
             mapRef.current.closePopup();
           }
 
-          // setFollowedVehicleId(vehicleId); // REMOVED to allow prop-driven effect trigger
           onFollowVehicle?.(vehicleId);
           setViewMode('street');
-          setShowRoutePlanner(false);
-          setSelectedVehicleTrip(null);
-          setInitialOriginStop(null);
+
+          if (vehicle.tripId) {
+            setSelectedVehicleTrip({
+              vehicleId: vehicleId,
+              tripId: vehicle.tripId,
+              routeId: effectiveRouteId || undefined
+            });
+            setShowRoutePlanner(true);
+
+            if (nextStop) {
+              const stop = stops.find(s => s.stop_id === nextStop.stopId);
+              if (stop && stop.stop_lat && stop.stop_lon) {
+                setInitialOriginStop({
+                  stopId: stop.stop_id,
+                  stopName: stop.stop_name || stop.stop_id,
+                  lat: stop.stop_lat,
+                  lng: stop.stop_lon
+                });
+              }
+            }
+          } else {
+            setShowRoutePlanner(false);
+          }
         });
 
         // Update tooltip content for hover - compact for mobile
@@ -1267,26 +1362,46 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           zIndexOffset: isOnSelectedRoute ? 2000 : (isFollowed ? 1000 : 0),
         });
 
-        // Click handler - opens route planner panel
+        // Click handler - opens route planner panel with projected route
         marker.on('click', () => {
-          // Check if we have enough route info (optional now, we try anyway)
-          // const effectiveRouteId = resolveRouteIdForVehicle(vehicle) || (selectedRoute !== 'all' ? selectedRoute : null);
+          const effectiveRouteId = resolveRouteIdForVehicle(vehicle);
 
-          console.log('[VehicleMap] Bus clicked:', vehicleId);
+          console.log('[VehicleMap] Bus clicked - Projecting route:', vehicleId, 'Trip:', vehicle.tripId, 'Route:', effectiveRouteId);
 
           // Close any existing popups
           if (mapRef.current) {
             mapRef.current.closePopup();
           }
 
-          // setFollowedVehicleId(vehicleId); // REMOVED to allow prop-driven effect trigger
+          // Follow the vehicle
           onFollowVehicle?.(vehicleId);
-          // Match the behavior of external follow (e.g. from TripsTable): go to street mode immediately.
           setViewMode('street');
-          // Close route planner when following a vehicle - UnifiedRoutePanel will show the route
-          setShowRoutePlanner(false);
-          setSelectedVehicleTrip(null);
-          setInitialOriginStop(null);
+
+          // Project the route planner for this specific trip
+          if (vehicle.tripId) {
+            setSelectedVehicleTrip({
+              vehicleId: vehicleId,
+              tripId: vehicle.tripId,
+              routeId: effectiveRouteId || undefined
+            });
+            setShowRoutePlanner(true);
+
+            // Set initial origin stop if we have next stop info for better context
+            if (nextStop) {
+              const stop = stops.find(s => s.stop_id === nextStop.stopId);
+              if (stop && stop.stop_lat && stop.stop_lon) {
+                setInitialOriginStop({
+                  stopId: stop.stop_id,
+                  stopName: stop.stop_name || stop.stop_id,
+                  lat: stop.stop_lat,
+                  lng: stop.stop_lon
+                });
+              }
+            }
+          } else {
+            // Fallback if no tripId - just show general planner or keep current behavior
+            setShowRoutePlanner(false);
+          }
         });
 
         // Bind popup content for new markers so fallback works
@@ -1740,8 +1855,18 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           </div>
           ${statusText}
           ${arrivalsHtml}
-          <div class="mt-3 pt-2 border-t border-border">
-            <button data-stop-id="${stop.stop_id}" data-stop-name="${(stop.stop_name || stop.stop_id).replace(/"/g, '&quot;')}" class="stop-notification-btn w-full py-2 px-3 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+          <div class="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-2">
+            <button data-stop-id="${stop.stop_id}" data-stop-name="${(stop.stop_name || stop.stop_id).replace(/"/g, '&quot;')}" data-lat="${stop.stop_lat}" data-lng="${stop.stop_lon}" class="plan-from-here-btn py-1.5 px-2 bg-blue-50 text-blue-700 text-[11px] font-semibold rounded-md border border-blue-200 hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/></svg>
+              Από εδώ
+            </button>
+            <button data-stop-id="${stop.stop_id}" data-stop-name="${(stop.stop_name || stop.stop_id).replace(/"/g, '&quot;')}" data-lat="${stop.stop_lat}" data-lng="${stop.stop_lon}" class="plan-to-here-btn py-1.5 px-2 bg-red-50 text-red-700 text-[11px] font-semibold rounded-md border border-red-200 hover:bg-red-100 transition-colors flex items-center justify-center gap-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+               Προς εδώ
+            </button>
+          </div>
+          <div class="mt-2">
+            <button data-stop-id="${stop.stop_id}" data-stop-name="${(stop.stop_name || stop.stop_id).replace(/"/g, '&quot;')}" class="stop-notification-btn w-full py-2 px-3 bg-primary/10 text-primary text-sm font-medium rounded-md hover:bg-primary hover:text-white transition-all flex items-center justify-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
               Ρύθμιση ειδοποίησης
             </button>
