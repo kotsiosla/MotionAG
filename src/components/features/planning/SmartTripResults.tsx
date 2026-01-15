@@ -38,6 +38,11 @@ interface SmartTripResultsProps {
   onWalkingDistanceChange?: (distance: number) => void;
 }
 
+interface CustomCSS extends React.CSSProperties {
+  '--route-color'?: string;
+  '--text-color'?: string;
+}
+
 const SORT_OPTIONS = [
   { value: 'recommended', label: 'Προτεινόμενες (Smart)' },
   { value: 'fastest', label: 'Ταχύτερες' },
@@ -146,17 +151,17 @@ function JourneyLegView({ leg, isLast }: { leg: JourneyLeg; isLast: boolean }) {
       <div className="flex flex-col items-center">
         <div
           className="z-10 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shadow-lg shadow-black/10 transition-transform hover:scale-110 cursor-default"
-          style={{ '--route-color': bgColor, '--text-color': textColor } as any}
+          style={{ '--route-color': bgColor, '--text-color': textColor } as CustomCSS}
         >
           {leg.route?.route_short_name?.substring(0, 3) || <Bus className="h-5 w-5" />}
         </div>
-        {!isLast && <div className="absolute top-10 left-5 w-0.5 h-full opacity-30" style={{ '--route-color': bgColor } as any} />}
+        {!isLast && <div className="absolute top-10 left-5 w-0.5 h-full opacity-30" style={{ '--route-color': bgColor } as CustomCSS} />}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap mb-1">
           <span
             className="text-xs font-heavy px-2 py-0.5 rounded shadow-sm"
-            style={{ '--route-color': bgColor, '--text-color': textColor } as any}
+            style={{ '--route-color': bgColor, '--text-color': textColor } as CustomCSS}
           >
             {leg.route?.route_short_name}
           </span>
@@ -244,7 +249,7 @@ function JourneyOptionCard({
                 <div key={i} className="flex items-center gap-1.5 shrink-0">
                   <div
                     className="h-6 px-2 rounded-md flex items-center justify-center text-[11px] font-black text-white shadow-sm"
-                    style={{ '--route-color': leg.route?.route_color ? `#${leg.route.route_color}` : 'hsl(var(--primary))' } as any}
+                    style={{ '--route-color': leg.route?.route_color ? `#${leg.route.route_color}` : 'hsl(var(--primary))' } as CustomCSS}
                   >
                     {leg.route?.route_short_name}
                   </div>
