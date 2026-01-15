@@ -139,12 +139,21 @@ serve(async (req) => {
                     }
 
                     if (!targetAlertLevel) {
-                        // console.log(`[Worker] STOP ${stopId}:     Arrival in ${minsUntil}m doesn't match any threshold`);
                         continue;
                     }
-                    console.log(`[Worker] STOP ${stopId}:     MATCH! Arrival ${minsUntil}m <= Threshold ${targetAlertLevel}`);
 
-                    // Check Log
+                    // --- NEW: Watched Trips Filtering ---
+                    const notifyType = setting.notifyType || 'selected';
+                    const watchedTrips = setting.watchedTrips || [];
+                    const isWatched = watchedTrips.includes(arrival.tripId);
+
+                    if (notifyType === 'selected' && !isWatched) {
+                        // console.log(`[Worker] STOP ${stopId}:     SKIPPING: Trip ${arrival.tripId} not in watched list`);
+                        continue;
+                    }
+                    console.log(`[Worker] STOP ${stopId}:     MATCH! Arrival ${routeName} (${arrival.tripId}) ${minsUntil}m <= Threshold ${targetAlertLevel}`);
+
+                    // Check Log - include route_id and trip_id for better deduplication
                     const { data: logEntries, error: logError } = await supabase
                         .from('notifications_log')
                         .select('id')
@@ -152,6 +161,7 @@ serve(async (req) => {
                         .eq('stop_id', stopId)
                         .eq('route_id', routeId)
                         .eq('alert_level', targetAlertLevel)
+                        .filter('metadata->>trip_id', 'eq', arrival.tripId || 'unknown') // Filter by trip_id in metadata
                         .limit(1);
 
                     if (logError) {

@@ -350,6 +350,15 @@ export function NearbyStopsPanel({
       newWatched = currentWatched.filter(id => id !== arrival.tripId);
     } else {
       newWatched = [...currentWatched, arrival.tripId];
+
+      // VALIDATION: If manual push is OFF in panel settings, warn the user
+      if (!panelSettings.push) {
+        toast({
+          title: "⚠️ Push Ειδοποιήσεις Ανενεργές",
+          description: "Έχετε επιλέξει ειδοποίηση, αλλά οι push ειδοποιήσεις είναι κλειστές στις ρυθμίσεις του πάνελ.",
+          variant: "destructive"
+        });
+      }
     }
 
     // Update global settings
@@ -363,6 +372,7 @@ export function NearbyStopsPanel({
       push: panelSettings.push,
       beforeMinutes: Math.round(notificationDistance / 100),
       watchedTrips: newWatched,
+      notifyType: 'selected', // CRITICAL: Tell worker to only notify for watchedTrips
     });
 
 
