@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { Calendar, Loader2, Bus, Star, X, MapPin, Route as RouteIcon, Navigation, Maximize2 } from "lucide-react";
+import { Calendar, Loader2, Bus, Star, X, MapPin, Route as RouteIcon, Navigation } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
@@ -166,8 +166,11 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
     // CRITICAL: Set explicit fixed height to prevent infinite retry loops
     container.style.display = 'block';
     container.style.width = '100%';
-    container.style.height = '300px'; // Fixed height to prevent size {x: 0, y: 0} issues
-    container.style.minHeight = '300px';
+    // Use smaller height for mobile to avoid taking up entire screen
+    const isSmallScreen = window.innerWidth < 1024;
+    const initialHeight = isSmallScreen ? '250px' : '300px';
+    container.style.height = initialHeight;
+    container.style.minHeight = initialHeight;
     container.style.position = 'relative';
     container.style.overflow = 'hidden';
 
@@ -747,7 +750,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
             onOperatorChange(val);
             setSelectedRoute("");
           }}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="Επιλέξτε φορέα" />
             </SelectTrigger>
             <SelectContent className="bg-popover z-50">
@@ -768,7 +771,7 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
             onValueChange={setSelectedRoute}
             disabled={!selectedOperator || selectedOperator === 'all' || routesQuery.isLoading}
           >
-            <SelectTrigger className="w-[300px]">
+            <SelectTrigger className="w-[calc(100vw-48px)] sm:w-[300px]">
               <SelectValue placeholder={routesQuery.isLoading ? "Φόρτωση..." : "Επιλέξτε γραμμή"} />
             </SelectTrigger>
             <SelectContent className="bg-popover z-50 max-h-[300px]">
@@ -910,11 +913,11 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
                       </div>
 
                       {/* Map with Route Shape and Stops */}
-                      <div className="flex-1 rounded-lg border overflow-hidden bg-muted/30 relative min-h-[400px] lg:min-h-0">
+                      <div className="flex-1 rounded-lg border overflow-hidden bg-muted/30 relative min-h-[300px] sm:min-h-[400px] lg:min-h-0">
                         <div
                           ref={mapContainerRef}
                           className="w-full h-full"
-                          style={{ minHeight: '400px', height: '100%' }}
+                          style={{ minHeight: '300px', height: '100%' }}
                         />
                         {!mapReady && (
                           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground z-50 bg-background/95 pointer-events-none">

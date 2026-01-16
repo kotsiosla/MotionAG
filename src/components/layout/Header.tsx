@@ -131,12 +131,12 @@ export function Header({
       <div className="container mx-auto px-2 sm:px-4 py-1.5 sm:py-2">
         {/* Mobile Header */}
         <div className="flex items-center justify-between gap-1 md:hidden">
-          <div className="flex items-center gap-1.5">
-            <AnimatedLogo height="1rem" className="sm:h-5" />
-            <h1 className="text-xs sm:text-sm font-bold tracking-tight">GTFS Realtime</h1>
+          <div className="flex items-center gap-1">
+            <AnimatedLogo height="0.875rem" className="sm:h-5" />
+            <h1 className="text-xs sm:text-sm font-bold tracking-tight truncate max-w-[80px] sm:max-w-none">GTFS Realtime</h1>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 sm:gap-1">
             {/* API Status indicator */}
             <ApiStatusIndicator
               isError={hasApiError}
@@ -152,19 +152,19 @@ export function Header({
               variant="ghost"
               size="icon"
               onClick={toggleTripPlanner}
-              className="h-7 w-7 sm:h-8 sm:w-8"
+              className="h-6 w-6 sm:h-8 sm:w-8"
               title={tripPlannerVisible ? "Απόκρυψη αναζήτησης" : "Εμφάνιση αναζήτησης"}
             >
-              {tripPlannerVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {tripPlannerVisible ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
             </Button>
 
             <Button
               variant="ghost"
               size="icon"
               onClick={onToggleTheme}
-              className="h-7 w-7 sm:h-8 sm:w-8"
+              className="h-6 w-6 sm:h-8 sm:w-8"
             >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
             </Button>
 
 
@@ -173,27 +173,29 @@ export function Header({
               variant="ghost"
               size="icon"
               onClick={onOpenSavedTrips}
-              className="h-7 w-7 sm:h-8 sm:w-8 relative"
+              className="h-6 w-6 sm:h-8 sm:w-8 relative"
               title="Οι διαδρομές μου"
             >
-              <Bookmark className="h-4 w-4" />
+              <Bookmark className="h-3.5 w-3.5" />
               {savedTripsCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-primary text-[9px] text-primary-foreground flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-primary text-[8px] text-primary-foreground flex items-center justify-center">
                   {savedTripsCount}
                 </span>
               )}
             </Button>
 
             {/* Push Notifications button */}
-            <NotificationButton />
+            <div className="scale-90 sm:scale-100">
+              <NotificationButton />
+            </div>
 
             <Link to="/install">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 sm:h-8 sm:w-8"
+                className="h-6 w-6 sm:h-8 sm:w-8"
               >
-                <Download className="h-4 w-4" />
+                <Download className="h-3.5 w-3.5" />
               </Button>
             </Link>
 
@@ -201,7 +203,7 @@ export function Header({
               variant="ghost"
               size="icon"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="h-8 w-8"
+              className="h-7 w-7 sm:h-8 sm:w-8"
             >
               {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </Button>

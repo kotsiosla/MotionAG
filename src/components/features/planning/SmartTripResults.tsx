@@ -460,15 +460,15 @@ export function SmartTripResults({
           </div>
 
           {/* Quick Stats & Controls */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-            <div className="flex items-center gap-1.5 bg-secondary/40 px-3 py-1.5 rounded-xl text-[11px] font-black whitespace-nowrap">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 pb-1">
+            <div className="flex items-center gap-1.5 bg-secondary/40 px-3 py-1.5 rounded-xl text-[11px] font-black w-fit">
               <CalendarIcon className="h-3.5 w-3.5 text-primary" />
               {isToday ? "Σήμερα" : format(effectiveDate, "EEEE, d MMM", { locale: el })}
             </div>
 
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-2 sm:ml-auto">
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="h-8 w-[140px] text-[10px] font-black uppercase tracking-tight rounded-xl bg-secondary/20 border-border/40">
+                <SelectTrigger className="h-8 flex-1 sm:w-[160px] text-[10px] font-black uppercase tracking-tight rounded-xl bg-secondary/20 border-border/40">
                   <div className="flex items-center gap-2">
                     <ArrowUpDown className="h-3 w-3" />
                     <SelectValue />
@@ -480,7 +480,7 @@ export function SmartTripResults({
               </Select>
 
               <Select value={maxTransfersFilter.toString()} onValueChange={v => setMaxTransfersFilter(parseInt(v))}>
-                <SelectTrigger className="h-8 w-[100px] text-[10px] font-black uppercase tracking-tight rounded-xl bg-secondary/20 border-border/40">
+                <SelectTrigger className="h-8 flex-1 sm:w-[110px] text-[10px] font-black uppercase tracking-tight rounded-xl bg-secondary/20 border-border/40">
                   <div className="flex items-center gap-2">
                     <Bus className="h-3 w-3" />
                     <SelectValue />
@@ -494,98 +494,101 @@ export function SmartTripResults({
           </div>
         </div>
 
+
         {/* Dynamic Results Area */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-2 space-y-6 scroll-smooth custom-scrollbar">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 space-y-6">
-              <div className="relative">
-                <div className="h-20 w-20 rounded-3xl bg-primary/10 flex items-center justify-center animate-pulse">
-                  <div className="h-12 w-12 rounded-2xl bg-primary animate-bounce flex items-center justify-center">
-                    <Navigation className="h-6 w-6 text-primary-foreground" />
+          {
+            isLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 space-y-6" >
+                <div className="relative">
+                  <div className="h-20 w-20 rounded-3xl bg-primary/10 flex items-center justify-center animate-pulse">
+                    <div className="h-12 w-12 rounded-2xl bg-primary animate-bounce flex items-center justify-center">
+                      <Navigation className="h-6 w-6 text-primary-foreground" />
+                    </div>
+                  </div>
+                  <div className="absolute inset-x-0 -bottom-8 flex justify-center space-x-1">
+                    <div className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
+                    <div className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
+                    <div className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" />
                   </div>
                 </div>
-                <div className="absolute inset-x-0 -bottom-8 flex justify-center space-x-1">
-                  <div className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
-                  <div className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
-                  <div className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" />
+                <div className="text-center">
+                  <p className="text-lg font-black tracking-tight text-foreground uppercase">Υπολογισμός Διαδρομής</p>
+                  <p className="text-xs text-muted-foreground mt-1 font-bold">Ανάλυση RAPTOR με δεδομένα GTFS...</p>
                 </div>
               </div>
-              <div className="text-center">
-                <p className="text-lg font-black tracking-tight text-foreground uppercase">Υπολογισμός Διαδρομής</p>
-                <p className="text-xs text-muted-foreground mt-1 font-bold">Ανάλυση RAPTOR με δεδομένα GTFS...</p>
+            ) : error ? (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-3xl p-10 text-center space-y-4">
+                <div className="h-16 w-16 bg-destructive/20 rounded-full flex items-center justify-center mx-auto">
+                  <AlertCircle className="h-8 w-8 text-destructive" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-black uppercase text-destructive">Σφάλμα Αναζήτησης</h3>
+                  <p className="text-sm font-medium text-muted-foreground/80">{error.message || "Αποτυχία σύνδεσης με τον εξυπηρετητή"}</p>
+                </div>
+                <Button variant="outline" onClick={onClose} className="rounded-xl border-destructive/30">Επιστροφή</Button>
               </div>
-            </div>
-          ) : error ? (
-            <div className="bg-destructive/10 border border-destructive/20 rounded-3xl p-10 text-center space-y-4">
-              <div className="h-16 w-16 bg-destructive/20 rounded-full flex items-center justify-center mx-auto">
-                <AlertCircle className="h-8 w-8 text-destructive" />
+            ) : data?.noRouteFound ? (
+              <div className="py-16 text-center space-y-6">
+                <div className="h-24 w-24 bg-secondary/30 rounded-full flex items-center justify-center mx-auto opacity-50 relative">
+                  <Bus className="h-12 w-12 text-muted-foreground" />
+                  <X className="h-8 w-8 text-destructive absolute -right-2 top-0" />
+                </div>
+                <div className="space-y-1 px-10">
+                  <p className="text-xl font-black uppercase">Δεν βρέθηκε διαδρομή</p>
+                  <p className="text-xs text-muted-foreground font-bold">
+                    {data.message || "Δοκιμάστε να αυξήσετε την απόσταση περπατήματος ή τις επιτρεπόμενες αλλαγές."}
+                  </p>
+                </div>
+                <div className="pt-4 flex flex-col items-center gap-3">
+                  <Button
+                    variant="default"
+                    className="rounded-2xl h-12 px-8 font-black gap-2 shadow-xl shadow-primary/20"
+                    onClick={() => window.open(getTransitUrl(origin, destination), '_blank')}
+                  >
+                    <Map className="h-5 w-5" />
+                    Δοκιμή στο Google Maps
+                  </Button>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black opacity-30">Alternative Routing</p>
+                </div>
               </div>
-              <div className="space-y-1">
-                <h3 className="text-lg font-black uppercase text-destructive">Σφάλμα Αναζήτησης</h3>
-                <p className="text-sm font-medium text-muted-foreground/80">{error.message || "Αποτυχία σύνδεσης με τον εξυπηρετητή"}</p>
-              </div>
-              <Button variant="outline" onClick={onClose} className="rounded-xl border-destructive/30">Επιστροφή</Button>
-            </div>
-          ) : data?.noRouteFound ? (
-            <div className="py-16 text-center space-y-6">
-              <div className="h-24 w-24 bg-secondary/30 rounded-full flex items-center justify-center mx-auto opacity-50 relative">
-                <Bus className="h-12 w-12 text-muted-foreground" />
-                <X className="h-8 w-8 text-destructive absolute -right-2 top-0" />
-              </div>
-              <div className="space-y-1 px-10">
-                <p className="text-xl font-black uppercase">Δεν βρέθηκε διαδρομή</p>
-                <p className="text-xs text-muted-foreground font-bold">
-                  {data.message || "Δοκιμάστε να αυξήσετε την απόσταση περπατήματος ή τις επιτρεπόμενες αλλαγές."}
-                </p>
-              </div>
-              <div className="pt-4 flex flex-col items-center gap-3">
-                <Button
-                  variant="default"
-                  className="rounded-2xl h-12 px-8 font-black gap-2 shadow-xl shadow-primary/20"
-                  onClick={() => window.open(getTransitUrl(origin, destination), '_blank')}
-                >
-                  <Map className="h-5 w-5" />
-                  Δοκιμή στο Google Maps
+            ) : filteredJourneys.length === 0 ? (
+              <div className="py-20 text-center">
+                <Filter className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-20" />
+                <p className="font-black uppercase text-muted-foreground">Κανένα αποτέλεσμα</p>
+                <p className="text-xs text-muted-foreground mt-1">Δεν υπάρχουν διαδρομές που να ικανοποιούν τα φίλτρα σας.</p>
+                <Button variant="link" onClick={() => setMaxTransfersFilter(-1)} className="mt-4 font-black uppercase text-[10px] tracking-widest">
+                  Καθαρισμός Φίλτρων
                 </Button>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-black opacity-30">Alternative Routing</p>
               </div>
-            </div>
-          ) : filteredJourneys.length === 0 ? (
-            <div className="py-20 text-center">
-              <Filter className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-20" />
-              <p className="font-black uppercase text-muted-foreground">Κανένα αποτέλεσμα</p>
-              <p className="text-xs text-muted-foreground mt-1">Δεν υπάρχουν διαδρομές που να ικανοποιούν τα φίλτρα σας.</p>
-              <Button variant="link" onClick={() => setMaxTransfersFilter(-1)} className="mt-4 font-black uppercase text-[10px] tracking-widest">
-                Καθαρισμός Φίλτρων
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-6 pb-6 animate-in slide-in-from-bottom-4 duration-500">
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
-                  <Info className="h-3.5 w-3.5 text-primary opacity-50" />
-                  <span className="text-[11px] font-black uppercase text-muted-foreground/60 tracking-wider">
-                    {filteredJourneys.length} Βέλτιστες Προτάσεις
-                  </span>
+            ) : (
+              <div className="space-y-6 pb-6 animate-in slide-in-from-bottom-4 duration-500">
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <Info className="h-3.5 w-3.5 text-primary opacity-50" />
+                    <span className="text-[11px] font-black uppercase text-muted-foreground/60 tracking-wider">
+                      {filteredJourneys.length} Βέλτιστες Προτάσεις
+                    </span>
+                  </div>
+                  {data?.searchedStops && (
+                    <span className="text-[9px] font-mono text-muted-foreground/40">
+                      Ranked in 42ms
+                    </span>
+                  )}
                 </div>
-                {data?.searchedStops && (
-                  <span className="text-[9px] font-mono text-muted-foreground/40">
-                    Ranked in 42ms
-                  </span>
-                )}
-              </div>
 
-              {filteredJourneys.map((journey, idx) => (
-                <JourneyOptionCard
-                  key={idx}
-                  journey={journey}
-                  index={idx}
-                  onSave={() => handleSaveTrip(journey)}
-                  onAddToCalendar={() => handleAddToCalendar(journey)}
-                />
-              ))}
-            </div>
-          )}
+                {filteredJourneys.map((journey, idx) => (
+                  <JourneyOptionCard
+                    key={idx}
+                    journey={journey}
+                    index={idx}
+                    onSave={() => handleSaveTrip(journey)}
+                    onAddToCalendar={() => handleAddToCalendar(journey)}
+                  />
+                ))}
+              </div>
+            )
+          }
         </div>
 
         {/* Glossy Footer Actions */}

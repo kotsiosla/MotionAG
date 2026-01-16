@@ -81,21 +81,21 @@ export const ResizableDraggablePanel = forwardRef<HTMLDivElement, ResizableDragg
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
+    const parentRect = panelRef.current?.parentElement?.getBoundingClientRect();
+    if (!parentRect) return;
+
     if (isDragging && panelRef.current) {
       const deltaX = clientX - dragStartRef.current.x;
       const deltaY = clientY - dragStartRef.current.y;
 
-      const parentRect = panelRef.current.parentElement?.getBoundingClientRect();
-      if (!parentRect) return;
-
       let newX = positionStartRef.current.x + deltaX;
       let newY = positionStartRef.current.y + deltaY;
 
-      const maxX = parentRect.width - size.width - 8;
-      const maxY = parentRect.height - size.height - 8;
+      const maxX = Math.max(0, parentRect.width - size.width);
+      const maxY = Math.max(0, parentRect.height - size.height);
 
-      newX = Math.max(8, Math.min(newX, maxX));
-      newY = Math.max(8, Math.min(newY, maxY));
+      newX = Math.max(0, Math.min(newX, maxX));
+      newY = Math.max(0, Math.min(newY, maxY));
 
       setPosition({ x: newX, y: newY });
       onPositionChange?.({ x: newX, y: newY });
@@ -111,18 +111,22 @@ export const ResizableDraggablePanel = forwardRef<HTMLDivElement, ResizableDragg
       let newY = positionStartRef.current.y;
 
       if (resizeDirection.includes('e')) {
-        newWidth = Math.max(minSize.width, Math.min(maxSize.width, sizeStartRef.current.width + deltaX));
+        const maxWidth = parentRect.width - position.x;
+        newWidth = Math.max(minSize.width, Math.min(Math.min(maxSize.width, maxWidth), sizeStartRef.current.width + deltaX));
       }
       if (resizeDirection.includes('w')) {
-        const widthDelta = Math.max(minSize.width, Math.min(maxSize.width, sizeStartRef.current.width - deltaX)) - sizeStartRef.current.width;
+        const maxWidth = positionStartRef.current.x + sizeStartRef.current.width;
+        const widthDelta = Math.max(minSize.width, Math.min(Math.min(maxSize.width, maxWidth), sizeStartRef.current.width - deltaX)) - sizeStartRef.current.width;
         newWidth = sizeStartRef.current.width + widthDelta;
         newX = positionStartRef.current.x - widthDelta;
       }
       if (resizeDirection.includes('s')) {
-        newHeight = Math.max(minSize.height, Math.min(maxSize.height, sizeStartRef.current.height + deltaY));
+        const maxHeight = parentRect.height - position.y;
+        newHeight = Math.max(minSize.height, Math.min(Math.min(maxSize.height, maxHeight), sizeStartRef.current.height + deltaY));
       }
       if (resizeDirection.includes('n')) {
-        const heightDelta = Math.max(minSize.height, Math.min(maxSize.height, sizeStartRef.current.height - deltaY)) - sizeStartRef.current.height;
+        const maxHeight = positionStartRef.current.y + sizeStartRef.current.height;
+        const heightDelta = Math.max(minSize.height, Math.min(Math.min(maxSize.height, maxHeight), sizeStartRef.current.height - deltaY)) - sizeStartRef.current.height;
         newHeight = sizeStartRef.current.height + heightDelta;
         newY = positionStartRef.current.y - heightDelta;
       }
@@ -132,12 +136,34 @@ export const ResizableDraggablePanel = forwardRef<HTMLDivElement, ResizableDragg
       onSizeChange?.({ width: newWidth, height: newHeight });
       onPositionChange?.({ x: newX, y: newY });
     }
-  }, [isDragging, isResizing, resizeDirection, size.width, size.height, minSize, maxSize, onPositionChange, onSizeChange]);
+  }, [isDragging, isResizing, resizeDirection, size.width, size.height, position.x, position.y, minSize, maxSize, onPositionChange, onSizeChange]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
     setIsResizing(false);
     setResizeDirection(null);
+  }, []);
+
+  // Update size if it exceeds parent on mount or orientation change
+  useEffect(() => {
+    const updateConstraints = () => {
+      const parentRect = panelRef.current?.parentElement?.getBoundingClientRect();
+      if (!parentRect) return;
+
+      setSize(prev => ({
+        width: Math.min(prev.width, parentRect.width),
+        height: Math.min(prev.height, parentRect.height)
+      }));
+
+      setPosition(prev => ({
+        x: Math.max(0, Math.min(prev.x, parentRect.width - Math.min(size.width, parentRect.width))),
+        y: Math.max(0, Math.min(prev.y, parentRect.height - Math.min(size.height, parentRect.height)))
+      }));
+    };
+
+    updateConstraints();
+    window.addEventListener('resize', updateConstraints);
+    return () => window.removeEventListener('resize', updateConstraints);
   }, []);
 
   useEffect(() => {

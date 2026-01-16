@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Bell, BellOff, X, Clock, Loader2, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/hooks/use-toast";
@@ -427,7 +428,9 @@ export function StopNotificationModal({
           </div>
           <div className="pt-2 border-t border-border mt-2">
             <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground h-6" onClick={handleReset}>
-              <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.17.9.2)
+              <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground opacity-50">
+                v1.6.0
+              </Badge>  <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.17.9.2)
             </Button>
           </div>
         </div>

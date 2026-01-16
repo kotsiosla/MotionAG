@@ -29,17 +29,6 @@ import { useStopNotifications } from "@/hooks/useStopNotifications";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 import { useStopArrivalsQuery, type MergedArrival } from "@/hooks/useGtfsData";
 
-// Detect iOS
-const isIOS = () => {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-};
-
-// Check if running as installed PWA
-const isStandalonePWA = () => {
-  return window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as any).standalone === true;
-};
 
 interface NearbyStopsPanelProps {
   stops: StaticStop[];
@@ -90,9 +79,8 @@ export function NearbyStopsPanel({
   const {
     setNotification,
     getNotification,
-    removeNotification,
-    clearAllNotifications,
     forceSync, // Added forceSync
+
   } = useStopNotifications();
 
   // Use robust push subscription hook (handles VAPID/iOS)
@@ -656,6 +644,7 @@ export function NearbyStopsPanel({
               <button
                 className={`relative w-12 h-6 rounded-full transition-colors ${panelSettings.push ? 'bg-green-500' : 'bg-muted-foreground/30'}`}
                 onClick={() => togglePanelSetting('push')}
+                title={panelSettings.push ? "Απενεργοποίηση Push" : "Ενεργοποίηση Push"}
               >
                 <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${panelSettings.push ? 'translate-x-7' : 'translate-x-1'}`} />
               </button>
@@ -663,7 +652,7 @@ export function NearbyStopsPanel({
 
             {/* Extra notification types - shown when push is on */}
             {panelSettings.push && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   className={`flex-1 h-9 text-xs flex items-center justify-center gap-1.5 rounded-md border transition-all ${panelSettings.sound
                     ? 'bg-green-500/20 border-green-500 text-green-400'
@@ -727,6 +716,7 @@ export function NearbyStopsPanel({
                       });
                     }
                   }}
+                  title={getNotification(activeStop?.stop_id || '')?.notifyType === 'all' ? "Αλλαγή σε Επιλεγμένα" : "Αλλαγή σε Όλα"}
                 >
                   <div className={`absolute top-1 w-3 h-3 rounded-full bg-white shadow transition-transform ${getNotification(activeStop?.stop_id || '')?.notifyType === 'all'
                     ? 'translate-x-6'
@@ -745,7 +735,7 @@ export function NearbyStopsPanel({
                     {notificationDistance < 1000 ? `${notificationDistance} μ` : `${notificationDistance / 1000} χλμ`}
                   </span>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex flex-wrap gap-1">
                   {[200, 500, 1000, 2000].map(dist => (
                     <Button
                       key={dist}
@@ -1012,7 +1002,7 @@ export function NearbyStopsPanel({
     <>
       {/* Mobile: Draggable floating panel */}
       <div
-        className="fixed z-50 md:hidden transition-all duration-150 ease-out shadow-2xl"
+        className="fixed z-[90] md:hidden transition-all duration-150 ease-out shadow-2xl bg-card/95 backdrop-blur-sm"
         style={{
           left: mobilePosition.x === 0 ? 0 : mobilePosition.x,
           right: mobilePosition.x === 0 ? 0 : 'auto',

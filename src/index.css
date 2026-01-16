@@ -622,6 +622,44 @@
   }
 }
 
+
 .animate-pulse-subtle {
   animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* Mobile Optimization Utilities */
+@layer utilities {
+  .w-mobile-full {
+    @apply w-full sm:w-auto;
+  }
+
+  .max-w-mobile-content {
+    @apply max-w-[calc(100vw-32px)] sm:max-w-none;
+  }
+}
+
+/* Fix for mobile horizontal scroll and overflow */
+html,
+body {
+  @apply overflow-x-hidden w-full;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+#root {
+  @apply w-full overflow-x-hidden;
+}
+
+main {
+  @apply overflow-x-hidden w-full;
+}
+
+/* Responsive Table/List fixes */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
