@@ -10,7 +10,7 @@ import { unlockAudio } from "@/hooks/useStopArrivalNotifications";
 import { type StopNotificationSettings } from "@/hooks/useStopNotifications";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 
-const VERSION = 'v1.5.19.1';
+const VERSION = 'v1.6.0';
 
 const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
   try {
@@ -26,7 +26,7 @@ const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
         timestamp: new Date().toISOString()
       }
     });
-  } catch (e) { console.error('[Diagnostic v1.5.18] Failed:', e); }
+  } catch (e) { console.error('[Diagnostic v1.6.0] Failed:', e); }
 };
 
 interface StopNotificationModalProps {
@@ -377,7 +377,7 @@ export function StopNotificationModal({
             <div>
               <h3 className="font-semibold text-sm">Ειδοποίηση Στάσης</h3>
               <p className="text-[10px] text-muted-foreground font-mono mt-4 pt-4 border-t border-border/50">
-                Internal Ref: MOT-LOG-V1.5.19.2-ARRIVAL
+                Internal Ref: MOT-LOG-V1.6.0-ARRIVAL
               </p>
             </div>
           </div>
@@ -389,7 +389,7 @@ export function StopNotificationModal({
         <div className="p-4 space-y-4">
           <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
             <div className="absolute top-2 right-2 flex flex-col items-end gap-1 opacity-20 hover:opacity-100 transition-opacity">
-              <span className="text-[10px] font-mono">v1.5.19.2</span>
+              <span className="text-[10px] font-mono">v1.6.0</span>
               <span className="text-[8px] font-mono uppercase bg-primary/20 px-1 rounded">Diagnostic Mode</span>
             </div>
             <div className="flex items-center justify-between">
@@ -430,7 +430,7 @@ export function StopNotificationModal({
             <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground h-6" onClick={handleReset}>
               <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground opacity-50">
                 v1.6.0
-              </Badge>  <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.5.17.9.2)
+              </Badge>  <Trash className="h-3 w-3 mr-1" /> Debug: Force Reset Push (v1.6.0)
             </Button>
           </div>
         </div>
