@@ -19,7 +19,8 @@ import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } fro
 import { useSmartTripPlan, type OptimizationPreference } from "@/hooks/useSmartTripPlan";
 import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
-import { useStopArrivalNotifications, unlockAudio } from "@/hooks/useStopArrivalNotifications";
+import { useStopArrivalNotifications } from "@/hooks/useStopArrivalNotifications";
+import { unlockAudio } from "@/lib/audio-engine";
 import type { RouteInfo, StaticStop } from "@/types/gtfs";
 import { toast } from "sonner";
 

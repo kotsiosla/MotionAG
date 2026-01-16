@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
-import { speakTest } from "@/hooks/useStopArrivalNotifications";
+import { speakTest } from "@/lib/audio-engine";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 import type { Alert, Trip, RouteInfo } from "@/types/gtfs";
 

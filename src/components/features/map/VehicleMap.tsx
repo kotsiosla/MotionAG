@@ -867,18 +867,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       spiderfyOnMaxZoom: false,
       showCoverageOnHover: false,
       maxClusterRadius: 50,
-      zoomToBoundsOnClick: false, // Handle click manually for better control
+      zoomToBoundsOnClick: false,
       animate: false,
-      animateAddingMarkers: false, // Remove adding animation as requested
-      // Use the custom pane for the cluster markers themselves
+      animateAddingMarkers: false,
       clusterPane: 'vehicle-pane',
-      chunkedLoading: true,
-      spiderfyOnMaxZoom: false,
-      showCoverageOnHover: false,
-      maxClusterRadius: 50,
-      zoomToBoundsOnClick: false, // Handle click manually for better control
-      animate: false,
-      animateAddingMarkers: false, // Remove adding animation as requested
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
         const size = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
@@ -914,9 +906,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       showCoverageOnHover: false,
       maxClusterRadius: 60,
       disableClusteringAtZoom: 15,
-      zoomToBoundsOnClick: false, // Handle click manually
+      zoomToBoundsOnClick: false,
       animate: false,
-      animateAddingMarkers: false, // Remove adding animation as requested
+      animateAddingMarkers: false,
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
         const size = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
