@@ -140,9 +140,24 @@ export const speak = (text: string) => {
   utterance.pitch = 1;
   utterance.volume = 1;
 
-  // Prioritize Greek voices
-  // Filter for el-GR specifically, then any el-, then fallback to name containing "Greek"
-  let greekVoice = availableVoices.find(v => v.lang === 'el-GR');
+  // Prioritize Greek voices by platform
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/.test(navigator.userAgent);
+  const isWindows = /Windows/.test(navigator.userAgent);
+
+  let greekVoice: SpeechSynthesisVoice | undefined;
+
+  if (isIOS) {
+    greekVoice = availableVoices.find(v => v.lang.startsWith('el') && v.name.includes('Melina'));
+  } else if (isAndroid) {
+    greekVoice = availableVoices.find(v => v.lang.startsWith('el') && v.name.toLowerCase().includes('google'));
+  } else if (isWindows) {
+    greekVoice = availableVoices.find(v => v.lang.startsWith('el') && v.name.includes('Stefanos'));
+  }
+
+  // Fallback to any el-GR voice if platform-specific not found
+  if (!greekVoice) greekVoice = availableVoices.find(v => v.lang === 'el-GR');
   if (!greekVoice) greekVoice = availableVoices.find(v => v.lang.startsWith('el'));
   if (!greekVoice) greekVoice = availableVoices.find(v => v.name.toLowerCase().includes('greek'));
 
