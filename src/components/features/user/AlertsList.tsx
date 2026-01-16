@@ -155,7 +155,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               </p>
             </div>
           ) : (
-            <>
+            <div className="space-y-3">
               {stopNotifications.map((notification) => (
                 <div
                   key={notification.stopId}
@@ -212,62 +212,56 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
                   </div>
                 </div>
               ))}
-
-              <div className="pt-4 flex justify-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs text-muted-foreground hover:text-destructive gap-2"
-                  onClick={async () => {
-                    if (confirm('ΠΡΟΣΟΧΗ: Αυτό θα διαγράψει ΟΛΕΣ τις ρυθμίσεις και θα κατεβάσει ξανά την εφαρμογή. Είστε σίγουροι;')) {
-                      // 1. Clear app notifications state
-                      await clearAllNotifications();
-
-                      // 2. Unsubscribe from Push (Browser)
-                      // Ensure Push Subscription exists (handles permissions, VAPID, iOS)
-                      await subscribe([]); // Call subscribe to ensure service worker is registered and push is unsubscribed
-                      if ('serviceWorker' in navigator) {
-                        const regs = await navigator.serviceWorker.getRegistrations();
-                        for (const reg of regs) {
-                          await reg.unregister();
-                        }
-                      }
-
-                      // Force sync immediately to ensure DB is updated
-                      setTimeout(() => {
-                        forceSync();
-                      }, 100);
-
-                      // 3. Clear Local Storage
-                      localStorage.clear();
-
-                      // 4. Force Reload
-                      window.location.reload();
-                    }
-                  }}
-                >
-                  <Trash2 className="h-3 w-3" />
-                  Ολική Διαγραφή & Επαναφορά (Reset)
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs gap-2 ml-2"
-                  onClick={() => {
-                    toast({
-                      title: "🔊 Δοκιμή Φωνής",
-                      description: "Θα ακούσετε ένα μήνυμα αν ο ήχος είναι ξεκλειδωμένος.",
-                    });
-                    speakTest();
-                  }}
-                >
-                  <MessageSquare className="h-3 w-3" />
-                  Δοκιμή Φωνής (iOS Fix)
-                </Button>
-              </div>
-            </>
+            </div>
           )}
+
+          {/* Debug/Tool Footer - Always Visible */}
+          <div className="pt-6 border-t border-border/50 flex flex-col items-center gap-3">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs gap-2"
+                onClick={() => {
+                  toast({
+                    title: "🔊 Δοκιμή Φωνής",
+                    description: "Θα ακούσετε ένα μήνυμα αν ο ήχος είναι ξεκλειδωμένος.",
+                  });
+                  speakTest();
+                }}
+              >
+                <MessageSquare className="h-3 w-3" />
+                Δοκιμή Φωνής (iOS Fix)
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs text-muted-foreground hover:text-destructive gap-2"
+                onClick={async () => {
+                  if (confirm('ΠΡΟΣΟΧΗ: Αυτό θα διαγράψει ΟΛΕΣ τις ρυθμίσεις και θα κατεβάσει ξανά την εφαρμογή. Είστε σίγουροι;')) {
+                    await clearAllNotifications();
+                    await subscribe([]);
+                    if ('serviceWorker' in navigator) {
+                      const regs = await navigator.serviceWorker.getRegistrations();
+                      for (const reg of regs) {
+                        await reg.unregister();
+                      }
+                    }
+                    setTimeout(() => { forceSync(); }, 100);
+                    localStorage.clear();
+                    window.location.reload();
+                  }
+                }}
+              >
+                <Trash2 className="h-3 w-3" />
+                Reset App
+              </Button>
+            </div>
+            <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground opacity-50">
+              v1.6.1 (MotionAG)
+            </Badge>
+          </div>
         </TabsContent>
 
         {/* GTFS Alerts Tab */}
@@ -489,10 +483,8 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               );
             })
           )}
-          <div className="mt-4 p-2 text-center">
-            <div className="text-[10px] text-muted-foreground font-mono opacity-50 pb-safe">
-              v1.6.0 (MotionAG)
-            </div>
+          <div className="text-[10px] text-muted-foreground font-mono opacity-50 pb-safe">
+            v1.6.1 (MotionAG)
           </div>
         </TabsContent>
 
@@ -525,7 +517,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               Για περισσότερες πληροφορίες επικοινωνήστε με τον φορέα μεταφορών
             </p>
             <div className="text-[10px] text-gray-300 font-mono text-center opacity-50 pb-safe">
-              v1.6.0 (MotionAG)
+              v1.6.1 (MotionAG)
             </div>
           </div>
         </TabsContent>
