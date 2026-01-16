@@ -6,7 +6,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
-import { speakTest } from "@/lib/audio-engine";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 import type { Alert, Trip, RouteInfo } from "@/types/gtfs";
 
@@ -218,22 +217,6 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
           {/* Debug/Tool Footer - Always Visible */}
           <div className="pt-6 border-t border-border/50 flex flex-col items-center gap-3">
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs gap-2"
-                onClick={() => {
-                  toast({
-                    title: "🔊 Δοκιμή Φωνής",
-                    description: "Θα ακούσετε ένα μήνυμα αν ο ήχος είναι ξεκλειδωμένος.",
-                  });
-                  speakTest();
-                }}
-              >
-                <MessageSquare className="h-3 w-3" />
-                Δοκιμή Φωνής (iOS Fix)
-              </Button>
-
               <Button
                 variant="outline"
                 size="sm"
