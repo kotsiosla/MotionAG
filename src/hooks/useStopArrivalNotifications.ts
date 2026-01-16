@@ -312,16 +312,13 @@ export function useStopArrivalNotifications(
   // Send browser notification - works for both push (Android) and client-side (iOS)
   // For iOS: push=false but we still send browser Notification when app is open
   // For Android: push=true, browser Notification works when app is open, server push works when app is closed
-  const sendPushNotification = useCallback(async (arrival: ArrivalInfo) => {
+  const sendPushNotification = useCallback(async (arrival: ArrivalInfo, message: string) => {
     try {
-      // Always try to send browser Notification if permission granted (works for both iOS and Android)
-      // iOS: push=false but browser Notification still works when app is open
-      // Android: push=true, browser Notification works when app is open
       if ('Notification' in window && Notification.permission === 'granted') {
         const urgencyEmoji = arrival.minutesUntil <= 1 ? '🚨' : arrival.minutesUntil <= 2 ? '⚠️' : '🚌';
 
-        new Notification(`${urgencyEmoji} ${arrival.routeShortName || arrival.routeId} - ${arrival.minutesUntil}'`, {
-          body: `Φτάνει στη στάση "${arrival.stopName}"${arrival.confidence === 'high' ? ' (ακριβής πρόβλεψη)' : ''}`,
+        new Notification(`${urgencyEmoji} ${arrival.routeShortName || arrival.routeId}`, {
+          body: message,
           icon: '/pwa-192x192.png',
           tag: `arrival-${arrival.stopId}-${arrival.routeId}`,
           requireInteraction: arrival.minutesUntil <= 2,
@@ -412,19 +409,32 @@ export function useStopArrivalNotifications(
 
     const routeName = arrival.routeShortName || arrival.routeId;
     const urgency = getUrgency(arrival.minutesUntil);
-    const urgencyText = urgency === 'high' ? 'ΤΩΡΑ! ' : urgency === 'medium' ? 'Σύντομα: ' : '';
 
-    let message = `${urgencyText}Γραμμή ${routeName} φτάνει στη στάση ${arrival.stopName}`;
+    // Announcement message following "Announcement Engine" rules
+    // - Short sentences, no technical terms, no abbreviations, Greek only.
+    let voiceMessage = `Το λεωφορείο της γραμμής ${routeName} φτάνει στη στάση ${arrival.stopName}.`;
     if (arrival.minutesUntil <= 1) {
-      message += ' τώρα!';
+      voiceMessage = `Το λεωφορείο της γραμμής ${routeName} φτάνει τώρα στη στάση ${arrival.stopName}.`;
     } else {
-      message += ` σε ${arrival.minutesUntil} λεπτά`;
+      voiceMessage += ` Θα είναι εδώ σε ${arrival.minutesUntil} λεπτά.`;
     }
 
-    // Add delay info if significant (> 2 mins)
+    // Add delay info in a friendly official way if significant (> 2 mins)
     if (arrival.delaySeconds && arrival.delaySeconds > 120) {
       const delayMins = Math.round(arrival.delaySeconds / 60);
-      message += ` (Καθυστέρηση ${delayMins}')`;
+      voiceMessage += ` Υπάρχει καθυστέρηση ${delayMins} λεπτών.`;
+    }
+
+    // Prepare toast/UI message separately (can keep emojis/abbreviations for visuals)
+    const urgencyText = urgency === 'high' ? 'ΤΩΡΑ! ' : urgency === 'medium' ? 'Σύντομα: ' : '';
+    let uiMessage = `${urgencyText}Γραμμή ${routeName} φτάνει στη στάση ${arrival.stopName}`;
+    if (arrival.minutesUntil <= 1) {
+      uiMessage += ' τώρα!';
+    } else {
+      uiMessage += ` σε ${arrival.minutesUntil} λεπτά`;
+    }
+    if (arrival.delaySeconds && arrival.delaySeconds > 120) {
+      uiMessage += ` (Καθυστέρηση ${Math.round(arrival.delaySeconds / 60)}')`;
     }
 
     // Sound notification
@@ -439,19 +449,17 @@ export function useStopArrivalNotifications(
 
     // Voice announcement
     if (settings.voice) {
-      speak(message);
+      speak(voiceMessage);
     }
 
     // Browser notification (works for both iOS client-side and Android foreground)
-    // For iOS: always send browser notification (push=false but notification still works when app is open)
-    // For Android: send browser notification when app is open, server push when app is closed
-    sendPushNotification(arrival);
+    sendPushNotification(arrival, uiMessage);
 
     // Always show toast when app is visible
     const toastVariant = urgency === 'high' ? 'destructive' : 'default';
     toast({
-      title: `${urgency === 'high' ? '🚨' : '🚌'} ${routeName} σε ${arrival.minutesUntil <= 0 ? 'τώρα' : `${arrival.minutesUntil}'`}`,
-      description: `Φτάνει στη στάση "${arrival.stopName}"${arrival.confidence === 'high' ? ' ✓' : ''}`,
+      title: `${urgency === 'high' ? '🚨' : '🚌'} ${routeName}`,
+      description: `${uiMessage}${arrival.confidence === 'high' ? ' ✓' : ''}`,
       variant: toastVariant,
     });
 
