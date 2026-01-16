@@ -90,6 +90,19 @@ export const unlockAudio = async (): Promise<boolean> => {
       isAudioUnlocked = true;
     }
 
+    // Prime Speech Synthesis engine for iOS
+    if ('speechSynthesis' in window) {
+      try {
+        const utterance = new SpeechSynthesisUtterance(' ');
+        utterance.volume = 0;
+        utterance.rate = 2; // Fast silent utterance
+        window.speechSynthesis.speak(utterance);
+        console.log('[Audio] SpeechSynthesis primed');
+      } catch (e) {
+        console.error('[Audio] SpeechSynthesis prime failed:', e);
+      }
+    }
+
     return true;
   } catch (e) {
     // console.log('[Audio] Could not unlock audio:', e);
