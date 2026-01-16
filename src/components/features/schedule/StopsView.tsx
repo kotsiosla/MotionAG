@@ -15,6 +15,7 @@ interface StopsViewProps {
   routeNamesMap?: Map<string, RouteInfo>;
   isLoading: boolean;
   selectedOperator?: string;
+  onTripSelect?: (trip: Trip) => void;
 }
 
 const formatETA = (timestamp?: number) => {
@@ -48,7 +49,7 @@ interface RouteArrival {
   arrivalDelay?: number;
 }
 
-export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOperator }: StopsViewProps) {
+export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOperator, onTripSelect }: StopsViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedStopId, setExpandedStopId] = useState<string | null>(null);
   const [showFavoritePicker, setShowFavoritePicker] = useState<{ stopId: string; stop: StaticStop } | null>(null);
@@ -282,6 +283,23 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
                           <span className="text-xs text-muted-foreground">
                             ({arrival.vehicleLabel})
                           </span>
+                        )}
+                        {onTripSelect && arrival.vehicleId && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-primary hover:text-primary hover:bg-primary/10 ml-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const trip = trips.find(t => t.tripId === arrival.tripId);
+                              if (trip) {
+                                onTripSelect(trip);
+                              }
+                            }}
+                            title="Δες στον Χάρτη"
+                          >
+                            <MapPin className="h-3.5 w-3.5" />
+                          </Button>
                         )}
                       </div>
                     </div>
@@ -631,8 +649,8 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
                               }
                             }}
                             className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center transition-colors ${favType
-                                ? 'bg-yellow-500 text-white'
-                                : 'bg-muted hover:bg-yellow-500/20 text-muted-foreground hover:text-yellow-500'
+                              ? 'bg-yellow-500 text-white'
+                              : 'bg-muted hover:bg-yellow-500/20 text-muted-foreground hover:text-yellow-500'
                               }`}
                           >
                             <Star className={`h-3 w-3 ${favType ? 'fill-current' : ''}`} />

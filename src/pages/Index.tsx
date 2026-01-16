@@ -688,6 +688,11 @@ const Index = () => {
                   routeNamesMap={routeNamesMap}
                   isLoading={tripsQuery.isLoading}
                   selectedOperator={selectedOperator}
+                  onTripSelect={(trip) => {
+                    if (trip.routeId) setSelectedRoute(trip.routeId);
+                    if (trip.vehicleId) setFollowVehicleId(trip.vehicleId);
+                    setActiveTab("map");
+                  }}
                 />
               </PullToRefresh>
             </TabsContent>
