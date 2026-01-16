@@ -1,6 +1,6 @@
 
 import { useState, useMemo } from "react";
-import { X, Bus, Clock, MapPin, Star, CalendarIcon, Footprints, Map, AlertCircle, Navigation, ChevronRight, ArrowUpDown, Filter, Share2, Bookmark, CalendarPlus, Info } from "lucide-react";
+import { X, Bus, Clock, Star, CalendarIcon, Footprints, Map, AlertCircle, Navigation, ChevronRight, ArrowUpDown, Filter, Share2, Bookmark, CalendarPlus, Info } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
@@ -18,6 +18,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { JourneyOption, JourneyLeg, SmartTripPlanData } from "@/hooks/useSmartTripPlan";
 import type { StaticStop } from "@/types/gtfs";
@@ -35,7 +42,17 @@ interface SmartTripResultsProps {
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
   maxWalkingDistance?: number;
-  onWalkingDistanceChange?: (distance: number) => void;
+  maxTransfers?: number;
+  optimizationPreference?: string;
+  includeNightBuses?: boolean;
+  onParamsChange?: (params: {
+    departureTime?: string;
+    departureDate?: Date;
+    maxWalkingDistance?: number;
+    maxTransfers?: number;
+    optimizationPreference?: string;
+    includeNightBuses?: boolean;
+  }) => void;
 }
 
 interface CustomCSS extends React.CSSProperties {
@@ -50,11 +67,20 @@ const SORT_OPTIONS = [
   { value: 'least_transfers', label: 'Λιγότερες αλλαγές' },
 ];
 
-const TRANSFER_FILTER_OPTIONS = [
-  { value: -1, label: 'Όλες' },
+const TRANSFERS_OPTIONS = [
   { value: 0, label: 'Απευθείας' },
-  { value: 1, label: 'Μέχρι 1' },
-  { value: 2, label: 'Μέχρι 2' },
+  { value: 1, label: 'Εώς 1 αλλαγή' },
+  { value: 2, label: 'Εώς 2 αλλαγές' },
+  { value: 3, label: 'Εώς 3 αλλαγές' },
+  { value: 99, label: 'Χωρίς περιορισμό' },
+];
+
+const WALKING_OPTIONS = [
+  { value: 250, label: '250 μ.' },
+  { value: 500, label: '500 μ.' },
+  { value: 1000, label: '1 χλμ.' },
+  { value: 2000, label: '2 χλμ.' },
+  { value: 5000, label: 'Χωρίς περιορισμό' },
 ];
 
 // Format distance nicely
@@ -333,19 +359,22 @@ function JourneyOptionCard({
 export function SmartTripResults({
   origin,
   destination,
-  departureTime: _departureTime,
-  departureDate,
+  departureTime = 'now',
+  departureDate = new Date(),
   data,
   isLoading,
   error,
   onClose,
   isFavorite,
   onToggleFavorite,
-  maxWalkingDistance: _maxWalkingDistance = 1000,
-  onWalkingDistanceChange: _onWalkingDistanceChange,
+  maxWalkingDistance = 1000,
+  maxTransfers = 2,
+  optimizationPreference = 'balanced',
+  includeNightBuses = true,
+  onParamsChange,
 }: SmartTripResultsProps) {
   const [sortBy, setSortBy] = useState<string>('recommended');
-  const [maxTransfersFilter, setMaxTransfersFilter] = useState<number>(-1);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const { saveTrip } = useSavedTrips();
 
   const isToday = departureDate ? departureDate.toDateString() === new Date().toDateString() : true;
@@ -356,11 +385,6 @@ export function SmartTripResults({
     if (!data?.journeyOptions) return [];
 
     let journeys = [...data.journeyOptions];
-
-    // Filter by max transfers
-    if (maxTransfersFilter >= 0) {
-      journeys = journeys.filter(j => j.transferCount <= maxTransfersFilter);
-    }
 
     // Sort
     switch (sortBy) {
@@ -380,7 +404,7 @@ export function SmartTripResults({
     }
 
     return journeys;
-  }, [data?.journeyOptions, sortBy, maxTransfersFilter]);
+  }, [data?.journeyOptions, sortBy]);
 
   if (!origin || !destination) return null;
 
@@ -410,7 +434,7 @@ export function SmartTripResults({
       <div className="bg-card/90 border border-border/80 shadow-[0_0_50px_-12px_rgba(0,0,0,0.3)] w-full max-w-2xl h-full max-h-[95vh] flex flex-col rounded-3xl overflow-hidden animate-in zoom-in-95 duration-300">
 
         {/* Header Section */}
-        <div className="p-4 sm:p-6 pb-2 sm:pb-4 space-y-4 flex-shrink-0">
+        <div className="p-4 sm:p-6 pb-2 sm:pb-4 space-y-4 flex-shrink-0 border-b border-border/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="h-10 w-10 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
@@ -437,59 +461,156 @@ export function SmartTripResults({
             </div>
           </div>
 
-          {/* Location Summary */}
-          <div className="relative p-4 rounded-2xl bg-secondary/20 border border-border/50 overflow-hidden group">
-            <div className="absolute right-0 top-0 h-full aspect-square bg-primary/5 opacity-50 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-primary/10 transition-colors" />
-            <div className="flex flex-col gap-3 relative z-10">
-              <div className="flex items-start gap-3">
-                <MapPin className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-0.5 opacity-60">Αναχώρηση από</div>
-                  <div className="text-sm font-bold truncate">{origin.stop_name}</div>
-                </div>
-              </div>
-              <div className="absolute left-[23px] top-6 bottom-6 w-0.5 border-l-2 border-dashed border-border/60" />
-              <div className="flex items-start gap-3">
-                <MapPin className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-0.5 opacity-60">Άφιξη σε</div>
-                  <div className="text-sm font-bold truncate">{destination.stop_name}</div>
-                </div>
-              </div>
+          {/* Location Summary - Compact */}
+          <div className="flex flex-col gap-1.5 px-1">
+            <div className="flex items-center gap-2 opacity-80">
+              <div className="w-2 h-2 rounded-full bg-primary" />
+              <span className="text-sm font-bold truncate">{origin.stop_name}</span>
+            </div>
+            <div className="flex items-center gap-2 opacity-80">
+              <div className="w-2 h-2 rounded-full bg-destructive" />
+              <span className="text-sm font-bold truncate">{destination.stop_name}</span>
             </div>
           </div>
 
-          {/* Quick Stats & Controls */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 pb-1">
-            <div className="flex items-center gap-1.5 bg-secondary/40 px-3 py-1.5 rounded-xl text-[11px] font-black w-fit">
-              <CalendarIcon className="h-3.5 w-3.5 text-primary" />
-              {isToday ? "Σήμερα" : format(effectiveDate, "EEEE, d MMM", { locale: el })}
+          {/* Core Journey Parameters - Interactive recompute */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {/* Date Selection */}
+            <div className="space-y-1">
+              <label className="text-[9px] uppercase font-black text-muted-foreground/60 px-1">Ημερομηνία</label>
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full h-9 justify-start text-[11px] font-bold rounded-xl bg-secondary/20 border-border/40">
+                    <CalendarIcon className="h-3 w-3 mr-1.5 text-primary" />
+                    {isToday ? "Σήμερα" : format(effectiveDate, "dd/MM", { locale: el })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-[3000]" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={effectiveDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        onParamsChange?.({ departureDate: date });
+                        setDatePickerOpen(false);
+                      }
+                    }}
+                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
-            <div className="flex items-center gap-2 sm:ml-auto">
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="h-8 flex-1 sm:w-[160px] text-[10px] font-black uppercase tracking-tight rounded-xl bg-secondary/20 border-border/40">
-                  <div className="flex items-center gap-2">
-                    <ArrowUpDown className="h-3 w-3" />
+            {/* Time Selection */}
+            <div className="space-y-1">
+              <label className="text-[9px] uppercase font-black text-muted-foreground/60 px-1">Ώρα</label>
+              <Select
+                value={departureTime}
+                onValueChange={(v) => onParamsChange?.({ departureTime: v })}
+              >
+                <SelectTrigger className="h-9 w-full text-[11px] font-bold rounded-xl bg-secondary/20 border-border/40">
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3 w-3 text-primary" />
                     <SelectValue />
                   </div>
+                </SelectTrigger>
+                <SelectContent className="z-[3000]">
+                  <SelectItem value="now" className="text-xs">Τώρα</SelectItem>
+                  <SelectItem value="all_day" className="text-xs">Όλη μέρα</SelectItem>
+                  {Array.from({ length: 24 }, (_, i) => {
+                    const hour = i.toString().padStart(2, '0');
+                    return [
+                      <SelectItem key={`${hour}:00`} value={`${hour}:00`} className="text-xs">{hour}:00</SelectItem>,
+                      <SelectItem key={`${hour}:30`} value={`${hour}:30`} className="text-xs">{hour}:30</SelectItem>
+                    ];
+                  }).flat()}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Transfers */}
+            <div className="space-y-1">
+              <label className="text-[9px] uppercase font-black text-muted-foreground/60 px-1">Αλλαγές</label>
+              <Select
+                value={maxTransfers.toString()}
+                onValueChange={(v) => onParamsChange?.({ maxTransfers: parseInt(v) })}
+              >
+                <SelectTrigger className="h-9 w-full text-[11px] font-bold rounded-xl bg-secondary/20 border-border/40">
+                  <div className="flex items-center gap-1.5">
+                    <ArrowUpDown className="h-3 w-3 text-primary" />
+                    <SelectValue />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="z-[3000]">
+                  {TRANSFERS_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value.toString()} className="text-xs">{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Walking */}
+            <div className="space-y-1">
+              <label className="text-[9px] uppercase font-black text-muted-foreground/60 px-1">Περπάτημα</label>
+              <Select
+                value={maxWalkingDistance.toString()}
+                onValueChange={(v) => onParamsChange?.({ maxWalkingDistance: parseInt(v) })}
+              >
+                <SelectTrigger className="h-9 w-full text-[11px] font-bold rounded-xl bg-secondary/20 border-border/40">
+                  <div className="flex items-center gap-1.5">
+                    <Footprints className="h-3 w-3 text-primary" />
+                    <SelectValue />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="z-[3000]">
+                  {WALKING_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value.toString()} className="text-xs">{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Secondary Filters */}
+          <div className="flex items-center gap-3 pt-1">
+            <div className="flex items-center gap-2">
+              <label className="text-[9px] uppercase font-black text-muted-foreground/60">Ταξινόμηση:</label>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="h-7 w-[140px] text-[10px] font-bold rounded-lg bg-secondary/10 border-none ring-0">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="z-[3000]">
                   {SORT_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
 
-              <Select value={maxTransfersFilter.toString()} onValueChange={v => setMaxTransfersFilter(parseInt(v))}>
-                <SelectTrigger className="h-8 flex-1 sm:w-[110px] text-[10px] font-black uppercase tracking-tight rounded-xl bg-secondary/20 border-border/40">
-                  <div className="flex items-center gap-2">
-                    <Bus className="h-3 w-3" />
+            <div className="flex items-center gap-4 ml-auto">
+              <div className="flex items-center gap-2">
+                <label className="text-[9px] uppercase font-black text-muted-foreground/60">Optimization:</label>
+                <Select
+                  value={optimizationPreference}
+                  onValueChange={(v) => onParamsChange?.({ optimizationPreference: v })}
+                >
+                  <SelectTrigger className="h-7 w-[100px] text-[10px] font-bold rounded-lg bg-secondary/10 border-none ring-0">
                     <SelectValue />
-                  </div>
-                </SelectTrigger>
-                <SelectContent className="z-[3000]">
-                  {TRANSFER_FILTER_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value.toString()} className="text-xs">{opt.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+                  </SelectTrigger>
+                  <SelectContent className="z-[3000]">
+                    <SelectItem value="balanced" className="text-xs">Balanced</SelectItem>
+                    <SelectItem value="fastest" className="text-xs">Fastest</SelectItem>
+                    <SelectItem value="least_walking" className="text-xs">Least Walking</SelectItem>
+                    <SelectItem value="fewest_transfers" className="text-xs">Fewest Transfers</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2 border-l border-border/50 pl-4">
+                <label className="text-[9px] uppercase font-black text-muted-foreground/60 cursor-pointer" htmlFor="night-toggle">Night</label>
+                <Switch
+                  id="night-toggle"
+                  checked={includeNightBuses}
+                  onCheckedChange={(v) => onParamsChange?.({ includeNightBuses: v })}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -541,6 +662,24 @@ export function SmartTripResults({
                   </p>
                 </div>
                 <div className="pt-4 flex flex-col items-center gap-3">
+                  <div className="flex flex-wrap justify-center gap-2 mb-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl text-[10px] font-black uppercase h-8"
+                      onClick={() => onParamsChange?.({ maxTransfers: 99 })}
+                    >
+                      Χωρίς όριο αλλαγών
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl text-[10px] font-black uppercase h-8"
+                      onClick={() => onParamsChange?.({ maxWalkingDistance: 5000 })}
+                    >
+                      Περισσότερο περπάτημα
+                    </Button>
+                  </div>
                   <Button
                     variant="default"
                     className="rounded-2xl h-12 px-8 font-black gap-2 shadow-xl shadow-primary/20"
@@ -557,7 +696,7 @@ export function SmartTripResults({
                 <Filter className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-20" />
                 <p className="font-black uppercase text-muted-foreground">Κανένα αποτέλεσμα</p>
                 <p className="text-xs text-muted-foreground mt-1">Δεν υπάρχουν διαδρομές που να ικανοποιούν τα φίλτρα σας.</p>
-                <Button variant="link" onClick={() => setMaxTransfersFilter(-1)} className="mt-4 font-black uppercase text-[10px] tracking-widest">
+                <Button variant="link" onClick={() => onParamsChange?.({ maxTransfers: 99, maxWalkingDistance: 5000 })} className="mt-4 font-black uppercase text-[10px] tracking-widest">
                   Καθαρισμός Φίλτρων
                 </Button>
               </div>

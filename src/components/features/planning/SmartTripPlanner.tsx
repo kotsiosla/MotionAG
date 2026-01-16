@@ -62,6 +62,15 @@ interface SmartTripPlannerProps {
   ) => void;
   favorites?: FavoriteRoute[];
   onRemoveFavorite?: (id: string) => void;
+  // External state for synchronization
+  initialOrigin?: StaticStop | null;
+  initialDestination?: StaticStop | null;
+  initialDepartureTime?: string;
+  initialDepartureDate?: Date;
+  initialMaxWalkingDistance?: number;
+  initialMaxTransfers?: number;
+  initialOptimizationPreference?: OptimizationPreference;
+  initialIncludeNightBuses?: boolean;
 }
 
 // Selected location type - can be a stop, POI, or geocoded address
@@ -417,23 +426,66 @@ export function SmartTripPlanner({
   isLoading,
   onSearch,
   favorites = [],
-  onRemoveFavorite
+  onRemoveFavorite,
+  initialOrigin,
+  initialDestination,
+  initialDepartureTime,
+  initialDepartureDate,
+  initialMaxWalkingDistance,
+  initialMaxTransfers,
+  initialOptimizationPreference,
+  initialIncludeNightBuses,
 }: SmartTripPlannerProps) {
-  const [origin, setOrigin] = useState<SelectedLocation | null>(null);
-  const [destination, setDestination] = useState<SelectedLocation | null>(null);
+  const [origin, setOrigin] = useState<SelectedLocation | null>(() =>
+    initialOrigin ? { type: 'stop', stop: initialOrigin, displayName: initialOrigin.stop_name } : null
+  );
+  const [destination, setDestination] = useState<SelectedLocation | null>(() =>
+    initialDestination ? { type: 'stop', stop: initialDestination, displayName: initialDestination.stop_name } : null
+  );
   const [isLocating, setIsLocating] = useState(false);
-  const [timeMode, setTimeMode] = useState<TimeMode>("now");
-  const [specificTime, setSpecificTime] = useState<string>("09:00");
-  const [departureDate, setDepartureDate] = useState<Date>(new Date());
+  const [timeMode, setTimeMode] = useState<TimeMode>(() => {
+    if (initialDepartureTime === 'now') return 'now';
+    if (initialDepartureTime === 'all_day') return 'all_day';
+    return initialDepartureTime ? 'specific' : 'now';
+  });
+  const [specificTime, setSpecificTime] = useState<string>(() => {
+    if (initialDepartureTime && initialDepartureTime !== 'now' && initialDepartureTime !== 'all_day') {
+      return initialDepartureTime;
+    }
+    return "09:00";
+  });
+  const [departureDate, setDepartureDate] = useState<Date>(initialDepartureDate || new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
 
   // Advanced options
-  const [maxTransfers, setMaxTransfers] = useState<number>(2);
-  const [maxWalkingDistance, setMaxWalkingDistance] = useState<number>(1000);
-  const [optimizationPreference, setOptimizationPreference] = useState<OptimizationPreference>('balanced');
-  const [includeNightBuses, setIncludeNightBuses] = useState<boolean>(true);
+  const [maxTransfers, setMaxTransfers] = useState<number>(initialMaxTransfers ?? 2);
+  const [maxWalkingDistance, setMaxWalkingDistance] = useState<number>(initialMaxWalkingDistance ?? 1000);
+  const [optimizationPreference, setOptimizationPreference] = useState<OptimizationPreference>(initialOptimizationPreference || 'balanced');
+  const [includeNightBuses, setIncludeNightBuses] = useState<boolean>(initialIncludeNightBuses ?? true);
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
+
+  // Effect to sync when initial values change (e.g. from results view)
+  useEffect(() => {
+    if (initialOrigin) setOrigin({ type: 'stop', stop: initialOrigin, displayName: initialOrigin.stop_name });
+    if (initialDestination) setDestination({ type: 'stop', stop: initialDestination, displayName: initialDestination.stop_name });
+    if (initialDepartureTime) {
+      if (initialDepartureTime === 'now') setTimeMode('now');
+      else if (initialDepartureTime === 'all_day') setTimeMode('all_day');
+      else {
+        setTimeMode('specific');
+        setSpecificTime(initialDepartureTime);
+      }
+    }
+    if (initialDepartureDate) setDepartureDate(initialDepartureDate);
+    if (initialMaxWalkingDistance !== undefined) setMaxWalkingDistance(initialMaxWalkingDistance);
+    if (initialMaxTransfers !== undefined) setMaxTransfers(initialMaxTransfers);
+    if (initialOptimizationPreference) setOptimizationPreference(initialOptimizationPreference);
+    if (initialIncludeNightBuses !== undefined) setIncludeNightBuses(initialIncludeNightBuses);
+  }, [
+    initialOrigin, initialDestination, initialDepartureTime, initialDepartureDate,
+    initialMaxWalkingDistance, initialMaxTransfers, initialOptimizationPreference, initialIncludeNightBuses
+  ]);
 
   // Compute the actual departure time to pass to search
   const departureTime = useMemo(() => {

@@ -60,6 +60,8 @@ export class RaptorRouter {
             maxTransfers: number;
             maxWalkingDistance: number;
             maxWalkingTime: number;
+            preference?: 'balanced' | 'fastest' | 'least_walking' | 'fewest_transfers';
+            includeNightBuses?: boolean;
         }
     ): JourneyOption[] {
         const timeParts = departureTime.split(':');
@@ -158,12 +160,25 @@ export class RaptorRouter {
                         let bestDep = Infinity;
                         for (const tid of trips) {
                             const tIdx = this.data.tripIdToIndex.get(tid)!;
+                            const trip = this.data.trips.get(tid);
+                            const route = trip ? this.data.routes.get(trip.route_id) : null;
+
+                            // Night bus filtering
+                            if (params.includeNightBuses === false) {
+                                const isNightRoute = route?.route_short_name?.toUpperCase().startsWith('N');
+                                if (isNightRoute) continue;
+                            }
+
                             const tStart = this.data.stopTimesByTripStart[tIdx];
                             const tLen = this.data.stopTimesByTripLength[tIdx];
                             for (let j = 0; j < tLen; j++) {
                                 const ptr = tStart + j;
                                 if (this.data.stopTimesData[ptr * 5] === sIdx) {
                                     const dep = this.data.stopTimesData[ptr * 5 + 4];
+
+                                    // Additional filter: if not includeNightBuses, skip trips starting after 21:00 (1260 mins)
+                                    if (params.includeNightBuses === false && dep > 1260) continue;
+
                                     if (dep >= prevArr + 2 && dep < bestDep) {
                                         bestDep = dep;
                                         bestTIdx = tIdx;
@@ -228,14 +243,14 @@ export class RaptorRouter {
                 }
             }
             if (bestSIdx !== -1) {
-                const opt = this.reconstructPath(bestSIdx, k, parents, originLat, originLon, destLat, destLon, depMins);
+                const opt = this.reconstructPath(bestSIdx, k, parents, originLat, originLon, destLat, destLon, depMins, params);
                 if (opt) options.push(opt);
             }
         }
         return options.sort((a, b) => a.score - b.score);
     }
 
-    private reconstructPath(targetSIdx: number, round: number, parents: any[], oLat: number, oLon: number, dLat: number, dLon: number, depMins: number): JourneyOption | null {
+    private reconstructPath(targetSIdx: number, round: number, parents: any[], oLat: number, oLon: number, dLat: number, dLon: number, depMins: number, params: any): JourneyOption | null {
         const legs: JourneyLeg[] = [];
         let curSIdx = targetSIdx;
         let k = round;
@@ -274,6 +289,15 @@ export class RaptorRouter {
 
         if (legs.length === 0) return null;
         const duration = (parents[round].arrTime[targetSIdx] || depMins) - depMins;
-        return { legs, totalDurationMinutes: duration, totalWalkingMinutes: legs.filter(l => l.type === 'walk').reduce((a, l) => a + (l.walkingMinutes || 0), 0), totalBusMinutes: legs.filter(l => l.type === 'bus').reduce((a, l) => a + (parseInt(l.arrivalTime!.split(':')[0]) * 60 + parseInt(l.arrivalTime!.split(':')[1]) - (parseInt(l.departureTime!.split(':')[0]) * 60 + parseInt(l.departureTime!.split(':')[1]))), 0), transferCount: legs.filter(l => l.type === 'bus').length - 1, departureTime: legs[0].departureTime || minutesToTime(depMins), arrivalTime: legs[legs.length - 1].arrivalTime || minutesToTime(depMins + duration), score: duration };
+        const transferCount = legs.filter(l => l.type === 'bus').length - 1;
+        const walkingMinutes = legs.filter(l => l.type === 'walk').reduce((a, l) => a + (l.walkingMinutes || 0), 0);
+
+        let score = duration;
+        if (params.preference === 'least_walking') score += walkingMinutes * 10;
+        else if (params.preference === 'fewest_transfers') score += transferCount * 30;
+        else if (params.preference === 'fastest') score = duration;
+        else score += (transferCount * 5) + (walkingMinutes * 2);
+
+        return { legs, totalDurationMinutes: duration, totalWalkingMinutes: walkingMinutes, totalBusMinutes: legs.filter(l => l.type === 'bus').reduce((a, l) => a + (parseInt(l.arrivalTime!.split(':')[0]) * 60 + parseInt(l.arrivalTime!.split(':')[1]) - (parseInt(l.departureTime!.split(':')[0]) * 60 + parseInt(l.departureTime!.split(':')[1]))), 0), transferCount, departureTime: legs[0].departureTime || minutesToTime(depMins), arrivalTime: legs[legs.length - 1].arrivalTime || minutesToTime(depMins + duration), score };
     }
 }

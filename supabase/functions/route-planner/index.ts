@@ -26,15 +26,18 @@ serve(async (req) => {
         const destLat = parseFloat(url.searchParams.get('destLat') || '0');
         const destLon = parseFloat(url.searchParams.get('destLon') || '0');
         const departureTime = url.searchParams.get('departureTime') || '08:00:00';
+        const departureDate = url.searchParams.get('departure_date') || new Date().toISOString().split('T')[0];
         const maxTransfers = parseInt(url.searchParams.get('maxTransfers') || '2');
         const walkDistance = parseInt(url.searchParams.get('walkDistance') || '1000');
+        const preference = url.searchParams.get('preference') || 'balanced';
+        const includeNightBuses = url.searchParams.get('includeNightBuses') === 'true';
 
-        console.log(`Route request: (${originLat},${originLon}) -> (${destLat},${destLon}) at ${departureTime}`);
+        console.log(`Route request: (${originLat},${originLon}) -> (${destLat},${destLon}) at ${departureTime} on ${departureDate}`);
 
-        // Load data if not cached or expired
-        if (!cachedData || (Date.now() - lastLoadTime > DATA_TTL)) {
-            console.log("Loading GTFS data into memory...");
-            cachedData = await loadAllGTFS();
+        // Load data if not cached or expired or different date
+        if (!cachedData || cachedData.loadedDate !== departureDate || (Date.now() - lastLoadTime > DATA_TTL)) {
+            console.log(`Loading GTFS data into memory for date: ${departureDate}...`);
+            cachedData = await loadAllGTFS(departureDate);
             router = new RaptorRouter(cachedData);
             lastLoadTime = Date.now();
         }
@@ -45,6 +48,8 @@ serve(async (req) => {
             maxTransfers,
             maxWalkingDistance: walkDistance,
             maxWalkingTime: 30, // Default 30 min
+            preference: preference as any,
+            includeNightBuses
         });
 
         return new Response(

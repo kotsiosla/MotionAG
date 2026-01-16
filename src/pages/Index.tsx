@@ -116,7 +116,7 @@ const Index = () => {
       // Push specific state for modal
       window.history.pushState({ modal: 'tripResults' }, '');
 
-      const handlePopState = (e: PopStateEvent) => {
+      const handlePopState = () => {
         // If we popped back, close the modal
         setShowTripResults(false);
       };
@@ -291,11 +291,7 @@ const Index = () => {
     }
   );
 
-  // Save walking distance preference
-  const handleWalkingDistanceChange = useCallback((distance: number) => {
-    setMaxWalkingDistance(distance);
-    localStorage.setItem('maxWalkingDistance', distance.toString());
-  }, []);
+
 
   // Create a map of route_id -> RouteInfo for quick lookup
   const routeNamesMap = useMemo(() => {
@@ -560,6 +556,14 @@ const Index = () => {
         isUsingCachedData={isUsingCachedData}
         onOpenSavedTrips={() => setShowSavedTrips(true)}
         savedTripsCount={getUpcomingTrips().length}
+        tripOrigin={tripOrigin}
+        tripDestination={tripDestination}
+        tripDepartureTime={tripDepartureTime}
+        tripDepartureDate={tripDepartureDate}
+        maxWalkingDistance={maxWalkingDistance}
+        maxTransfers={maxTransfers}
+        optimizationPreference={optimizationPreference}
+        includeNightBuses={includeNightBuses}
       />
 
       {/* Saved Trips Panel */}
@@ -593,7 +597,17 @@ const Index = () => {
             }
           }}
           maxWalkingDistance={maxWalkingDistance}
-          onWalkingDistanceChange={handleWalkingDistanceChange}
+          maxTransfers={maxTransfers}
+          optimizationPreference={optimizationPreference}
+          includeNightBuses={includeNightBuses}
+          onParamsChange={(params) => {
+            if (params.departureTime !== undefined) setTripDepartureTime(params.departureTime);
+            if (params.departureDate !== undefined) setTripDepartureDate(params.departureDate);
+            if (params.maxWalkingDistance !== undefined) setMaxWalkingDistance(params.maxWalkingDistance);
+            if (params.maxTransfers !== undefined) setMaxTransfers(params.maxTransfers);
+            if (params.optimizationPreference !== undefined) setOptimizationPreference(params.optimizationPreference as OptimizationPreference);
+            if (params.includeNightBuses !== undefined) setIncludeNightBuses(params.includeNightBuses);
+          }}
         />
       )}
 

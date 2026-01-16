@@ -73,6 +73,15 @@ interface HeaderProps {
   isUsingCachedData?: boolean;
   onOpenSavedTrips?: () => void;
   savedTripsCount?: number;
+  // External state for synchronization
+  tripOrigin?: StaticStop | null;
+  tripDestination?: StaticStop | null;
+  tripDepartureTime?: string;
+  tripDepartureDate?: Date;
+  maxWalkingDistance?: number;
+  maxTransfers?: number;
+  optimizationPreference?: OptimizationPreference;
+  includeNightBuses?: boolean;
 }
 
 export function Header({
@@ -104,6 +113,14 @@ export function Header({
   isUsingCachedData = false,
   onOpenSavedTrips,
   savedTripsCount = 0,
+  tripOrigin,
+  tripDestination,
+  tripDepartureTime,
+  tripDepartureDate,
+  maxWalkingDistance,
+  maxTransfers,
+  optimizationPreference,
+  includeNightBuses,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [tripPlannerVisible, setTripPlannerVisible] = useState(() => {
@@ -395,6 +412,14 @@ export function Header({
               onSearch={onTripSearch}
               favorites={favorites}
               onRemoveFavorite={onRemoveFavorite}
+              initialOrigin={tripOrigin}
+              initialDestination={tripDestination}
+              initialDepartureTime={tripDepartureTime}
+              initialDepartureDate={tripDepartureDate}
+              initialMaxWalkingDistance={maxWalkingDistance}
+              initialMaxTransfers={maxTransfers}
+              initialOptimizationPreference={optimizationPreference}
+              initialIncludeNightBuses={includeNightBuses}
             />
           </CollapsibleContent>
         </Collapsible>

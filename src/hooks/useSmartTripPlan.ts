@@ -51,51 +51,75 @@ export interface SmartTripPlanData {
 
 export type OptimizationPreference = 'fastest' | 'least_walking' | 'fewest_transfers' | 'balanced';
 
+export interface SmartTripPlanOptions {
+  departureTime?: string;
+  departureDate?: Date;
+  maxWalkingDistance?: number;
+  maxTransfers?: number;
+  preference?: OptimizationPreference;
+  includeNightBuses?: boolean;
+}
+
 export function useSmartTripPlan(
   originStop: StaticStop | null,
   destStop: StaticStop | null,
-  options: {
-    departureTime?: string;
-    departureDate?: Date;
-    maxWalkingDistance?: number;
-    maxTransfers?: number;
-    preference?: OptimizationPreference;
-    includeNightBuses?: boolean;
-  } = {}
+  options: SmartTripPlanOptions = {}
 ) {
   const {
     departureTime = 'now',
     departureDate = new Date(),
     maxWalkingDistance = 1000,
     maxTransfers = 2,
-    preference = 'fastest',
+    preference = 'balanced',
     includeNightBuses = true
   } = options;
 
+  // Format date for query key to be stable (YYYY-MM-DD)
+  const dateKey = departureDate.toISOString().split('T')[0];
+
   return useQuery({
-    queryKey: ['smart-trip-plan', originStop?.stop_id, destStop?.stop_id, departureTime, departureDate.toDateString(), maxWalkingDistance, maxTransfers, preference, includeNightBuses],
+    queryKey: [
+      'smart-trip-plan',
+      originStop?.stop_id,
+      destStop?.stop_id,
+      departureTime,
+      dateKey,
+      maxWalkingDistance,
+      maxTransfers,
+      preference,
+      includeNightBuses
+    ],
     queryFn: async (): Promise<SmartTripPlanData> => {
       if (!originStop || !destStop) {
         return { journeyOptions: [], noRouteFound: true };
       }
 
-      console.log(`Searching journeys via backend: ${originStop.stop_name} → ${destStop.stop_name}`);
-
       const anonKey = getSupabaseAnonKey();
+
+      // Calculate active time
+      let timeStr = departureTime;
+      if (departureTime === 'now') {
+        timeStr = new Date().toLocaleTimeString('en-GB', { hour12: false });
+      } else if (departureTime === 'all_day') {
+        timeStr = '00:00:00';
+      } else if (departureTime.length === 5) {
+        timeStr = `${departureTime}:00`;
+      }
 
       const params = new URLSearchParams({
         originLat: (originStop.stop_lat ?? 0).toString(),
         originLon: (originStop.stop_lon ?? 0).toString(),
         destLat: (destStop.stop_lat ?? 0).toString(),
         destLon: (destStop.stop_lon ?? 0).toString(),
-        departureTime: departureTime === 'now'
-          ? new Date().toLocaleTimeString('en-GB', { hour12: false })
-          : departureTime === 'all_day' ? '00:00:00' : `${departureTime}:00`,
+        departureTime: timeStr,
+        departure_date: dateKey,
         maxTransfers: maxTransfers.toString(),
         walkDistance: maxWalkingDistance.toString(),
         preference,
         includeNightBuses: includeNightBuses.toString()
       });
+
+      console.log(`Searching journeys: ${originStop.stop_name} → ${destStop.stop_name} [${timeStr}, ${dateKey}]`);
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/route-planner?${params}`, {
         headers: {
@@ -105,7 +129,8 @@ export function useSmartTripPlan(
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch routes from backend');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to fetch routes from backend');
       }
 
       const result = await response.json();
@@ -114,13 +139,13 @@ export function useSmartTripPlan(
       return {
         journeyOptions,
         noRouteFound: journeyOptions.length === 0,
-        message: journeyOptions.length === 0
-          ? 'Δεν βρέθηκε διαδρομή. Δοκιμάστε να αυξήσετε την απόσταση περπατήματος ή τις μετεπιβιβάσεις.'
-          : undefined
+        message: result.message || (journeyOptions.length === 0
+          ? 'Δεν βρέθηκε διαδρομή για τις επιλεγμένες παραμέτρους.'
+          : undefined)
       };
     },
     enabled: !!originStop && !!destStop,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     retry: 1
   });
 }

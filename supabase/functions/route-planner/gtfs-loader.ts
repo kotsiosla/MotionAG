@@ -42,6 +42,7 @@ export interface GTFSData {
     indexToStopId: string[];
     tripIdToIndex: Map<string, number>;
     indexToTripId: string[];
+    loadedDate?: string;
 }
 
 async function unzipAndProcess(zipData: Uint8Array, targetFileName: string, rowHandler: (row: string[]) => void): Promise<void> {
@@ -104,7 +105,7 @@ function parseCSVLine(line: string): string[] {
     return values;
 }
 
-export async function loadAllGTFS(): Promise<GTFSData> {
+export async function loadAllGTFS(targetDate?: string): Promise<GTFSData> {
     const data: any = {
         routes: new Map(),
         stops: new Map(),
@@ -115,6 +116,7 @@ export async function loadAllGTFS(): Promise<GTFSData> {
         indexToStopId: [],
         tripIdToIndex: new Map(),
         indexToTripId: [],
+        loadedDate: targetDate || new Date().toISOString().split('T')[0]
     };
 
     function timeToMinutes(time: string): number {
@@ -123,10 +125,9 @@ export async function loadAllGTFS(): Promise<GTFSData> {
         return parseInt(parts[0]) * 60 + parseInt(parts[1]);
     }
 
-    const now = new Date();
-    const cyprusTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Nicosia" }));
-    const currentDay = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][cyprusTime.getDay()];
-    const dateStr = cyprusTime.toISOString().split('T')[0].replace(/-/g, '');
+    const loadDate = targetDate ? new Date(targetDate) : new Date();
+    const currentDay = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][loadDate.getDay()];
+    const dateStr = data.loadedDate.replace(/-/g, '');
 
     const MAX_STOP_TIMES = 800000;
     const stopTimesData = new Int32Array(MAX_STOP_TIMES * 5);
