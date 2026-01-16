@@ -125,7 +125,13 @@ export async function loadAllGTFS(targetDate?: string): Promise<GTFSData> {
         return parseInt(parts[0]) * 60 + parseInt(parts[1]);
     }
 
-    const loadDate = targetDate ? new Date(targetDate) : new Date();
+    let loadDate: Date;
+    if (targetDate) {
+        const [y, m, d] = targetDate.split('-').map(Number);
+        loadDate = new Date(y, m - 1, d);
+    } else {
+        loadDate = new Date();
+    }
     const currentDay = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][loadDate.getDay()];
     const dateStr = data.loadedDate.replace(/-/g, '');
 
