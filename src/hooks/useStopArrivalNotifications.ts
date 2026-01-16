@@ -120,31 +120,51 @@ export const keepAudioAlive = () => {
 
 // Initialize voices and handle dynamic loading
 let availableVoices: SpeechSynthesisVoice[] = [];
+let voicesLoaded = false;
 
 if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
   const loadVoices = () => {
     availableVoices = window.speechSynthesis.getVoices();
     if (availableVoices.length > 0) {
+      voicesLoaded = true;
       console.log('[Audio] Voices loaded:', availableVoices.length);
     }
   };
 
   loadVoices();
+  // Chrome and some other browsers load voices asynchronously
   if (window.speechSynthesis.onvoiceschanged !== undefined) {
     window.speechSynthesis.onvoiceschanged = loadVoices;
   }
+
+  // Backup: retry loading voices every second if they haven't loaded yet
+  const voiceRetryInterval = setInterval(() => {
+    if (voicesLoaded && availableVoices.length > 0) {
+      clearInterval(voiceRetryInterval);
+      return;
+    }
+    loadVoices();
+  }, 1000);
+
+  // Limit utility of the interval
+  setTimeout(() => clearInterval(voiceRetryInterval), 10000);
 }
 
 // Speak text using Web Speech API
 export const speak = (text: string) => {
-  if (!('speechSynthesis' in window)) return;
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
-  // Cancel any ongoing speech
-  speechSynthesis.cancel();
+  // On iOS, we need to ensure the synthesis state is clean
+  try {
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+  } catch (e) {
+    console.warn('[Audio] Error cancelling speech:', e);
+  }
 
   // Ensure we have voices loaded
   if (availableVoices.length === 0) {
-    availableVoices = speechSynthesis.getVoices();
+    availableVoices = window.speechSynthesis.getVoices();
   }
 
   const utterance = new SpeechSynthesisUtterance(text);
@@ -162,6 +182,7 @@ export const speak = (text: string) => {
   let greekVoice: SpeechSynthesisVoice | undefined;
 
   if (isIOS) {
+    // On iOS, "Melina" is the high quality voice
     greekVoice = availableVoices.find(v => v.lang.startsWith('el') && v.name.includes('Melina'));
   } else if (isAndroid) {
     greekVoice = availableVoices.find(v => v.lang.startsWith('el') && v.name.toLowerCase().includes('google'));
@@ -171,7 +192,7 @@ export const speak = (text: string) => {
 
   // Fallback to any el-GR voice if platform-specific not found
   if (!greekVoice) greekVoice = availableVoices.find(v => v.lang === 'el-GR');
-  if (!greekVoice) greekVoice = availableVoices.find(v => v.lang.startsWith('el'));
+  if (!greekVoice) greekVoice = availableVoices.find(v => (v.lang.startsWith('el') || v.lang.startsWith('gr')));
   if (!greekVoice) greekVoice = availableVoices.find(v => v.name.toLowerCase().includes('greek'));
 
   if (greekVoice) {
@@ -186,9 +207,25 @@ export const speak = (text: string) => {
   // Error handling
   utterance.onerror = (event) => {
     console.error('[Audio] Speech synthesis error:', event.error);
+    // Restarting synthesis on error can sometimes "unstuck" iOS
+    if (event.error === 'interrupted' || event.error === 'not-allowed') {
+      console.log('[Audio] Synthesis interrupted or not allowed, possible iOS restriction.');
+    }
   };
 
-  speechSynthesis.speak(utterance);
+  // Important: On iOS, calling speak after a slight delay can sometimes help
+  setTimeout(() => {
+    try {
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.error('[Audio] window.speechSynthesis.speak failed:', e);
+    }
+  }, 50);
+};
+
+// Test speech function specifically for manual user triggering
+export const speakTest = () => {
+  speak("Δοκιμή φωνητικής αναγγελίας. Αν ακούτε αυτό το μήνυμα, οι ειδοποιήσεις λειτουργούν κανονικά.");
 };
 
 // Play notification sound - more urgent as time approaches

@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
+import { speakTest } from "@/hooks/useStopArrivalNotifications";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 import type { Alert, Trip, RouteInfo } from "@/types/gtfs";
 
@@ -224,8 +225,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
 
                       // 2. Unsubscribe from Push (Browser)
                       // Ensure Push Subscription exists (handles permissions, VAPID, iOS)
-                      // Pass empty array as we don't need generic route subs, useStopNotifications handles specific logic
-                      const success = await subscribe([]); // Call subscribe to ensure service worker is registered and push is unsubscribed
+                      await subscribe([]); // Call subscribe to ensure service worker is registered and push is unsubscribed
                       if ('serviceWorker' in navigator) {
                         const regs = await navigator.serviceWorker.getRegistrations();
                         for (const reg of regs) {
@@ -248,6 +248,22 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
                 >
                   <Trash2 className="h-3 w-3" />
                   Ολική Διαγραφή & Επαναφορά (Reset)
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs gap-2 ml-2"
+                  onClick={() => {
+                    toast({
+                      title: "🔊 Δοκιμή Φωνής",
+                      description: "Θα ακούσετε ένα μήνυμα αν ο ήχος είναι ξεκλειδωμένος.",
+                    });
+                    speakTest();
+                  }}
+                >
+                  <MessageSquare className="h-3 w-3" />
+                  Δοκιμή Φωνής (iOS Fix)
                 </Button>
               </div>
             </>
