@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, BellOff, X, Clock, Loader2, Trash } from "lucide-react";
+import { Bell, BellOff, X, Clock, Loader2, Trash, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,7 @@ const logDiagnostic = async (stopId: string, step: string, metadata: any) => {
 interface StopNotificationModalProps {
   stopId: string;
   stopName: string;
+  arrivals?: any[];
   currentSettings?: StopNotificationSettings;
   onSave: (settings: StopNotificationSettings) => void;
   onRemove: (stopId: string) => void;
@@ -55,6 +56,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export function StopNotificationModal({
   stopId,
   stopName,
+  arrivals = [],
   currentSettings,
   onSave,
   onRemove,
@@ -63,6 +65,37 @@ export function StopNotificationModal({
   const [beforeMinutes, setBeforeMinutes] = useState(currentSettings?.beforeMinutes ?? 5);
   const [isSaving, setIsSaving] = useState(false);
   const isEnabled = currentSettings?.enabled ?? false;
+
+  const [notifyType, setNotifyType] = useState<'all' | 'selected'>(currentSettings?.notifyType || 'all');
+  const [watchedRoutes, setWatchedRoutes] = useState<string[]>(currentSettings?.watchedRoutes || []);
+
+  const uniqueRoutes = Array.from(new Set(arrivals.map(a => a.routeId).filter(Boolean)))
+    .map(routeId => {
+      const arrival = arrivals.find(a => a.routeId === routeId);
+      return {
+        id: routeId,
+        shortName: arrival?.routeShortName || routeId,
+        color: arrival?.routeColor
+      };
+    });
+
+  const toggleRoute = (routeId: string) => {
+    setWatchedRoutes(prev => {
+      const isRemoving = prev.includes(routeId);
+      const next = isRemoving ? prev.filter(id => id !== routeId) : [...prev, routeId];
+
+      // Auto-switch notifyType
+      if (next.length === 0) setNotifyType('all');
+      else if (notifyType === 'all' && next.length > 0) setNotifyType('selected');
+
+      return next;
+    });
+  };
+
+  const clearWatchedRoutes = () => {
+    setWatchedRoutes([]);
+    setNotifyType('all');
+  };
 
   const { unsubscribe } = usePushSubscription();
 
@@ -252,7 +285,8 @@ export function StopNotificationModal({
             voice: false,
             push: false,
             beforeMinutes,
-            notifyType: 'all',
+            notifyType,
+            watchedRoutes,
             watchedTrips: [],
           };
           const stored = localStorage.getItem('stop_notifications');
@@ -285,8 +319,9 @@ export function StopNotificationModal({
         voice: false,
         push: true,
         beforeMinutes,
-        notifyType: 'all',
-        watchedTrips: [],
+        notifyType,
+        watchedRoutes,
+        watchedTrips: currentSettings?.watchedTrips || []
       };
 
       const stored = localStorage.getItem('stop_notifications');
@@ -386,7 +421,67 @@ export function StopNotificationModal({
           </Button>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+          {/* Route Selection */}
+          <div className="space-y-3 p-3 bg-muted/30 rounded-lg border border-border">
+            <div className="flex items-center justify-between mb-1">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Ειδοποίηση για:
+              </Label>
+              {watchedRoutes.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 px-2 text-[10px] text-muted-foreground hover:text-destructive"
+                  onClick={clearWatchedRoutes}
+                >
+                  Καθαρισμός όλων
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2 p-1 bg-muted rounded-md mb-2">
+              <Button
+                variant={notifyType === 'all' ? 'default' : 'ghost'}
+                size="sm"
+                className="flex-1 text-xs h-7"
+                onClick={() => setNotifyType('all')}
+              >
+                Όλες
+              </Button>
+              <Button
+                variant={notifyType === 'selected' ? 'default' : 'ghost'}
+                size="sm"
+                className="flex-1 text-xs h-7"
+                onClick={() => setNotifyType('selected')}
+              >
+                Επιλεγμένες
+              </Button>
+            </div>
+
+            {notifyType === 'selected' && (
+              <div className="grid grid-cols-3 gap-2 mt-2 max-h-32 overflow-y-auto p-1">
+                {uniqueRoutes.map(route => (
+                  <button
+                    key={route.id}
+                    onClick={() => toggleRoute(route.id)}
+                    className={`flex items-center justify-between gap-1 p-1.5 rounded-md border transition-all ${watchedRoutes.includes(route.id)
+                      ? 'border-primary bg-primary/10 ring-1 ring-primary'
+                      : 'border-border bg-background hover:bg-muted'
+                      }`}
+                  >
+                    <Badge
+                      style={{ backgroundColor: route.color ? `#${route.color}` : '#0ea5e9' }}
+                      className="text-[10px] px-1 h-4 min-w-[20px] pointer-events-none"
+                    >
+                      {route.shortName}
+                    </Badge>
+                    {watchedRoutes.includes(route.id) && <Check className="h-3 w-3 text-primary" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
             <div className="absolute top-2 right-2 flex flex-col items-end gap-1 opacity-20 hover:opacity-100 transition-opacity">
               <span className="text-[10px] font-mono">v1.6.0</span>

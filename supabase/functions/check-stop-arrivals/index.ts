@@ -142,16 +142,19 @@ serve(async (req) => {
                         continue;
                     }
 
-                    // --- NEW: Watched Trips Filtering ---
+                    // --- NEW: Watched Trips & Routes Filtering ---
                     const notifyType = setting.notifyType || 'all';
                     const watchedTrips = setting.watchedTrips || [];
-                    const isWatched = watchedTrips.includes(arrival.tripId);
+                    const watchedRoutes = setting.watchedRoutes || [];
+                    const isWatchedTrip = watchedTrips.includes(arrival.tripId);
+                    const isWatchedRoute = watchedRoutes.includes(arrival.routeId);
+                    const isWatched = isWatchedTrip || isWatchedRoute;
 
                     if (notifyType === 'selected' && !isWatched) {
-                        // console.log(`[Worker] STOP ${stopId}:     SKIPPING: Trip ${arrival.tripId} not in watched list`);
+                        // console.log(`[Worker] STOP ${stopId}:     SKIPPING: Trip ${arrival.tripId} or route ${arrival.routeId} not in watched lists`);
                         continue;
                     }
-                    console.log(`[Worker] STOP ${stopId}:     MATCH! Arrival ${routeName} (${arrival.tripId}) ${minsUntil}m <= Threshold ${targetAlertLevel}`);
+                    console.log(`[Worker] STOP ${stopId}:     MATCH! Arrival ${routeName} (${arrival.tripId}) ${minsUntil}m <= Threshold ${targetAlertLevel} (Watched: ${isWatched ? (isWatchedTrip ? 'Trip' : 'Route') : 'All'})`);
 
                     // Check Log - include route_id and trip_id for better deduplication
                     const { data: logEntries, error: logError } = await supabase
@@ -217,7 +220,9 @@ serve(async (req) => {
                                 metadata: {
                                     trip_id: arrival.tripId || 'unknown',
                                     push_success: true,
-                                    status_code: result.statusCode
+                                    status_code: result.statusCode,
+                                    match_type: isWatchedTrip ? 'trip' : (isWatchedRoute ? 'route' : 'all'),
+                                    notify_type: notifyType
                                 }
                             });
                             if (insError) console.error(`[Worker] Error logging notification: ${insError.message}`);

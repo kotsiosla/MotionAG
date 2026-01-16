@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { StopNotificationModal } from "@/components/features/user/StopNotificationModal";
+import { toast } from "@/hooks/use-toast";
 
 import type { StopNotificationSettings } from "@/hooks/useStopNotifications";
 
@@ -104,7 +105,44 @@ export function StopDetailPanel({
 }: StopDetailPanelProps) {
   const [showNotificationModal, setShowNotificationModal] = useState(false);
 
-  // Dragging state
+  // Helper for route-specific notifications
+  const toggleRouteNotification = (routeId: string) => {
+    const isWatched = currentSettings?.watchedRoutes?.includes(routeId);
+    let newWatchedRoutes = currentSettings?.watchedRoutes || [];
+
+    if (isWatched) {
+      newWatchedRoutes = newWatchedRoutes.filter(id => id !== routeId);
+    } else {
+      newWatchedRoutes = [...newWatchedRoutes, routeId];
+    }
+
+    const newSettings: StopNotificationSettings = currentSettings || {
+      stopId,
+      stopName,
+      enabled: true,
+      sound: true,
+      vibration: true,
+      voice: false,
+      push: true,
+      beforeMinutes: 5,
+      notifyType: 'selected',
+      watchedTrips: [],
+      watchedRoutes: []
+    };
+
+    onSave({
+      ...newSettings,
+      watchedRoutes: newWatchedRoutes,
+      // If we have watched routes, switch to 'selected' mode automatically
+      notifyType: newWatchedRoutes.length > 0 ? 'selected' : 'all'
+    });
+
+    toast({
+      title: isWatched ? "Ειδοποίηση αφαιρέθηκε" : "Ειδοποίηση προστέθηκε",
+      description: `Για τη γραμμή ${routeId} στη στάση ${stopName}`,
+    });
+  };
+
   const [position, setPosition] = useState({ x: 60, y: 80 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
@@ -243,21 +281,33 @@ export function StopDetailPanel({
                   className="rounded-lg border border-border overflow-hidden"
                 >
                   {/* Route Header - clickable to follow */}
-                  <button
-                    className="w-full flex items-center gap-2 p-2 bg-muted/30 hover:bg-muted/50 transition-colors"
-                    onClick={() => onFollowRoute(group.routeId)}
-                  >
-                    <Badge
-                      className="text-white font-bold text-[10px] px-1.5"
-                      style={{ backgroundColor: group.routeColor ? `#${group.routeColor}` : '#0ea5e9' }}
+                  <div className="w-full flex items-center p-1 bg-muted/30">
+                    <button
+                      className="flex-1 flex items-center gap-2 p-1.5 hover:bg-muted/50 rounded-md transition-colors text-left"
+                      onClick={() => onFollowRoute(group.routeId)}
                     >
-                      {group.routeShortName || group.routeId}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground flex-1 text-left">
-                      Πατήστε για παρακολούθηση
-                    </span>
-                    <Eye className="h-3 w-3 text-muted-foreground" />
-                  </button>
+                      <Badge
+                        className="text-white font-bold text-[10px] px-1.5"
+                        style={{ backgroundColor: group.routeColor ? `#${group.routeColor}` : '#0ea5e9' }}
+                      >
+                        {group.routeShortName || group.routeId}
+                      </Badge>
+                      <span className="text-[11px] text-muted-foreground truncate">
+                        Παρακολούθηση
+                      </span>
+                      <Eye className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                    </button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`h-7 w-7 flex-shrink-0 ml-1 ${currentSettings?.watchedRoutes?.includes(group.routeId) ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:bg-muted/50'}`}
+                      onClick={() => toggleRouteNotification(group.routeId)}
+                      title={currentSettings?.watchedRoutes?.includes(group.routeId) ? "Απενεργοποίηση ειδοποίησης γραμμής" : "Ενεργοποίηση ειδοποίησης γραμμής"}
+                    >
+                      <Bell className={`h-3.5 w-3.5 ${currentSettings?.watchedRoutes?.includes(group.routeId) ? 'fill-current' : ''}`} />
+                    </Button>
+                  </div>
 
                   {/* Arrivals for this route */}
                   <div className="divide-y divide-border">
@@ -308,6 +358,7 @@ export function StopDetailPanel({
         <StopNotificationModal
           stopId={stopId}
           stopName={stopName}
+          arrivals={arrivals}
           currentSettings={currentSettings}
           onSave={(settings) => {
             onSave(settings);

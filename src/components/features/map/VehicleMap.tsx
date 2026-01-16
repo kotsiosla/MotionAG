@@ -16,6 +16,7 @@ import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { useRouteShape } from "@/hooks/useGtfsData";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import { useStopArrivalNotifications } from "@/hooks/useStopArrivalNotifications";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { Vehicle, StaticStop, Trip, RouteInfo } from "@/types/gtfs";
 
 export type MapStyleType = 'light' | 'dark' | 'satellite';
@@ -127,28 +128,31 @@ const calculateBearing = (lat1: number, lon1: number, lat2: number, lon2: number
   return (bearing + 360) % 360; // Normalize to 0-360
 };
 
-const createStopIcon = (hasVehicleStopped?: boolean, sequenceNumber?: number, routeColor?: string, hasImminent?: boolean) => {
-  const bgColor = hasVehicleStopped ? '#22c55e' : (sequenceNumber !== undefined ? (routeColor ? `#${routeColor}` : '#0ea5e9') : '#f97316');
-  const size = sequenceNumber !== undefined ? 'w-6 h-6' : 'w-5 h-5';
+const createStopIcon = (hasVehicleStopped?: boolean, sequenceNumber?: number, routeColor?: string, hasImminent?: boolean, isNearest?: boolean) => {
+  const bgColor = isNearest ? '#3b82f6' : (hasVehicleStopped ? '#22c55e' : (sequenceNumber !== undefined ? (routeColor ? `#${routeColor}` : '#0ea5e9') : '#f97316'));
+  const size = isNearest ? 'w-8 h-8' : (sequenceNumber !== undefined ? 'w-6 h-6' : 'w-5 h-5');
   const fontSize = sequenceNumber !== undefined ? 'text-[10px]' : '';
-  const pulseClass = hasVehicleStopped ? 'stop-vehicle-present' : (hasImminent ? 'stop-imminent-arrival' : '');
+  const pulseClass = isNearest ? 'stop-nearest-highlight' : (hasVehicleStopped ? 'stop-vehicle-present' : (hasImminent ? 'stop-imminent-arrival' : ''));
+  const borderClass = isNearest ? 'border-4 border-white' : 'border-2 border-white';
 
   return L.divIcon({
-    className: 'stop-marker',
+    className: `stop-marker ${isNearest ? 'z-[1001]' : ''}`,
     html: `
-      <div class="${size} rounded-full flex items-center justify-center shadow-md border-2 border-white ${pulseClass}" style="background: ${bgColor}">
-        ${sequenceNumber !== undefined
-        ? `<span class="${fontSize} font-bold text-white">${sequenceNumber}</span>`
-        : `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              ${hasVehicleStopped
-          ? '<rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="7" cy="18" r="1.5" fill="white"/><circle cx="17" cy="18" r="1.5" fill="white"/>'
-          : '<circle cx="12" cy="12" r="3"/>'}
-            </svg>`
+      <div class="${size} rounded-full flex items-center justify-center shadow-lg ${borderClass} ${pulseClass}" style="background: ${bgColor}">
+        ${isNearest
+        ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`
+        : (sequenceNumber !== undefined
+          ? `<span class="${fontSize} font-bold text-white">${sequenceNumber}</span>`
+          : `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  ${hasVehicleStopped
+            ? '<rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="7" cy="18" r="1.5" fill="white"/><circle cx="17" cy="18" r="1.5" fill="white"/>'
+            : '<circle cx="12" cy="12" r="3"/>'}
+                </svg>`)
       }
       </div>
     `,
-    iconSize: sequenceNumber !== undefined ? [24, 24] : [20, 20],
-    iconAnchor: sequenceNumber !== undefined ? [12, 12] : [10, 10],
+    iconSize: isNearest ? [32, 32] : (sequenceNumber !== undefined ? [24, 24] : [20, 20]),
+    iconAnchor: isNearest ? [16, 16] : (sequenceNumber !== undefined ? [12, 12] : [10, 10]),
   });
 };
 
@@ -1548,17 +1552,19 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     // Handle event object or boolean
     const shouldCenter = typeof centerMap === 'boolean' ? centerMap : true;
 
-    if (userLocation && shouldCenter) {
-      // If we already have location, just center
-      mapRef.current?.setView([userLocation.lat, userLocation.lng], 16, { animate: false });
+    if (shouldCenter) {
+      if (userLocation) {
+        // If we already have location, just center
+        mapRef.current?.setView([userLocation.lat, userLocation.lng], 16, { animate: true });
+      } else {
+        // Mark for centering when location is found
+        shouldCenterOnLocationRef.current = true;
+        setIsLocating(true);
+      }
     }
 
     // Always ensure watcher is running
     if (watchIdRef.current === null) {
-      if (shouldCenter) {
-        shouldCenterOnLocationRef.current = true;
-        setIsLocating(true);
-      }
 
       // Stop existing watch if any (safeguard)
       if (watchIdRef.current !== null) {
@@ -1568,14 +1574,39 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       watchIdRef.current = navigator.geolocation.watchPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
+          const newLocation = { lat: latitude, lng: longitude };
 
           // Update state
-          setUserLocation({ lat: latitude, lng: longitude });
+          setUserLocation(newLocation);
           setIsLocating(false);
 
-          // Center map if requested
+          // Center map if requested (integrated experience)
           if (shouldCenterOnLocationRef.current && mapRef.current) {
-            mapRef.current.setView([latitude, longitude], 16, { animate: false });
+            // Find nearest stop manually for immediate bounds fitting
+            let nearestStopCoords: [number, number] | null = null;
+            let minDistance = Infinity;
+
+            stops.forEach(stop => {
+              if (stop.stop_lat === undefined || stop.stop_lon === undefined) return;
+              const d = calculateDistance(latitude, longitude, stop.stop_lat, stop.stop_lon);
+              if (d < minDistance) {
+                minDistance = d;
+                nearestStopCoords = [stop.stop_lat, stop.stop_lon];
+              }
+            });
+
+            if (nearestStopCoords) {
+              // Show both user and nearest stop
+              const bounds = L.latLngBounds([
+                [latitude, longitude],
+                nearestStopCoords
+              ]);
+              mapRef.current.fitBounds(bounds, { padding: [100, 100], animate: true, maxZoom: 16 });
+            } else {
+              // Fallback to just user
+              mapRef.current.setView([latitude, longitude], 16, { animate: true });
+            }
+
             shouldCenterOnLocationRef.current = false;
           }
         },
@@ -1800,9 +1831,15 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         return secondsUntilArrival > 0 && secondsUntilArrival <= 120; // 2 minutes
       });
 
+      const isNearest = nearestStopWithArrivals?.stop?.stop_id === stop.stop_id;
+
       const marker = L.marker([stop.stop_lat!, stop.stop_lon!], {
-        icon: createStopIcon(hasVehicleStopped, undefined, undefined, hasImminentArrival),
+        icon: createStopIcon(hasVehicleStopped, undefined, undefined, hasImminentArrival, isNearest),
       });
+
+      if (isNearest) {
+        marker.setZIndexOffset(1000);
+      }
 
       // Add tooltip with stop name
       const stopName = stop.stop_name || stop.stop_id;
@@ -2317,6 +2354,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     }
   }, [showRoutePlanner]);
 
+  const isMobile = useIsMobile();
+
   return (
     <div className="relative h-full w-full rounded-lg overflow-hidden">
       <div ref={containerRef} className="h-full w-full" />
@@ -2450,8 +2489,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       )}
 
 
-      {/* Right side controls toolbar - moves up when panel is visible */}
-      <div className={`absolute right-2 z-[1000] flex flex-col gap-1 transition-all duration-300 ${nearestStopWithArrivals && userLocation && !notificationModalStop ? 'bottom-[280px]' : 'top-2'}`}>
+      {/* Right side controls toolbar - moves up ONLY on desktop when panel is visible */}
+      <div className={`absolute right-2 z-[1000] flex flex-col gap-1 transition-all duration-300 ${!isMobile && nearestStopWithArrivals && userLocation && !notificationModalStop ? 'bottom-[280px]' : 'top-2'}`}>
 
         {/* Stop Following Button - show only when following a vehicle */}
         {followedVehicleId && (

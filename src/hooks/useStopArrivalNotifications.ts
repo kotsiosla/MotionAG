@@ -105,30 +105,62 @@ export const keepAudioAlive = () => {
   }
 };
 
+// Initialize voices and handle dynamic loading
+let availableVoices: SpeechSynthesisVoice[] = [];
+
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  const loadVoices = () => {
+    availableVoices = window.speechSynthesis.getVoices();
+    if (availableVoices.length > 0) {
+      console.log('[Audio] Voices loaded:', availableVoices.length);
+    }
+  };
+
+  loadVoices();
+  if (window.speechSynthesis.onvoiceschanged !== undefined) {
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }
+}
+
 // Speak text using Web Speech API
 export const speak = (text: string) => {
-  if ('speechSynthesis' in window) {
-    // Cancel any ongoing speech
-    speechSynthesis.cancel();
+  if (!('speechSynthesis' in window)) return;
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'el-GR';
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.volume = 1;
+  // Cancel any ongoing speech
+  speechSynthesis.cancel();
 
-    // Try to find a Greek voice
-    const voices = speechSynthesis.getVoices();
-    const greekVoice = voices.find(v => v.lang.startsWith('el'));
-    if (greekVoice) {
-      utterance.voice = greekVoice;
-      console.log('[Audio] Using specific Greek voice:', greekVoice.name);
-    } else {
-      console.log('[Audio] Using default voice with lang el-GR');
-    }
-
-    speechSynthesis.speak(utterance);
+  // Ensure we have voices loaded
+  if (availableVoices.length === 0) {
+    availableVoices = speechSynthesis.getVoices();
   }
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'el-GR';
+  utterance.rate = 0.9;
+  utterance.pitch = 1;
+  utterance.volume = 1;
+
+  // Prioritize Greek voices
+  // Filter for el-GR specifically, then any el-, then fallback to name containing "Greek"
+  let greekVoice = availableVoices.find(v => v.lang === 'el-GR');
+  if (!greekVoice) greekVoice = availableVoices.find(v => v.lang.startsWith('el'));
+  if (!greekVoice) greekVoice = availableVoices.find(v => v.name.toLowerCase().includes('greek'));
+
+  if (greekVoice) {
+    utterance.voice = greekVoice;
+    console.log('[Audio] Using specific Greek voice:', greekVoice.name, `(${greekVoice.lang})`);
+  } else {
+    console.warn('[Audio] No Greek voice found! Fallback to default. Voices available:', availableVoices.length);
+    // If no Greek voice, we still set lang to el-GR and hope the browser handles it better than English
+    utterance.lang = 'el-GR';
+  }
+
+  // Error handling
+  utterance.onerror = (event) => {
+    console.error('[Audio] Speech synthesis error:', event.error);
+  };
+
+  speechSynthesis.speak(utterance);
 };
 
 // Play notification sound - more urgent as time approaches

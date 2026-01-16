@@ -222,6 +222,27 @@ export function NearbyStopsPanel({
     });
   }, [subscribe]);
 
+  // Watch location continuously
+  const watchLocation = useCallback(() => {
+    if (!navigator.geolocation) return;
+
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+    }
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setLocationError(null);
+      },
+      () => { }, // Ignore errors in watch mode
+      { enableHighAccuracy: true, maximumAge: 10000 }
+    );
+  }, []);
+
   // Get user location with retry logic
   const getLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -280,28 +301,19 @@ export function NearbyStopsPanel({
     };
 
     tryGetPosition(true, 0);
-  }, []);
+    watchLocation(); // Start watching for continuous updates
+  }, [watchLocation]);
 
-  // Watch location continuously
-  const watchLocation = useCallback(() => {
-    if (!navigator.geolocation) return;
-
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
+  // Auto-start location tracking if permission available
+  useEffect(() => {
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'geolocation' }).then(result => {
+        if (result.state === 'granted') {
+          watchLocation();
+        }
+      });
     }
-
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (position) => {
-        setUserLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        setLocationError(null);
-      },
-      () => { }, // Ignore errors in watch mode
-      { enableHighAccuracy: true, maximumAge: 10000 }
-    );
-  }, []);
+  }, [watchLocation]);
 
   useEffect(() => {
     return () => {

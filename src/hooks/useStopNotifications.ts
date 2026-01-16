@@ -24,8 +24,9 @@ export interface StopNotificationSettings {
   voice: boolean;
   push: boolean;
   beforeMinutes: number;
-  notifyType?: 'all' | 'selected'; // 'all' = notify for all buses, 'selected' = only watchedTrips
+  notifyType?: 'all' | 'selected'; // 'all' = notify for all buses, 'selected' = only watchedTrips or watchedRoutes
   watchedTrips?: string[]; // If set, only notify for these trip IDs
+  watchedRoutes?: string[]; // If set, only notify for these route IDs
 }
 
 const STORAGE_KEY = 'stop_notifications';
