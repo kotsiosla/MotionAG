@@ -35,7 +35,37 @@ async function fetchFromProxy<T>(endpoint: string, operatorId?: string): Promise
 export function useVehicles(refreshInterval: number, operatorId?: string) {
   return useQuery({
     queryKey: ['vehicles', operatorId],
-    queryFn: () => fetchFromProxy<Vehicle[]>('/vehicles', operatorId),
+    queryFn: async () => {
+      // Fetch raw mixed data
+      const response = await fetchFromProxy<any>('/vehicles', operatorId);
+
+      // Handle raw GTFS-RT structure (header, entity)
+      if (response.entity && Array.isArray(response.entity)) {
+        return {
+          data: response.entity
+            .filter((e: any) => e.vehicle)
+            .map((e: any) => ({
+              id: e.id,
+              vehicleId: e.vehicle.vehicle?.id || e.id,
+              label: e.vehicle.vehicle?.label,
+              licensePlate: e.vehicle.vehicle?.license_plate,
+              tripId: e.vehicle.trip?.tripId || e.vehicle.trip?.trip_id,
+              routeId: e.vehicle.trip?.routeId || e.vehicle.trip?.route_id,
+              directionId: e.vehicle.trip?.directionId || e.vehicle.trip?.direction_id,
+              latitude: e.vehicle.position?.latitude,
+              longitude: e.vehicle.position?.longitude,
+              bearing: e.vehicle.position?.bearing,
+              speed: e.vehicle.position?.speed,
+              currentStatus: e.vehicle.currentStatus || e.vehicle.current_status,
+              timestamp: e.vehicle.timestamp
+            })),
+          timestamp: response.header?.timestamp || Date.now() / 1000
+        } as any;
+      }
+
+      // Fallback if already normalized (unlikely based on debug)
+      return response;
+    },
     refetchInterval: refreshInterval * 1000,
     staleTime: (refreshInterval * 1000) / 2,
   });
@@ -44,7 +74,30 @@ export function useVehicles(refreshInterval: number, operatorId?: string) {
 export function useTrips(refreshInterval: number, operatorId?: string) {
   return useQuery({
     queryKey: ['trips', operatorId],
-    queryFn: () => fetchFromProxy<Trip[]>('/trips', operatorId),
+    queryFn: async () => {
+      const response = await fetchFromProxy<any>('/trips', operatorId);
+
+      if (response.entity && Array.isArray(response.entity)) {
+        return {
+          data: response.entity
+            .filter((e: any) => e.tripUpdate || e.trip_update)
+            .map((e: any) => {
+              const tu = e.tripUpdate || e.trip_update;
+              return {
+                id: e.id,
+                tripId: tu.trip?.tripId || tu.trip?.trip_id,
+                routeId: tu.trip?.routeId || tu.trip?.route_id,
+                directionId: tu.trip?.directionId,
+                startTime: tu.trip?.startTime,
+                startDate: tu.trip?.startDate,
+                stopTimeUpdates: tu.stopTimeUpdate || tu.stop_time_update || []
+              };
+            }),
+          timestamp: response.header?.timestamp || Date.now() / 1000
+        } as any;
+      }
+      return response;
+    },
     refetchInterval: refreshInterval * 1000,
     staleTime: (refreshInterval * 1000) / 2,
   });
