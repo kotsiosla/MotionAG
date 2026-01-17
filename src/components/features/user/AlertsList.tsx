@@ -249,7 +249,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
                 onClick={async () => {
                   const diagnostics = getVoiceDiagnostics();
                   toast({
-                    title: "🔊 Ενεργοποίηση (v1.6.5)",
+                    title: "🔊 Ενεργοποίηση (v1.6.6)",
                     description: `Προσπάθεια... (${diagnostics})`,
                   });
                   await unlockAudio();
@@ -261,7 +261,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               </Button>
             </div>
             <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground opacity-50">
-              v1.6.5 (MotionAG)
+              v1.6.6 (MotionAG)
             </Badge>
           </div>
         </TabsContent>

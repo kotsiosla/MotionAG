@@ -36,7 +36,8 @@ export const getVoiceDiagnostics = () => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return "Not supported";
     const voices = window.speechSynthesis.getVoices();
     const greekVoices = voices.filter(v => v.lang.startsWith('el') || v.lang.startsWith('gr') || v.name.toLowerCase().includes('greek'));
-    return `Total: ${voices.length}, Greek: ${greekVoices.length}`;
+    const names = greekVoices.map(v => v.name).join(', ') || 'None';
+    return `Total: ${voices.length}, Greek: ${greekVoices.length} (${names})`;
 };
 
 // iOS Audio/Speech unlock - must be called from user interaction
@@ -143,14 +144,17 @@ export const speak = (text: string) => {
         greekVoice = availableVoices.find(v => (v.lang.startsWith('el') || v.lang.startsWith('gr')) && v.name.includes('Stefanos'));
     }
 
+    // fallback: ANY voice that looks Greek
     if (!greekVoice) greekVoice = availableVoices.find(v => v.lang === 'el-GR' || v.lang === 'el');
     if (!greekVoice) greekVoice = availableVoices.find(v => (v.lang.startsWith('el') || v.lang.startsWith('gr')));
     if (!greekVoice) greekVoice = availableVoices.find(v => v.name.toLowerCase().includes('greek'));
 
     if (greekVoice) {
+        console.log(`[AudioEngine] Selected Greek voice: ${greekVoice.name} (${greekVoice.lang})`);
         utterance.voice = greekVoice;
         utterance.lang = greekVoice.lang;
     } else {
+        console.warn('[AudioEngine] No Greek voice found even in fallback');
         utterance.lang = 'el-GR';
     }
 
