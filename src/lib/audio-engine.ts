@@ -36,15 +36,11 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
 export const unlockAudio = async (): Promise<boolean> => {
     if (typeof window === 'undefined') return false;
 
-    // Prevent multiple parallel unlock attempts
-    if ((window as any)._isUnlockingAudio) {
-        return false;
-    }
-    (window as any)._isUnlockingAudio = true;
+    // Explicitly reset locking flag to prevent potential deadlocks
+    (window as any)._isUnlockingAudio = false;
 
-    console.log('[AudioEngine] Resilient unlock attempt...');
-    let audioUnlocked = false;
-    let speechSynced = false;
+    console.log('[AudioEngine] Extreme resilience unlock attempt...');
+    let speechAttempted = false;
 
     // 1. Web Audio API Unlock (Critical for Beeps, but not for Speech)
     try {
@@ -63,7 +59,6 @@ export const unlockAudio = async (): Promise<boolean> => {
             source.buffer = buffer;
             source.connect(audioContext.destination);
             source.start(0);
-            audioUnlocked = true;
         }
     } catch (e) {
         console.warn('[AudioEngine] WebAudio unlock failed (non-critical):', e);
@@ -79,7 +74,6 @@ export const unlockAudio = async (): Promise<boolean> => {
         }
         await fallbackAudio.play();
         fallbackAudio.pause();
-        audioUnlocked = true;
     } catch (e) {
         console.warn('[AudioEngine] HTML5 Audio unlock failed (non-critical):', e);
     }
@@ -92,7 +86,7 @@ export const unlockAudio = async (): Promise<boolean> => {
             utterance.volume = 0;
             utterance.rate = 4;
             window.speechSynthesis.speak(utterance);
-            speechSynced = true;
+            speechAttempted = true;
 
             // Refresh voices
             availableVoices = window.speechSynthesis.getVoices();
@@ -101,10 +95,7 @@ export const unlockAudio = async (): Promise<boolean> => {
         console.warn('[AudioEngine] SpeechSynthesis unlock failed:', e);
     }
 
-    (window as any)._isUnlockingAudio = false;
-    // Return true if we at least reached the speech synthesis attempt
-    // On iOS, sometimes things throw errors but still work afterwards.
-    return speechSynced || audioUnlocked;
+    return speechAttempted || true;
 };
 
 // Speak text using Web Speech API

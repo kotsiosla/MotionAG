@@ -247,20 +247,12 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
                 size="sm"
                 className="text-xs text-primary hover:text-primary gap-2"
                 onClick={async () => {
-                  const unlocked = await unlockAudio();
-                  if (unlocked) {
-                    speakTest();
-                    toast({
-                      title: "🔊 Ηχος/Φωνή Ενεργά",
-                      description: "Έγινε προσπάθεια ενεργοποίησης και δοκιμής.",
-                    });
-                  } else {
-                    toast({
-                      title: "❌ Σφάλμα Ενεργοποίησης",
-                      description: "Δεν ήταν δυνατή η ενεργοποίηση του ήχου. Δοκιμάστε ξανά.",
-                      variant: "destructive",
-                    });
-                  }
+                  toast({
+                    title: "🔊 Ενεργοποίηση...",
+                    description: "Γίνεται προσπάθεια ενεργοποίησης του ήχου.",
+                  });
+                  await unlockAudio();
+                  speakTest();
                 }}
               >
                 <Bell className="h-3 w-3" />
@@ -268,7 +260,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               </Button>
             </div>
             <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground opacity-50">
-              v1.6.3 (MotionAG)
+              v1.6.4 (MotionAG)
             </Badge>
           </div>
         </TabsContent>
