@@ -149,16 +149,19 @@ export const speak = (text: string, onStatus?: (status: string) => void) => {
     }
 
     // fallback: ANY voice that looks Greek
-    if (!greekVoice) greekVoice = availableVoices.find(v => v.lang === 'el-GR' || v.lang === 'el');
+    if (!greekVoice) greekVoice = availableVoices.find(v => v.lang === 'el-GR' || v.lang === 'el' || v.lang.startsWith('el'));
     if (!greekVoice) greekVoice = availableVoices.find(v => (v.lang.startsWith('el') || v.lang.startsWith('gr')));
     if (!greekVoice) greekVoice = availableVoices.find(v => v.name.toLowerCase().includes('greek'));
 
     if (greekVoice) {
-        console.log(`[AudioEngine] Selected Greek voice: ${greekVoice.name} (${greekVoice.lang})`);
+        const statusMsg = `Voice: ${greekVoice.name}`;
+        console.log(`[AudioEngine] ${statusMsg}`);
+        onStatus?.(statusMsg);
         utterance.voice = greekVoice;
         utterance.lang = greekVoice.lang;
     } else {
         console.warn('[AudioEngine] No Greek voice found even in fallback');
+        onStatus?.("Voice: Default (Greek not found)");
         utterance.lang = 'el-GR';
     }
 
