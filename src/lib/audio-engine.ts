@@ -42,68 +42,69 @@ export const unlockAudio = async (): Promise<boolean> => {
     }
     (window as any)._isUnlockingAudio = true;
 
-    try {
-        console.log('[AudioEngine] Unlocking audio/speech...');
+    console.log('[AudioEngine] Resilient unlock attempt...');
+    let audioUnlocked = false;
+    let speechSynced = false;
 
-        // Create and unlock audio context
+    // 1. Web Audio API Unlock (Critical for Beeps, but not for Speech)
+    try {
         if (!audioContext || audioContext.state === 'closed') {
             const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-            if (AudioCtx) {
-                audioContext = new AudioCtx();
-            }
+            if (AudioCtx) audioContext = new AudioCtx();
         }
 
         if (audioContext && audioContext.state === 'suspended') {
             await audioContext.resume();
         }
 
-        // Play a silent buffer to unlock - this is required on iOS
         if (audioContext) {
             const buffer = audioContext.createBuffer(1, 1, 22050);
             const source = audioContext.createBufferSource();
             source.buffer = buffer;
             source.connect(audioContext.destination);
             source.start(0);
+            audioUnlocked = true;
         }
+    } catch (e) {
+        console.warn('[AudioEngine] WebAudio unlock failed (non-critical):', e);
+    }
 
-        // Prime HTML5 Audio for iOS
+    // 2. HTML5 Audio Unlock (Critical for fallbacks on iOS)
+    try {
         if (!fallbackAudio) {
             fallbackAudio = new Audio();
             fallbackAudio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQg6l9PCqYhMOq+7l4xiLm7Sw8FnHQMqpd3wgiwCJYjj9rVRAnXL/dZJBQBzyv7UUAdtt/vPXAsqfOb61FgGOobx/M1PDFqR7/20SBR1mvP9rj0Yb5/49qQrHHem+/qXIx51r/76jBYle7789IANMorr+e1nAkqU5/rmWwBUl+f74lMEXZnq/tlKCWmb7P/TPhBxoPL/yjMVeqf1/8YmGH6v+P/BHxyFtvr/uhYhir78/7IPJo/A/v+pCyuUxv//nAYwmcv//44CNp7Q//+BATuh1f//cwE+ptv/+2MARKvg//dTAkqw5f/ySgNPs+n/7UEEVLbt/+g4BVq58P/jMAZfvPP/3ygHZL/2/9kgCWnC+P/VGApuwfr/0RAMcr/8/8wJDnW9/f/IARN3uv7/xAEWebr//78BF3q5//+8AB56uf//uQAhfLn//7UAJH65//+yACd/uv//sAApgLr//68ALIC5//+uAC6Auf//rQAwgbn//6wAMoG5//+rADSBuf//qgA2gbr//6kAOIK6//+oADqCuv//qAA8grr//6cAPYO6//+mAD+Du///pgBBg7v//6UAQ4S7//+kAESEu///pABGhLv//6MASISbm5ubm5trbW9vcHBva2pqampnZWRiYF5cWldVU1BOTEM/Ozk3NDIwLSwpJyQhHx0aGBUSEA4MCggGBAIAAQMFBwkLDQ8RExUXGRsdHyEkJiopLC4wMjQ2ODo8P0FFR0tOUFRXWV1gYmRmZ2lrbG1ub29wcG9ubWxqaGVhXVhTTkdAOTIrJB0XEQsGAQD/';
             fallbackAudio.load();
             fallbackAudio.volume = 0.01;
         }
-
-        try {
-            await fallbackAudio.play();
-            fallbackAudio.pause();
-        } catch (e) {
-            console.warn('[AudioEngine] Fallback audio play failed:', e);
-        }
-
-        // Prime Speech Synthesis engine for iOS
-        if ('speechSynthesis' in window) {
-            try {
-                window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(' ');
-                utterance.volume = 0;
-                utterance.rate = 4;
-                window.speechSynthesis.speak(utterance);
-
-                // Refresh voices again after interaction
-                availableVoices = window.speechSynthesis.getVoices();
-            } catch (e) {
-                console.warn('[AudioEngine] Speech priming failed:', e);
-            }
-        }
-
-        (window as any)._isUnlockingAudio = false;
-        return true;
+        await fallbackAudio.play();
+        fallbackAudio.pause();
+        audioUnlocked = true;
     } catch (e) {
-        console.error('[AudioEngine] Unlock failed:', e);
-        (window as any)._isUnlockingAudio = false;
-        return false;
+        console.warn('[AudioEngine] HTML5 Audio unlock failed (non-critical):', e);
     }
+
+    // 3. Speech Synthesis Unlock (MOST CRITICAL)
+    try {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(' ');
+            utterance.volume = 0;
+            utterance.rate = 4;
+            window.speechSynthesis.speak(utterance);
+            speechSynced = true;
+
+            // Refresh voices
+            availableVoices = window.speechSynthesis.getVoices();
+        }
+    } catch (e) {
+        console.warn('[AudioEngine] SpeechSynthesis unlock failed:', e);
+    }
+
+    (window as any)._isUnlockingAudio = false;
+    // Return true if we at least reached the speech synthesis attempt
+    // On iOS, sometimes things throw errors but still work afterwards.
+    return speechSynced || audioUnlocked;
 };
 
 // Speak text using Web Speech API

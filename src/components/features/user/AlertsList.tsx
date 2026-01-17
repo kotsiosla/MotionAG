@@ -268,7 +268,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               </Button>
             </div>
             <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground opacity-50">
-              v1.6.1 (MotionAG)
+              v1.6.3 (MotionAG)
             </Badge>
           </div>
         </TabsContent>
