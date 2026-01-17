@@ -554,7 +554,8 @@ const Index = () => {
   const alertCount = alertsQuery.data?.data?.length || 0;
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
+    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden relative">
+
       <Header
         isDark={isDark}
         onToggleTheme={handleThemeToggle}
