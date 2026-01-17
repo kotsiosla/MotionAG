@@ -666,7 +666,14 @@ main {
 
 /* Accessibility Enhanced Mode (WCAG 2.2 / 2025) */
 .accessibility-enhanced {
-  font-size: 105%;
+  font-size: 100%;
+  /* Default 100% on mobile to prevent overflow */
+}
+
+@media (min-width: 400px) {
+  .accessibility-enhanced {
+    font-size: 105%;
+  }
 }
 
 .accessibility-enhanced a {
@@ -685,9 +692,24 @@ main {
 }
 
 .accessibility-enhanced .tabs-trigger span {
-  font-size: 0.875rem !important;
-  /* Forces 14px minimum */
-  line-height: 1.25rem !important;
+  font-size: 0.75rem !important;
+  /* fallback 12px for extreme small */
+  line-height: 1rem !important;
+}
+
+@media (min-width: 360px) {
+  .accessibility-enhanced .tabs-trigger span {
+    font-size: 0.8125rem !important;
+    /* 13px */
+  }
+}
+
+@media (min-width: 400px) {
+  .accessibility-enhanced .tabs-trigger span {
+    font-size: 0.875rem !important;
+    /* 14px */
+    line-height: 1.25rem !important;
+  }
 }
 
 .accessibility-enhanced .text-\[9px\],
@@ -709,9 +731,17 @@ main {
   border-color: hsl(var(--border)) !important;
 }
 
-/* Ensure mobile tabs are even larger in enhanced mode */
+/* Ensure mobile tabs are even larger in enhanced mode but cap height */
 .accessibility-enhanced .tabs-trigger {
-  padding-top: 0.75rem !important;
-  padding-bottom: 0.75rem !important;
-  min-height: 52px !important;
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+  min-height: 44px !important;
+}
+
+@media (min-width: 400px) {
+  .accessibility-enhanced .tabs-trigger {
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+    min-height: 52px !important;
+  }
 }

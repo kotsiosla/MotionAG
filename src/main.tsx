@@ -16,7 +16,7 @@ if (typeof window !== 'undefined') {
         stop_id: 'RUNTIME_ERROR',
         route_id: 'RUNTIME_CRASH',
         alert_level: 0,
-        metadata: { message, source, lineno, colno, error: String(error), version: 'v1.6.0', timestamp: new Date().toISOString() }
+        metadata: { message, source, lineno, colno, error: String(error), version: 'v1.7.2', timestamp: new Date().toISOString() }
       });
     } catch { }
   };
@@ -45,7 +45,7 @@ if (typeof window !== 'undefined') {
         alert_level: 0,
         metadata: {
           step: 'BOOTSTRAP',
-          version: 'v1.6.0',
+          version: 'v1.7.2',
           href: window.location.href,
           sw_supported: swSupport,
           reg_count: regCount,
@@ -112,7 +112,7 @@ if ('serviceWorker' in navigator) {
           metadata: {
             step: 'SW_REGISTERED_MAIN',
             scope: registration.scope,
-            version: 'v1.6.0',
+            version: 'v1.7.2',
             timestamp: new Date().toISOString()
           }
         });
@@ -133,7 +133,7 @@ if ('serviceWorker' in navigator) {
           metadata: {
             step: 'SW_REGISTER_FAILED',
             error: String(error),
-            version: 'v1.6.0',
+            version: 'v1.7.2',
             timestamp: new Date().toISOString()
           }
         });
