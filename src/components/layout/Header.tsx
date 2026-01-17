@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Moon, Sun, Menu, X, Download, ChevronUp, ChevronDown, Bookmark } from "lucide-react";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { NotificationButton } from "@/components/features/user/NotificationButton";
 import { ApiStatusIndicator } from "@/components/common/ApiStatusIndicator";
 import {
@@ -146,13 +147,14 @@ export function Header({
   return (
     <header className="glass-card border-b sticky top-0 z-50 safe-area-top flex-shrink-0">
       <div className="container mx-auto px-2 sm:px-4 py-1.5 sm:py-2">
-        {/* Mobile Header - Compact single-row layout v1.7.4 */}
+        {/* Mobile Header - Compact single-row layout v2.0.0 */}
         <div className="flex items-center justify-between gap-[0.375rem] md:hidden">
           <div className="flex items-center gap-[0.25rem] flex-shrink-0">
             <AnimatedLogo height="1rem" className="h-auto" />
-            <div className="flex items-center gap-[0.125rem] px-[0.25rem] py-[0.125rem] bg-green-500/10 border border-green-500/20 rounded-full">
-              <div className="w-[0.375rem] h-[0.375rem] bg-green-500 rounded-full animate-pulse" />
-            </div>
+            <Badge variant="outline" className="px-2 py-0 h-6 text-[10px] font-mono border-zinc-700/50 text-emerald-400 bg-emerald-500/10 gap-1.5 shadow-[0_0_10px_-3px_rgba(52,211,153,0.3)] backdrop-blur-sm">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-[pulse_3s_ease-in-out_infinite]" />
+              v2.0.0
+            </Badge>
           </div>
 
           <div className="flex items-center justify-end gap-[0.125rem] overflow-x-auto no-scrollbar">

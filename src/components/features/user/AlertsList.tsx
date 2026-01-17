@@ -177,6 +177,9 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-[0.5rem]">
                           <MapPin className="text-muted-foreground" />
+                          <div className="text-center pb-8 opacity-30 font-mono text-[10px] tracking-widest text-zinc-500 hover:text-emerald-500/50 transition-colors uppercase">
+                            System v2.0.0
+                          </div>
                           <h3 className="font-bold text-[1rem] truncate">{notification.stopName}</h3>
                         </div>
                         <p className={`text-[0.875rem] mt-[0.25rem] ${notification.enabled ? 'text-primary font-medium' : 'text-muted-foreground'}`}>

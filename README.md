@@ -8,6 +8,11 @@ A React + TypeScript project built with Vite, shadcn-ui, and Tailwind CSS.
 
 ## 📅 Latest Updates (Jan 2026)
 
+### 🚀 v2.0.0: Major Performance Update
+- **Route Caching**: Implemented a robust caching layer for route shapes using Supabase & Edge Functions. Subsequent loads of any route are now instant.
+- **Schedule Optimization**: Added "Live Map" integration directly into the Schedule view for seamless navigation.
+- **System Hardening**: Full dependency verification and stability improvements.
+
 ### Notification System Refactor & Fixes
 - **Refactored `check-stop-arrivals`**: Split the monolithic Edge Function into modular components:
   - `crypto.ts`: Handles VAPID key parsing (supporting both Raw and PKCS#8 formats) and payload encryption.
