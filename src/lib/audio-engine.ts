@@ -1,21 +1,20 @@
 
 // Audio context for notification sounds
 let audioContext: AudioContext | null = null;
-let isAudioUnlocked = false;
 
 // Pre-loaded audio element for iOS fallback
 let fallbackAudio: HTMLAudioElement | null = null;
 
 // Initialize voices and handle dynamic loading
 let availableVoices: SpeechSynthesisVoice[] = [];
-let voicesLoaded = false;
 
 if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     const loadVoices = () => {
         try {
-            availableVoices = window.speechSynthesis.getVoices();
-            if (availableVoices.length > 0) {
-                voicesLoaded = true;
+            const voices = window.speechSynthesis.getVoices();
+            if (voices.length > 0) {
+                availableVoices = voices;
+                console.log(`[AudioEngine] ${voices.length} voices loaded`);
             }
         } catch (e) {
             console.warn('[AudioEngine] Error loading voices:', e);
@@ -27,25 +26,15 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.onvoiceschanged = loadVoices;
     }
 
-    // Backup: retry loading voices every second if they haven't loaded yet
-    const voiceRetryInterval = setInterval(() => {
-        if (voicesLoaded && availableVoices.length > 0) {
-            clearInterval(voiceRetryInterval);
-            return;
-        }
-        loadVoices();
-    }, 1000);
-
-    setTimeout(() => clearInterval(voiceRetryInterval), 10000);
+    // Proactive retry with increasing delays
+    [100, 500, 1000, 2000, 5000].forEach(delay => {
+        setTimeout(loadVoices, delay);
+    });
 }
 
 // iOS Audio/Speech unlock - must be called from user interaction
 export const unlockAudio = async (): Promise<boolean> => {
     if (typeof window === 'undefined') return false;
-
-    if (isAudioUnlocked && audioContext?.state === 'running') {
-        return true;
-    }
 
     // Prevent multiple parallel unlock attempts
     if ((window as any)._isUnlockingAudio) {
@@ -54,8 +43,10 @@ export const unlockAudio = async (): Promise<boolean> => {
     (window as any)._isUnlockingAudio = true;
 
     try {
+        console.log('[AudioEngine] Unlocking audio/speech...');
+
         // Create and unlock audio context
-        if (!audioContext) {
+        if (!audioContext || audioContext.state === 'closed') {
             const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
             if (AudioCtx) {
                 audioContext = new AudioCtx();
@@ -81,29 +72,35 @@ export const unlockAudio = async (): Promise<boolean> => {
             fallbackAudio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQg6l9PCqYhMOq+7l4xiLm7Sw8FnHQMqpd3wgiwCJYjj9rVRAnXL/dZJBQBzyv7UUAdtt/vPXAsqfOb61FgGOobx/M1PDFqR7/20SBR1mvP9rj0Yb5/49qQrHHem+/qXIx51r/76jBYle7789IANMorr+e1nAkqU5/rmWwBUl+f74lMEXZnq/tlKCWmb7P/TPhBxoPL/yjMVeqf1/8YmGH6v+P/BHxyFtvr/uhYhir78/7IPJo/A/v+pCyuUxv//nAYwmcv//44CNp7Q//+BATuh1f//cwE+ptv/+2MARKvg//dTAkqw5f/ySgNPs+n/7UEEVLbt/+g4BVq58P/jMAZfvPP/3ygHZL/2/9kgCWnC+P/VGApuwfr/0RAMcr/8/8wJDnW9/f/IARN3uv7/xAEWebr//78BF3q5//+8AB56uf//uQAhfLn//7UAJH65//+yACd/uv//sAApgLr//68ALIC5//+uAC6Auf//rQAwgbn//6wAMoG5//+rADSBuf//qgA2gbr//6kAOIK6//+oADqCuv//qAA8grr//6cAPYO6//+mAD+Du///pgBBg7v//6UAQ4S7//+kAESEu///pABGhLv//6MASISbm5ubm5trbW9vcHBva2pqampnZWRiYF5cWldVU1BOTEM/Ozk3NDIwLSwpJyQhHx0aGBUSEA4MCggGBAIAAQMFBwkLDQ8RExUXGRsdHyEkJiopLC4wMjQ2ODo8P0FFR0tOUFRXWV1gYmRmZ2lrbG1ub29wcG9ubWxqaGVhXVhTTkdAOTIrJB0XEQsGAQD/';
             fallbackAudio.load();
             fallbackAudio.volume = 0.01;
-            try {
-                await fallbackAudio.play();
-                fallbackAudio.pause();
-                isAudioUnlocked = true;
-            } catch (e) { }
-        } else {
-            isAudioUnlocked = true;
+        }
+
+        try {
+            await fallbackAudio.play();
+            fallbackAudio.pause();
+        } catch (e) {
+            console.warn('[AudioEngine] Fallback audio play failed:', e);
         }
 
         // Prime Speech Synthesis engine for iOS
         if ('speechSynthesis' in window) {
             try {
+                window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(' ');
                 utterance.volume = 0;
-                utterance.rate = 4; // Extra fast silent utterance
+                utterance.rate = 4;
                 window.speechSynthesis.speak(utterance);
-            } catch (e) { }
+
+                // Refresh voices again after interaction
+                availableVoices = window.speechSynthesis.getVoices();
+            } catch (e) {
+                console.warn('[AudioEngine] Speech priming failed:', e);
+            }
         }
 
-        isAudioUnlocked = true;
         (window as any)._isUnlockingAudio = false;
         return true;
     } catch (e) {
+        console.error('[AudioEngine] Unlock failed:', e);
         (window as any)._isUnlockingAudio = false;
         return false;
     }

@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
+import { unlockAudio, speakTest } from "@/lib/audio-engine";
 import type { Alert, Trip, RouteInfo } from "@/types/gtfs";
 
 interface AlertsListProps {
@@ -239,6 +240,31 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               >
                 <Trash2 className="h-3 w-3" />
                 Reset App
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs text-primary hover:text-primary gap-2"
+                onClick={async () => {
+                  const unlocked = await unlockAudio();
+                  if (unlocked) {
+                    speakTest();
+                    toast({
+                      title: "🔊 Ηχος/Φωνή Ενεργά",
+                      description: "Έγινε προσπάθεια ενεργοποίησης και δοκιμής.",
+                    });
+                  } else {
+                    toast({
+                      title: "❌ Σφάλμα Ενεργοποίησης",
+                      description: "Δεν ήταν δυνατή η ενεργοποίηση του ήχου. Δοκιμάστε ξανά.",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                <Bell className="h-3 w-3" />
+                Δοκιμή Φωνής (iOS Fix)
               </Button>
             </div>
             <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground opacity-50">
