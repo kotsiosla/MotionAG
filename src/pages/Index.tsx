@@ -378,16 +378,26 @@ const Index = () => {
     const routeParam = searchParams.get('route');
     const stopParam = searchParams.get('stop');
 
-    if (routeParam) {
+    // Only update if specific params exist and differ from current state
+    // This prevents circular updates and unwanted tab switching
+    let shouldSwitchToMap = false;
+
+    if (routeParam && routeParam !== 'all' && routeParam !== selectedRoute) {
       setSelectedRoute(routeParam);
-      setActiveTab("map");
+      shouldSwitchToMap = true;
     }
 
-    if (stopParam) {
+    if (stopParam && stopParam !== deepLinkStopId) {
       setDeepLinkStopId(stopParam);
+      shouldSwitchToMap = true;
+    }
+
+    // Only switch to map on initial load or genuine deep link, not just param updates
+    // We can use a ref to track if it's the first load if needed, but checking diff is usually enough
+    if (shouldSwitchToMap) {
       setActiveTab("map");
     }
-  }, [searchParams]);
+  }, [searchParams, selectedRoute, deepLinkStopId]);
 
   // Update URL when route or stop changes
   const updateUrlParams = useCallback((params: { route?: string | null; stop?: string | null }) => {
@@ -425,8 +435,16 @@ const Index = () => {
     if (selectedRoute === "all") return vehicles;
 
     // Robust comparison for route IDs (handle string/number differences)
-    return vehicles.filter(v => String(v.routeId) === String(selectedRoute));
-  }, [effectiveVehiclesData, selectedRoute]);
+    const filtered = vehicles.filter(v => String(v.routeId) === String(selectedRoute));
+
+    // Notify if specific route selected but no vehicles found (and not loading)
+    if (selectedRoute !== "all" && filtered.length === 0 && !isLoading && vehicles.length > 0) {
+      // Debounce this or use a ref to prevent spamming, but for now helpful for debug
+      console.log(`[Index] No vehicles found for route ${selectedRoute}`);
+    }
+
+    return filtered;
+  }, [effectiveVehiclesData, selectedRoute, isLoading]);
 
   const filteredTrips = useMemo(() => {
     const trips = effectiveTripsData?.data || [];
