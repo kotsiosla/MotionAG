@@ -153,87 +153,86 @@ export const speak = (text: string, onStatus?: (status: string) => void) => {
     if (!greekVoice) greekVoice = availableVoices.find(v => v.name.toLowerCase().includes('greek'));
 
     if (greekVoice) {
-        if (greekVoice) {
-            console.log(`[AudioEngine] Speaking with ${greekVoice.name}`);
-            onStatus?.(`Voice: ${greekVoice.name}`);
-            utterance.voice = greekVoice;
-            utterance.lang = greekVoice.lang;
-        } else {
-            onStatus?.("Voice: Default (Greek not found)");
-            utterance.lang = 'el-GR';
-        }
+        console.log(`[AudioEngine] Speaking with ${greekVoice.name}`);
+        onStatus?.(`Voice: ${greekVoice.name}`);
+        utterance.voice = greekVoice;
+        utterance.lang = greekVoice.lang;
+    } else {
+        onStatus?.("Voice: Default (Greek not found)");
+        utterance.lang = 'el-GR';
+    }
 
-        utterance.onstart = () => onStatus?.("Speaking...");
-        utterance.onend = () => onStatus?.("Finished");
-        utterance.onerror = (e) => onStatus?.(`Error: ${e.error}`);
+    utterance.onstart = () => onStatus?.("Speaking...");
+    utterance.onend = () => onStatus?.("Finished");
+    utterance.onerror = (e) => onStatus?.(`Error: ${e.error}`);
 
-        // Delay for iOS satisfaction
-        setTimeout(() => {
-            try {
-                window.speechSynthesis.resume();
-                window.speechSynthesis.speak(utterance);
-            } catch (e) {
-                console.error('[AudioEngine] speak failed:', e);
-                onStatus?.("Execution failed");
-            }
-        }, isIOS ? 100 : 0);
-    };
-
-    export const speakTest = (onStatus?: (status: string) => void) => {
-        speak("Δοκιμή φωνητικής αναγγελίας. Αν ακούτε αυτό το μήνυμα, οι ειδοποιήσεις λειτουργούν κανονικά.", onStatus);
-    };
-
-    export const playSound = (urgency: 'low' | 'medium' | 'high' = 'medium') => {
-        if (typeof window === 'undefined') return;
-
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-        if (isIOS && fallbackAudio) {
-            const beepCount = urgency === 'high' ? 3 : urgency === 'medium' ? 2 : 1;
-            let i = 0;
-            const play = () => {
-                if (i < beepCount && fallbackAudio) {
-                    fallbackAudio.currentTime = 0;
-                    fallbackAudio.play().then(() => {
-                        i++;
-                        setTimeout(play, 300);
-                    }).catch(() => { });
-                }
-            };
-            play();
-            return;
-        }
-
+    // Delay for iOS satisfaction
+    setTimeout(() => {
         try {
-            if (!audioContext) return;
-            const baseFreq = urgency === 'high' ? 1000 : urgency === 'medium' ? 800 : 600;
-            const beepCount = urgency === 'high' ? 3 : urgency === 'medium' ? 2 : 1;
+            window.speechSynthesis.resume();
+            window.speechSynthesis.speak(utterance);
+        } catch (e) {
+            console.error('[AudioEngine] speak failed:', e);
+            onStatus?.("Execution failed");
+        }
+    }, isIOS ? 100 : 0);
+};
 
-            for (let i = 0; i < beepCount; i++) {
-                setTimeout(() => {
-                    if (!audioContext) return;
-                    const osc = audioContext.createOscillator();
-                    const gain = audioContext.createGain();
-                    osc.connect(gain);
-                    gain.connect(audioContext.destination);
-                    osc.frequency.value = baseFreq + (i * 100);
-                    gain.gain.setValueAtTime(0.5, audioContext.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-                    osc.start(audioContext.currentTime);
-                    osc.stop(audioContext.currentTime + 0.3);
-                }, i * 200);
+export const speakTest = (onStatus?: (status: string) => void) => {
+    speak("Δοκιμή φωνητικής αναγγελίας. Αν ακούτε αυτό το μήνυμα, οι ειδοποιήσεις λειτουργούν κανονικά.", onStatus);
+};
+
+export const playSound = (urgency: 'low' | 'medium' | 'high' = 'medium') => {
+    if (typeof window === 'undefined') return;
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    if (isIOS && fallbackAudio) {
+        const beepCount = urgency === 'high' ? 3 : urgency === 'medium' ? 2 : 1;
+        let i = 0;
+        const play = () => {
+            if (i < beepCount && fallbackAudio) {
+                fallbackAudio.currentTime = 0;
+                fallbackAudio.play().then(() => {
+                    i++;
+                    setTimeout(play, 300);
+                }).catch(() => { });
             }
-        } catch (e) { }
-    };
+        };
+        play();
+        return;
+    }
 
-    export const vibrate = (urgency: 'low' | 'medium' | 'high' = 'medium') => {
-        if (typeof navigator === 'undefined' || !('vibrate' in navigator)) return;
-        try {
-            const patterns = {
-                low: [200],
-                medium: [200, 100, 200],
-                high: [200, 100, 200, 100, 300, 100, 300],
-            };
-            navigator.vibrate(patterns[urgency]);
-        } catch (e) { }
-    };
+    try {
+        if (!audioContext) return;
+        const baseFreq = urgency === 'high' ? 1000 : urgency === 'medium' ? 800 : 600;
+        const beepCount = urgency === 'high' ? 3 : urgency === 'medium' ? 2 : 1;
+
+        for (let i = 0; i < beepCount; i++) {
+            setTimeout(() => {
+                if (!audioContext) return;
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                osc.frequency.value = baseFreq + (i * 100);
+                gain.gain.setValueAtTime(0.5, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                osc.start(audioContext.currentTime);
+                osc.stop(audioContext.currentTime + 0.3);
+            }, i * 200);
+        }
+    } catch (e) { }
+};
+
+export const vibrate = (urgency: 'low' | 'medium' | 'high' = 'medium') => {
+    if (typeof navigator === 'undefined' || !('vibrate' in navigator)) return;
+    try {
+        const patterns = {
+            low: [200],
+            medium: [200, 100, 200],
+            high: [200, 100, 200, 100, 300, 100, 300],
+        };
+        navigator.vibrate(patterns[urgency]);
+    } catch (e) { }
+};

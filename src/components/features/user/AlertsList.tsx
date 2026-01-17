@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
-import { unlockAudio, speakTest, getVoiceDiagnostics } from "@/lib/audio-engine";
+import { unlockAudio, speakTest } from "@/lib/audio-engine";
 import type { Alert, Trip, RouteInfo } from "@/types/gtfs";
 
 interface AlertsListProps {
@@ -252,7 +252,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
                     description: "Γίνεται προσπάθεια ενεργοποίησης...",
                   });
                   unlockAudio();
-                  speakTest((status) => {
+                  speakTest((status: string) => {
                     if (status === "Finished") {
                       toast({
                         title: "✅ Φωνή Ενεργή",
