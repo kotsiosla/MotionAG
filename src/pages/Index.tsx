@@ -14,6 +14,7 @@ import { NearbyStopsPanel } from "@/components/features/map/NearbyStopsPanel";
 import { SavedTripsPanel } from "@/components/features/user/SavedTripsPanel";
 import { PWAInstallBanner } from "@/components/common/PWAInstallBanner";
 import { PullToRefresh } from "@/components/common/PullToRefresh";
+import { AccessibilityWidget } from "@/components/common/AccessibilityWidget";
 import { useSavedTrips } from "@/hooks/useSavedTrips";
 import { useVehicles, useTrips, useAlerts, useStaticRoutes, useStaticStops } from "@/hooks/useGtfsData";
 import { useSmartTripPlan, type OptimizationPreference } from "@/hooks/useSmartTripPlan";
@@ -82,6 +83,11 @@ const Index = () => {
     return saved !== null ? JSON.parse(saved) : true;
   });
 
+  const [isAccessibilityEnhanced, setIsAccessibilityEnhanced] = useState(() => {
+    const saved = localStorage.getItem('isAccessibilityEnhanced');
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+
   // Apply theme to document
   useEffect(() => {
     if (isDark) {
@@ -90,6 +96,16 @@ const Index = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [isDark]);
+
+  // Apply accessibility enhancement to body
+  useEffect(() => {
+    if (isAccessibilityEnhanced) {
+      document.body.classList.add('accessibility-enhanced');
+    } else {
+      document.body.classList.remove('accessibility-enhanced');
+    }
+    localStorage.setItem('isAccessibilityEnhanced', JSON.stringify(isAccessibilityEnhanced));
+  }, [isAccessibilityEnhanced]);
 
   // Unlock audio on any user interaction (required for iOS)
   useEffect(() => {
@@ -757,6 +773,12 @@ const Index = () => {
 
       {/* PWA Install Banner */}
       <PWAInstallBanner />
+
+      {/* Accessibility Widget */}
+      <AccessibilityWidget
+        isEnabled={isAccessibilityEnhanced}
+        onToggle={setIsAccessibilityEnhanced}
+      />
     </div>
   );
 };

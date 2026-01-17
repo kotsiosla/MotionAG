@@ -663,3 +663,55 @@ main {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Accessibility Enhanced Mode (WCAG 2.2 / 2025) */
+.accessibility-enhanced {
+  font-size: 105%;
+}
+
+.accessibility-enhanced a {
+  text-decoration: underline !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: 4px !important;
+}
+
+.accessibility-enhanced button:focus,
+.accessibility-enhanced a:focus,
+.accessibility-enhanced [role="button"]:focus,
+.accessibility-enhanced [tabindex="0"]:focus {
+  outline: 3px solid hsl(var(--ring)) !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 6px white, 0 0 0 9px hsl(var(--ring)) !important;
+}
+
+.accessibility-enhanced .tabs-trigger span {
+  font-size: 0.875rem !important;
+  /* Forces 14px minimum */
+  line-height: 1.25rem !important;
+}
+
+.accessibility-enhanced .text-\[9px\],
+.accessibility-enhanced .text-\[10px\],
+.accessibility-enhanced .text-xs {
+  font-size: 0.875rem !important;
+  /* Forces 14px minimum */
+  line-height: 1.25rem !important;
+}
+
+.accessibility-enhanced .text-sm {
+  font-size: 1rem !important;
+  /* Forces 16px */
+  line-height: 1.5rem !important;
+}
+
+.accessibility-enhanced .glass-card {
+  border-width: 2px !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Ensure mobile tabs are even larger in enhanced mode */
+.accessibility-enhanced .tabs-trigger {
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+  min-height: 52px !important;
+}
