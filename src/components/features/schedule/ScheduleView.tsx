@@ -19,6 +19,8 @@ import { OPERATORS } from "@/types/gtfs";
 interface ScheduleViewProps {
   selectedOperator: string;
   onOperatorChange: (operator: string) => void;
+  selectedRoute?: string;
+  onRouteSelect?: (routeId: string) => void;
 }
 
 // Filter out 'all' option for schedule view - user must pick a specific operator
@@ -60,9 +62,21 @@ const calculateRouteDistance = (shape: Array<{ lat: number; lng: number }>): num
   }
 };
 
-export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleViewProps) {
-  const [selectedRoute, setSelectedRoute] = useState<string>("");
+export function ScheduleView({
+  selectedOperator,
+  onOperatorChange,
+  selectedRoute: externalSelectedRoute,
+  onRouteSelect
+}: ScheduleViewProps) {
+  const [selectedRoute, setSelectedRoute] = useState<string>(externalSelectedRoute || "");
   const [selectedDirection, setSelectedDirection] = useState<number>(0);
+
+  // Sync with external route selection
+  useEffect(() => {
+    if (externalSelectedRoute) {
+      setSelectedRoute(externalSelectedRoute);
+    }
+  }, [externalSelectedRoute]);
 
   const { favoriteRouteIds, isFavorite, toggleFavorite } = useFavoriteRouteIds();
   const [mapReady, setMapReady] = useState(false);
@@ -837,15 +851,29 @@ export function ScheduleView({ selectedOperator, onOperatorChange }: ScheduleVie
           {/* Route Info Header */}
           {selectedRouteInfo && (
             <div
-              className="p-3 rounded-lg mb-3 flex items-center gap-3"
+              className="p-3 rounded-lg mb-3 flex items-center justify-between gap-3 shadow-md"
               style={{ backgroundColor: bgColor }}
             >
-              <span className="bg-white/20 text-white text-lg font-bold px-3 py-1 rounded">
-                {selectedRouteInfo.route_short_name}
-              </span>
-              <span className="text-white font-medium">
-                {selectedRouteInfo.route_long_name}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="bg-white/20 text-white text-lg font-bold px-3 py-1 rounded">
+                  {selectedRouteInfo.route_short_name}
+                </span>
+                <span className="text-white font-medium">
+                  {selectedRouteInfo.route_long_name}
+                </span>
+              </div>
+
+              {onRouteSelect && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="h-8 shadow-sm font-bold bg-white text-black hover:bg-white/90"
+                  onClick={() => onRouteSelect(selectedRoute!)}
+                >
+                  <MapPin className="h-4 w-4 mr-1.5" />
+                  Live Χάρτης
+                </Button>
+              )}
             </div>
           )}
 

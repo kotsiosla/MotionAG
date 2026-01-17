@@ -708,6 +708,11 @@ const Index = () => {
               <ScheduleView
                 selectedOperator={selectedOperator}
                 onOperatorChange={setSelectedOperator}
+                selectedRoute={selectedRoute}
+                onRouteSelect={(routeId) => {
+                  setSelectedRoute(routeId);
+                  setActiveTab("map");
+                }}
               />
             </TabsContent>
 
