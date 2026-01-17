@@ -84,8 +84,12 @@ const Index = () => {
   });
 
   const [isAccessibilityEnhanced, setIsAccessibilityEnhanced] = useState(() => {
-    const saved = localStorage.getItem('isAccessibilityEnhanced');
-    return saved !== null ? JSON.parse(saved) : false;
+    try {
+      const saved = localStorage.getItem('isAccessibilityEnhanced');
+      return saved !== null ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
   });
 
   // Apply theme to document
