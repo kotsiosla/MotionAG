@@ -247,26 +247,33 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
                 size="sm"
                 className="text-xs text-primary hover:text-primary gap-2"
                 onClick={() => {
-                  const diagnostics = getVoiceDiagnostics();
                   toast({
-                    title: "🔊 Προσπάθεια (v1.6.8)",
-                    description: `Εκκίνηση... (${diagnostics})`,
+                    title: "🔊 Ενεργοποίηση Φωνής",
+                    description: "Γίνεται προσπάθεια ενεργοποίησης...",
                   });
-                  unlockAudio(); // Fire and forget
+                  unlockAudio();
                   speakTest((status) => {
-                    toast({
-                      title: "🔊 Κατάσταση Φωνής",
-                      description: status,
-                    });
+                    if (status === "Finished") {
+                      toast({
+                        title: "✅ Φωνή Ενεργή",
+                        description: "Οι φωνητικές αναγγελίες λειτουργούν!",
+                      });
+                    } else if (status.startsWith("Error")) {
+                      toast({
+                        title: "❌ Σφάλμα",
+                        description: status,
+                        variant: "destructive",
+                      });
+                    }
                   });
                 }}
               >
                 <Bell className="h-3 w-3" />
-                Δοκιμή Φωνής (iOS Fix)
+                Ενεργοποίηση Φωνής (iOS Fix)
               </Button>
             </div>
             <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground opacity-50">
-              v1.6.8 (MotionAG)
+              v1.6.9 (MotionAG)
             </Badge>
           </div>
         </TabsContent>
