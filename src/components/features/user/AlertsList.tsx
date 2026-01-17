@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
-import { unlockAudio, speakTest } from "@/lib/audio-engine";
+import { unlockAudio, speakTest, getVoiceDiagnostics } from "@/lib/audio-engine";
 import type { Alert, Trip, RouteInfo } from "@/types/gtfs";
 
 interface AlertsListProps {
@@ -247,9 +247,10 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
                 size="sm"
                 className="text-xs text-primary hover:text-primary gap-2"
                 onClick={async () => {
+                  const diagnostics = getVoiceDiagnostics();
                   toast({
-                    title: "🔊 Ενεργοποίηση...",
-                    description: "Γίνεται προσπάθεια ενεργοποίησης του ήχου.",
+                    title: "🔊 Ενεργοποίηση (v1.6.5)",
+                    description: `Προσπάθεια... (${diagnostics})`,
                   });
                   await unlockAudio();
                   speakTest();
@@ -260,7 +261,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               </Button>
             </div>
             <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground opacity-50">
-              v1.6.4 (MotionAG)
+              v1.6.5 (MotionAG)
             </Badge>
           </div>
         </TabsContent>

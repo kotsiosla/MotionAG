@@ -32,6 +32,13 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     });
 }
 
+export const getVoiceDiagnostics = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return "Not supported";
+    const voices = window.speechSynthesis.getVoices();
+    const greekVoices = voices.filter(v => v.lang.startsWith('el') || v.lang.startsWith('gr') || v.name.toLowerCase().includes('greek'));
+    return `Total: ${voices.length}, Greek: ${greekVoices.length}`;
+};
+
 // iOS Audio/Speech unlock - must be called from user interaction
 export const unlockAudio = async (): Promise<boolean> => {
     if (typeof window === 'undefined') return false;
@@ -123,20 +130,28 @@ export const speak = (text: string) => {
 
     let greekVoice: SpeechSynthesisVoice | undefined;
 
-    if (isIOS) {
-        greekVoice = availableVoices.find(v => v.lang.startsWith('el') && v.name.includes('Melina'));
-    } else if (isAndroid) {
-        greekVoice = availableVoices.find(v => v.lang.startsWith('el') && v.name.toLowerCase().includes('google'));
-    } else if (isWindows) {
-        greekVoice = availableVoices.find(v => v.lang.startsWith('el') && v.name.includes('Stefanos'));
+    // Refresh voices if empty
+    if (availableVoices.length === 0) {
+        availableVoices = window.speechSynthesis.getVoices();
     }
 
-    if (!greekVoice) greekVoice = availableVoices.find(v => v.lang === 'el-GR');
+    if (isIOS) {
+        greekVoice = availableVoices.find(v => (v.lang.startsWith('el') || v.lang.startsWith('gr')) && v.name.includes('Melina'));
+    } else if (isAndroid) {
+        greekVoice = availableVoices.find(v => (v.lang.startsWith('el') || v.lang.startsWith('gr')) && v.name.toLowerCase().includes('google'));
+    } else if (isWindows) {
+        greekVoice = availableVoices.find(v => (v.lang.startsWith('el') || v.lang.startsWith('gr')) && v.name.includes('Stefanos'));
+    }
+
+    if (!greekVoice) greekVoice = availableVoices.find(v => v.lang === 'el-GR' || v.lang === 'el');
     if (!greekVoice) greekVoice = availableVoices.find(v => (v.lang.startsWith('el') || v.lang.startsWith('gr')));
     if (!greekVoice) greekVoice = availableVoices.find(v => v.name.toLowerCase().includes('greek'));
 
     if (greekVoice) {
         utterance.voice = greekVoice;
+        utterance.lang = greekVoice.lang;
+    } else {
+        utterance.lang = 'el-GR';
     }
 
     // Delay for iOS satisfaction
