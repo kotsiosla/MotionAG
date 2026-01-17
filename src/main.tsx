@@ -1,6 +1,8 @@
+const APP_VERSION = "v1.7.4";
+
 // Force trailing slash for MotionAG to ensure Service Worker scope is always valid
 if (window.location.pathname === '/MotionAG') {
-  console.log('[main.tsx] 🔄 Force redirecting to trailing slash for SW scope...');
+  console.log(`[main.tsx] 🔄 Force redirecting to trailing slash for SW scope...`);
   window.location.replace(window.location.href + '/');
 }
 
@@ -16,7 +18,7 @@ if (typeof window !== 'undefined') {
         stop_id: 'RUNTIME_ERROR',
         route_id: 'RUNTIME_CRASH',
         alert_level: 0,
-        metadata: { message, source, lineno, colno, error: String(error), version: 'v1.7.2', timestamp: new Date().toISOString() }
+        metadata: { message, source, lineno, colno, error: String(error), version: APP_VERSION, timestamp: new Date().toISOString() }
       });
     } catch { }
   };
@@ -45,13 +47,14 @@ if (typeof window !== 'undefined') {
         alert_level: 0,
         metadata: {
           step: 'BOOTSTRAP',
-          version: 'v1.7.2',
+          version: APP_VERSION,
           href: window.location.href,
           sw_supported: swSupport,
           reg_count: regCount,
           timestamp: new Date().toISOString()
         }
       });
+      console.log(`%c Motion Bus ${APP_VERSION} %c Bootstrap %c`, "color: white; background: #0ea5e9; padding: 2px 5px; border-radius: 4px; font-weight: bold;", "color: #0ea5e9; font-weight: bold;", "");
     } catch { }
   })();
 }

@@ -146,15 +146,19 @@ export function Header({
   return (
     <header className="glass-card border-b sticky top-0 z-50 safe-area-top flex-shrink-0">
       <div className="container mx-auto px-2 sm:px-4 py-1.5 sm:py-2">
-        {/* Mobile Header */}
-        <div className="flex items-center justify-between gap-[0.5rem] md:hidden">
-          <div className="flex items-center gap-[0.5rem]">
-            <AnimatedLogo height="1.25em" className="h-auto" />
-            <h1 className="text-[0.75rem] sm:text-[0.875rem] font-bold tracking-tight truncate max-w-[5rem] sm:max-w-none">GTFS Realtime</h1>
+        {/* Mobile Header - Compact single-row layout v1.7.4 */}
+        <div className="flex items-center justify-between gap-[0.375rem] md:hidden">
+          <div className="flex items-center gap-[0.25rem] flex-shrink-0">
+            <AnimatedLogo height="1rem" className="h-auto" />
+            <span className="text-[0.8rem] font-black tracking-tighter text-foreground">Motion</span>
+            <div className="flex items-center gap-[0.125rem] px-[0.375rem] py-[0.125rem] bg-green-500/10 border border-green-500/20 rounded-full">
+              <div className="w-[0.375rem] h-[0.375rem] bg-green-500 rounded-full animate-pulse" />
+              <span className="text-[0.55rem] font-bold text-green-600 uppercase tracking-tighter">Live</span>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-[0.25rem]">
-            {/* API Status indicator */}
+          <div className="flex items-center justify-end gap-[0.125rem] overflow-x-auto no-scrollbar">
+            {/* API Status indicator - Minimal */}
             <ApiStatusIndicator
               isError={hasApiError}
               isLoading={isLoading}
@@ -169,39 +173,36 @@ export function Header({
               variant="ghost"
               size="icon"
               onClick={toggleTripPlanner}
-              className="p-2"
+              className="w-[2.5rem] h-[2.5rem]"
               title={tripPlannerVisible ? "Απόκρυψη αναζήτησης" : "Εμφάνιση αναζήτησης"}
             >
-              {tripPlannerVisible ? <ChevronUp /> : <ChevronDown />}
+              {tripPlannerVisible ? <ChevronUp className="h-[1.25em] w-[1.25em]" /> : <ChevronDown className="h-[1.25em] w-[1.25em]" />}
             </Button>
 
             <Button
               variant="ghost"
               size="icon"
               onClick={onToggleTheme}
-              className="p-2"
+              className="w-[2.5rem] h-[2.5rem]"
             >
-              {isDark ? <Sun /> : <Moon />}
+              {isDark ? <Sun className="h-[1.25em] w-[1.25em]" /> : <Moon className="h-[1.25em] w-[1.25em]" />}
             </Button>
 
-
-            {/* Saved trips button */}
             <Button
               variant="ghost"
               size="icon"
               onClick={onOpenSavedTrips}
-              className="p-2 relative"
+              className="w-[2.5rem] h-[2.5rem] relative"
               title="Οι διαδρομές μου"
             >
-              <Bookmark />
+              <Bookmark className="h-[1.25em] w-[1.25em]" />
               {savedTripsCount > 0 && (
-                <span className="absolute top-1 right-1 h-[1em] w-[1em] rounded-full bg-primary text-[0.625rem] text-primary-foreground flex items-center justify-center">
+                <span className="absolute top-[0.375rem] right-[0.375rem] h-[0.875rem] w-[0.875rem] rounded-full bg-primary text-[0.55rem] text-primary-foreground flex items-center justify-center font-bold">
                   {savedTripsCount}
                 </span>
               )}
             </Button>
 
-            {/* Push Notifications button */}
             <div className="flex items-center">
               <NotificationButton />
             </div>
@@ -210,9 +211,9 @@ export function Header({
               <Button
                 variant="ghost"
                 size="icon"
-                className="p-2"
+                className="w-[2.5rem] h-[2.5rem]"
               >
-                <Download />
+                <Download className="h-[1.25em] w-[1.25em]" />
               </Button>
             </Link>
 
@@ -220,9 +221,9 @@ export function Header({
               variant="ghost"
               size="icon"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2"
+              className="w-[2.5rem] h-[2.5rem]"
             >
-              {mobileMenuOpen ? <X /> : <Menu />}
+              {mobileMenuOpen ? <X className="h-[1.25em] w-[1.25em]" /> : <Menu className="h-[1.25em] w-[1.25em]" />}
             </Button>
           </div>
         </div>
@@ -257,7 +258,7 @@ export function Header({
                   </div>
                 </div>
                 <p className="text-[0.6rem] sm:text-[0.7rem] text-muted-foreground font-medium flex items-center gap-[0.25rem] whitespace-nowrap">
-                  <span className="hidden sm:inline">Cyprus</span> Public Transport <span className="text-primary/70 font-bold ml-auto hidden sm:inline">v1.7.3</span>
+                  <span className="hidden sm:inline">Cyprus</span> Public Transport <span className="text-primary/70 font-bold ml-auto hidden sm:inline">v1.7.4</span>
                 </p>
               </div>
               {onShowLiveOnlyChange && (

@@ -497,9 +497,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               );
             })
           )}
-          <div className="text-[0.625rem] text-muted-foreground font-mono opacity-50 pb-safe">
-            v1.7.3 (MotionAG)
-          </div>
+          <p className="text-[0.7rem] text-muted-foreground mt-[0.25rem]">v1.7.4 (Adaptive Phase Complete)</p>
         </TabsContent>
 
         {/* General Info Tab */}
@@ -526,13 +524,10 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
             );
           })}
 
-          <div className="mt-4 p-3 rounded-lg bg-muted/50 text-center space-y-2">
+          <div className="mt-4 p-3 rounded-lg bg-muted/50 text-center">
             <p className="text-xs text-muted-foreground">
               Για περισσότερες πληροφορίες επικοινωνήστε με τον φορέα μεταφορών
             </p>
-            <div className="text-[0.625rem] text-gray-300 font-mono text-center opacity-50 pb-safe">
-              v1.7.3 (MotionAG)
-            </div>
           </div>
         </TabsContent>
       </Tabs>
