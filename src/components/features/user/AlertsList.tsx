@@ -119,94 +119,94 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
   return (
     <div className="h-full flex flex-col">
       <Tabs defaultValue="reminders" className="h-full flex flex-col">
-        <TabsList className="grid w-full grid-cols-3 mx-4 mt-2" style={{ width: 'calc(100% - 2rem)' }}>
-          <TabsTrigger value="reminders" className="text-xs gap-1">
-            <Bell className="h-3 w-3" />
-            Υπενθυμίσεις
+        <TabsList className="grid w-full grid-cols-3 gap-[0.5rem] px-[1rem] mt-[1rem]">
+          <TabsTrigger value="reminders" className="text-[0.75rem] gap-[0.25rem] min-h-[2.75rem]">
+            <Bell />
+            Υπενθ.
             {stopNotifications.filter(n => n.enabled).length > 0 && (
-              <Badge variant="default" className="ml-1 h-4 px-1 text-[10px]">
+              <Badge variant="default" className="ml-[0.25rem] h-[1.2rem] px-[0.25rem] text-[0.6rem]">
                 {stopNotifications.filter(n => n.enabled).length}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="alerts" className="text-xs gap-1">
-            <AlertTriangle className="h-3 w-3" />
-            Ανακοινώσεις
+          <TabsTrigger value="alerts" className="text-[0.75rem] gap-[0.25rem] min-h-[2.75rem]">
+            <AlertTriangle />
+            Ανακ.
             {alerts.length > 0 && (
-              <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
+              <Badge variant="secondary" className="ml-[0.25rem] h-[1.2rem] px-[0.25rem] text-[0.6rem]">
                 {alerts.length}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="info" className="text-xs gap-1">
-            <Info className="h-3 w-3" />
-            Πληροφορίες
+          <TabsTrigger value="info" className="text-[0.75rem] gap-[0.25rem] min-h-[2.75rem]">
+            <Info />
+            Πληροφ.
           </TabsTrigger>
         </TabsList>
 
         {/* Reminders Tab */}
         <TabsContent value="reminders" className="flex-1 overflow-auto p-4 space-y-3">
           {stopNotifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
-              <Bell className="h-12 w-12 mb-2 opacity-50" />
-              <p className="font-medium">Δεν έχετε υπενθυμίσεις</p>
-              <p className="text-sm text-center px-4">
+            <div className="flex flex-col items-center justify-center h-[12rem] text-muted-foreground">
+              <Bell className="h-[3rem] w-[3rem] mb-[0.5rem] opacity-50" />
+              <p className="font-medium text-[1rem]">Δεν έχετε υπενθυμίσεις</p>
+              <p className="text-[0.875rem] text-center px-[1rem]">
                 Πατήστε το κουμπί 🔔 σε μια στάση για να λαμβάνετε ειδοποιήσεις όταν πλησιάζει το λεωφορείο
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-[1rem]">
               {stopNotifications.map((notification) => (
                 <div
                   key={notification.stopId}
-                  className={`rounded-lg border p-3 animate-fade-in ${notification.enabled
+                  className={`rounded-[1rem] border p-[1rem] animate-fade-in ${notification.enabled
                     ? 'bg-primary/10 border-primary/30'
                     : 'bg-muted/30 border-muted-foreground/20'
                     }`}
                 >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${notification.enabled
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground'
-                        }`}
-                    >
-                      {notification.enabled ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-3 w-3 text-muted-foreground" />
-                        <h3 className="font-medium text-sm truncate">{notification.stopName}</h3>
-                      </div>
-                      <p className={`text-sm mt-1 ${notification.enabled ? 'text-primary' : 'text-muted-foreground'}`}>
-                        {notification.enabled ? '✓ Ενεργή ειδοποίηση' : 'Απενεργοποιημένη'}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                        <span>⏱️ {notification.beforeMinutes} λεπτά πριν</span>
-                        {notification.sound && <span>🔊</span>}
-                        {notification.vibration && <span>📳</span>}
-                        {notification.voice && <span>🗣️</span>}
-                        {notification.push && <span>📲</span>}
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => toggleNotification(notification.stopId)}
-                        title={notification.enabled ? 'Απενεργοποίηση' : 'Ενεργοποίηση'}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-[1rem]">
+                    <div className="flex items-start gap-[1rem] flex-1 min-w-0 w-full">
+                      <div
+                        className={`w-[2.75rem] h-[2.75rem] rounded-[0.75rem] flex items-center justify-center flex-shrink-0 ${notification.enabled
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground'
+                          }`}
                       >
-                        {notification.enabled ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+                        {notification.enabled ? <Bell /> : <BellOff />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-[0.5rem]">
+                          <MapPin className="text-muted-foreground" />
+                          <h3 className="font-bold text-[1rem] truncate">{notification.stopName}</h3>
+                        </div>
+                        <p className={`text-[0.875rem] mt-[0.25rem] ${notification.enabled ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                          {notification.enabled ? '✓ Ενεργή ειδοποίηση' : 'Απενεργοποιημένη'}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-[0.5rem] mt-[0.5rem] text-[0.75rem] text-muted-foreground">
+                          <span className="bg-muted px-[0.5rem] py-[0.125rem] rounded-full">⏱️ {notification.beforeMinutes}λ</span>
+                          {notification.voice && <span title="Φωνή">🗣️</span>}
+                          {notification.push && <span title="Push">📲</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex sm:flex-col gap-[0.5rem] w-full sm:w-auto mt-[0.5rem] sm:mt-0 pt-[0.5rem] sm:pt-0 border-t sm:border-t-0 border-border/50">
+                      <Button
+                        variant={notification.enabled ? "secondary" : "default"}
+                        size="sm"
+                        className="flex-1 sm:h-[2.5rem] sm:w-[2.5rem] p-0 gap-2"
+                        onClick={() => toggleNotification(notification.stopId)}
+                      >
+                        {notification.enabled ? <BellOff /> : <Bell />}
+                        <span className="sm:hidden">{notification.enabled ? 'Κλείσιμο' : 'Άνοιγμα'}</span>
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        className="flex-1 sm:h-[2.5rem] sm:w-[2.5rem] p-0 text-destructive hover:bg-destructive/10 gap-2"
                         onClick={() => removeNotification(notification.stopId)}
-                        title="Διαγραφή"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 />
+                        <span className="sm:hidden">Διαγραφή</span>
                       </Button>
                     </div>
                   </div>
@@ -272,8 +272,8 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
                 Ενεργοποίηση Φωνής (iOS Fix)
               </Button>
             </div>
-            <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground opacity-50">
-              v1.7.2 (MotionAG)
+            <Badge variant="outline" className="font-mono text-[0.625rem] text-muted-foreground opacity-50">
+              v1.7.3 (MotionAG)
             </Badge>
           </div>
         </TabsContent>
@@ -497,8 +497,8 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               );
             })
           )}
-          <div className="text-[10px] text-muted-foreground font-mono opacity-50 pb-safe">
-            v1.6.1 (MotionAG)
+          <div className="text-[0.625rem] text-muted-foreground font-mono opacity-50 pb-safe">
+            v1.7.3 (MotionAG)
           </div>
         </TabsContent>
 
@@ -530,8 +530,8 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
             <p className="text-xs text-muted-foreground">
               Για περισσότερες πληροφορίες επικοινωνήστε με τον φορέα μεταφορών
             </p>
-            <div className="text-[10px] text-gray-300 font-mono text-center opacity-50 pb-safe">
-              v1.6.1 (MotionAG)
+            <div className="text-[0.625rem] text-gray-300 font-mono text-center opacity-50 pb-safe">
+              v1.7.3 (MotionAG)
             </div>
           </div>
         </TabsContent>

@@ -2481,15 +2481,15 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       )}
 
 
-      {/* Right side controls toolbar - moves up ONLY on desktop when panel is visible */}
-      <div className={`absolute right-2 z-[1000] flex flex-col gap-1 transition-all duration-300 ${!isMobile && nearestStopWithArrivals && userLocation && !notificationModalStop ? 'bottom-[280px]' : 'top-2'}`}>
+      {/* Right side controls toolbar - repositioned for one-handed reachability */}
+      <div className={`absolute right-[0.5rem] z-[1000] flex flex-col gap-[0.5rem] transition-all duration-300 ${!isMobile && nearestStopWithArrivals && userLocation && !notificationModalStop ? 'bottom-[18rem]' : 'bottom-[8rem]'}`}>
 
         {/* Stop Following Button - show only when following a vehicle */}
         {followedVehicleId && (
           <Button
             variant="destructive"
             size="icon"
-            className="h-8 w-8 rounded-full shadow-md transition-all duration-150 active:scale-90 animate-pulse"
+            className="rounded-full shadow-lg transition-all duration-150 active:scale-95 animate-pulse"
             onClick={() => {
               setFollowedVehicleId(null);
               onFollowVehicle?.(null);
@@ -2501,7 +2501,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             }}
             title="Σταμάτα παρακολούθηση"
           >
-            <X className="h-4 w-4" />
+            <X />
           </Button>
         )}
 
@@ -2510,28 +2510,28 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         <Button
           variant="secondary"
           size="icon"
-          className={`h-8 w-8 rounded-full shadow-md transition-all duration-150 active:scale-90 ${showStops ? 'bg-orange-500 text-white hover:bg-orange-600' : 'bg-card/90 backdrop-blur-sm hover:bg-card hover:scale-105'}`}
+          className={`rounded-full shadow-lg transition-all duration-150 active:scale-95 ${showStops ? 'bg-orange-500 text-white hover:bg-orange-600' : 'bg-card/90 backdrop-blur-sm'}`}
           onClick={() => setShowStops(!showStops)}
           title={showStops ? `Απόκρυψη στάσεων (${stops.length})` : `Εμφάνιση στάσεων (${stops.length})`}
         >
-          <MapPin className="h-3.5 w-3.5" />
+          <MapPin />
         </Button>
 
         <Button
           variant="secondary"
           size="icon"
-          className="h-8 w-8 rounded-full shadow-md bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
+          className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
           onClick={locateUser}
           disabled={isLocating}
           title="Εντοπισμός τοποθεσίας"
         >
-          <LocateFixed className={`h-3.5 w-3.5 ${isLocating ? 'animate-pulse' : ''} ${userLocation ? 'text-blue-500' : ''}`} />
+          <LocateFixed className={`${isLocating ? 'animate-pulse' : ''} ${userLocation ? 'text-blue-500' : ''}`} />
         </Button>
 
         <Button
           variant="secondary"
           size="icon"
-          className="h-8 w-8 rounded-full shadow-md bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
+          className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
           title="Αρχική θέση"
           onClick={() => {
             if (mapRef.current) {
@@ -2539,38 +2539,38 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
             }
           }}
         >
-          <Home className="h-3.5 w-3.5" />
+          <Home />
         </Button>
 
         <Button
           variant="secondary"
           size="icon"
-          className={`h-8 w-8 rounded-full shadow-md backdrop-blur-sm transition-all duration-150 hover:scale-105 active:scale-90 ${mapStyle !== 'light' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-card/90 hover:bg-card'
+          className={`rounded-full shadow-lg backdrop-blur-sm transition-all duration-150 active:scale-95 ${mapStyle !== 'light' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-card/90 hover:bg-card'
             }`}
           title={mapStyle === 'light' ? 'Νυχτερινός χάρτης' : mapStyle === 'dark' ? 'Δορυφορικός χάρτης' : 'Κανονικός χάρτης'}
           onClick={() => setMapStyle(mapStyle === 'light' ? 'dark' : mapStyle === 'dark' ? 'satellite' : 'light')}
         >
-          <Layers className="h-3.5 w-3.5" />
+          <Layers />
         </Button>
 
         <Button
           variant="secondary"
           size="icon"
-          className="h-8 w-8 rounded-full shadow-md bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
+          className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
           title="Μεγέθυνση"
           onClick={() => mapRef.current?.zoomIn()}
         >
-          <ZoomIn className="h-3.5 w-3.5" />
+          <ZoomIn />
         </Button>
 
         <Button
           variant="secondary"
           size="icon"
-          className="h-8 w-8 rounded-full shadow-md bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
+          className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
           title="Σμίκρυνση"
           onClick={() => mapRef.current?.zoomOut()}
         >
-          <ZoomOut className="h-3.5 w-3.5" />
+          <ZoomOut />
         </Button>
 
         <Button

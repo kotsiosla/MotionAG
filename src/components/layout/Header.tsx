@@ -147,13 +147,13 @@ export function Header({
     <header className="glass-card border-b sticky top-0 z-50 safe-area-top flex-shrink-0">
       <div className="container mx-auto px-2 sm:px-4 py-1.5 sm:py-2">
         {/* Mobile Header */}
-        <div className="flex items-center justify-between gap-1 md:hidden">
-          <div className="flex items-center gap-1">
-            <AnimatedLogo height="0.875rem" className="sm:h-5" />
-            <h1 className="text-xs sm:text-sm font-bold tracking-tight truncate max-w-[80px] sm:max-w-none">GTFS Realtime</h1>
+        <div className="flex items-center justify-between gap-[0.5rem] md:hidden">
+          <div className="flex items-center gap-[0.5rem]">
+            <AnimatedLogo height="1.25em" className="h-auto" />
+            <h1 className="text-[0.75rem] sm:text-[0.875rem] font-bold tracking-tight truncate max-w-[5rem] sm:max-w-none">GTFS Realtime</h1>
           </div>
 
-          <div className="flex items-center gap-0.5 sm:gap-1">
+          <div className="flex flex-wrap items-center justify-end gap-[0.25rem]">
             {/* API Status indicator */}
             <ApiStatusIndicator
               isError={hasApiError}
@@ -169,19 +169,19 @@ export function Header({
               variant="ghost"
               size="icon"
               onClick={toggleTripPlanner}
-              className="h-6 w-6 sm:h-8 sm:w-8"
+              className="p-2"
               title={tripPlannerVisible ? "Απόκρυψη αναζήτησης" : "Εμφάνιση αναζήτησης"}
             >
-              {tripPlannerVisible ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              {tripPlannerVisible ? <ChevronUp /> : <ChevronDown />}
             </Button>
 
             <Button
               variant="ghost"
               size="icon"
               onClick={onToggleTheme}
-              className="h-6 w-6 sm:h-8 sm:w-8"
+              className="p-2"
             >
-              {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+              {isDark ? <Sun /> : <Moon />}
             </Button>
 
 
@@ -190,19 +190,19 @@ export function Header({
               variant="ghost"
               size="icon"
               onClick={onOpenSavedTrips}
-              className="h-6 w-6 sm:h-8 sm:w-8 relative"
+              className="p-2 relative"
               title="Οι διαδρομές μου"
             >
-              <Bookmark className="h-3.5 w-3.5" />
+              <Bookmark />
               {savedTripsCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-primary text-[8px] text-primary-foreground flex items-center justify-center">
+                <span className="absolute top-1 right-1 h-[1em] w-[1em] rounded-full bg-primary text-[0.625rem] text-primary-foreground flex items-center justify-center">
                   {savedTripsCount}
                 </span>
               )}
             </Button>
 
             {/* Push Notifications button */}
-            <div className="scale-90 sm:scale-100">
+            <div className="flex items-center">
               <NotificationButton />
             </div>
 
@@ -210,9 +210,9 @@ export function Header({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 sm:h-8 sm:w-8"
+                className="p-2"
               >
-                <Download className="h-3.5 w-3.5" />
+                <Download />
               </Button>
             </Link>
 
@@ -220,17 +220,17 @@ export function Header({
               variant="ghost"
               size="icon"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="h-7 w-7 sm:h-8 sm:w-8"
+              className="p-2"
             >
-              {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+              {mobileMenuOpen ? <X /> : <Menu />}
             </Button>
           </div>
         </div>
 
         {/* Mobile Expandable Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden mt-3 pt-3 border-t border-border/50 space-y-3">
-            <div className="grid grid-cols-2 gap-2">
+          <div className="md:hidden mt-[1rem] pt-[1rem] border-t border-border/50 space-y-[1rem]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-[1rem]">
               <OperatorSelector
                 value={selectedOperator}
                 onChange={onOperatorChange}
@@ -245,27 +245,41 @@ export function Header({
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-[1rem]">
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-[0.5rem]">
+                  <h1 className="text-[1.1rem] sm:text-[1.25rem] font-black tracking-tight text-foreground whitespace-nowrap overflow-hidden text-ellipsis">
+                    Motion <span className="text-primary hidden xs:inline">GTFS</span>
+                  </h1>
+                  <div className="hidden xs:flex items-center gap-[0.25rem] px-[0.5rem] py-[0.125rem] bg-green-500/10 border border-green-500/20 rounded-full">
+                    <div className="w-[0.5rem] h-[0.5rem] bg-green-500 rounded-full animate-pulse" />
+                    <span className="text-[0.625rem] font-bold text-green-600 uppercase tracking-wider">Live</span>
+                  </div>
+                </div>
+                <p className="text-[0.6rem] sm:text-[0.7rem] text-muted-foreground font-medium flex items-center gap-[0.25rem] whitespace-nowrap">
+                  <span className="hidden sm:inline">Cyprus</span> Public Transport <span className="text-primary/70 font-bold ml-auto hidden sm:inline">v1.7.3</span>
+                </p>
+              </div>
               {onShowLiveOnlyChange && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-[0.5rem]">
+                  <Label htmlFor="live-only-mobile" className="text-[0.75rem] text-muted-foreground cursor-pointer">
+                    Μόνο Live ({liveRoutesCount || 0})
+                  </Label>
                   <Switch
                     id="live-only-mobile"
                     checked={showLiveOnly}
                     onCheckedChange={onShowLiveOnlyChange}
                   />
-                  <Label htmlFor="live-only-mobile" className="text-xs text-muted-foreground cursor-pointer">
-                    Μόνο Live ({liveRoutesCount || 0})
-                  </Label>
                 </div>
               )}
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Ανανέωση:</span>
+              <div className="flex items-center justify-between gap-[0.5rem]">
+                <span className="text-[0.75rem] text-muted-foreground">Ανανέωση:</span>
                 <Select
                   value={refreshInterval.toString()}
                   onValueChange={(value) => onRefreshIntervalChange(parseInt(value))}
                 >
-                  <SelectTrigger className="w-[60px] h-7 text-xs">
+                  <SelectTrigger className="w-[5rem] h-[2.75rem] text-[0.75rem]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -279,7 +293,7 @@ export function Header({
             </div>
 
             {lastUpdate && (
-              <div className="text-xs text-muted-foreground text-center">
+              <div className="text-[0.75rem] text-muted-foreground text-center">
                 Τελ. ενημέρωση: {formatLastUpdate(lastUpdate)}
               </div>
             )}

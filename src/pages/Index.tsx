@@ -632,37 +632,9 @@ const Index = () => {
         <ErrorBanner message={errorMessage || "Αποτυχία σύνδεσης"} onRetry={handleRetry} />
       )}
 
-      <main className="flex-1 min-h-0 container mx-auto px-1 sm:px-4 py-1 sm:py-2 flex flex-col">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-5 mb-1 sm:mb-2 h-auto flex-shrink-0">
-            <TabsTrigger value="map" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-1.5 sm:py-2 px-0.5 sm:px-3">
-              <MapIcon className="h-4 w-4 text-green-600" />
-              <span className="text-[9px] sm:text-sm leading-tight">Live Χάρτης</span>
-            </TabsTrigger>
-            <TabsTrigger value="trips" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-1.5 sm:py-2 px-0.5 sm:px-3">
-              <Route className="h-4 w-4 text-green-600" />
-              <span className="text-[9px] sm:text-sm leading-tight">Live Δρομολόγια</span>
-            </TabsTrigger>
-            <TabsTrigger value="stops" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-1.5 sm:py-2 px-0.5 sm:px-3">
-              <MapPin className="h-4 w-4 text-green-600" />
-              <span className="text-[9px] sm:text-sm leading-tight">Live Στάσεις</span>
-            </TabsTrigger>
-            <TabsTrigger value="schedule" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-1.5 sm:py-2 px-0.5 sm:px-3">
-              <Calendar className="h-4 w-4" />
-              <span className="text-[9px] sm:text-sm leading-tight">Πρόγραμμα</span>
-            </TabsTrigger>
-            <TabsTrigger value="alerts" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-1.5 sm:py-2 px-0.5 sm:px-3 relative">
-              <Bell className="h-4 w-4" />
-              <span className="text-[9px] sm:text-sm leading-tight">Ειδοποιήσεις</span>
-              {alertCount > 0 && (
-                <span className="absolute top-0 right-0 w-4 h-4 bg-destructive text-destructive-foreground text-[9px] rounded-full flex items-center justify-center">
-                  {alertCount}
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
-
-          <div className="flex-1 min-h-0 glass-card rounded-lg overflow-hidden">
+      <main className="flex-1 min-h-0 container mx-auto px-[0.5rem] sm:px-[1rem] py-[0.5rem] flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col gap-[0.5rem]">
+          <div className="flex-1 min-h-0 glass-card rounded-[1.5rem] overflow-hidden border-none shadow-2xl relative">
             <TabsContent value="map" className="h-full m-0">
               <VehicleMap
                 vehicles={filteredVehicles}
@@ -688,7 +660,7 @@ const Index = () => {
               />
             </TabsContent>
 
-            <TabsContent value="trips" className="h-full m-0">
+            <TabsContent value="trips" className="h-full m-0 overflow-auto custom-scrollbar">
               <PullToRefresh onRefresh={handlePullRefresh} className="h-full">
                 <TripsTable
                   trips={filteredTrips}
@@ -711,7 +683,7 @@ const Index = () => {
               </PullToRefresh>
             </TabsContent>
 
-            <TabsContent value="stops" className="h-full m-0">
+            <TabsContent value="stops" className="h-full m-0 overflow-auto custom-scrollbar">
               <PullToRefresh onRefresh={handlePullRefresh} className="h-full">
                 <StopsView
                   trips={filteredTrips}
@@ -746,6 +718,34 @@ const Index = () => {
               </PullToRefresh>
             </TabsContent>
           </div>
+
+          <TabsList className="grid w-full grid-cols-5 h-auto flex-shrink-0 bg-card/90 backdrop-blur-xl rounded-[1.5rem] p-[0.375rem] shadow-2xl border border-white/10">
+            <TabsTrigger value="map" className="flex flex-col items-center gap-[0.25rem] py-[0.5rem] px-0 rounded-[1.125rem] transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
+              <MapIcon className="h-[1.25em] w-[1.25em]" />
+              <span className="text-[0.65rem] font-bold leading-tight">Χάρτης</span>
+            </TabsTrigger>
+            <TabsTrigger value="trips" className="flex flex-col items-center gap-[0.25rem] py-[0.5rem] px-0 rounded-[1.125rem] transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
+              <Route className="h-[1.25em] w-[1.25em]" />
+              <span className="text-[0.65rem] font-bold leading-tight">Διαδρομές</span>
+            </TabsTrigger>
+            <TabsTrigger value="stops" className="flex flex-col items-center gap-[0.25rem] py-[0.5rem] px-0 rounded-[1.125rem] transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
+              <MapPin className="h-[1.25em] w-[1.25em]" />
+              <span className="text-[0.65rem] font-bold leading-tight">Στάσεις</span>
+            </TabsTrigger>
+            <TabsTrigger value="schedule" className="flex flex-col items-center gap-[0.25rem] py-[0.5rem] px-0 rounded-[1.125rem] transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
+              <Calendar className="h-[1.25em] w-[1.25em]" />
+              <span className="text-[0.65rem] font-bold leading-tight">Πρόγραμμα</span>
+            </TabsTrigger>
+            <TabsTrigger value="alerts" className="flex flex-col items-center gap-[0.25rem] py-[0.5rem] px-0 relative rounded-[1.125rem] transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
+              <Bell className="h-[1.25em] w-[1.25em]" />
+              <span className="text-[0.65rem] font-bold leading-tight">Ειδοπ.</span>
+              {alertCount > 0 && (
+                <span className="absolute top-[0.375rem] right-[0.375rem] w-[1rem] h-[1rem] bg-destructive text-destructive-foreground text-[0.6rem] rounded-full flex items-center justify-center font-black border-2 border-background">
+                  {alertCount}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
         </Tabs>
       </main>
 

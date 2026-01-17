@@ -112,7 +112,7 @@ if ('serviceWorker' in navigator) {
           metadata: {
             step: 'SW_REGISTERED_MAIN',
             scope: registration.scope,
-            version: 'v1.7.2',
+            version: 'v1.7.3',
             timestamp: new Date().toISOString()
           }
         });
@@ -133,7 +133,7 @@ if ('serviceWorker' in navigator) {
           metadata: {
             step: 'SW_REGISTER_FAILED',
             error: String(error),
-            version: 'v1.7.2',
+            version: 'v1.7.3',
             timestamp: new Date().toISOString()
           }
         });
