@@ -725,24 +725,24 @@ const Index = () => {
 
           <TabsList className="grid w-full grid-cols-5 h-auto flex-shrink-0 bg-card/90 backdrop-blur-xl rounded-none sm:rounded-[1.5rem] p-[0.375rem] shadow-2xl border-t sm:border border-white/10 pb-safe">
             <TabsTrigger value="map" className="flex flex-col items-center gap-[0.25rem] py-[0.5rem] px-0 rounded-[1.125rem] transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
-              <MapIcon className="h-[1.25em] w-[1.25em]" />
-              <span className="text-[0.65rem] font-bold leading-tight">Χάρτης</span>
+              <MapIcon className="h-[1.25em] w-[1.25em] text-emerald-500 data-[state=active]:text-inherit" />
+              <span className="text-[0.65rem] font-bold leading-tight text-emerald-500 data-[state=active]:text-inherit">Χάρτης</span>
             </TabsTrigger>
             <TabsTrigger value="trips" className="flex flex-col items-center gap-[0.25rem] py-[0.5rem] px-0 rounded-[1.125rem] transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
-              <Route className="h-[1.25em] w-[1.25em]" />
-              <span className="text-[0.65rem] font-bold leading-tight">Διαδρομές</span>
+              <Route className="h-[1.25em] w-[1.25em] text-emerald-500 data-[state=active]:text-inherit" />
+              <span className="text-[0.65rem] font-bold leading-tight text-emerald-500 data-[state=active]:text-inherit">Διαδρομές</span>
             </TabsTrigger>
             <TabsTrigger value="stops" className="flex flex-col items-center gap-[0.25rem] py-[0.5rem] px-0 rounded-[1.125rem] transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
-              <MapPin className="h-[1.25em] w-[1.25em]" />
-              <span className="text-[0.65rem] font-bold leading-tight">Στάσεις</span>
+              <MapPin className="h-[1.25em] w-[1.25em] text-emerald-500 data-[state=active]:text-inherit" />
+              <span className="text-[0.65rem] font-bold leading-tight text-emerald-500 data-[state=active]:text-inherit">Στάσεις</span>
             </TabsTrigger>
             <TabsTrigger value="schedule" className="flex flex-col items-center gap-[0.25rem] py-[0.5rem] px-0 rounded-[1.125rem] transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
               <Calendar className="h-[1.25em] w-[1.25em]" />
               <span className="text-[0.65rem] font-bold leading-tight">Πρόγραμμα</span>
             </TabsTrigger>
             <TabsTrigger value="alerts" className="flex flex-col items-center gap-[0.25rem] py-[0.5rem] px-0 relative rounded-[1.125rem] transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
-              <Bell className="h-[1.25em] w-[1.25em]" />
-              <span className="text-[0.65rem] font-bold leading-tight">Ειδοπ.</span>
+              <Bell className="h-[1.25em] w-[1.25em] text-red-500 data-[state=active]:text-inherit" />
+              <span className="text-[0.65rem] font-bold leading-tight text-red-500 data-[state=active]:text-inherit">Ειδοπ.</span>
               {alertCount > 0 && (
                 <span className="absolute top-[0.375rem] right-[0.375rem] w-[1rem] h-[1rem] bg-destructive text-destructive-foreground text-[0.6rem] rounded-full flex items-center justify-center font-black border-2 border-background">
                   {alertCount}

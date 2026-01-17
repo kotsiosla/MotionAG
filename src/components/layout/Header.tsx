@@ -150,9 +150,8 @@ export function Header({
         <div className="flex items-center justify-between gap-[0.375rem] md:hidden">
           <div className="flex items-center gap-[0.25rem] flex-shrink-0">
             <AnimatedLogo height="1rem" className="h-auto" />
-            <div className="flex items-center gap-[0.125rem] px-[0.375rem] py-[0.125rem] bg-green-500/10 border border-green-500/20 rounded-full">
+            <div className="flex items-center gap-[0.125rem] px-[0.25rem] py-[0.125rem] bg-green-500/10 border border-green-500/20 rounded-full">
               <div className="w-[0.375rem] h-[0.375rem] bg-green-500 rounded-full animate-pulse" />
-              <span className="text-[0.55rem] font-bold text-green-600 uppercase tracking-tighter">Live</span>
             </div>
           </div>
 
@@ -257,7 +256,7 @@ export function Header({
                   </div>
                 </div>
                 <p className="text-[0.6rem] sm:text-[0.7rem] text-muted-foreground font-medium flex items-center gap-[0.25rem] whitespace-nowrap">
-                  <span className="hidden sm:inline">Cyprus</span> Public Transport <span className="text-primary/70 font-bold ml-auto hidden sm:inline">v1.7.5</span>
+                  <span className="hidden sm:inline">Cyprus</span> Public Transport <span className="text-primary/70 font-bold ml-auto hidden sm:inline">v1.7.6</span>
                 </p>
               </div>
               {onShowLiveOnlyChange && (

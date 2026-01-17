@@ -497,7 +497,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               );
             })
           )}
-          <p className="text-[0.7rem] text-muted-foreground mt-[0.25rem]">v1.7.5 (Adaptive Phase Complete)</p>
+          <p className="text-[0.7rem] text-muted-foreground mt-[0.25rem]">v1.7.6 (Adaptive Phase Complete)</p>
         </TabsContent>
 
         {/* General Info Tab */}
