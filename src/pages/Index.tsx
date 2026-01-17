@@ -423,13 +423,16 @@ const Index = () => {
   const filteredVehicles = useMemo(() => {
     const vehicles = effectiveVehiclesData?.data || [];
     if (selectedRoute === "all") return vehicles;
-    return vehicles.filter(v => v.routeId === selectedRoute);
+
+    // Robust comparison for route IDs (handle string/number differences)
+    return vehicles.filter(v => String(v.routeId) === String(selectedRoute));
   }, [effectiveVehiclesData, selectedRoute]);
 
   const filteredTrips = useMemo(() => {
     const trips = effectiveTripsData?.data || [];
     if (selectedRoute === "all") return trips;
-    return trips.filter(t => t.routeId === selectedRoute);
+    // Robust comparison for route IDs
+    return trips.filter(t => String(t.routeId) === String(selectedRoute));
   }, [effectiveTripsData, selectedRoute]);
 
   useEffect(() => {
