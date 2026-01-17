@@ -713,6 +713,7 @@ const Index = () => {
                   setSelectedRoute(routeId);
                   setActiveTab("map");
                 }}
+                onUnsyncedRouteSelect={setSelectedRoute}
               />
             </TabsContent>
 

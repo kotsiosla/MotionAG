@@ -21,6 +21,7 @@ interface ScheduleViewProps {
   onOperatorChange: (operator: string) => void;
   selectedRoute?: string;
   onRouteSelect?: (routeId: string) => void;
+  onUnsyncedRouteSelect?: (routeId: string) => void;
 }
 
 // Filter out 'all' option for schedule view - user must pick a specific operator
@@ -66,7 +67,8 @@ export function ScheduleView({
   selectedOperator,
   onOperatorChange,
   selectedRoute: externalSelectedRoute,
-  onRouteSelect
+  onRouteSelect,
+  onUnsyncedRouteSelect
 }: ScheduleViewProps) {
   const [selectedRoute, setSelectedRoute] = useState<string>(externalSelectedRoute || "");
   const [selectedDirection, setSelectedDirection] = useState<number>(0);
@@ -781,11 +783,14 @@ export function ScheduleView({
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Γραμμή</label>
           <Select
-            value={selectedRoute}
-            onValueChange={setSelectedRoute}
+            value={selectedRoute === 'all' ? '' : selectedRoute}
+            onValueChange={(val) => {
+              setSelectedRoute(val);
+              if (onUnsyncedRouteSelect) onUnsyncedRouteSelect(val);
+            }}
             disabled={!selectedOperator || selectedOperator === 'all' || routesQuery.isLoading}
           >
-            <SelectTrigger className="w-[calc(100vw-48px)] sm:w-[300px]">
+            <SelectTrigger className="w-[calc(100vw-48px)] sm:w-[300px]" disabled={!selectedOperator || selectedOperator === 'all' || routesQuery.isLoading}>
               <SelectValue placeholder={routesQuery.isLoading ? "Φόρτωση..." : "Επιλέξτε γραμμή"} />
             </SelectTrigger>
             <SelectContent className="bg-popover z-50 max-h-[300px]">
@@ -799,33 +804,6 @@ export function ScheduleView({
                       {route.route_short_name}
                     </span>
                     <span className="truncate flex-1">{route.route_long_name}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 p-0 hover:bg-transparent flex-shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const wasFavorite = isFavorite(route.route_id);
-                        toggleFavorite(route.route_id);
-                        if (!wasFavorite) {
-                          // Show notification when route is added to favorites
-                          toast({
-                            title: "✅ Δρομολόγιο προστέθηκε",
-                            description: `Το δρομολόγιο "${route.route_short_name || route.route_id}" προστέθηκε στα αγαπημένα`,
-                          });
-                          // Also send browser notification if permission granted
-                          if ('Notification' in window && Notification.permission === 'granted') {
-                            new Notification('🚌 Δρομολόγιο προστέθηκε', {
-                              body: `Το δρομολόγιο "${route.route_short_name || route.route_id}" προστέθηκε στα αγαπημένα`,
-                              icon: '/pwa-192x192.png',
-                              tag: 'favorite-route-added',
-                            });
-                          }
-                        }
-                      }}
-                    >
-                      <Star className={cn("h-3.5 w-3.5", isFavorite(route.route_id) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground")} />
-                    </Button>
                   </div>
                 </SelectItem>
               ))}
