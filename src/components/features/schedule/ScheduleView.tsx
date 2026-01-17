@@ -66,19 +66,18 @@ const calculateRouteDistance = (shape: Array<{ lat: number; lng: number }>): num
 export function ScheduleView({
   selectedOperator,
   onOperatorChange,
-  selectedRoute: externalSelectedRoute,
+  selectedRoute = "",
   onRouteSelect,
   onUnsyncedRouteSelect
 }: ScheduleViewProps) {
-  const [selectedRoute, setSelectedRoute] = useState<string>(externalSelectedRoute || "");
+  // Use prop directly - treat 'all' as empty
+  const effectiveRouteId = selectedRoute === 'all' ? "" : selectedRoute;
   const [selectedDirection, setSelectedDirection] = useState<number>(0);
 
-  // Sync with external route selection
+  // Reset direction when route changes
   useEffect(() => {
-    if (externalSelectedRoute) {
-      setSelectedRoute(externalSelectedRoute);
-    }
-  }, [externalSelectedRoute]);
+    setSelectedDirection(0);
+  }, [effectiveRouteId]);
 
   const { favoriteRouteIds, isFavorite, toggleFavorite } = useFavoriteRouteIds();
   const [mapReady, setMapReady] = useState(false);
@@ -101,13 +100,13 @@ export function ScheduleView({
 
   // Fetch schedule for selected route
   const scheduleQuery = useRouteSchedule(
-    selectedRoute || null,
+    effectiveRouteId || null,
     selectedOperator !== 'all' ? selectedOperator : undefined
   );
 
   // Fetch route shape data (includes stops and shape points)
   const routeShapeQuery = useRouteShape(
-    selectedRoute || null,
+    effectiveRouteId || null,
     selectedOperator !== 'all' ? selectedOperator : undefined
   );
 
@@ -134,8 +133,8 @@ export function ScheduleView({
 
   // Get selected route info
   const selectedRouteInfo = useMemo(() => {
-    return sortedRoutes.find(r => r.route_id === selectedRoute);
-  }, [sortedRoutes, selectedRoute]);
+    return sortedRoutes.find(r => r.route_id === effectiveRouteId);
+  }, [sortedRoutes, effectiveRouteId]);
 
 
 
@@ -162,7 +161,7 @@ export function ScheduleView({
 
   // Initialize map when route is selected - simple approach like VehicleMap
   useEffect(() => {
-    if (!selectedRoute) {
+    if (!effectiveRouteId) {
       // Cleanup when no route selected
       if (mapRef.current) {
         mapRef.current.remove();
@@ -400,11 +399,11 @@ export function ScheduleView({
         lastFittedRouteRef.current = null;
       };
     }
-  }, [selectedRoute, handleResize]); // CRITICAL FIX: Add handleResize to dependencies
+  }, [effectiveRouteId, handleResize]); // CRITICAL FIX: Add handleResize to dependencies
 
   // Ensure map is visible and resized when data changes
   useEffect(() => {
-    if (!mapRef.current || !selectedRoute) return;
+    if (!mapRef.current || !effectiveRouteId) return;
 
     // Always ensure map is properly sized
     setTimeout(() => {
@@ -414,7 +413,7 @@ export function ScheduleView({
         console.log('[ScheduleView] Map resized, size:', size);
       }
     }, 200);
-  }, [selectedRoute, routeShapeQuery.data, mapReady]);
+  }, [effectiveRouteId, routeShapeQuery.data, mapReady]);
 
   // Draw route shape and stops on map
   useEffect(() => {
@@ -423,7 +422,7 @@ export function ScheduleView({
       return;
     }
 
-    if (!selectedRoute) {
+    if (!effectiveRouteId) {
       console.log('[ScheduleView] No route selected');
       return;
     }
@@ -431,7 +430,7 @@ export function ScheduleView({
     const map = mapRef.current;
 
     if (!routeShapeQuery.data || !routeShapeQuery.data.directions || routeShapeQuery.data.directions.length === 0) {
-      console.warn('[ScheduleView] No route shape data available for route:', selectedRoute);
+      console.warn('[ScheduleView] No route shape data available for route:', effectiveRouteId);
       if (routeShapeQuery.isError) {
         console.error('[ScheduleView] Route shape query error:', routeShapeQuery.error);
       }
@@ -507,7 +506,7 @@ export function ScheduleView({
         // Only auto-fit if:
         // 1. Route has changed (not just direction)
         // 2. User hasn't manually interacted with the map
-        const routeKey = `${selectedRoute}-${selectedDirection}`;
+        const routeKey = `${effectiveRouteId}-${selectedDirection}`;
         const shouldAutoFit = !userInteractedRef.current || lastFittedRouteRef.current !== routeKey;
 
         if (shouldAutoFit) {
@@ -713,7 +712,10 @@ export function ScheduleView({
                     backgroundColor: routeColor,
                     color: textColor,
                   } : { borderColor: routeColor }}
-                  onClick={() => setSelectedRoute(isSelected ? '' : route.route_id)}
+                  onClick={() => {
+                    const newValue = isSelected ? '' : route.route_id;
+                    if (onUnsyncedRouteSelect) onUnsyncedRouteSelect(newValue);
+                  }}
                   title={route.route_long_name || route.route_short_name}
                 >
                   <Bus className="h-5 w-5" style={{ color: isSelected ? textColor : routeColor }} />
@@ -747,15 +749,18 @@ export function ScheduleView({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 text-xs gap-1"
-              onClick={() => setSelectedRoute('')}
+              className="h-6 w-auto px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                if (onUnsyncedRouteSelect) onUnsyncedRouteSelect("");
+              }}
             >
               <X className="h-3 w-3" />
               Καθαρισμός επιλογής
             </Button>
           )}
         </div>
-      )}
+      )
+      }
 
       {/* Operator & Route Selection */}
       <div className="flex flex-wrap gap-3 mb-4">
@@ -764,7 +769,7 @@ export function ScheduleView({
           <label className="text-xs text-muted-foreground">Φορέας</label>
           <Select value={selectedOperator} onValueChange={(val) => {
             onOperatorChange(val);
-            setSelectedRoute("");
+            if (onUnsyncedRouteSelect) onUnsyncedRouteSelect("");
           }}>
             <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="Επιλέξτε φορέα" />
@@ -783,9 +788,8 @@ export function ScheduleView({
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Γραμμή</label>
           <Select
-            value={selectedRoute === 'all' ? '' : selectedRoute}
+            value={effectiveRouteId}
             onValueChange={(val) => {
-              setSelectedRoute(val);
               if (onUnsyncedRouteSelect) onUnsyncedRouteSelect(val);
             }}
             disabled={!selectedOperator || selectedOperator === 'all' || routesQuery.isLoading}
@@ -813,281 +817,287 @@ export function ScheduleView({
       </div>
 
       {/* Schedule Content */}
-      {!selectedRoute ? (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          <div className="text-center">
-            <Bus className="h-12 w-12 mx-auto mb-2 opacity-30" />
-            <p>Επιλέξτε φορέα και γραμμή για να δείτε το πρόγραμμα</p>
+      {
+        !effectiveRouteId ? (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+            <div className="text-center">
+              <Bus className="h-12 w-12 mx-auto mb-2 opacity-30" />
+              <p>Επιλέξτε φορέα και γραμμή για να δείτε το πρόγραμμα</p>
+            </div>
           </div>
-        </div>
-      ) : scheduleQuery.isLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Route Info Header */}
-          {selectedRouteInfo && (
-            <div
-              className="p-3 rounded-lg mb-3 flex items-center justify-between gap-3 shadow-md"
-              style={{ backgroundColor: bgColor }}
-            >
-              <div className="flex items-center gap-3">
-                <span className="bg-white/20 text-white text-lg font-bold px-3 py-1 rounded">
-                  {selectedRouteInfo.route_short_name}
-                </span>
-                <span className="text-white font-medium">
-                  {selectedRouteInfo.route_long_name}
-                </span>
-              </div>
-
-              {onRouteSelect && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="h-8 shadow-sm font-bold bg-white text-black hover:bg-white/90"
-                  onClick={() => onRouteSelect(selectedRoute!)}
-                >
-                  <MapPin className="h-4 w-4 mr-1.5" />
-                  Live Χάρτης
-                </Button>
-              )}
-            </div>
-          )}
-
-          {/* Split Layout: Left = Map/Shape, Right = Schedule by Week */}
-          {routeShapeQuery.isLoading ? (
-            <div className="mb-4 p-4 rounded-lg border bg-muted/30 flex items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
-              <span className="text-sm text-muted-foreground">Φόρτωση χάρτη διαδρομής...</span>
-            </div>
-          ) : routeShapeQuery.data && routeShapeQuery.data.directions && routeShapeQuery.data.directions.length > 0 ? (
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 overflow-hidden" style={{ height: 'calc(100% - 20px)', minHeight: '500px' }}>
-              {/* Left: Map with Shape File and Distance in km */}
-              <div className="flex flex-col space-y-2 lg:space-y-3 h-full min-h-0">
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <RouteIcon className="h-4 w-4 lg:h-5 lg:w-5 text-primary" />
-                  <h3 className="text-sm lg:text-base font-semibold">Χάρτης Διαδρομής</h3>
+        ) : scheduleQuery.isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Route Info Header */}
+            {selectedRouteInfo && (
+              <div
+                className="p-3 rounded-lg mb-3 flex items-center justify-between gap-3 shadow-md"
+                style={{ backgroundColor: bgColor }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="bg-white/20 text-white text-lg font-bold px-3 py-1 rounded">
+                    {selectedRouteInfo.route_short_name}
+                  </span>
+                  <span className="text-white font-medium">
+                    {selectedRouteInfo.route_long_name}
+                  </span>
                 </div>
 
-                {/* Direction Tabs */}
-                {routeShapeQuery.data.directions.length > 1 && (
-                  <div className="flex gap-2 flex-shrink-0">
-                    {routeShapeQuery.data.directions.map((dir, idx) => (
-                      <Button
-                        key={dir.direction_id || idx}
-                        variant={selectedDirection === (dir.direction_id ?? idx) ? "default" : "outline"}
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => setSelectedDirection(dir.direction_id ?? idx)}
-                      >
-                        {dir.direction_id === 0 ? "Μετάβαση" : "Επιστροφή"} {(dir as any).direction_name ? `(${(dir as any).direction_name})` : ''}
-                      </Button>
-                    ))}
-                  </div>
+                {onRouteSelect && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 shadow-sm font-bold bg-white text-black hover:bg-white/90"
+                    onClick={() => onRouteSelect(effectiveRouteId)}
+                  >
+                    <MapPin className="h-4 w-4 mr-1.5" />
+                    Live Χάρτης
+                  </Button>
                 )}
+              </div>
+            )}
 
-                {/* Selected Direction Info */}
-                {(() => {
-                  const currentDirection = routeShapeQuery.data.directions.find(
-                    d => (d.direction_id ?? routeShapeQuery.data!.directions.indexOf(d)) === selectedDirection
-                  ) || routeShapeQuery.data.directions[0];
+            {/* Split Layout: Left = Map/Shape, Right = Schedule by Week */}
+            {routeShapeQuery.isLoading ? (
+              <div className="mb-4 p-4 rounded-lg border bg-muted/30 flex items-center justify-center">
+                <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
+                <span className="text-sm text-muted-foreground">Φόρτωση χάρτη διαδρομής...</span>
+              </div>
+            ) : routeShapeQuery.data && routeShapeQuery.data.directions && routeShapeQuery.data.directions.length > 0 ? (
+              <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 overflow-hidden" style={{ height: 'calc(100% - 20px)', minHeight: '500px' }}>
+                {/* Left: Map with Shape File and Distance in km */}
+                <div className="flex flex-col space-y-2 lg:space-y-3 h-full min-h-0">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <RouteIcon className="h-4 w-4 lg:h-5 lg:w-5 text-primary" />
+                    <h3 className="text-sm lg:text-base font-semibold">Χάρτης Διαδρομής</h3>
+                  </div>
 
-                  if (!currentDirection) return null;
-
-                  const distanceKm = calculateRouteDistance(currentDirection.shape || []);
-                  const stopsCount = currentDirection.stops?.length || 0;
-
-                  return (
-                    <div className="flex-1 flex flex-col space-y-2 lg:space-y-3" style={{ height: '100%', minHeight: 0 }}>
-                      {/* Statistics */}
-                      <div className="grid grid-cols-2 gap-2 lg:gap-3 flex-shrink-0">
-                        <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Navigation className="h-4 w-4 text-primary" />
-                            <span className="text-xs text-muted-foreground">Συνολική Διαδρομή</span>
-                          </div>
-                          <div className="text-xl font-bold">{distanceKm.toFixed(2)} km</div>
-                        </div>
-                        <div className="p-3 rounded-lg bg-secondary/50 border">
-                          <div className="flex items-center gap-2 mb-1">
-                            <MapPin className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">Στάσεις</span>
-                          </div>
-                          <div className="text-xl font-bold">{stopsCount}</div>
-                        </div>
-                      </div>
-
-                      {/* Map with Route Shape and Stops */}
-                      <div className="flex-1 rounded-lg border overflow-hidden bg-muted/30 relative min-h-[300px] sm:min-h-[400px] lg:min-h-0">
-                        <div
-                          ref={mapContainerRef}
-                          className="w-full h-full"
-                          style={{ minHeight: '300px', height: '100%' }}
-                        />
-                        {!mapReady && (
-                          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground z-50 bg-background/95 pointer-events-none">
-                            <div className="text-center pointer-events-auto">
-                              <Loader2 className="h-12 w-12 mx-auto mb-2 opacity-30 animate-spin" />
-                              <p className="text-sm">Προετοιμασία χάρτη...</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                  {/* Direction Tabs */}
+                  {routeShapeQuery.data.directions.length > 1 && (
+                    <div className="flex gap-2 flex-shrink-0">
+                      {routeShapeQuery.data.directions.map((dir, idx) => (
+                        <Button
+                          key={dir.direction_id || idx}
+                          variant={selectedDirection === (dir.direction_id ?? idx) ? "default" : "outline"}
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setSelectedDirection(dir.direction_id ?? idx)}
+                        >
+                          {dir.direction_id === 0 ? "Μετάβαση" : "Επιστροφή"} {(dir as any).direction_name ? `(${(dir as any).direction_name})` : ''}
+                        </Button>
+                      ))}
                     </div>
-                  );
-                })()}
-              </div>
+                  )}
 
-              {/* Right: Schedule by Week */}
-              <div className="flex flex-col overflow-hidden space-y-3 h-full">
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Calendar className="h-5 w-5 text-primary" />
-                  <h3 className="text-base font-semibold">Πρόγραμμα Εβδομάδας</h3>
-                </div>
+                  {/* Selected Direction Info */}
+                  {(() => {
+                    const currentDirection = routeShapeQuery.data.directions.find(
+                      d => (d.direction_id ?? routeShapeQuery.data!.directions.indexOf(d)) === selectedDirection
+                    ) || routeShapeQuery.data.directions[0];
 
-                {/* Direction Selector */}
-                {availableDirections.length > 1 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Κατεύθυνση:</span>
-                    {availableDirections.map((dir) => (
-                      <Button
-                        key={dir}
-                        variant={selectedDirection === dir ? "default" : "outline"}
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => setSelectedDirection(dir)}
-                      >
-                        {dir === 0 ? "Μετάβαση" : "Επιστροφή"}
-                      </Button>
-                    ))}
-                  </div>
-                )}
+                    if (!currentDirection) return null;
 
-                {/* Schedule for all days - compute trips for each day */}
-                {(() => {
-                  const scheduleData = scheduleQuery.data;
-                  const directionSchedule = scheduleData?.by_direction[selectedDirection] || scheduleData?.schedule || [];
+                    const distanceKm = calculateRouteDistance(currentDirection.shape || []);
+                    const stopsCount = currentDirection.stops?.length || 0;
 
-                  // Calculate trips for each day
-                  const tripsByDay = dayNames.map((_, dayIdx) => {
-                    let dayServiceIds = new Set<string>();
+                    return (
+                      <div className="flex-1 flex flex-col space-y-2 lg:space-y-3" style={{ height: '100%', minHeight: 0 }}>
+                        {/* Statistics */}
+                        <div className="grid grid-cols-2 gap-2 lg:gap-3 flex-shrink-0">
+                          <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Navigation className="h-4 w-4 text-primary" />
+                              <span className="text-xs text-muted-foreground">Συνολική Διαδρομή</span>
+                            </div>
+                            <div className="text-xl font-bold">{distanceKm.toFixed(2)} km</div>
+                          </div>
+                          <div className="p-3 rounded-lg bg-secondary/50 border">
+                            <div className="flex items-center gap-2 mb-1">
+                              <MapPin className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">Στάσεις</span>
+                            </div>
+                            <div className="text-xl font-bold">{stopsCount}</div>
+                          </div>
+                        </div>
 
-                    if (scheduleData) {
-                      if (scheduleData.calendar && scheduleData.calendar.length > 0) {
-                        const dayKey = dayKeys[dayIdx];
-                        dayServiceIds = new Set(
-                          scheduleData.calendar
-                            .filter(cal => cal[dayKey])
-                            .map(cal => cal.service_id)
-                        );
-                      } else if (scheduleData.calendar_dates && scheduleData.calendar_dates.length > 0) {
-                        const now = new Date();
-                        const targetDate = new Date(now);
-                        const dayDiff = dayIdx - now.getDay();
-                        targetDate.setDate(now.getDate() + dayDiff);
-                        const dateStr = targetDate.toISOString().slice(0, 10).replace(/-/g, '');
-
-                        dayServiceIds = new Set(
-                          scheduleData.calendar_dates
-                            .filter(cd => cd.date === dateStr && cd.exception_type === 1)
-                            .map(cd => cd.service_id)
-                        );
-                      }
-                    }
-
-                    let filtered = directionSchedule;
-                    if (dayServiceIds.size > 0 && filtered.length > 0) {
-                      filtered = filtered.filter(entry => dayServiceIds.has(entry.service_id));
-                    }
-
-                    return [...filtered].sort((a, b) => a.departure_minutes - b.departure_minutes);
-                  });
-
-                  const now = new Date();
-                  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-                  // Reorder days to start from today
-                  const reorderedDays = [];
-                  for (let i = 0; i < dayNames.length; i++) {
-                    const dayIdx = (today + i) % dayNames.length;
-                    reorderedDays.push({ dayIdx, dayName: dayNames[dayIdx], dayTrips: tripsByDay[dayIdx] });
-                  }
-
-                  return (
-                    <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-2 lg:space-y-3 pr-1 lg:pr-2 scrollbar-thin">
-                      {reorderedDays.map(({ dayIdx, dayName, dayTrips }) => {
-                        const isToday = dayIdx === today;
-
-                        return (
+                        {/* Map with Route Shape and Stops */}
+                        <div className="flex-1 rounded-lg border overflow-hidden bg-muted/30 relative min-h-[300px] sm:min-h-[400px] lg:min-h-0">
                           <div
-                            key={dayIdx}
-                            className={cn(
-                              "p-2 lg:p-3 rounded-lg border bg-card flex-shrink-0",
-                              isToday && "ring-2 ring-primary/50 bg-primary/5"
-                            )}
-                          >
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className={cn(
-                                "text-xs lg:text-sm font-semibold",
-                                isToday && "text-primary"
-                              )}>
-                                {dayName}
-                                {isToday && <span className="ml-1 text-[10px] lg:text-xs">(σήμερα)</span>}
-                              </span>
-                              <span className="text-[10px] lg:text-xs text-muted-foreground ml-auto">
-                                {dayTrips.length} δρομολόγια
-                              </span>
+                            ref={mapContainerRef}
+                            className="w-full h-full"
+                            style={{ minHeight: '300px', height: '100%' }}
+                          />
+                          {!mapReady && (
+                            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground z-50 bg-background/95 pointer-events-none">
+                              <div className="text-center pointer-events-auto">
+                                <Loader2 className="h-12 w-12 mx-auto mb-2 opacity-30 animate-spin" />
+                                <p className="text-sm">Προετοιμασία χάρτη...</p>
+                              </div>
                             </div>
-                            {dayTrips.length === 0 ? (
-                              <div className="text-xs text-muted-foreground py-2">
-                                Δεν υπάρχουν δρομολόγια
-                              </div>
-                            ) : (
-                              <div
-                                className="flex gap-1.5 overflow-x-auto overflow-y-hidden pb-2 -mx-1 px-1"
-                                style={{
-                                  scrollbarWidth: 'thin',
-                                  WebkitOverflowScrolling: 'touch',
-                                  scrollBehavior: 'smooth',
-                                }}
-                              >
-                                {dayTrips.map((entry) => {
-                                  const isPast = isToday && entry.departure_minutes < currentMinutes;
-                                  const isNext = isToday && !isPast &&
-                                    entry.departure_minutes >= currentMinutes &&
-                                    (dayTrips.findIndex(t => t.trip_id === entry.trip_id) === 0 ||
-                                      dayTrips[dayTrips.findIndex(t => t.trip_id === entry.trip_id) - 1]?.departure_minutes < currentMinutes);
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
 
-                                  return (
-                                    <span
-                                      key={entry.trip_id}
-                                      className={cn(
-                                        "inline-flex items-center justify-center px-2.5 py-1 rounded-md text-xs font-mono transition-all flex-shrink-0",
-                                        "select-none touch-none", // Prevent text selection and touch callouts
-                                        isPast && "bg-muted/50 text-muted-foreground/50",
-                                        isNext && "bg-primary text-white shadow-md scale-105 ring-2 ring-primary/30",
-                                        !isPast && !isNext && "bg-primary/20 border border-primary/30",
-                                      )}
-                                      style={!isPast && !isNext ? { color: bgColor, borderColor: bgColor } : undefined}
-                                    >
-                                      {entry.departure_time}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                {/* Right: Schedule by Week */}
+                <div className="flex flex-col overflow-hidden space-y-3 h-full">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    <h3 className="text-base font-semibold">Πρόγραμμα Εβδομάδας</h3>
+                  </div>
+
+                  {/* Direction Selector */}
+                  {availableDirections.length > 1 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Κατεύθυνση:</span>
+                      {availableDirections.map((dir) => (
+                        <Button
+                          key={dir}
+                          variant={selectedDirection === dir ? "default" : "outline"}
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setSelectedDirection(dir)}
+                        >
+                          {dir === 0 ? "Μετάβαση" : "Επιστροφή"}
+                        </Button>
+                      ))}
                     </div>
-                  );
-                })()}
+                  )}
+
+                  {/* Schedule for all days - compute trips for each day */}
+                  {(() => {
+                    const scheduleData = scheduleQuery.data;
+                    const directionSchedule = scheduleData?.by_direction[selectedDirection] || scheduleData?.schedule || [];
+
+                    // Calculate trips for each day
+                    const tripsByDay = dayNames.map((_, dayIdx) => {
+                      let dayServiceIds = new Set<string>();
+
+                      if (scheduleData) {
+                        if (scheduleData.calendar && scheduleData.calendar.length > 0) {
+                          const dayKey = dayKeys[dayIdx];
+                          dayServiceIds = new Set(
+                            scheduleData.calendar
+                              .filter(cal => cal[dayKey])
+                              .map(cal => cal.service_id)
+                          );
+                        } else if (scheduleData.calendar_dates && scheduleData.calendar_dates.length > 0) {
+                          const now = new Date();
+                          const targetDate = new Date(now);
+                          const dayDiff = dayIdx - now.getDay();
+                          targetDate.setDate(now.getDate() + dayDiff);
+                          const dateStr = targetDate.toISOString().slice(0, 10).replace(/-/g, '');
+
+                          dayServiceIds = new Set(
+                            scheduleData.calendar_dates
+                              .filter(cd => cd.date === dateStr && cd.exception_type === 1)
+                              .map(cd => cd.service_id)
+                          );
+                        }
+                      }
+                      // Define bgColor for schedule usage
+                      const bgColor = selectedRouteInfo?.route_color ?
+                        `#${selectedRouteInfo.route_color}` :
+                        'hsl(var(--primary))';
+
+                      let filtered = directionSchedule;
+                      if (dayServiceIds.size > 0 && filtered.length > 0) {
+                        filtered = filtered.filter(entry => dayServiceIds.has(entry.service_id));
+                      }
+
+                      return [...filtered].sort((a, b) => a.departure_minutes - b.departure_minutes);
+                    });
+
+                    const now = new Date();
+                    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+                    // Reorder days to start from today
+                    const reorderedDays = [];
+                    for (let i = 0; i < dayNames.length; i++) {
+                      const dayIdx = (today + i) % dayNames.length;
+                      reorderedDays.push({ dayIdx, dayName: dayNames[dayIdx], dayTrips: tripsByDay[dayIdx] });
+                    }
+
+                    return (
+                      <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-2 lg:space-y-3 pr-1 lg:pr-2 scrollbar-thin">
+                        {reorderedDays.map(({ dayIdx, dayName, dayTrips }) => {
+                          const isToday = dayIdx === today;
+
+                          return (
+                            <div
+                              key={dayIdx}
+                              className={cn(
+                                "p-2 lg:p-3 rounded-lg border bg-card flex-shrink-0",
+                                isToday && "ring-2 ring-primary/50 bg-primary/5"
+                              )}
+                            >
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className={cn(
+                                  "text-xs lg:text-sm font-semibold",
+                                  isToday && "text-primary"
+                                )}>
+                                  {dayName}
+                                  {isToday && <span className="ml-1 text-[10px] lg:text-xs">(σήμερα)</span>}
+                                </span>
+                                <span className="text-[10px] lg:text-xs text-muted-foreground ml-auto">
+                                  {dayTrips.length} δρομολόγια
+                                </span>
+                              </div>
+                              {dayTrips.length === 0 ? (
+                                <div className="text-xs text-muted-foreground py-2">
+                                  Δεν υπάρχουν δρομολόγια
+                                </div>
+                              ) : (
+                                <div
+                                  className="flex gap-1.5 overflow-x-auto overflow-y-hidden pb-2 -mx-1 px-1"
+                                  style={{
+                                    scrollbarWidth: 'thin',
+                                    WebkitOverflowScrolling: 'touch',
+                                    scrollBehavior: 'smooth',
+                                  }}
+                                >
+                                  {dayTrips.map((entry) => {
+                                    const isPast = isToday && entry.departure_minutes < currentMinutes;
+                                    const isNext = isToday && !isPast &&
+                                      entry.departure_minutes >= currentMinutes &&
+                                      (dayTrips.findIndex(t => t.trip_id === entry.trip_id) === 0 ||
+                                        dayTrips[dayTrips.findIndex(t => t.trip_id === entry.trip_id) - 1]?.departure_minutes < currentMinutes);
+
+                                    return (
+                                      <span
+                                        key={entry.trip_id}
+                                        className={cn(
+                                          "inline-flex items-center justify-center px-2.5 py-1 rounded-md text-xs font-mono transition-all flex-shrink-0",
+                                          "select-none touch-none", // Prevent text selection and touch callouts
+                                          isPast && "bg-muted/50 text-muted-foreground/50",
+                                          isNext && "bg-primary text-white shadow-md scale-105 ring-2 ring-primary/30",
+                                          !isPast && !isNext && "bg-primary/20 border border-primary/30",
+                                        )}
+                                        style={!isPast && !isNext ? { color: bgColor, borderColor: bgColor } : undefined}
+                                      >
+                                        {entry.departure_time}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
-            </div>
-          ) : null}
-        </div>
-      )}
-    </div>
+            ) : null}
+          </div>
+        )
+      }
+    </div >
   );
 }
