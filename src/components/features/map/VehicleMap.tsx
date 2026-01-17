@@ -351,7 +351,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const stopMarkersRef = useRef<L.MarkerClusterGroup | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [followedVehicleId, setFollowedVehicleId] = useState<string | null>(null);
-  const [showStops, setShowStops] = useState(false);
+  const [showStops, setShowStops] = useState(true);
   const [showRoutePlanner, setShowRoutePlanner] = useState(false);
   const [selectedVehicleTrip, setSelectedVehicleTrip] = useState<{ vehicleId: string; tripId: string; routeId?: string } | null>(null);
   const [initialOriginStop, setInitialOriginStop] = useState<{ stopId: string; stopName: string; lat: number; lng: number } | null>(null);
@@ -401,6 +401,18 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [mapClickLocation, setMapClickLocation] = useState<{ type: 'origin' | 'destination'; lat: number; lng: number } | null>(null);
   const [viewMode, setViewMode] = useState<'street' | 'overview'>('street');
   const [mapReady, setMapReady] = useState(false);
+
+  // Auto-locate on mount once map is ready
+  useEffect(() => {
+    if (mapReady) {
+      // Small delay to ensure all layers and clusters are fully initialized
+      const timer = setTimeout(() => {
+        console.log('[VehicleMap] Auto-locating user on mount...');
+        locateUser(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [mapReady]);
 
   // Use external map style if provided, otherwise use internal state
   const [internalMapStyle, setInternalMapStyle] = useState<MapStyleType>(() => {
