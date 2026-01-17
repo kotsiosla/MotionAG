@@ -249,11 +249,16 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
                 onClick={async () => {
                   const diagnostics = getVoiceDiagnostics();
                   toast({
-                    title: "🔊 Ενεργοποίηση (v1.6.6)",
-                    description: `Προσπάθεια... (${diagnostics})`,
+                    title: "🔊 Προσπάθεια (v1.6.7)",
+                    description: `Εκκίνηση... (${diagnostics})`,
                   });
                   await unlockAudio();
-                  speakTest();
+                  speakTest((status) => {
+                    toast({
+                      title: "🔊 Κατάσταση Φωνής",
+                      description: status,
+                    });
+                  });
                 }}
               >
                 <Bell className="h-3 w-3" />
@@ -261,7 +266,7 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
               </Button>
             </div>
             <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground opacity-50">
-              v1.6.6 (MotionAG)
+              v1.6.7 (MotionAG)
             </Badge>
           </div>
         </TabsContent>

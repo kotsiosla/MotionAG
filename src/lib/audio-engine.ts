@@ -107,11 +107,15 @@ export const unlockAudio = async (): Promise<boolean> => {
 };
 
 // Speak text using Web Speech API
-export const speak = (text: string) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+export const speak = (text: string, onStatus?: (status: string) => void) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+        onStatus?.("Not supported");
+        return;
+    }
 
     try {
         window.speechSynthesis.cancel();
+        window.speechSynthesis.resume();
     } catch (e) { }
 
     if (availableVoices.length === 0) {
@@ -158,18 +162,24 @@ export const speak = (text: string) => {
         utterance.lang = 'el-GR';
     }
 
+    utterance.onstart = () => onStatus?.("Speaking...");
+    utterance.onend = () => onStatus?.("Finished");
+    utterance.onerror = (e) => onStatus?.(`Error: ${e.error}`);
+
     // Delay for iOS satisfaction
     setTimeout(() => {
         try {
+            window.speechSynthesis.resume();
             window.speechSynthesis.speak(utterance);
         } catch (e) {
             console.error('[AudioEngine] speak failed:', e);
+            onStatus?.("Execution failed");
         }
     }, isIOS ? 100 : 0);
 };
 
-export const speakTest = () => {
-    speak("Δοκιμή φωνητικής αναγγελίας. Αν ακούτε αυτό το μήνυμα, οι ειδοποιήσεις λειτουργούν κανονικά.");
+export const speakTest = (onStatus?: (status: string) => void) => {
+    speak("Δοκιμή φωνητικής αναγγελίας. Αν ακούτε αυτό το μήνυμα, οι ειδοποιήσεις λειτουργούν κανονικά.", onStatus);
 };
 
 export const playSound = (urgency: 'low' | 'medium' | 'high' = 'medium') => {
