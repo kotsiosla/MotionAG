@@ -51,7 +51,7 @@ export function ApiStatusIndicator({
         <TooltipTrigger asChild>
           <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20">
             <Wifi className="h-3.5 w-3.5 text-emerald-500" />
-            <span className="text-xs text-emerald-500 font-medium">Online</span>
+            <span className="text-xs text-emerald-500 font-medium hidden xs:inline">Online</span>
           </div>
         </TooltipTrigger>
         <TooltipContent side="bottom">
@@ -70,7 +70,7 @@ export function ApiStatusIndicator({
     return (
       <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-primary/10 border border-primary/20">
         <RefreshCw className="h-3.5 w-3.5 text-primary animate-spin" />
-        <span className="text-xs text-primary font-medium">Φόρτωση...</span>
+        <span className="text-xs text-primary font-medium hidden xs:inline">Φόρτωση...</span>
       </div>
     );
   }
@@ -82,19 +82,19 @@ export function ApiStatusIndicator({
         <div className="flex items-center gap-1.5">
           <div className={cn(
             "flex items-center gap-1.5 px-2 py-1 rounded-md border",
-            isUsingCachedData 
-              ? "bg-amber-500/10 border-amber-500/20" 
+            isUsingCachedData
+              ? "bg-amber-500/10 border-amber-500/20"
               : "bg-destructive/10 border-destructive/20"
           )}>
             {isUsingCachedData ? (
               <>
                 <Clock className="h-3.5 w-3.5 text-amber-500" />
-                <span className="text-xs text-amber-500 font-medium">Cached</span>
+                <span className="text-xs text-amber-500 font-medium hidden xs:inline">Cached</span>
               </>
             ) : (
               <>
                 <WifiOff className="h-3.5 w-3.5 text-destructive" />
-                <span className="text-xs text-destructive font-medium">Offline</span>
+                <span className="text-xs text-destructive font-medium hidden xs:inline">Offline</span>
               </>
             )}
             {retryCountdown !== undefined && retryCountdown > 0 && (

@@ -1,4 +1,4 @@
-const APP_VERSION = "v1.7.4";
+const APP_VERSION = "v1.7.5";
 
 // Force trailing slash for MotionAG to ensure Service Worker scope is always valid
 if (window.location.pathname === '/MotionAG') {

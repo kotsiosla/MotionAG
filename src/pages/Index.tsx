@@ -636,9 +636,9 @@ const Index = () => {
         <ErrorBanner message={errorMessage || "Αποτυχία σύνδεσης"} onRetry={handleRetry} />
       )}
 
-      <main className="flex-1 min-h-0 container mx-auto px-[0.5rem] sm:px-[1rem] py-[0.5rem] flex flex-col">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col gap-[0.5rem]">
-          <div className="flex-1 min-h-0 glass-card rounded-[1.5rem] overflow-hidden border-none shadow-2xl relative">
+      <main className="flex-1 min-h-0 container mx-auto px-0 sm:px-[1rem] py-0 flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+          <div className="flex-1 min-h-0 glass-card rounded-b-none sm:rounded-[1.5rem] overflow-hidden border-none shadow-2xl relative">
             <TabsContent value="map" className="h-full m-0">
               <VehicleMap
                 vehicles={filteredVehicles}
@@ -723,7 +723,7 @@ const Index = () => {
             </TabsContent>
           </div>
 
-          <TabsList className="grid w-full grid-cols-5 h-auto flex-shrink-0 bg-card/90 backdrop-blur-xl rounded-[1.5rem] p-[0.375rem] shadow-2xl border border-white/10">
+          <TabsList className="grid w-full grid-cols-5 h-auto flex-shrink-0 bg-card/90 backdrop-blur-xl rounded-none sm:rounded-[1.5rem] p-[0.375rem] shadow-2xl border-t sm:border border-white/10 pb-safe">
             <TabsTrigger value="map" className="flex flex-col items-center gap-[0.25rem] py-[0.5rem] px-0 rounded-[1.125rem] transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
               <MapIcon className="h-[1.25em] w-[1.25em]" />
               <span className="text-[0.65rem] font-bold leading-tight">Χάρτης</span>
