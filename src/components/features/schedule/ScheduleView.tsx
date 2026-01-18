@@ -886,7 +886,7 @@ export function ScheduleView({
                           className="h-7 text-xs"
                           onClick={() => setSelectedDirection(dir.direction_id ?? idx)}
                         >
-                          {dir.direction_id === 0 ? "Μετάβαση" : "Επιστροφή"} {(dir as any).direction_name ? `(${(dir as any).direction_name})` : ''}
+                          {dir.direction_id === 0 ? "Μετάβαση" : "Επιστροφή"} {(dir as { direction_name?: string }).direction_name ? `(${(dir as { direction_name?: string }).direction_name})` : ''}
                         </Button>
                       ))}
                     </div>
