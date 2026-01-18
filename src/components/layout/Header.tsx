@@ -262,7 +262,7 @@ export function Header({
                   </div>
                 </div>
                 <p className="text-[0.6rem] sm:text-[0.7rem] text-muted-foreground font-medium flex items-center gap-[0.25rem] whitespace-nowrap">
-                  <span className="hidden sm:inline">Cyprus</span> Public Transport <span className="text-primary/70 font-bold ml-auto hidden sm:inline">v1.7.9</span>
+                  <span className="hidden sm:inline">Cyprus</span> Public Transport <span className="text-primary/70 font-bold ml-auto">v1.7.9</span>
                 </p>
               </div>
               {onShowLiveOnlyChange && (
