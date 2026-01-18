@@ -83,10 +83,10 @@ const formatDelay = (delay?: number) => {
 };
 
 const formatWalkingTime = (seconds: number) => {
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 1) return '< 1 λεπτό';
+  const minutes = seconds / 60;
+  if (minutes < 1) return `${minutes.toFixed(2)} λεπτά`;
   if (minutes === 1) return '1 λεπτό';
-  return `${minutes} λεπτά`;
+  return `${Number(minutes.toFixed(2))} λεπτά`;
 };
 
 const formatWalkingDistance = (meters: number) => {

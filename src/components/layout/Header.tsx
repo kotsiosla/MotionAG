@@ -155,7 +155,7 @@ export function Header({
         <div className="flex items-center justify-between gap-[0.375rem] md:hidden">
           <div className="flex items-center gap-[0.25rem] flex-shrink-0">
             <AnimatedLogo height="1rem" className="h-auto" />
-            v1.7.13
+            v1.7.14
           </div>
 
           <div className="flex items-center justify-end gap-[0.125rem] overflow-x-auto no-scrollbar">
@@ -259,7 +259,7 @@ export function Header({
                   </div>
                 </div>
                 <p className="text-[0.6rem] sm:text-[0.7rem] text-muted-foreground font-medium flex items-center gap-[0.25rem] whitespace-nowrap">
-                  <span className="hidden sm:inline">Cyprus</span> Public Transport <span className="text-primary/70 font-bold ml-auto">v1.7.13</span>
+                  <span className="hidden sm:inline">Cyprus</span> Public Transport <span className="text-primary/70 font-bold ml-auto">v1.7.14</span>
                 </p>
               </div>
               {onShowLiveOnlyChange && (

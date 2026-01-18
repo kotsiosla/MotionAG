@@ -5,7 +5,7 @@ import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { supabase } from "@/integrations/supabase/client";
 import "./index.css";
 
-const APP_VERSION = "v1.7.13";
+const APP_VERSION = "v1.7.14";
 
 // Handle dynamic import failures (common after new deployments)
 if (typeof window !== 'undefined') {
