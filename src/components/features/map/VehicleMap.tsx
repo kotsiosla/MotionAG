@@ -1223,18 +1223,37 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
       // Check if this vehicle should snap to route shape
       const vehicleRouteShape = isFollowed && effectiveRouteShapeData?.directions?.[0]?.shape; // Prioritize actual API data
+      const selectedRouteShape = selectedRoute !== 'all' ? routeShapeData?.directions?.find(d => d.shape && d.shape.length > 0)?.shape : null;
 
-      // Also use for selected route if available to ensure smooth animation for all vehicles on line
-      const selectedRouteShape = isOnSelectedRoute ? routeShapeData?.directions?.find(d => d.shape && d.shape.length > 0)?.shape : null;
-      const routeShapeToUse = vehicleRouteShape || selectedRouteShape;
+      let routeShapeToUse = vehicleRouteShape;
+
+      // If no specific vehicle shape, check if we can snap to the selected route
+      if (!routeShapeToUse && selectedRouteShape) {
+        // "Greedy Snap": If a route is selected, try to snap ANY visible bus to it
+        // This helps when vehicle.routeId is missing or mismatched but the bus is physically on the line
+        routeShapeToUse = selectedRouteShape;
+      }
+
+      const SNAP_THRESHOLD_METERS_SQ = Math.pow(0.002, 2); // ~200m rough threshold check before fine calculation
 
       if (routeShapeToUse) {
         // Try snapping
         const snapped = snapToRouteLine(vehicle.latitude!, vehicle.longitude!, routeShapeToUse);
+
+        // Strict usage: If implicitly snapping (not strict ID match), enforce a tighter threshold
+        const isStrictMatch = isOnSelectedRoute || isFollowed;
+        const implicitThresholdSq = Math.pow(0.0005, 2); // ~50m for non-matching buses
+
+        // We need to re-verify distance because snapToRouteLine uses a built-in threshold
+        // But we want to be stricter for "Greedy Snap" to avoid pulling random nearby buses onto the line
         if (snapped) {
-          targetLat = snapped.lat;
-          targetLng = snapped.lng;
-          effectiveBearing = snapped.bearing;
+          const distSq = Math.pow(vehicle.latitude! - snapped.lat, 2) + Math.pow(vehicle.longitude! - snapped.lng, 2);
+
+          if (isStrictMatch || distSq <= implicitThresholdSq) {
+            targetLat = snapped.lat;
+            targetLng = snapped.lng;
+            effectiveBearing = snapped.bearing;
+          }
         }
       }
 
