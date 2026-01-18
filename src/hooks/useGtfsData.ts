@@ -157,7 +157,7 @@ export function useRouteShape(routeId: string | null, operatorId?: string) {
       const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || (typeof window !== 'undefined' ? localStorage.getItem('supabase_anon_key') || '' : '');
       if (!SUPABASE_KEY) throw new Error('Supabase API key is missing');
 
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/route-shape?${params}`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/gtfs-proxy/route-shape?${params}&fallback=true`, {
         headers: {
           'Authorization': `Bearer ${SUPABASE_KEY}`,
         },
