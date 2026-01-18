@@ -155,10 +155,7 @@ export function Header({
         <div className="flex items-center justify-between gap-[0.375rem] md:hidden">
           <div className="flex items-center gap-[0.25rem] flex-shrink-0">
             <AnimatedLogo height="1rem" className="h-auto" />
-            <Badge variant="outline" className="px-2 py-0 h-6 text-[10px] font-mono border-zinc-700/50 text-emerald-400 bg-emerald-500/10 gap-1.5 shadow-[0_0_10px_-3px_rgba(52,211,153,0.3)] backdrop-blur-sm">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-[pulse_3s_ease-in-out_infinite]" />
-              v1.7.11
-            </Badge>
+            v1.7.12
           </div>
 
           <div className="flex items-center justify-end gap-[0.125rem] overflow-x-auto no-scrollbar">
@@ -262,7 +259,7 @@ export function Header({
                   </div>
                 </div>
                 <p className="text-[0.6rem] sm:text-[0.7rem] text-muted-foreground font-medium flex items-center gap-[0.25rem] whitespace-nowrap">
-                  <span className="hidden sm:inline">Cyprus</span> Public Transport <span className="text-primary/70 font-bold ml-auto">v1.7.11</span>
+                  <span className="hidden sm:inline">Cyprus</span> Public Transport <span className="text-primary/70 font-bold ml-auto">v1.7.12</span>
                 </p>
               </div>
               {onShowLiveOnlyChange && (
