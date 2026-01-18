@@ -1765,12 +1765,40 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           !isNaN(s.stop_lat) && !isNaN(s.stop_lon)
       );
 
-      // If a specific route is selected, show all stops for that route
+      // PRIORITY 1: If following a specific vehicle, ONLY show stops for its route/trip
+      // This prevents confusion where "nearby" stops for other routes are shown (e.g. Stop 17 vs 18)
+      if (followedVehicleId) {
+        // Find the vehicle
+        const vehicle = vehicles.find(v => (v.vehicleId === followedVehicleId || v.id === followedVehicleId));
+        if (vehicle) {
+          // Try to find its routeId
+          const routeId = resolveRouteIdForVehicle(vehicle);
+          if (routeId) {
+            // If we have a route ID, show all stops for this route (best effort)
+            // Note: We don't have a direct map of Route -> Stops in frontend efficiently without loop
+            // But we can check if stops are in the current trips for this route?
+            // Simpler: Just rely on the standard "selectedRoute" logic if we were to switch selectedRoute.
+            // But here we are in 'all' mode but following.
+            // Let's filter stops that are part of ANY trip on this route? Too heavy?
+
+            // Better: If we have trip info, use the stops from the trip updates?
+            if (vehicle.tripId) {
+              const trip = trips.find(t => t.tripId === vehicle.tripId);
+              if (trip && trip.stopTimeUpdates && trip.stopTimeUpdates.length > 0) {
+                const tripStopIds = new Set(trip.stopTimeUpdates.map(stu => stu.stopId));
+                return validStops.filter(s => tripStopIds.has(s.stop_id));
+              }
+            }
+          }
+        }
+      }
+
+      // PRIORITY 2: If a specific route is selected, show all stops for that route
       if (selectedRoute !== 'all') {
         return validStops;
       }
 
-      // If 'all' routes selected (STARTUP STATE), ONLY show nearby stops
+      // PRIORITY 3: If 'all' routes selected (STARTUP STATE), ONLY show nearby stops
       if (userLocation) {
         // Show stops within ~2km of user
         const NEARBY_RADIUS_METERS = 2000;
