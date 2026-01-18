@@ -749,25 +749,6 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
                       </div>
                     </div>
 
-                    {/* Route badges preview (when collapsed) */}
-                    {!isExpanded && uniqueRoutes.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5 ml-13">
-                        {uniqueRoutes.slice(0, 4).map((route, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold text-white"
-                            style={{ backgroundColor: route.routeColor ? `#${route.routeColor}` : '#0ea5e9' }}
-                          >
-                            {route.routeShortName || route.routeId}
-                          </span>
-                        ))}
-                        {uniqueRoutes.length > 4 && (
-                          <span className="inline-flex items-center px-2 py-0.5 text-xs text-muted-foreground">
-                            +{uniqueRoutes.length - 4}
-                          </span>
-                        )}
-                      </div>
-                    )}
                   </button>
 
                   {/* Expanded: Show all arrivals by route + static routes */}
