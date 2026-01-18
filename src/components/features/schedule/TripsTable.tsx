@@ -116,11 +116,7 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [], onTripSel
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter((trip) => {
         const route = getRouteDisplay(trip.routeId);
-        return (
-          route.shortName.toLowerCase().includes(term) ||
-          route.longName.toLowerCase().includes(term) ||
-          trip.routeId?.toLowerCase().includes(term)
-        );
+        return route.shortName.toLowerCase().includes(term);
       });
     }
 
@@ -273,7 +269,7 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [], onTripSel
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Αναζήτηση γραμμής (π.χ. 25, Nicosia)..."
+            placeholder="Αναζήτηση αριθμού γραμμής (π.χ. 25)..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
