@@ -660,7 +660,7 @@ export function SmartTripPlanner({
             {origin && origin.type !== 'stop' && walkingInfo.originWalkingMinutes > 0 && (
               <div className="mt-1 text-xs text-muted-foreground flex items-center gap-1">
                 <Footprints className="h-3 w-3" />
-                {walkingInfo.originWalkingMinutes} λεπτά ({formatDistance(walkingInfo.originWalkingMeters)}) μέχρι τη στάση {originStop?.stop_name}
+                {Math.ceil(walkingInfo.originWalkingMinutes)} λεπτά ({formatDistance(walkingInfo.originWalkingMeters)}) μέχρι τη στάση {originStop?.stop_name}
               </div>
             )}
           </div>
@@ -691,7 +691,7 @@ export function SmartTripPlanner({
             {destination && destination.type !== 'stop' && walkingInfo.destWalkingMinutes > 0 && (
               <div className="mt-1 text-xs text-muted-foreground flex items-center gap-1">
                 <Footprints className="h-3 w-3" />
-                {walkingInfo.destWalkingMinutes} λεπτά ({formatDistance(walkingInfo.destWalkingMeters)}) από τη στάση {destinationStop?.stop_name}
+                {Math.ceil(walkingInfo.destWalkingMinutes)} λεπτά ({formatDistance(walkingInfo.destWalkingMeters)}) από τη στάση {destinationStop?.stop_name}
               </div>
             )}
           </div>
@@ -1008,7 +1008,7 @@ export function SmartTripPlanner({
           <div className="bg-secondary/50 rounded-lg px-3 py-2 flex items-center gap-2 text-sm">
             <Footprints className="h-4 w-4 text-primary" />
             <span className="text-muted-foreground">
-              Συνολικό περπάτημα: <strong className="text-foreground">{totalWalkingTime} λεπτά</strong>
+              Συνολικό περπάτημα: <strong className="text-foreground">{Math.ceil(totalWalkingTime)} λεπτά</strong>
             </span>
           </div>
         )}

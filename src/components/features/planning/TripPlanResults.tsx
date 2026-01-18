@@ -90,9 +90,9 @@ const printTripResults = (
     walkingHtml = `
       <div style="background: #fef3c7; padding: 10px; border-radius: 8px; margin: 10px 0;">
         <strong>🚶 Περπάτημα:</strong>
-        ${walkingInfo.originWalkingMinutes > 0 ? `<div>• Αφετηρία → Στάση: ${walkingInfo.originWalkingMinutes} λεπτά (${formatDistance(walkingInfo.originWalkingMeters)})</div>` : ''}
-        ${walkingInfo.destWalkingMinutes > 0 ? `<div>• Στάση → Προορισμός: ${walkingInfo.destWalkingMinutes} λεπτά (${formatDistance(walkingInfo.destWalkingMeters)})</div>` : ''}
-        <div style="margin-top: 5px; font-weight: bold;">Συνολικό περπάτημα: ${walkingInfo.originWalkingMinutes + walkingInfo.destWalkingMinutes} λεπτά</div>
+        ${walkingInfo.originWalkingMinutes > 0 ? `<div>• Αφετηρία → Στάση: ${Math.ceil(walkingInfo.originWalkingMinutes)} λεπτά (${formatDistance(walkingInfo.originWalkingMeters)})</div>` : ''}
+        ${walkingInfo.destWalkingMinutes > 0 ? `<div>• Στάση → Προορισμός: ${Math.ceil(walkingInfo.destWalkingMinutes)} λεπτά (${formatDistance(walkingInfo.destWalkingMeters)})</div>` : ''}
+        <div style="margin-top: 5px; font-weight: bold;">Συνολικό περπάτημα: ${Math.ceil(walkingInfo.originWalkingMinutes + walkingInfo.destWalkingMinutes)} λεπτά</div>
       </div>
     `;
   }
@@ -318,7 +318,7 @@ export function TripPlanResults({
               {totalWalkingMinutes > 0 && (
                 <div className="flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-1 rounded text-xs">
                   <Footprints className="h-3 w-3" />
-                  <span>Σύνολο περπατήματος: {totalWalkingMinutes} λεπτά</span>
+                  <span>Σύνολο περπατήματος: {Math.ceil(totalWalkingMinutes)} λεπτά</span>
                 </div>
               )}
             </div>

@@ -132,7 +132,7 @@ function JourneyLegView({ leg, isLast }: { leg: JourneyLeg; isLast: boolean }) {
               ? "text-red-700 dark:text-red-400"
               : "text-amber-700 dark:text-amber-400"
           )}>
-            Περπάτημα {leg.walkingMinutes} λεπτά
+            Περπάτημα {Math.ceil(leg.walkingMinutes || 0)} λεπτά
           </div>
           <div className="text-sm text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
             {leg.fromLocation?.name && <span>{leg.fromLocation.name}</span>}

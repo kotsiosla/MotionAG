@@ -349,7 +349,7 @@ export function generateCalendarUrl(trip: SavedTrip): string {
 
   trip.journey.legs.forEach((leg, idx) => {
     if (leg.type === 'walk') {
-      descriptionLines.push(`${idx + 1}. 🚶 Περπάτημα ${leg.walkingMinutes} λεπτά (${leg.walkingMeters}μ)`);
+      descriptionLines.push(`${idx + 1}. 🚶 Περπάτημα ${Math.ceil(leg.walkingMinutes || 0)} λεπτά (${leg.walkingMeters}μ)`);
       if (leg.fromLocation && leg.toLocation) {
         descriptionLines.push(`   ${leg.fromLocation.name} → ${leg.toLocation.name}`);
       }
@@ -381,7 +381,7 @@ export function formatTripForShare(trip: SavedTrip): string {
 
   trip.journey.legs.forEach((leg, idx) => {
     if (leg.type === 'walk') {
-      text += `${idx + 1}. 🚶 Περπάτημα ${leg.walkingMinutes}'\n`;
+      text += `${idx + 1}. 🚶 Περπάτημα ${Math.ceil(leg.walkingMinutes || 0)}'\n`;
     } else if (leg.type === 'bus') {
       text += `${idx + 1}. ${leg.route?.route_short_name}: ${leg.fromStop?.stop_name} → ${leg.toStop?.stop_name}\n`;
       text += `   🟢 ${leg.departureTime} | 🔴 ${leg.arrivalTime}\n`;
