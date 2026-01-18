@@ -411,17 +411,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
   // Auto-locate on mount once map is ready
   // Auto-locate on mount once map is ready
+  // Auto-locate on mount once map is ready
   useEffect(() => {
     if (mapReady && mapRef.current) {
-      console.log('[VehicleMap] Adding DIAGNOSTIC TEST LINE (Red) via CANVAS');
-      // Diagnostic Line: Paphos to Limassol (roughly)
-      // Use Canvas renderer to bypass SVG issues
-      const canvasRenderer = L.canvas({ padding: 0.5 });
-      L.polyline([
-        [34.77, 32.42], // Paphos
-        [34.70, 33.02]  // Limassol
-      ], { color: 'red', weight: 10, renderer: canvasRenderer }).addTo(mapRef.current);
-
       // Small delay to ensure all layers and clusters are fully initialized
       const timer = setTimeout(() => {
         console.log('[VehicleMap] Auto-locating user on mount...');
