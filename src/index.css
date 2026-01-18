@@ -347,6 +347,21 @@
   pointer-events: auto !important;
 }
 
+/* CRITICAL FIX FOR INVISIBLE ROUTES: Force SVG to be visible */
+.leaflet-overlay-pane svg {
+  display: block !important;
+  overflow: visible !important;
+  z-index: 400 !important;
+  pointer-events: none;
+}
+
+.leaflet-overlay-pane path {
+  stroke-opacity: 1 !important;
+  fill-opacity: 0.2 !important;
+  display: block !important;
+  pointer-events: stroke !important;
+}
+
 .leaflet-container .leaflet-pane {
   width: 100% !important;
   height: 100% !important;

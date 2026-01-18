@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback, Suspense } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
@@ -9,8 +9,9 @@ import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { RoutePlannerPanel } from "@/components/features/planning/RoutePlannerPanel";
 import { StopDetailPanel } from "@/components/features/schedule/StopDetailPanel";
-import { NearestStopPanel } from "@/components/features/map/NearestStopPanel";
-import { UnifiedRoutePanel } from "@/components/features/routes/UnifiedRoutePanel";
+// Lazy load UnifiedRoutePanel to break circular dependency
+const UnifiedRoutePanel = React.lazy(() => import("@/components/features/routes/UnifiedRoutePanel").then(module => ({ default: module.UnifiedRoutePanel })));
+const NearestStopPanel = React.lazy(() => import("@/components/features/map/NearestStopPanel").then(module => ({ default: module.NearestStopPanel })));
 import { DataSourceHealthIndicator } from "@/components/common/DataSourceHealthIndicator";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { useRouteShape } from "@/hooks/useGtfsData";
@@ -409,8 +410,18 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const [mapReady, setMapReady] = useState(false);
 
   // Auto-locate on mount once map is ready
+  // Auto-locate on mount once map is ready
   useEffect(() => {
-    if (mapReady) {
+    if (mapReady && mapRef.current) {
+      console.log('[VehicleMap] Adding DIAGNOSTIC TEST LINE (Red) via CANVAS');
+      // Diagnostic Line: Paphos to Limassol (roughly)
+      // Use Canvas renderer to bypass SVG issues
+      const canvasRenderer = L.canvas({ padding: 0.5 });
+      L.polyline([
+        [34.77, 32.42], // Paphos
+        [34.70, 33.02]  // Limassol
+      ], { color: 'red', weight: 10, renderer: canvasRenderer }).addTo(mapRef.current);
+
       // Small delay to ensure all layers and clusters are fully initialized
       const timer = setTimeout(() => {
         console.log('[VehicleMap] Auto-locating user on mount...');
@@ -1726,27 +1737,34 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
   // Optimized stop filtering: move to useMemo to avoid re-calculating on every render
   const stopsToRender = useMemo(() => {
+    // If stops are globally hidden, show nothing
+    if (!showStops) return [];
+
     const validStops = stops.filter(
       (s) => s.stop_lat !== undefined && s.stop_lon !== undefined &&
         typeof s.stop_lat === 'number' && typeof s.stop_lon === 'number' &&
         !isNaN(s.stop_lat) && !isNaN(s.stop_lon)
     );
 
-    if (showStops) return validStops;
-
-    if (userLocation) {
-      return validStops
-        .map(stop => ({
-          stop,
-          distance: calculateDistance(userLocation.lat, userLocation.lng, stop.stop_lat!, stop.stop_lon!)
-        }))
-        .sort((a, b) => a.distance - b.distance)
-        .slice(0, 4)
-        .map(item => item.stop);
+    // If a specific route is selected, show all stops for that route
+    if (selectedRoute !== 'all') {
+      return validStops;
     }
 
+    // If 'all' routes selected (STARTUP STATE), ONLY show nearby stops
+    if (userLocation) {
+      // Show stops within ~2km of user
+      const NEARBY_RADIUS_METERS = 2000;
+
+      return validStops.filter(stop => {
+        const dist = calculateDistance(userLocation.lat, userLocation.lng, stop.stop_lat!, stop.stop_lon!);
+        return dist <= NEARBY_RADIUS_METERS;
+      });
+    }
+
+    // Fallback: If no location yet and 'all' selected, show nothing (clean start)
     return [];
-  }, [stops, showStops, userLocation]);
+  }, [stops, showStops, userLocation, selectedRoute]);
 
   // Fetch walking route when user location and nearest stop change
   useEffect(() => {
@@ -2006,7 +2024,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     });
 
     // Exit early if nothing to draw or data not yet arrived
-    if (!targetRouteId || !shapeDataToUse || !direction || !direction.shape || direction.shape.length === 0) {
+    // RELAXED CHECK: If we have shape data, we draw it, even if selectedRoute is 'all' (to handle state desync)
+    if (!shapeDataToUse || !direction || !direction.shape || direction.shape.length === 0) {
       if (lastDrawnRouteRef.current) {
         if (routeShapeLineRef.current) {
           mapRef.current.removeLayer(routeShapeLineRef.current);
@@ -2046,13 +2065,25 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     const routeColor = routeInfoToUse?.route_color || selectedRouteInfo?.route_color || '0ea5e9';
 
     // Draw the route polyline
-    const shapePoints: L.LatLngExpression[] = direction.shape.map((p: { lat: number, lng: number }) => [p.lat, p.lng]);
+    const shapePoints: L.LatLngExpression[] = direction.shape.map((p: { lat: number, lng: number }) => {
+      // Cyprus Heuristic: Latitude (34-35) is always > Longitude (32-34)
+      // If we see Lat < Lng, it means coordinates are flipped (Lng, Lat) or Key mismatch
+      if (p.lat < p.lng) {
+        return [p.lng, p.lat];
+      }
+      return [p.lat, p.lng];
+    });
+
+    // Use Canvas renderer to ensure visibility (SVG layer is broken)
+    const canvasRenderer = L.canvas({ padding: 0.5 });
+
     routeShapeLineRef.current = L.polyline(shapePoints, {
       color: `#${routeColor}`,
       weight: 6,
       opacity: 0.85,
       lineCap: 'round',
       lineJoin: 'round',
+      renderer: canvasRenderer, // FORCE CANVAS RENDERING
       pane: 'overlayPane',
     }).addTo(mapRef.current);
 
@@ -2444,13 +2475,13 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           <div>Follow Route ID: {followedVehicleRouteId || 'none'}</div>
           <div>Map Ready: {mapReady ? 'YES' : 'NO'}</div>
           <div className="mt-2 text-emerald-400">
-            Shape Data: {effectiveRouteShapeData ? `${effectiveRouteShapeData.directions.length} dirs` : (routeShapeData ? 'Fallback only' : 'NONE')}
-          </div>
-          {effectiveRouteShapeData?.directions.some((d: any) => d.is_fallback_shape) && (
-            <div className="text-yellow-400">USING STOP-BASED FALLBACK</div>
-          )}
-          <div className="mt-1">
-            Last Drawn: {lastDrawnRouteRef.current || 'nothing'}
+            <div>Shape Data: {effectiveRouteShapeData?.directions?.length ?? 0} dirs</div>
+            <div>Is Fallback: {(effectiveRouteShapeData as any)?.directions?.[0]?.stops?.some?.((s: any) => s.is_fallback_shape) ? 'YES' : 'NO'}</div>
+            {effectiveRouteShapeData?.directions?.length === 0 && <div style={{ color: 'red' }}>NO SHAPE DATA</div>}
+            {(effectiveRouteShapeData as any)?.directions?.[0]?.stops?.some?.((s: any) => s.is_fallback_shape) && <div style={{ color: 'yellow' }}>USING STOP-BASED FALLBACK</div>}
+            <div className="mt-1">
+              Last Drawn: {lastDrawnRouteRef.current || 'nothing'}
+            </div>
           </div>
         </div>
       )}
@@ -2487,89 +2518,85 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       />
 
       {/* Unified Route Panel - shows when selecting route OR following vehicle, but NOT when route planner is open */}
-      {((selectedRoute !== 'all' && !showRoutePlanner) || (followedVehicleId && !showRoutePlanner)) && (() => {
-        try {
-          // Find the vehicle directly from followedVehicleId if not already found
-          const vehicle = followedVehicle || (followedVehicleId && Array.isArray(vehicles) ? vehicles.find((v) => v && (v.vehicleId || v.id) === followedVehicleId) : null);
+      <Suspense fallback={null}>
+        {((selectedRoute !== 'all' && !showRoutePlanner) || (followedVehicleId && !showRoutePlanner)) && (() => {
+          try {
+            // Find the vehicle directly from followedVehicleId if not already found
+            const vehicle = followedVehicle || (followedVehicleId && Array.isArray(vehicles) ? vehicles.find((v) => v && (v.vehicleId || v.id) === followedVehicleId) : null);
 
-          const effectiveRouteId = (vehicle ? resolveRouteIdForVehicle(vehicle) : null) || selectedRoute;
+            const effectiveRouteId = (vehicle ? resolveRouteIdForVehicle(vehicle) : null) || selectedRoute;
 
-          // Debug check
-          console.log('[VehicleMap] Render Panel:', { followedVehicleId, vehicleRouteId: vehicle?.routeId, selectedRoute, effectiveRouteId });
+            // Debug check
+            console.log('[VehicleMap] Render Panel:', { followedVehicleId, vehicleRouteId: vehicle?.routeId, selectedRoute, effectiveRouteId });
 
-          // If we are following a vehicle, we REALLY want to show the panel, even if routeId is missing/weird
-          // But UnifiedRoutePanel needs a routeId.
-          // If we can't find it, fallback to 'all' but that hides the panel?
-          // Actually, if we are following a vehicle, we should use its routeId. 
+            if ((!effectiveRouteId || effectiveRouteId === 'all' || effectiveRouteId === '') && !vehicle) {
+              return null;
+            }
 
-          if ((!effectiveRouteId || effectiveRouteId === 'all' || effectiveRouteId === '') && !vehicle) {
-            return null;
-          }
+            // If we have a vehicle but no effective route ID, try to use any identifier to render *something* vs nothing
+            const routeIdToUse = effectiveRouteId && effectiveRouteId !== 'all' ? effectiveRouteId : (vehicle?.routeId || 'unknown');
+            if (routeIdToUse === 'all' && !vehicle) return null; // Still hide if just 'all' and no vehicle
 
-          // If we have a vehicle but no effective route ID, try to use any identifier to render *something* vs nothing
-          // But strict check below prevents it.
-          const routeIdToUse = effectiveRouteId && effectiveRouteId !== 'all' ? effectiveRouteId : (vehicle?.routeId || 'unknown');
-          if (routeIdToUse === 'all' && !vehicle) return null; // Still hide if just 'all' and no vehicle
-
-          return (
-            <ErrorBoundary>
-              <UnifiedRoutePanel
-                routeId={routeIdToUse}
-                routeInfo={selectedRouteInfo || undefined}
-                trips={trips}
-                vehicles={vehicles}
-                stops={stops}
-                selectedOperator={selectedOperator}
-                followedVehicle={vehicle || null}
-                nextStop={vehicle ? (() => {
-                  try {
-                    return getNextStopInfo(vehicle);
-                  } catch (error) {
-                    console.error('[VehicleMap] Error getting next stop info:', error);
-                    return null;
-                  }
-                })() : null}
-                viewMode={viewMode}
-                onClose={() => {
-                  if (followedVehicleId) {
-                    // Stop following vehicle
-                    setFollowedVehicleId(null);
-                    onFollowVehicle?.(null);
-                    // Clear the trail when unfollowing
-                    trailPolylinesRef.current.forEach(polylines => {
-                      polylines.forEach(p => mapRef.current?.removeLayer(p));
-                    });
-                    trailPolylinesRef.current.clear();
-                    // Also clear selected route if it was set from following
-                    if (selectedRoute !== 'all') {
+            return (
+              <ErrorBoundary>
+                <UnifiedRoutePanel
+                  routeId={routeIdToUse}
+                  routeInfo={selectedRouteInfo || undefined}
+                  trips={trips}
+                  vehicles={vehicles}
+                  stops={stops}
+                  selectedOperator={selectedOperator}
+                  followedVehicle={vehicle || null}
+                  nextStop={vehicle ? (() => {
+                    try {
+                      return getNextStopInfo(vehicle);
+                    } catch (error) {
+                      console.error('[VehicleMap] Error getting next stop info:', error);
+                      return null;
+                    }
+                  })() : null}
+                  viewMode={viewMode}
+                  onClose={() => {
+                    if (followedVehicleId) {
+                      // Stop following vehicle
+                      setFollowedVehicleId(null);
+                      onFollowVehicle?.(null);
+                      // Clear the trail when unfollowing
+                      trailPolylinesRef.current.forEach(polylines => {
+                        polylines.forEach(p => mapRef.current?.removeLayer(p));
+                      });
+                      trailPolylinesRef.current.clear();
+                      // Also clear selected route if it was set from following
+                      if (selectedRoute !== 'all') {
+                        onRouteClose?.();
+                      }
+                    } else {
+                      // Close route panel - clear selection
                       onRouteClose?.();
                     }
-                  } else {
-                    // Close route panel - clear selection
-                    onRouteClose?.();
-                  }
-                }}
-                onStopClick={handleStopClick}
-                onVehicleFollow={(vehicleId) => {
-                  setFollowedVehicleId(vehicleId);
-                  onFollowVehicle?.(vehicleId);
-                }}
-                onVehicleFocus={(vehicle) => {
-                  if (vehicle.latitude && vehicle.longitude && mapRef.current) {
-                    // Instant zoom to street level, no "space" animation
-                    mapRef.current.setView([vehicle.latitude, vehicle.longitude], 18);
-                  }
-                }}
-                onSwitchToStreet={switchToStreetView}
-                onSwitchToOverview={switchToOverview}
-              />
-            </ErrorBoundary>
-          );
-        } catch (error) {
-          console.error('[VehicleMap] Error rendering UnifiedRoutePanel:', error);
-          return null;
-        }
-      })()}
+                  }}
+                  onStopClick={handleStopClick}
+                  onVehicleFollow={(vehicleId) => {
+                    setFollowedVehicleId(vehicleId);
+                    onFollowVehicle?.(vehicleId);
+                  }}
+                  onVehicleFocus={(vehicle) => {
+                    if (vehicle.latitude && vehicle.longitude && mapRef.current) {
+                      // Instant zoom to street level, no "space" animation
+                      mapRef.current.setView([vehicle.latitude, vehicle.longitude], 18);
+                    }
+                  }}
+                  onSwitchToStreet={switchToStreetView}
+                  onSwitchToOverview={switchToOverview}
+                />
+              </ErrorBoundary>
+            );
+          } catch (error) {
+            console.error('[VehicleMap] Error rendering UnifiedRoutePanel:', error);
+            return null;
+          }
+        })()}
+      </Suspense>
 
       {isLoading && (
         <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center">
@@ -2716,35 +2743,37 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
       {/* Nearest stop panel - draggable with walking route - hide when route panel is open */}
       {nearestStopWithArrivals && userLocation && !notificationModalStop && selectedRoute === 'all' && !followedVehicleId && (
-        <NearestStopPanel
-          stop={nearestStopWithArrivals.stop}
-          distance={nearestStopWithArrivals.distance}
-          arrivals={getArrivalsForStop(nearestStopWithArrivals.stop.stop_id)}
-          walkingRoute={walkingRoute}
-          isLoadingRoute={isLoadingWalkingRoute}
-          currentNotificationSettings={getNotification(nearestStopWithArrivals.stop.stop_id)}
-          onClose={() => {
-            setUserLocation(null);
-            setWalkingRoute(null);
-            if (walkingRouteLineRef.current && mapRef.current) {
-              mapRef.current.removeLayer(walkingRouteLineRef.current);
-              walkingRouteLineRef.current = null;
-            }
-          }}
-          onOpenDetails={() => {
-            openStopPanel(
-              nearestStopWithArrivals.stop.stop_id,
-              nearestStopWithArrivals.stop.stop_name || nearestStopWithArrivals.stop.stop_id
-            );
-          }}
-          onNavigate={() => {
-            if (nearestStopWithArrivals.stop.stop_lat && nearestStopWithArrivals.stop.stop_lon) {
-              mapRef.current?.setView([nearestStopWithArrivals.stop.stop_lat, nearestStopWithArrivals.stop.stop_lon], 17, { animate: true });
-            }
-          }}
-          onSaveNotification={setStopNotification}
-          onRemoveNotification={removeStopNotification}
-        />
+        <Suspense fallback={null}>
+          <NearestStopPanel
+            stop={nearestStopWithArrivals.stop}
+            distance={nearestStopWithArrivals.distance}
+            arrivals={getArrivalsForStop(nearestStopWithArrivals.stop.stop_id)}
+            walkingRoute={walkingRoute}
+            isLoadingRoute={isLoadingWalkingRoute}
+            currentNotificationSettings={getNotification(nearestStopWithArrivals.stop.stop_id)}
+            onClose={() => {
+              setUserLocation(null);
+              setWalkingRoute(null);
+              if (walkingRouteLineRef.current && mapRef.current) {
+                mapRef.current.removeLayer(walkingRouteLineRef.current);
+                walkingRouteLineRef.current = null;
+              }
+            }}
+            onOpenDetails={() => {
+              openStopPanel(
+                nearestStopWithArrivals.stop.stop_id,
+                nearestStopWithArrivals.stop.stop_name || nearestStopWithArrivals.stop.stop_id
+              );
+            }}
+            onNavigate={() => {
+              if (nearestStopWithArrivals.stop.stop_lat && nearestStopWithArrivals.stop.stop_lon) {
+                mapRef.current?.setView([nearestStopWithArrivals.stop.stop_lat, nearestStopWithArrivals.stop.stop_lon], 17, { animate: true });
+              }
+            }}
+            onSaveNotification={setStopNotification}
+            onRemoveNotification={removeStopNotification}
+          />
+        </Suspense>
       )}
 
       <div className="absolute bottom-4 left-4 glass-card rounded-lg px-3 py-2 text-sm">
@@ -2790,6 +2819,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           }}
         />
       )}
+
     </div>
   );
 }

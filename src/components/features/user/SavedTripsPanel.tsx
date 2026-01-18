@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { X, Bus, Clock, MapPin, Trash2, CalendarPlus, Bell, ChevronRight, Footprints } from "lucide-react";
 import { format, differenceInMinutes, differenceInHours, differenceInDays } from "date-fns";
 import { el } from "date-fns/locale";
-import { UnifiedRoutePanel } from "@/components/features/routes/UnifiedRoutePanel";
+
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";

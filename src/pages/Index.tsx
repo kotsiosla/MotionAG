@@ -620,6 +620,22 @@ const Index = () => {
     };
   }, [hasError, isLoading, handleRetry]);
 
+  // Listen for custom route selection events from children (e.g. Map components)
+  useEffect(() => {
+    const handleRouteSelection = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail && customEvent.detail.routeId) {
+        console.log('[Index] Received route selection event:', customEvent.detail.routeId);
+        setSelectedRoute(customEvent.detail.routeId);
+      }
+    };
+
+    window.addEventListener('selectRoute', handleRouteSelection);
+    return () => {
+      window.removeEventListener('selectRoute', handleRouteSelection);
+    };
+  }, []);
+
   const alertCount = alertsQuery.data?.data?.length || 0;
 
   return (
