@@ -1,7 +1,7 @@
 {
-  "name": "motion-ag",
+  "name": "motion-bus-ai",
   "private": true,
-  "version": "1.6.0",
+  "version": "1.7.10",
   "type": "module",
   "scripts": {
     "dev": "vite",
