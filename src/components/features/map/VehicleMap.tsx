@@ -40,6 +40,7 @@ interface VehicleMapProps {
   onStopPanelChange?: (stopId: string | null) => void;
   mapStyle?: MapStyleType;
   onMapStyleChange?: (style: MapStyleType) => void;
+  onRoutePlanRequest?: (origin: { lat: number, lng: number }, dest: { lat: number, lng: number }) => void;
 }
 
 const createVehicleIcon = (_bearing?: number, isFollowed?: boolean, routeColor?: string, isOnSelectedRoute?: boolean, routeShortName?: string) => {
@@ -443,6 +444,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
   const highlightedStopMarkerRef = useRef<L.Marker | null>(null);
 
+  // Route selection state
+  const [routeSelectionMode, setRouteSelectionMode] = useState<'origin' | 'destination' | null>(null);
+  const [selectionOrigin, setSelectionOrigin] = useState<{ lat: number, lng: number } | null>(null);
+  const routePlannerMarkerRef = useRef<L.Marker[]>([]);
+
+
   // Persist map style to localStorage
   useEffect(() => {
     try {
@@ -488,6 +495,73 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       }
     }
   }, [deepLinkStopId, stops, mapReady, openStopPanel]);
+
+  // Map click handler for route planning
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const handleMapClick = (e: L.LeafletMouseEvent) => {
+      if (!routeSelectionMode) return;
+
+      const { lat, lng } = e.latlng;
+
+      if (routeSelectionMode === 'origin') {
+        setSelectionOrigin({ lat, lng });
+
+        // Add marker for origin
+        const marker = L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: 'route-planner-pin origin',
+            html: `<div class="w-6 h-6 rounded-full bg-blue-500 border-2 border-white shadow-lg flex items-center justify-center text-white font-bold text-[10px]">A</div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          })
+        }).addTo(mapRef.current!);
+
+        routePlannerMarkerRef.current.push(marker);
+
+        setRouteSelectionMode('destination');
+        toast({
+          title: "Επιλογή Προορισμού",
+          description: "Τώρα επιλέξτε το σημείο προορισμού.",
+          className: "bg-blue-600 text-white border-none"
+        });
+      } else if (routeSelectionMode === 'destination' && selectionOrigin) {
+        // Add marker for destination
+        const marker = L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: 'route-planner-pin destination',
+            html: `<div class="w-6 h-6 rounded-full bg-red-500 border-2 border-white shadow-lg flex items-center justify-center text-white font-bold text-[10px]">B</div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          })
+        }).addTo(mapRef.current!);
+
+        routePlannerMarkerRef.current.push(marker);
+
+        // Submit request
+        if (onRoutePlanRequest) {
+          onRoutePlanRequest(selectionOrigin, { lat, lng });
+        }
+
+        setRouteSelectionMode(null);
+        setSelectionOrigin(null);
+
+        // Clear markers after delay
+        setTimeout(() => {
+          routePlannerMarkerRef.current.forEach(m => mapRef.current?.removeLayer(m));
+          routePlannerMarkerRef.current = [];
+        }, 1500);
+      }
+    };
+
+    mapRef.current.on('click', handleMapClick);
+
+    return () => {
+      mapRef.current?.off('click', handleMapClick);
+    };
+  }, [routeSelectionMode, selectionOrigin, onRoutePlanRequest, mapReady]);
+
 
   // Walking route state
   const [walkingRoute, setWalkingRoute] = useState<{ distance: number; duration: number; geometry: Array<[number, number]> } | null>(null);
@@ -2076,7 +2150,56 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
     // Exit early if nothing to draw or data not yet arrived
     // RELAXED CHECK: If we have shape data, we draw it, even if selectedRoute is 'all' (to handle state desync)
-    if (!shapeDataToUse || !direction || !direction.shape || direction.shape.length === 0) {
+
+    // --- FALLBACK LOGIC START ---
+    // If no official shape data, try to construct one from the stops of the route/trip
+    if ((!shapeDataToUse || !direction || !direction.shape || direction.shape.length === 0) && (targetRouteId || followedVehicleId)) {
+      console.log('[VehicleMap] No shape data found, attempting CLIENT-SIDE FALLBACK...');
+
+      // We need a trip to get the sequence of stops
+      let tripToUse: Trip | undefined;
+
+      if (followedVehicle?.tripId) {
+        tripToUse = trips.find(t => t.tripId === followedVehicle.tripId);
+      }
+
+      if (!tripToUse && targetRouteId) {
+        // If just a route is selected (or we track a vehicle but don't have its specific trip object easily),
+        // find ANY trip for this route to use as a template.
+        tripToUse = trips.find(t => t.routeId === targetRouteId);
+      }
+
+      if (tripToUse && tripToUse.stopTimeUpdates && tripToUse.stopTimeUpdates.length > 1) {
+        // Sort stops by sequence
+        const sortedStops = [...tripToUse.stopTimeUpdates].sort((a, b) => (a.stopSequence || 0) - (b.stopSequence || 0));
+
+        const fallbackShape: Array<{ lat: number, lng: number }> = [];
+
+        sortedStops.forEach(stu => {
+          if (!stu.stopId) return;
+          const stopInfo = stops.find(s => s.stop_id === stu.stopId);
+          if (stopInfo && stopInfo.stop_lat && stopInfo.stop_lon) {
+            fallbackShape.push({
+              lat: stopInfo.stop_lat,
+              lng: stopInfo.stop_lon
+            });
+          }
+        });
+
+        if (fallbackShape.length > 1) {
+          console.log('[VehicleMap] Generated fallback shape with', fallbackShape.length, 'points');
+          // Construct a mock direction object
+          direction = {
+            direction_id: tripToUse.directionId ?? 0,
+            shape: fallbackShape,
+            stops: [] // We don't need stops here for the line drawing itself, it's used for markers separately
+          };
+        }
+      }
+    }
+    // --- FALLBACK LOGIC END ---
+
+    if (!direction || !direction.shape || direction.shape.length === 0) {
       if (lastDrawnRouteRef.current) {
         if (routeShapeLineRef.current) {
           mapRef.current.removeLayer(routeShapeLineRef.current);
@@ -2658,219 +2781,386 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         </div>
       )}
 
-
-      {/* Right side controls toolbar - repositioned for one-handed reachability */}
-      <div className={`absolute right-[0.5rem] z-[1000] flex flex-col gap-[0.5rem] transition-all duration-300 ${!isMobile && nearestStopWithArrivals && userLocation && !notificationModalStop ? 'bottom-[18rem]' : 'bottom-[8rem]'}`}>
-
-        {/* Stop Following Button - show only when following a vehicle */}
-        {followedVehicleId && (
+      {/* Map-based Route Planning Control */}
+      {!routeSelectionMode && !showRoutePlanner && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000]">
           <Button
-            variant="destructive"
-            size="icon"
-            className="rounded-full shadow-lg transition-all duration-150 active:scale-95 animate-pulse"
             onClick={() => {
-              setFollowedVehicleId(null);
-              onFollowVehicle?.(null);
-              // Clear the trail when unfollowing
-              trailPolylinesRef.current.forEach(polylines => {
-                polylines.forEach(p => mapRef.current?.removeLayer(p));
+              setRouteSelectionMode('origin');
+              toast({
+                title: "Σχεδιασμός Διαδρομής",
+                description: "Επιλέξτε το σημείο αφετηρίας στον χάρτη.",
+                className: "bg-blue-600 text-white border-none",
               });
-              trailPolylinesRef.current.clear();
             }}
-            title="Σταμάτα παρακολούθηση"
+            className="rounded-full shadow-lg bg-white text-blue-600 hover:bg-blue-50 border border-blue-200 transition-all active:scale-95 flex items-center gap-2 px-4 py-2"
           >
-            <X />
+            <MapPin className="w-4 h-4" />
+            <span className="font-semibold">Σχεδιασμός</span>
           </Button>
-        )}
-
-
-        {/* Stops toggle button */}
-        <Button
-          variant="secondary"
-          size="icon"
-          className={`rounded-full shadow-lg transition-all duration-150 active:scale-95 ${showStops ? 'bg-orange-500 text-white hover:bg-orange-600' : 'bg-card/90 backdrop-blur-sm'}`}
-          onClick={() => setShowStops(!showStops)}
-          title={showStops ? `Απόκρυψη στάσεων (${stops.length})` : `Εμφάνιση στάσεων (${stops.length})`}
-        >
-          <MapPin />
-        </Button>
-
-        <Button
-          variant="secondary"
-          size="icon"
-          className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
-          onClick={locateUser}
-          disabled={isLocating}
-          title="Εντοπισμός τοποθεσίας"
-        >
-          <LocateFixed className={`${isLocating ? 'animate-pulse' : ''} ${userLocation ? 'text-blue-500' : ''}`} />
-        </Button>
-
-        <Button
-          variant="secondary"
-          size="icon"
-          className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
-          title="Αρχική θέση"
-          onClick={() => {
-            if (mapRef.current) {
-              mapRef.current.setView([35.0, 33.0], 9, { animate: false });
-            }
-          }}
-        >
-          <Home />
-        </Button>
-
-        <Button
-          variant="secondary"
-          size="icon"
-          className={`rounded-full shadow-lg backdrop-blur-sm transition-all duration-150 active:scale-95 ${mapStyle !== 'light' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-card/90 hover:bg-card'
-            }`}
-          title={mapStyle === 'light' ? 'Νυχτερινός χάρτης' : mapStyle === 'dark' ? 'Δορυφορικός χάρτης' : 'Κανονικός χάρτης'}
-          onClick={() => setMapStyle(mapStyle === 'light' ? 'dark' : mapStyle === 'dark' ? 'satellite' : 'light')}
-        >
-          <Layers />
-        </Button>
-
-        <Button
-          variant="secondary"
-          size="icon"
-          className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
-          title="Μεγέθυνση"
-          onClick={() => mapRef.current?.zoomIn()}
-        >
-          <ZoomIn />
-        </Button>
-
-        <Button
-          variant="secondary"
-          size="icon"
-          className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
-          title="Σμίκρυνση"
-          onClick={() => mapRef.current?.zoomOut()}
-        >
-          <ZoomOut />
-        </Button>
-
-        <Button
-          variant="secondary"
-          size="icon"
-          className="h-8 w-8 rounded-full shadow-md bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
-          title="Κοινοποίηση"
-          onClick={async () => {
-            const shareData = {
-              title: 'Motion - Cyprus Public Transport',
-              text: 'Παρακολούθηση λεωφορείων σε πραγματικό χρόνο στην Κύπρο',
-              url: window.location.href,
-            };
-
-            if (navigator.share) {
-              try {
-                await navigator.share(shareData);
-              } catch (err) {
-                if ((err as Error).name !== 'AbortError') {
-                  console.error('Share failed:', err);
-                }
-              }
-            } else {
-              try {
-                await navigator.clipboard.writeText(window.location.href);
-                toast({
-                  title: "Link αντιγράφηκε",
-                  description: "Το link αντιγράφηκε στο clipboard",
-                });
-              } catch {
-                toast({
-                  title: "Σφάλμα",
-                  description: "Δεν ήταν δυνατή η αντιγραφή του link",
-                  variant: "destructive",
-                });
-              }
-            }
-          }}
-        >
-          <Share2 className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-
-      {/* Nearest stop panel - draggable with walking route - hide when route panel is open */}
-      {nearestStopWithArrivals && userLocation && !notificationModalStop && selectedRoute === 'all' && !followedVehicleId && (
-        <Suspense fallback={null}>
-          <NearestStopPanel
-            stop={nearestStopWithArrivals.stop}
-            distance={nearestStopWithArrivals.distance}
-            arrivals={getArrivalsForStop(nearestStopWithArrivals.stop.stop_id)}
-            walkingRoute={walkingRoute}
-            isLoadingRoute={isLoadingWalkingRoute}
-            currentNotificationSettings={getNotification(nearestStopWithArrivals.stop.stop_id)}
-            onClose={() => {
-              setUserLocation(null);
-              setWalkingRoute(null);
-              if (walkingRouteLineRef.current && mapRef.current) {
-                mapRef.current.removeLayer(walkingRouteLineRef.current);
-                walkingRouteLineRef.current = null;
-              }
-            }}
-            onOpenDetails={() => {
-              openStopPanel(
-                nearestStopWithArrivals.stop.stop_id,
-                nearestStopWithArrivals.stop.stop_name || nearestStopWithArrivals.stop.stop_id
-              );
-            }}
-            onNavigate={() => {
-              if (nearestStopWithArrivals.stop.stop_lat && nearestStopWithArrivals.stop.stop_lon) {
-                mapRef.current?.setView([nearestStopWithArrivals.stop.stop_lat, nearestStopWithArrivals.stop.stop_lon], 17, { animate: true });
-              }
-            }}
-            onSaveNotification={setStopNotification}
-            onRemoveNotification={removeStopNotification}
-          />
-        </Suspense>
-      )}
-
-      <div className="absolute bottom-4 left-4 glass-card rounded-lg px-3 py-2 text-sm">
-        <div className="flex items-center gap-3">
-          <div>
-            <span className="font-medium">{vehicles.filter(v => v.latitude && v.longitude).length}</span>
-            <span className="text-muted-foreground ml-1">οχήματα</span>
-          </div>
-          <div className="border-l border-border pl-3">
-            <DataSourceHealthIndicator />
-          </div>
-          <RefreshIndicator
-            refreshInterval={refreshInterval}
-            lastUpdate={lastUpdate}
-            isLoading={isLoading}
-          />
         </div>
-      </div>
-
-      {/* Stop Detail Panel - Draggable with routes - hide when route panel is open */}
-      {notificationModalStop && selectedRoute === 'all' && !followedVehicleId && (
-        <StopDetailPanel
-          stopId={notificationModalStop.stopId}
-          stopName={notificationModalStop.stopName}
-          arrivals={getArrivalsForStop(notificationModalStop.stopId)}
-          currentSettings={getNotification(notificationModalStop.stopId)}
-          onSave={setStopNotification}
-          onRemove={removeStopNotification}
-          onClose={closeStopPanel}
-          onFollowRoute={(routeId) => {
-            // Close the panel and set the selected route
-            closeStopPanel();
-            if (onRouteClose) {
-              // First close any existing route
-              onRouteClose();
-            }
-            // Dispatch event to change route in parent
-            window.dispatchEvent(new CustomEvent('selectRoute', { detail: { routeId } }));
-          }}
-          onTrackVehicle={(vehicleId) => {
-            closeStopPanel();
-            setFollowedVehicleId(vehicleId);
-          }}
-        />
       )}
+
+      {/* Route Selection Mode Indicator */}
+      {routeSelectionMode && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] flex flex-col items-center gap-2 w-full max-w-[90%] px-4">
+          <div className="bg-background/95 backdrop-blur-sm border border-border shadow-xl rounded-lg p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-4 w-full sm:w-auto">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold shadow-sm ${routeSelectionMode === 'origin' ? 'bg-blue-500' : 'bg-red-500'}`}>
+              {routeSelectionMode === 'origin' ? 'A' : 'B'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-sm">
+                {routeSelectionMode === 'origin' ? 'Επιλογή Αφετηρίας' : 'Επιλογή Προορισμού'}
+              </div>
+              <div className="text-xs text-muted-foreground truncate">
+                {routeSelectionMode === 'origin' ? 'Πατήστε στον χάρτη για αφετηρία' : 'Πατήστε στον χάρτη για προορισμό'}
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 rounded-full hover:bg-muted"
+              onClick={() => {
+                setRouteSelectionMode(null);
+                setSelectionOrigin(null);
+                routePlannerMarkerRef.current.forEach(m => mapRef.current?.removeLayer(m));
+                routePlannerMarkerRef.current = [];
+              }}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Map-based Route Planning Control */}
+      {!routeSelectionMode && !showRoutePlanner && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000]">
+          <Button
+            onClick={() => {
+              setRouteSelectionMode('origin');
+              toast({
+                title: "Σχεδιασμός Διαδρομής",
+                description: "Επιλέξτε το σημείο αφετηρίας στον χάρτη.",
+                className: "bg-blue-600 text-white border-none",
+              });
+            }}
+            className="rounded-full shadow-lg bg-white text-blue-600 hover:bg-blue-50 border border-blue-200 transition-all active:scale-95 flex items-center gap-2 px-4 py-2"
+          >
+            <MapPin className="w-4 h-4" />
+            <span className="font-semibold">Σχεδιασμός</span>
+          </Button>
+        </div>
+      )}
+
+      {/* Route Selection Mode Indicator */}
+      {routeSelectionMode && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] flex flex-col items-center gap-2 w-full max-w-[90%] px-4">
+          <div className="bg-background/95 backdrop-blur-sm border border-border shadow-xl rounded-lg p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-4 w-full sm:w-auto">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold shadow-sm ${routeSelectionMode === 'origin' ? 'bg-blue-500' : 'bg-red-500'}`}>
+              {routeSelectionMode === 'origin' ? 'A' : 'B'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-sm">
+                {routeSelectionMode === 'origin' ? 'Επιλογή Αφετηρίας' : 'Επιλογή Προορισμού'}
+              </div>
+              <div className="text-xs text-muted-foreground truncate">
+                {routeSelectionMode === 'origin' ? 'Πατήστε στον χάρτη για αφετηρία' : 'Πατήστε στον χάρτη για προορισμό'}
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 rounded-full hover:bg-muted"
+              onClick={() => {
+                setRouteSelectionMode(null);
+                setSelectionOrigin(null);
+                routePlannerMarkerRef.current.forEach(m => mapRef.current?.removeLayer(m));
+                routePlannerMarkerRef.current = [];
+              }}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
 
     </div>
+  )
+}
+
+{/* Map-based Route Planning Control */ }
+{/* Centered at top - visible only when not in selection mode to avoid clutter */ }
+{
+  !routeSelectionMode && !showRoutePlanner && (
+    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000]">
+      <Button
+        onClick={() => {
+          setRouteSelectionMode('origin');
+          toast({
+            title: "Σχεδιασμός Διαδρομής",
+            description: "Επιλέξτε το σημείο αφετηρίας στον χάρτη.",
+            className: "bg-blue-600 text-white border-none",
+          });
+        }}
+        className="rounded-full shadow-lg bg-white text-blue-600 hover:bg-blue-50 border border-blue-200 transition-all active:scale-95 flex items-center gap-2 px-4 py-2"
+      >
+        <MapPin className="w-4 h-4" />
+        <span className="font-semibold">Σχεδιασμός</span>
+      </Button>
+    </div>
+  )
+}
+
+{/* Route Selection Mode Indicator */ }
+{
+  routeSelectionMode && (
+    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] flex flex-col items-center gap-2 w-full max-w-[90%] px-4">
+      <div className="bg-background/95 backdrop-blur-sm border border-border shadow-xl rounded-lg p-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-4 w-full sm:w-auto">
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold shadow-sm ${routeSelectionMode === 'origin' ? 'bg-blue-500' : 'bg-red-500'}`}>
+          {routeSelectionMode === 'origin' ? 'A' : 'B'}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-sm">
+            {routeSelectionMode === 'origin' ? 'Επιλογή Αφετηρίας' : 'Επιλογή Προορισμού'}
+          </div>
+          <div className="text-xs text-muted-foreground truncate">
+            {routeSelectionMode === 'origin' ? 'Πατήστε στον χάρτη για αφετηρία' : 'Πατήστε στον χάρτη για προορισμό'}
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 rounded-full hover:bg-muted"
+          onClick={() => {
+            setRouteSelectionMode(null);
+            setSelectionOrigin(null);
+          }}
+        >
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+{/* Right side controls toolbar - repositioned for one-handed reachability */ }
+<div className={`absolute right-[0.5rem] z-[1000] flex flex-col gap-[0.5rem] transition-all duration-300 ${!isMobile && nearestStopWithArrivals && userLocation && !notificationModalStop ? 'bottom-[18rem]' : 'bottom-[8rem]'}`}>
+
+  {/* Stop Following Button - show only when following a vehicle */}
+  {followedVehicleId && (
+    <Button
+      variant="destructive"
+      size="icon"
+      className="rounded-full shadow-lg transition-all duration-150 active:scale-95 animate-pulse"
+      onClick={() => {
+        setFollowedVehicleId(null);
+        onFollowVehicle?.(null);
+        // Clear the trail when unfollowing
+        trailPolylinesRef.current.forEach(polylines => {
+          polylines.forEach(p => mapRef.current?.removeLayer(p));
+        });
+        trailPolylinesRef.current.clear();
+      }}
+      title="Σταμάτα παρακολούθηση"
+    >
+      <X />
+    </Button>
+  )}
+
+
+  {/* Stops toggle button */}
+  <Button
+    variant="secondary"
+    size="icon"
+    className={`rounded-full shadow-lg transition-all duration-150 active:scale-95 ${showStops ? 'bg-orange-500 text-white hover:bg-orange-600' : 'bg-card/90 backdrop-blur-sm'}`}
+    onClick={() => setShowStops(!showStops)}
+    title={showStops ? `Απόκρυψη στάσεων (${stops.length})` : `Εμφάνιση στάσεων (${stops.length})`}
+  >
+    <MapPin />
+  </Button>
+
+  <Button
+    variant="secondary"
+    size="icon"
+    className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
+    onClick={locateUser}
+    disabled={isLocating}
+    title="Εντοπισμός τοποθεσίας"
+  >
+    <LocateFixed className={`${isLocating ? 'animate-pulse' : ''} ${userLocation ? 'text-blue-500' : ''}`} />
+  </Button>
+
+  <Button
+    variant="secondary"
+    size="icon"
+    className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
+    title="Αρχική θέση"
+    onClick={() => {
+      if (mapRef.current) {
+        mapRef.current.setView([35.0, 33.0], 9, { animate: false });
+      }
+    }}
+  >
+    <Home />
+  </Button>
+
+  <Button
+    variant="secondary"
+    size="icon"
+    className={`rounded-full shadow-lg backdrop-blur-sm transition-all duration-150 active:scale-95 ${mapStyle !== 'light' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-card/90 hover:bg-card'
+      }`}
+    title={mapStyle === 'light' ? 'Νυχτερινός χάρτης' : mapStyle === 'dark' ? 'Δορυφορικός χάρτης' : 'Κανονικός χάρτης'}
+    onClick={() => setMapStyle(mapStyle === 'light' ? 'dark' : mapStyle === 'dark' ? 'satellite' : 'light')}
+  >
+    <Layers />
+  </Button>
+
+  <Button
+    variant="secondary"
+    size="icon"
+    className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
+    title="Μεγέθυνση"
+    onClick={() => mapRef.current?.zoomIn()}
+  >
+    <ZoomIn />
+  </Button>
+
+  <Button
+    variant="secondary"
+    size="icon"
+    className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
+    title="Σμίκρυνση"
+    onClick={() => mapRef.current?.zoomOut()}
+  >
+    <ZoomOut />
+  </Button>
+
+  <Button
+    variant="secondary"
+    size="icon"
+    className="h-8 w-8 rounded-full shadow-md bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
+    title="Κοινοποίηση"
+    onClick={async () => {
+      const shareData = {
+        title: 'Motion - Cyprus Public Transport',
+        text: 'Παρακολούθηση λεωφορείων σε πραγματικό χρόνο στην Κύπρο',
+        url: window.location.href,
+      };
+
+      if (navigator.share) {
+        try {
+          await navigator.share(shareData);
+        } catch (err) {
+          if ((err as Error).name !== 'AbortError') {
+            console.error('Share failed:', err);
+          }
+        }
+      } else {
+        try {
+          await navigator.clipboard.writeText(window.location.href);
+          toast({
+            title: "Link αντιγράφηκε",
+            description: "Το link αντιγράφηκε στο clipboard",
+          });
+        } catch {
+          toast({
+            title: "Σφάλμα",
+            description: "Δεν ήταν δυνατή η αντιγραφή του link",
+            variant: "destructive",
+          });
+        }
+      }
+    }}
+  >
+    <Share2 className="h-3.5 w-3.5" />
+  </Button>
+</div>
+
+{/* Nearest stop panel - draggable with walking route - hide when route panel is open */ }
+{
+  nearestStopWithArrivals && userLocation && !notificationModalStop && selectedRoute === 'all' && !followedVehicleId && (
+    <Suspense fallback={null}>
+      <NearestStopPanel
+        stop={nearestStopWithArrivals.stop}
+        distance={nearestStopWithArrivals.distance}
+        arrivals={getArrivalsForStop(nearestStopWithArrivals.stop.stop_id)}
+        walkingRoute={walkingRoute}
+        isLoadingRoute={isLoadingWalkingRoute}
+        currentNotificationSettings={getNotification(nearestStopWithArrivals.stop.stop_id)}
+        onClose={() => {
+          setUserLocation(null);
+          setWalkingRoute(null);
+          if (walkingRouteLineRef.current && mapRef.current) {
+            mapRef.current.removeLayer(walkingRouteLineRef.current);
+            walkingRouteLineRef.current = null;
+          }
+        }}
+        onOpenDetails={() => {
+          openStopPanel(
+            nearestStopWithArrivals.stop.stop_id,
+            nearestStopWithArrivals.stop.stop_name || nearestStopWithArrivals.stop.stop_id
+          );
+        }}
+        onNavigate={() => {
+          if (nearestStopWithArrivals.stop.stop_lat && nearestStopWithArrivals.stop.stop_lon) {
+            mapRef.current?.setView([nearestStopWithArrivals.stop.stop_lat, nearestStopWithArrivals.stop.stop_lon], 17, { animate: true });
+          }
+        }}
+        onSaveNotification={setStopNotification}
+        onRemoveNotification={removeStopNotification}
+      />
+    </Suspense>
+  )
+}
+
+<div className="absolute bottom-4 left-4 glass-card rounded-lg px-3 py-2 text-sm">
+  <div className="flex items-center gap-3">
+    <div>
+      <span className="font-medium">{vehicles.filter(v => v.latitude && v.longitude).length}</span>
+      <span className="text-muted-foreground ml-1">οχήματα</span>
+    </div>
+    <div className="border-l border-border pl-3">
+      <DataSourceHealthIndicator />
+    </div>
+    <RefreshIndicator
+      refreshInterval={refreshInterval}
+      lastUpdate={lastUpdate}
+      isLoading={isLoading}
+    />
+  </div>
+</div>
+
+{/* Stop Detail Panel - Draggable with routes - hide when route panel is open */ }
+{
+  notificationModalStop && selectedRoute === 'all' && !followedVehicleId && (
+    <StopDetailPanel
+      stopId={notificationModalStop.stopId}
+      stopName={notificationModalStop.stopName}
+      arrivals={getArrivalsForStop(notificationModalStop.stopId)}
+      currentSettings={getNotification(notificationModalStop.stopId)}
+      onSave={setStopNotification}
+      onRemove={removeStopNotification}
+      onClose={closeStopPanel}
+      onFollowRoute={(routeId) => {
+        // Close the panel and set the selected route
+        closeStopPanel();
+        if (onRouteClose) {
+          // First close any existing route
+          onRouteClose();
+        }
+        // Dispatch event to change route in parent
+        window.dispatchEvent(new CustomEvent('selectRoute', { detail: { routeId } }));
+      }}
+      onTrackVehicle={(vehicleId) => {
+        closeStopPanel();
+        setFollowedVehicleId(vehicleId);
+      }}
+    />
+  )
+}
+
+    </div >
   );
 }

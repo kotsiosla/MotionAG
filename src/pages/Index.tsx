@@ -620,6 +620,31 @@ const Index = () => {
     };
   }, [hasError, isLoading, handleRetry]);
 
+  const handleRoutePlanRequest = (origin: { lat: number, lng: number }, destination: { lat: number, lng: number }) => {
+    // Create temporary stop objects for the coordinates
+    const originStop: StaticStop = {
+      stop_id: 'custom-origin',
+      stop_name: 'Επιλεγμένο Σημείο (Αφετηρία)',
+      stop_lat: origin.lat,
+      stop_lon: origin.lng
+    };
+
+    const destStop: StaticStop = {
+      stop_id: 'custom-dest',
+      stop_name: 'Επιλεγμένο Σημείο (Προορισμός)',
+      stop_lat: destination.lat,
+      stop_lon: destination.lng
+    };
+
+    setTripOrigin(originStop);
+    setTripDestination(destStop);
+    setTripDepartureTime('now');
+    setTripDepartureDate(new Date());
+    setShowTripResults(true);
+  };
+
+
+
   // Listen for custom route selection events from children (e.g. Map components)
   useEffect(() => {
     const handleRouteSelection = (event: Event) => {
@@ -768,7 +793,9 @@ const Index = () => {
                 }}
                 mapStyle={mapStyle}
                 onMapStyleChange={handleMapStyleChange}
+                onRoutePlanRequest={handleRoutePlanRequest}
               />
+
             </TabsContent>
 
             <TabsContent value="trips" className="h-full m-0 overflow-auto custom-scrollbar">
