@@ -200,7 +200,11 @@ export function useStopNotifications() {
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {
-        setNotifications(JSON.parse(e.newValue));
+        try {
+          setNotifications(JSON.parse(e.newValue));
+        } catch (error) {
+          console.error('Error parsing storage change for notifications:', error);
+        }
       }
     };
 

@@ -63,9 +63,25 @@
 </head>
 
 <body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
-  <!-- Cache Buster v1.5.17.9.2 -->
+  <div id="root">
+    <div
+      style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #0a0a0b; color: white; font-family: system-ui, -apple-system, sans-serif;">
+      <div style="font-size: 24px; font-weight: bold; margin-bottom: 8px; color: #0ea5e9;">Motion Bus</div>
+      <div style="font-size: 14px; opacity: 0.7;">Προετοιμασία...</div>
+      <div
+        style="margin-top: 20px; width: 40px; height: 40px; border: 3px solid rgba(14, 165, 233, 0.2); border-top-color: #0ea5e9; border-radius: 50%; animation: spin 1s linear infinite;">
+      </div>
+      <style>
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+      </style>
+    </div>
+  </div>
+  <script type="module" src="./src/main.tsx"></script>
+  <!-- Cache Buster v1.7.8 -->
 </body>
 
 </html>

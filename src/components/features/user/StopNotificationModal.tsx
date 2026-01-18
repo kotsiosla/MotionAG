@@ -239,7 +239,12 @@ export function StopNotificationModal({
           watchedTrips: [],
         };
         const stored = localStorage.getItem('stop_notifications');
-        let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
+        let allNotifications: StopNotificationSettings[] = [];
+        try {
+          allNotifications = stored ? JSON.parse(stored) : [];
+        } catch {
+          allNotifications = [];
+        }
         const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
         if (existingIndex >= 0) allNotifications[existingIndex] = settings;
         else allNotifications.push(settings);
@@ -290,7 +295,12 @@ export function StopNotificationModal({
             watchedTrips: [],
           };
           const stored = localStorage.getItem('stop_notifications');
-          let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
+          let allNotifications: StopNotificationSettings[] = [];
+          try {
+            allNotifications = stored ? JSON.parse(stored) : [];
+          } catch {
+            allNotifications = [];
+          }
           const existingIndex = allNotifications.findIndex(n => n.stopId === stopId);
           if (existingIndex >= 0) allNotifications[existingIndex] = settings;
           else allNotifications.push(settings);
@@ -325,7 +335,12 @@ export function StopNotificationModal({
       };
 
       const stored = localStorage.getItem('stop_notifications');
-      let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
+      let allNotifications: StopNotificationSettings[] = [];
+      try {
+        allNotifications = stored ? JSON.parse(stored) : [];
+      } catch {
+        allNotifications = [];
+      }
       const existingKey = allNotifications.findIndex(n => n.stopId === stopId);
       if (existingKey >= 0) allNotifications[existingKey] = settings;
       else allNotifications.push(settings);
@@ -374,7 +389,12 @@ export function StopNotificationModal({
     setIsSaving(true);
     try {
       const stored = localStorage.getItem('stop_notifications');
-      let allNotifications: StopNotificationSettings[] = stored ? JSON.parse(stored) : [];
+      let allNotifications: StopNotificationSettings[] = [];
+      try {
+        allNotifications = stored ? JSON.parse(stored) : [];
+      } catch {
+        allNotifications = [];
+      }
       allNotifications = allNotifications.filter(n => n.stopId !== stopId);
       localStorage.setItem('stop_notifications', JSON.stringify(allNotifications));
 

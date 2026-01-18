@@ -88,13 +88,22 @@ export function NearbyStopsPanel({
 
   // Local settings for the panel UI (merged into stop settings when saving)
   const [panelSettings, setPanelSettings] = useState(() => {
-    const saved = localStorage.getItem('nearbyNotificationSettings');
-    return saved ? JSON.parse(saved) : {
-      sound: true,
-      vibration: true,
-      voice: true,
-      push: true,
-    };
+    try {
+      const saved = localStorage.getItem('nearbyNotificationSettings');
+      return saved ? JSON.parse(saved) : {
+        sound: true,
+        vibration: true,
+        voice: true,
+        push: true,
+      };
+    } catch {
+      return {
+        sound: true,
+        vibration: true,
+        voice: true,
+        push: true,
+      };
+    }
   });
 
   const [showSettings, setShowSettings] = useState(false);

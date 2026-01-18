@@ -124,6 +124,7 @@ export function usePushSubscription() {
             console.log('iOS Safari - client-side subscription found:', routes);
           } catch (e) {
             console.error('Error parsing saved routes:', e);
+            localStorage.removeItem('push_subscription_routes');
           }
         }
         setIsLoading(false);
@@ -171,6 +172,7 @@ export function usePushSubscription() {
               setSubscribedRoutes(JSON.parse(storedRoutes));
             } catch (e) {
               console.error('Error parsing stored routes:', e);
+              localStorage.removeItem('push_subscribed_routes');
             }
           }
         }
@@ -294,7 +296,7 @@ export function usePushSubscription() {
         console.log('Attempting subscription with Uint8Array key...');
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as any,
         });
       } catch (subError: any) {
         console.warn('Subscription with Uint8Array failed, retrying with ArrayBuffer...', subError);
@@ -302,7 +304,7 @@ export function usePushSubscription() {
           // Retry with ArrayBuffer directly (some browsers/versions prefer this)
           subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY).buffer,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY).buffer as any,
           });
           console.log('Subscription with ArrayBuffer succeeded!');
         } catch (retryError) {

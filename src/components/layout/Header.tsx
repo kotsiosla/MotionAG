@@ -125,8 +125,12 @@ export function Header({
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [tripPlannerVisible, setTripPlannerVisible] = useState(() => {
-    const saved = localStorage.getItem('tripPlannerVisible');
-    return saved !== null ? JSON.parse(saved) : true;
+    try {
+      const saved = localStorage.getItem('tripPlannerVisible');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
   });
 
   const toggleTripPlanner = () => {

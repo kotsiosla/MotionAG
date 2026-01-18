@@ -1,4 +1,4 @@
-const APP_VERSION = "v1.7.7";
+const APP_VERSION = "v1.7.8";
 
 // Force trailing slash for MotionAG to ensure Service Worker scope is always valid
 if (window.location.pathname === '/MotionAG') {
@@ -115,7 +115,7 @@ if ('serviceWorker' in navigator) {
           metadata: {
             step: 'SW_REGISTERED_MAIN',
             scope: registration.scope,
-            version: 'v1.7.3',
+            version: 'v1.7.8',
             timestamp: new Date().toISOString()
           }
         });
@@ -145,8 +145,19 @@ if ('serviceWorker' in navigator) {
   }
 }
 
-createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+import { ErrorBoundary } from "./components/common/ErrorBoundary";
+
+const rootElement = document.getElementById("root");
+if (!rootElement) {
+  const errorMsg = "Critical Error: Root element not found.";
+  console.error(errorMsg);
+  document.body.innerHTML = `<div style="padding: 20px; color: red;">${errorMsg}</div>`;
+} else {
+  createRoot(rootElement).render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
+}

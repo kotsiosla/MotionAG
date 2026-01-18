@@ -46,8 +46,13 @@ export function useSavedTrips() {
         // First load from localStorage for immediate UI
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
-          const parsed = JSON.parse(stored) as SavedTrip[];
-          setSavedTrips(parsed);
+          try {
+            const parsed = JSON.parse(stored) as SavedTrip[];
+            setSavedTrips(parsed);
+          } catch (e) {
+            console.error('Failed to parse saved trips from storage:', e);
+            localStorage.removeItem(STORAGE_KEY);
+          }
         }
 
         // Then try to sync with server
@@ -78,7 +83,12 @@ export function useSavedTrips() {
             }));
 
             // Combine with local-only trips (that might not be synced)
-            const localTrips = stored ? JSON.parse(stored) as SavedTrip[] : [];
+            let localTrips: SavedTrip[] = [];
+            try {
+              localTrips = stored ? JSON.parse(stored) as SavedTrip[] : [];
+            } catch {
+              localTrips = [];
+            }
             const localOnlyTrips = localTrips.filter(
               lt => !serverTrips.find(st => st.id === lt.id)
             );
@@ -214,7 +224,7 @@ export function useSavedTrips() {
     const synced = await syncTripToServer(newTrip);
     if (synced) {
       setSavedTrips(prev => {
-        const updated = prev.map(t => 
+        const updated = prev.map(t =>
           t.id === newTrip.id ? { ...t, syncedToServer: true } : t
         );
         persistTrips(updated);
@@ -245,17 +255,17 @@ export function useSavedTrips() {
   const updateTripReminder = useCallback(async (tripId: string, reminderMinutes: number | undefined) => {
     // Update local state
     setSavedTrips(prev => {
-      const updated = prev.map(t => 
+      const updated = prev.map(t =>
         t.id === tripId ? { ...t, reminderMinutes } : t
       );
       persistTrips(updated);
-      
+
       // Sync to server
       const trip = updated.find(t => t.id === tripId);
       if (trip) {
         syncTripToServer(trip);
       }
-      
+
       return updated;
     });
   }, [persistTrips, syncTripToServer]);
@@ -285,7 +295,7 @@ export function useSavedTrips() {
   const syncAllTrips = useCallback(async () => {
     const unsyncedTrips = savedTrips.filter(t => !t.syncedToServer);
     console.log(`Syncing ${unsyncedTrips.length} unsynced trips...`);
-    
+
     for (const trip of unsyncedTrips) {
       await syncTripToServer(trip);
     }
@@ -308,11 +318,11 @@ export function generateCalendarUrl(trip: SavedTrip): string {
   const depDate = new Date(trip.departureDate);
   const [depHours, depMinutes] = trip.journey.departureTime.split(':').map(Number);
   depDate.setHours(depHours, depMinutes, 0, 0);
-  
+
   const arrDate = new Date(trip.departureDate);
   const [arrHours, arrMinutes] = trip.journey.arrivalTime.split(':').map(Number);
   arrDate.setHours(arrHours, arrMinutes, 0, 0);
-  
+
   // Handle overnight journeys
   if (arrDate < depDate) {
     arrDate.setDate(arrDate.getDate() + 1);
@@ -325,9 +335,9 @@ export function generateCalendarUrl(trip: SavedTrip): string {
 
   const busLegs = trip.journey.legs.filter(l => l.type === 'bus');
   const routeNames = busLegs.map(l => l.route?.route_short_name).join(' → ');
-  
+
   const title = encodeURIComponent(`🚌 ${routeNames}: ${trip.origin.stop_name} → ${trip.destination.stop_name}`);
-  
+
   // Build description with trip details
   const descriptionLines: string[] = [
     `Διαδρομή: ${trip.origin.stop_name} → ${trip.destination.stop_name}`,
@@ -352,7 +362,7 @@ export function generateCalendarUrl(trip: SavedTrip): string {
       }
     }
   });
-  
+
   const description = encodeURIComponent(descriptionLines.join('\n'));
   const location = encodeURIComponent(trip.origin.stop_name);
 
@@ -363,12 +373,12 @@ export function generateCalendarUrl(trip: SavedTrip): string {
 export function formatTripForShare(trip: SavedTrip): string {
   const busLegs = trip.journey.legs.filter(l => l.type === 'bus');
   const routeNames = busLegs.map(l => l.route?.route_short_name).join(' → ');
-  
+
   let text = `🚌 Διαδρομή: ${trip.origin.stop_name} → ${trip.destination.stop_name}\n`;
   text += `📅 ${new Date(trip.departureDate).toLocaleDateString('el-GR')}\n`;
   text += `⏰ ${trip.journey.departureTime} - ${trip.journey.arrivalTime}\n`;
   text += `🚍 Γραμμές: ${routeNames}\n\n`;
-  
+
   trip.journey.legs.forEach((leg, idx) => {
     if (leg.type === 'walk') {
       text += `${idx + 1}. 🚶 Περπάτημα ${leg.walkingMinutes}'\n`;
@@ -377,6 +387,6 @@ export function formatTripForShare(trip: SavedTrip): string {
       text += `   🟢 ${leg.departureTime} | 🔴 ${leg.arrivalTime}\n`;
     }
   });
-  
+
   return text;
 }

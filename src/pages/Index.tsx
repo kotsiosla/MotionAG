@@ -22,7 +22,7 @@ import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import { useStopArrivalNotifications } from "@/hooks/useStopArrivalNotifications";
 import { unlockAudio } from "@/lib/audio-engine";
-import type { RouteInfo, StaticStop } from "@/types/gtfs";
+import type { RouteInfo, StaticStop, Vehicle, Trip, Alert, GtfsResponse } from "@/types/gtfs";
 import { toast } from "sonner";
 
 const Index = () => {
@@ -79,8 +79,12 @@ const Index = () => {
 
   // Delay notifications toggle
   const [delayNotificationsEnabled, setDelayNotificationsEnabled] = useState(() => {
-    const saved = localStorage.getItem('delayNotificationsEnabled');
-    return saved !== null ? JSON.parse(saved) : true;
+    try {
+      const saved = localStorage.getItem('delayNotificationsEnabled');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
   });
 
   const [isAccessibilityEnhanced, setIsAccessibilityEnhanced] = useState(() => {
@@ -196,7 +200,7 @@ const Index = () => {
   const staticStopsQuery = useStaticStops(selectedOperator);
 
   // Cache for last known good data - initialize from localStorage
-  const [cachedVehicles, setCachedVehicles] = useState<typeof vehiclesQuery.data>(() => {
+  const [cachedVehicles, setCachedVehicles] = useState<GtfsResponse<Vehicle[]> | null>(() => {
     try {
       const stored = localStorage.getItem('gtfs_cached_vehicles');
       return stored ? JSON.parse(stored) : null;
@@ -204,7 +208,7 @@ const Index = () => {
       return null;
     }
   });
-  const [cachedTrips, setCachedTrips] = useState<typeof tripsQuery.data>(() => {
+  const [cachedTrips, setCachedTrips] = useState<GtfsResponse<Trip[]> | null>(() => {
     try {
       const stored = localStorage.getItem('gtfs_cached_trips');
       return stored ? JSON.parse(stored) : null;
@@ -212,7 +216,7 @@ const Index = () => {
       return null;
     }
   });
-  const [cachedAlerts, setCachedAlerts] = useState<typeof alertsQuery.data>(() => {
+  const [cachedAlerts, setCachedAlerts] = useState<GtfsResponse<Alert[]> | null>(() => {
     try {
       const stored = localStorage.getItem('gtfs_cached_alerts');
       return stored ? JSON.parse(stored) : null;
