@@ -157,7 +157,7 @@ export function Header({
             <AnimatedLogo height="1rem" className="h-auto" />
             <Badge variant="outline" className="px-2 py-0 h-6 text-[10px] font-mono border-zinc-700/50 text-emerald-400 bg-emerald-500/10 gap-1.5 shadow-[0_0_10px_-3px_rgba(52,211,153,0.3)] backdrop-blur-sm">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-[pulse_3s_ease-in-out_infinite]" />
-              v1.7.10
+              v1.7.11
             </Badge>
           </div>
 

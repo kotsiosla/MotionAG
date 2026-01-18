@@ -493,11 +493,33 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
                             {favData.stop.stop_name || favData.stop.stop_id}
                           </div>
                           {favData.arrivals.length > 0 && (
-                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                              <Bus className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                              <span className="text-xs text-muted-foreground">
-                                {uniqueRoutes.length} {uniqueRoutes.length === 1 ? 'γραμμή' : 'γραμμές'}
-                              </span>
+                            <div className="flex flex-col gap-1.5 mt-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <Bus className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                <span className="text-xs text-muted-foreground">
+                                  {uniqueRoutes.length} {uniqueRoutes.length === 1 ? 'γραμμή' : 'γραμμές'}
+                                </span>
+                              </div>
+
+                              {/* Integrated route badges preview */}
+                              {!isExpanded && (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {uniqueRoutes.slice(0, 5).map((route, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold text-white whitespace-nowrap"
+                                      style={{ backgroundColor: route.routeColor ? `#${route.routeColor}` : '#0ea5e9' }}
+                                    >
+                                      {route.routeShortName || route.routeId}
+                                    </span>
+                                  ))}
+                                  {uniqueRoutes.length > 5 && (
+                                    <span className="inline-flex items-center px-1 py-0.5 text-[10px] text-muted-foreground">
+                                      +{uniqueRoutes.length - 5}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -521,26 +543,6 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
                         )}
                       </div>
                     </div>
-
-                    {/* Route badges preview (when collapsed) */}
-                    {!isExpanded && uniqueRoutes.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5 ml-12 pr-4 overflow-hidden">
-                        {uniqueRoutes.slice(0, 4).map((route, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold text-white whitespace-nowrap"
-                            style={{ backgroundColor: route.routeColor ? `#${route.routeColor}` : '#0ea5e9' }}
-                          >
-                            {route.routeShortName || route.routeId}
-                          </span>
-                        ))}
-                        {uniqueRoutes.length > 4 && (
-                          <span className="inline-flex items-center px-2 py-0.5 text-[10px] text-muted-foreground">
-                            +{uniqueRoutes.length - 4}
-                          </span>
-                        )}
-                      </div>
-                    )}
                   </button>
 
                   {/* Expanded: Show all arrivals by route + static routes */}
@@ -696,11 +698,33 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
                             </div>
                           )}
                           {data.arrivals.length > 0 && (
-                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                              <Bus className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                              <span className="text-xs text-muted-foreground">
-                                {uniqueRoutes.length} {uniqueRoutes.length === 1 ? 'γραμμή' : 'γραμμές'}
-                              </span>
+                            <div className="flex flex-col gap-1.5 mt-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <Bus className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                <span className="text-xs text-muted-foreground">
+                                  {uniqueRoutes.length} {uniqueRoutes.length === 1 ? 'γραμμή' : 'γραμμές'}
+                                </span>
+                              </div>
+
+                              {/* Integrated route badges preview */}
+                              {!isExpanded && (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {uniqueRoutes.slice(0, 5).map((route, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold text-white whitespace-nowrap"
+                                      style={{ backgroundColor: route.routeColor ? `#${route.routeColor}` : '#0ea5e9' }}
+                                    >
+                                      {route.routeShortName || route.routeId}
+                                    </span>
+                                  ))}
+                                  {uniqueRoutes.length > 5 && (
+                                    <span className="inline-flex items-center px-1 py-0.5 text-[10px] text-muted-foreground">
+                                      +{uniqueRoutes.length - 5}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
