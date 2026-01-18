@@ -1659,16 +1659,23 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   // Auto-start location tracking if permission is granted
   useEffect(() => {
     if (navigator.permissions && navigator.permissions.query) {
-      navigator.permissions.query({ name: 'geolocation' }).then((result) => {
-        if (result.state === 'granted') {
-          locateUser(false); // Start watching but don't center
-        }
-      });
+      try {
+        navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((result) => {
+          if (result.state === 'granted') {
+            locateUser(false); // Start watching but don't center
+          }
+        }).catch(err => {
+          console.warn('[VehicleMap] Permission query failed (harmless):', err);
+        });
+      } catch (e) {
+        console.warn('[VehicleMap] Permission API error:', e);
+      }
     }
   }, []);
 
   // Calculate distance between two points (Haversine formula)
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity; // Safety check
     const R = 6371e3; // Earth's radius in meters
     const φ1 = (lat1 * Math.PI) / 180;
     const φ2 = (lat2 * Math.PI) / 180;
@@ -1729,33 +1736,38 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
   // Optimized stop filtering: move to useMemo to avoid re-calculating on every render
   const stopsToRender = useMemo(() => {
-    // If stops are globally hidden, show nothing
-    if (!showStops) return [];
+    try {
+      // If stops are globally hidden, show nothing
+      if (!showStops) return [];
 
-    const validStops = stops.filter(
-      (s) => s.stop_lat !== undefined && s.stop_lon !== undefined &&
-        typeof s.stop_lat === 'number' && typeof s.stop_lon === 'number' &&
-        !isNaN(s.stop_lat) && !isNaN(s.stop_lon)
-    );
+      const validStops = stops.filter(
+        (s) => s.stop_lat !== undefined && s.stop_lon !== undefined &&
+          typeof s.stop_lat === 'number' && typeof s.stop_lon === 'number' &&
+          !isNaN(s.stop_lat) && !isNaN(s.stop_lon)
+      );
 
-    // If a specific route is selected, show all stops for that route
-    if (selectedRoute !== 'all') {
-      return validStops;
+      // If a specific route is selected, show all stops for that route
+      if (selectedRoute !== 'all') {
+        return validStops;
+      }
+
+      // If 'all' routes selected (STARTUP STATE), ONLY show nearby stops
+      if (userLocation) {
+        // Show stops within ~2km of user
+        const NEARBY_RADIUS_METERS = 2000;
+
+        return validStops.filter(stop => {
+          const dist = calculateDistance(userLocation.lat, userLocation.lng, stop.stop_lat!, stop.stop_lon!);
+          return dist <= NEARBY_RADIUS_METERS;
+        });
+      }
+
+      // Fallback: If no location yet and 'all' selected, show nothing (clean start)
+      return [];
+    } catch (err) {
+      console.error('[VehicleMap] Error filtering stops:', err);
+      return []; // Safe fallback
     }
-
-    // If 'all' routes selected (STARTUP STATE), ONLY show nearby stops
-    if (userLocation) {
-      // Show stops within ~2km of user
-      const NEARBY_RADIUS_METERS = 2000;
-
-      return validStops.filter(stop => {
-        const dist = calculateDistance(userLocation.lat, userLocation.lng, stop.stop_lat!, stop.stop_lon!);
-        return dist <= NEARBY_RADIUS_METERS;
-      });
-    }
-
-    // Fallback: If no location yet and 'all' selected, show nothing (clean start)
-    return [];
   }, [stops, showStops, userLocation, selectedRoute]);
 
   // Fetch walking route when user location and nearest stop change
