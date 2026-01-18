@@ -477,7 +477,7 @@ export function UnifiedRoutePanel({
         style={{ backgroundColor: headerColor }}
       >
         {/* Route badge */}
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/20 text-white font-bold text-sm">
+        <div className="flex items-center justify-center min-w-[2.25rem] h-9 px-2 rounded-lg bg-white/20 text-white font-bold text-sm">
           {routeInfo?.route_short_name || routeId}
         </div>
 
@@ -630,30 +630,29 @@ export function UnifiedRoutePanel({
       {/* Tabs */}
       {!isCollapsed && (
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 flex flex-col min-h-0 bg-white">
-          <TabsList className="grid w-full grid-cols-4 h-9 mx-4 mt-2 shrink-0">
-            <TabsTrigger value="stops" className="text-xs gap-1.5">
-              <MapPin className="h-3 w-3 text-green-600" />
-              Live Στάσεις
+          <TabsList className="grid w-full grid-cols-3 h-10 mx-auto mt-2 px-1 shrink-0 bg-muted/20">
+            <TabsTrigger value="stops" className="text-[10px] xs:text-xs gap-1 px-1">
+              <MapPin className="h-3 w-3 text-green-600 shrink-0" />
+              <span className="truncate">Στάσεις</span>
               {routeStops.length > 0 && (
-                <Badge variant="default" className="h-4 px-1 text-[10px] bg-green-500">
+                <Badge variant="default" className="h-3.5 px-1 text-[9px] bg-green-500 shrink-0">
                   {routeStops.length}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="live" className="text-xs gap-1.5">
-              <Radio className="h-3 w-3 text-green-600" />
-              Live Χάρτης
+            <TabsTrigger value="live" className="text-[10px] xs:text-xs gap-1 px-1">
+              <Radio className="h-3 w-3 text-green-600 shrink-0" />
+              <span className="truncate">Χάρτης</span>
               {liveCount > 0 && (
-                <Badge variant="default" className="h-4 px-1 text-[10px] bg-green-500">
+                <Badge variant="default" className="h-3.5 px-1 text-[9px] bg-green-500 shrink-0">
                   {liveCount}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="planner" className="text-xs gap-1.5">
-              <Route className="h-3 w-3 text-green-600" />
-              Live Δρομολόγιο
+            <TabsTrigger value="planner" className="text-[10px] xs:text-xs gap-1 px-1">
+              <Route className="h-3 w-3 text-green-600 shrink-0" />
+              <span className="truncate">Δρομολόγιο</span>
             </TabsTrigger>
-
           </TabsList>
 
           {/* Stops Tab */}

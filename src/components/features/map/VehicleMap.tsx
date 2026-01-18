@@ -367,28 +367,33 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   // Fallback order: vehicle.routeId -> trip.routeId (via tripId) -> null
   const resolveRouteIdForVehicle = useCallback((vehicle: Vehicle | undefined | null): string | null => {
     if (!vehicle) return null;
-    const direct = vehicle.routeId;
-    if ((typeof direct === 'string' || typeof direct === 'number') && String(direct) !== 'all') return String(direct);
-
-    const tripId = vehicle.tripId;
-    if (tripId && Array.isArray(trips)) {
-      // Use loose comparison or string conversion to handle potential number/string mismatches
-      const tripMatch = trips.find((t) => t?.tripId && String(t.tripId) === String(tripId));
-      const fromTrip = tripMatch?.routeId;
-      if ((typeof fromTrip === 'string' || typeof fromTrip === 'number') && String(fromTrip) !== 'all') return String(fromTrip);
-    }
 
     const vehicleId = vehicle.vehicleId || vehicle.id;
-    if (vehicleId && Array.isArray(trips)) {
-      // Use loose comparison or string conversion
-      const tripMatch = trips.find((t) => {
-        const tVehicleId = t?.vehicleId || t?.vehicleLabel; // Also check vehicleLabel just in case
-        return tVehicleId && String(tVehicleId) === String(vehicleId);
-      });
-      const fromVehicleTrip = tripMatch?.routeId;
-      if ((typeof fromVehicleTrip === 'string' || typeof fromVehicleTrip === 'number') && String(fromVehicleTrip) !== 'all') return String(fromVehicleTrip);
+    const direct = vehicle.routeId;
+    if ((typeof direct === 'string' || typeof direct === 'number') && String(direct) !== 'all' && String(direct) !== '') {
+      return String(direct);
     }
 
+    const tripId = vehicle.tripId;
+    if (tripId && Array.isArray(trips) && trips.length > 0) {
+      const tripMatch = trips.find((t) => t?.tripId && String(t.tripId) === String(tripId));
+      if (tripMatch?.routeId) {
+        return String(tripMatch.routeId);
+      }
+    }
+
+    if (vehicleId && Array.isArray(trips) && trips.length > 0) {
+      const tripMatch = trips.find((t) => {
+        const tVehicleId = t?.vehicleId || t?.vehicleLabel;
+        return tVehicleId && String(tVehicleId) === String(vehicleId);
+      });
+      if (tripMatch?.routeId) {
+        return String(tripMatch.routeId);
+      }
+    }
+
+    // Last resort: check if any trip with this vehicleId exists in current data
+    console.warn('[VehicleMap] Could not resolve routeId for vehicle:', vehicleId, { hasTripId: !!tripId, tripsCount: trips?.length });
     return null;
   }, [trips]);
   const routeMarkersRef = useRef<L.Marker[]>([]);
@@ -397,6 +402,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   const routeArrowsRef = useRef<L.Marker[]>([]);
   const routeStopMarkersRef = useRef<L.Marker[]>([]);
   const lastDrawnRouteRef = useRef<string | null>(null);
+  const lastDrawnDirectionRef = useRef<number | null>(null);
   const [mapClickMode, setMapClickMode] = useState<'origin' | 'destination' | null>(null);
   const [mapClickLocation, setMapClickLocation] = useState<{ type: 'origin' | 'destination'; lat: number; lng: number } | null>(null);
   const [viewMode, setViewMode] = useState<'street' | 'overview'>('street');
@@ -508,10 +514,10 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   }, [followedVehicleId, vehicles, resolveRouteIdForVehicle]);
 
   // Infer operator from route ID when selectedOperator is 'all'
-  // NOTE: When operator is 'all', we pass undefined and let the edge function search all operators
+  // When operator is 'all', we pass undefined and let the edge function search all operators
   const followedVehicleOperatorId = useMemo(() => {
     if (selectedOperator !== 'all') return selectedOperator;
-    // Let the edge function search for the correct operator
+    // We could potentially find the operator from the routeNamesMap if we had that mapping
     return undefined;
   }, [selectedOperator]);
 
@@ -521,15 +527,20 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     followedVehicleOperatorId
   );
 
-  // Use followed vehicle's route shape when following, otherwise selected route
-  const effectiveRouteShapeData = followedVehicleId
-    ? followedRouteShapeData
-    : routeShapeData;
+  // Consolidated route shape data - prioritized by followed vehicle
+  const effectiveRouteShapeData = useMemo(() => {
+    if (followedVehicleId && followedRouteShapeData?.directions?.length) {
+      return followedRouteShapeData;
+    }
+    return routeShapeData || null;
+  }, [followedVehicleId, followedRouteShapeData, routeShapeData]);
 
   // Get route info for coloring
-  const selectedRouteInfo = selectedRoute !== 'all' && routeNamesMap
-    ? routeNamesMap.get(selectedRoute)
-    : undefined;
+  const selectedRouteInfo = useMemo(() => {
+    const routeIdToResolve = followedVehicleRouteId || (selectedRoute !== 'all' ? selectedRoute : null);
+    if (!routeIdToResolve || !routeNamesMap) return undefined;
+    return routeNamesMap.get(routeIdToResolve);
+  }, [followedVehicleRouteId, selectedRoute, routeNamesMap]);
 
   // Show panels when route changes and clear trails
   useEffect(() => {
@@ -661,7 +672,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       mapRef.current?.closePopup();
     };
 
-    const handleSelectRoute = (e: CustomEvent<{ routeId: string }>) => {
+    const handleSelectRoute = (_e: CustomEvent<{ routeId: string }>) => {
       // Just a sink here, parent handles it
       mapRef.current?.closePopup();
     };
@@ -1211,7 +1222,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       const vehicleRouteShape = isFollowed && effectiveRouteShapeData?.directions?.[0]?.shape; // Prioritize actual API data
 
       // Also use for selected route if available to ensure smooth animation for all vehicles on line
-      const routeShapeToUse = vehicleRouteShape || (isOnSelectedRoute ? routeShapeData?.directions?.[0]?.shape : null);
+      const selectedRouteShape = isOnSelectedRoute ? routeShapeData?.directions?.find(d => d.shape && d.shape.length > 0)?.shape : null;
+      const routeShapeToUse = vehicleRouteShape || selectedRouteShape;
 
       if (routeShapeToUse) {
         // Try snapping
@@ -1712,6 +1724,30 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     return stopsWithArrivalsData[0];
   }, [userLocation, stops, trips]);
 
+  // Optimized stop filtering: move to useMemo to avoid re-calculating on every render
+  const stopsToRender = useMemo(() => {
+    const validStops = stops.filter(
+      (s) => s.stop_lat !== undefined && s.stop_lon !== undefined &&
+        typeof s.stop_lat === 'number' && typeof s.stop_lon === 'number' &&
+        !isNaN(s.stop_lat) && !isNaN(s.stop_lon)
+    );
+
+    if (showStops) return validStops;
+
+    if (userLocation) {
+      return validStops
+        .map(stop => ({
+          stop,
+          distance: calculateDistance(userLocation.lat, userLocation.lng, stop.stop_lat!, stop.stop_lon!)
+        }))
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 4)
+        .map(item => item.stop);
+    }
+
+    return [];
+  }, [stops, showStops, userLocation]);
+
   // Fetch walking route when user location and nearest stop change
   useEffect(() => {
     if (!userLocation || !nearestStopWithArrivals?.stop) {
@@ -1814,15 +1850,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
     stopMarkersRef.current.clearLayers();
 
-    if (!showStops) return;
+    if (stopsToRender.length === 0) return;
 
-    const validStops = stops.filter(
-      (s) => s.stop_lat !== undefined && s.stop_lon !== undefined &&
-        typeof s.stop_lat === 'number' && typeof s.stop_lon === 'number' &&
-        !isNaN(s.stop_lat) && !isNaN(s.stop_lon)
-    );
-
-    validStops.forEach((stop) => {
+    stopsToRender.forEach((stop) => {
       const hasVehicleStopped = stopsWithVehicles.has(stop.stop_id);
       const arrivals = getArrivalsForStop(stop.stop_id);
       const hasStopNotification = hasNotification(stop.stop_id);
@@ -1941,92 +1971,136 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Clear previous route shape line and arrows
+    // Determine which route shape to use: followed vehicle's route or selected route
+    const isFollowing = !!followedVehicleId;
+    const resolvedFollowedRouteId = isFollowing ? followedVehicleRouteId : null;
+    const selectedRouteId = (selectedRoute === 'all' || !selectedRoute) ? null : selectedRoute;
+
+    // The target ID we WANT to show
+    const targetRouteId = resolvedFollowedRouteId || selectedRouteId;
+
+    // The data we have available
+    const shapeDataToUse = effectiveRouteShapeData || routeShapeData;
+
+    // Determine the best direction to draw
+    const followedVehicle = isFollowing ? vehicles.find(v => (v.vehicleId || v.id) === followedVehicleId) : null;
+    const vehicleDirectionId = followedVehicle?.directionId;
+
+    let direction = null;
+    if (shapeDataToUse?.directions) {
+      if (vehicleDirectionId !== undefined) {
+        direction = shapeDataToUse.directions.find((d: any) => d.direction_id === vehicleDirectionId);
+      }
+      if (!direction || !direction.shape || direction.shape.length === 0) {
+        direction = shapeDataToUse.directions.find((d: any) => d.shape && d.shape.length > 0) || shapeDataToUse.directions[0];
+      }
+    }
+
+    console.log('[VehicleMap] Draw route phase:', {
+      targetRouteId,
+      directionId: direction?.direction_id,
+      shapePoints: direction?.shape?.length || 0,
+      isFollowing,
+      hasFollowedData: !!followedRouteShapeData,
+      hasSelectedData: !!routeShapeData
+    });
+
+    // Exit early if nothing to draw or data not yet arrived
+    if (!targetRouteId || !shapeDataToUse || !direction || !direction.shape || direction.shape.length === 0) {
+      if (lastDrawnRouteRef.current) {
+        if (routeShapeLineRef.current) {
+          mapRef.current.removeLayer(routeShapeLineRef.current);
+          routeShapeLineRef.current = null;
+        }
+        routeArrowsRef.current.forEach(arrow => mapRef.current?.removeLayer(arrow));
+        routeArrowsRef.current = [];
+        lastDrawnRouteRef.current = null;
+        lastDrawnDirectionRef.current = null;
+      }
+      return;
+    }
+
+    // AVOID REDRAW IF SAME ROUTE AND DIRECTION AND THE LAYER EXISTS
+    const hasExistingLine = !!routeShapeLineRef.current;
+    if (hasExistingLine && lastDrawnRouteRef.current === targetRouteId && lastDrawnDirectionRef.current === direction.direction_id) {
+      return;
+    }
+
+    // Now clear for redraw
     if (routeShapeLineRef.current) {
       mapRef.current.removeLayer(routeShapeLineRef.current);
-      routeShapeLineRef.current = null;
     }
     routeArrowsRef.current.forEach(arrow => mapRef.current?.removeLayer(arrow));
     routeArrowsRef.current = [];
 
-    // Determine which route shape to use: followed vehicle's route or selected route
-    const shapeDataToUse = effectiveRouteShapeData || routeShapeData;
-    const routeIdToUse = followedVehicleRouteId || selectedRoute;
-
     // Get route info for coloring
-    const routeInfoToUse = routeIdToUse && routeIdToUse !== 'all' && routeNamesMap
-      ? routeNamesMap.get(routeIdToUse)
-      : selectedRouteInfo;
+    // Try targetRouteId directly, then try fuzzy match, then fallback to selectedRouteInfo
+    let routeInfoToUse = targetRouteId ? routeNamesMap?.get(targetRouteId) : null;
 
-    // If no route selected AND not following a vehicle, or no shape data, exit
-    if (!followedVehicleId && selectedRoute === 'all') {
-      lastDrawnRouteRef.current = null;
-      return;
+    if (!routeInfoToUse && targetRouteId && routeNamesMap) {
+      // Try fuzzy match for coloring (e.g. 8020612 -> 612)
+      const baseId = targetRouteId.startsWith('8') ? targetRouteId.slice(-4).replace(/^0+/, '') : targetRouteId;
+      routeInfoToUse = routeNamesMap.get(baseId) || Array.from(routeNamesMap.values()).find(r => r.route_short_name === baseId);
     }
 
-    if (!shapeDataToUse) {
-      lastDrawnRouteRef.current = null;
-      return;
-    }
+    const routeColor = routeInfoToUse?.route_color || selectedRouteInfo?.route_color || '0ea5e9';
 
-    const routeColor = routeInfoToUse?.route_color || '0ea5e9';
+    // Draw the route polyline
+    const shapePoints: L.LatLngExpression[] = direction.shape.map((p: { lat: number, lng: number }) => [p.lat, p.lng]);
+    routeShapeLineRef.current = L.polyline(shapePoints, {
+      color: `#${routeColor}`,
+      weight: 6,
+      opacity: 0.85,
+      lineCap: 'round',
+      lineJoin: 'round',
+      pane: 'overlayPane',
+    }).addTo(mapRef.current);
 
-    // Use first direction for now
-    const direction = shapeDataToUse.directions[0];
-    if (!direction) return;
+    // Update refs to track what's currently on the map
+    lastDrawnRouteRef.current = targetRouteId;
+    lastDrawnDirectionRef.current = direction.direction_id;
 
-    // Draw the route polyline if we have shape data
-    if (direction.shape.length > 0) {
-      const shapePoints: L.LatLngExpression[] = direction.shape.map(p => [p.lat, p.lng]);
-      routeShapeLineRef.current = L.polyline(shapePoints, {
-        color: `#${routeColor}`,
-        weight: 5,
-        opacity: 0.8,
-        lineCap: 'round',
-        lineJoin: 'round',
-      }).addTo(mapRef.current);
+    // Add direction arrows along the route
+    const arrowInterval = Math.max(5, Math.floor(direction.shape.length / 15));
+    for (let i = arrowInterval; i < direction.shape.length - 1; i += arrowInterval) {
+      const p1 = direction.shape[i - 1];
+      const p2 = direction.shape[i];
 
-      // Add direction arrows along the route
-      const arrowInterval = Math.max(5, Math.floor(direction.shape.length / 15)); // ~15 arrows along route
-      for (let i = arrowInterval; i < direction.shape.length - 1; i += arrowInterval) {
-        const p1 = direction.shape[i - 1];
-        const p2 = direction.shape[i];
+      // Calculate bearing/angle
+      const dx = p2.lng - p1.lng;
+      const dy = p2.lat - p1.lat;
+      const angle = Math.atan2(dx, dy) * (180 / Math.PI);
 
-        // Calculate bearing/angle
-        const dx = p2.lng - p1.lng;
-        const dy = p2.lat - p1.lat;
-        const angle = Math.atan2(dx, dy) * (180 / Math.PI);
-
-        const arrowIcon = L.divIcon({
-          className: 'route-direction-arrow',
-          html: `
+      const arrowIcon = L.divIcon({
+        className: 'route-direction-arrow',
+        html: `
             <div style="transform: rotate(${angle}deg); width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="#${routeColor}" stroke="white" stroke-width="1.5">
                 <path d="M12 2L6 12h4v10h4V12h4L12 2z"/>
               </svg>
             </div>
           `,
-          iconSize: [20, 20],
-          iconAnchor: [10, 10],
-        });
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      });
 
-        const arrowMarker = L.marker([p2.lat, p2.lng], {
-          icon: arrowIcon,
-          interactive: false,
-        }).addTo(mapRef.current);
+      const arrowMarker = L.marker([p2.lat, p2.lng], {
+        icon: arrowIcon,
+        interactive: false,
+      }).addTo(mapRef.current);
 
-        routeArrowsRef.current.push(arrowMarker);
-      }
-
-      // Only fit bounds when route changes (not when following vehicle - that's handled separately)
-      const currentRouteId = followedVehicleRouteId || selectedRoute;
-      if (!followedVehicleId && lastDrawnRouteRef.current !== currentRouteId) {
-        const bounds = L.latLngBounds(shapePoints);
-        mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
-        lastDrawnRouteRef.current = currentRouteId;
-      }
+      routeArrowsRef.current.push(arrowMarker);
     }
-  }, [selectedRoute, routeShapeData, selectedRouteInfo, effectiveRouteShapeData, followedVehicleId, followedVehicleRouteId, routeNamesMap]);
+
+    // Only fit bounds when route actually changes
+    const bounds = L.latLngBounds(shapePoints);
+    if (!isFollowing) {
+      mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+    }
+
+    lastDrawnRouteRef.current = targetRouteId;
+    lastDrawnDirectionRef.current = direction.direction_id;
+  }, [selectedRoute, routeShapeData, selectedRouteInfo, followedRouteShapeData, followedVehicleId, followedVehicleRouteId, routeNamesMap, vehicles, mapReady]);
 
   // Update route stop markers with ETA info (for selected route or followed vehicle's route)
   useEffect(() => {
@@ -2214,9 +2288,6 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     ? vehicles.find((v) => (v.vehicleId || v.id) === followedVehicleId)
     : null;
 
-  const followedRouteInfo = followedVehicle?.routeId && routeNamesMap
-    ? routeNamesMap.get(followedVehicle.routeId)
-    : null;
 
 
 
@@ -2364,6 +2435,26 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     <div className="relative h-full w-full rounded-lg overflow-hidden">
       <div ref={containerRef} className="h-full w-full" />
 
+      {/* Debug Overlay - Check href to support HashRouter */}
+      {window.location.href.includes('debug=true') && (
+        <div className="absolute top-20 left-4 z-[1000] bg-black/80 text-white p-4 rounded-lg text-xs font-mono max-w-xs pointer-events-none">
+          <div className="font-bold border-b border-white/20 mb-2 pb-1">MAP DEBUG</div>
+          <div>Selected Route: {selectedRoute || 'none'}</div>
+          <div>Following: {followedVehicleId || 'none'}</div>
+          <div>Follow Route ID: {followedVehicleRouteId || 'none'}</div>
+          <div>Map Ready: {mapReady ? 'YES' : 'NO'}</div>
+          <div className="mt-2 text-emerald-400">
+            Shape Data: {effectiveRouteShapeData ? `${effectiveRouteShapeData.directions.length} dirs` : (routeShapeData ? 'Fallback only' : 'NONE')}
+          </div>
+          {effectiveRouteShapeData?.directions.some((d: any) => d.is_fallback_shape) && (
+            <div className="text-yellow-400">USING STOP-BASED FALLBACK</div>
+          )}
+          <div className="mt-1">
+            Last Drawn: {lastDrawnRouteRef.current || 'nothing'}
+          </div>
+        </div>
+      )}
+
       {/* Route Planner Panel */}
       <RoutePlannerPanel
         isOpen={showRoutePlanner}
@@ -2420,14 +2511,11 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
           const routeIdToUse = effectiveRouteId && effectiveRouteId !== 'all' ? effectiveRouteId : (vehicle?.routeId || 'unknown');
           if (routeIdToUse === 'all' && !vehicle) return null; // Still hide if just 'all' and no vehicle
 
-          // Get route info for this vehicle's route
-          const vehicleRouteInfo = vehicle?.routeId && routeNamesMap ? routeNamesMap.get(vehicle.routeId) : null;
-
           return (
             <ErrorBoundary>
               <UnifiedRoutePanel
                 routeId={routeIdToUse}
-                routeInfo={vehicleRouteInfo || followedRouteInfo || selectedRouteInfo || undefined}
+                routeInfo={selectedRouteInfo || undefined}
                 trips={trips}
                 vehicles={vehicles}
                 stops={stops}

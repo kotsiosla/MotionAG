@@ -105,12 +105,12 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [], onTripSel
 
   const filteredTrips = useMemo(() => {
     let filtered = trips;
-    
+
     // Filter by selected favorite route
     if (selectedFavoriteRouteId) {
       filtered = filtered.filter(trip => trip.routeId === selectedFavoriteRouteId);
     }
-    
+
     // Filter by search term
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -123,10 +123,10 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [], onTripSel
         );
       });
     }
-    
+
     return filtered;
   }, [trips, searchTerm, selectedFavoriteRouteId, routeNames]);
-  
+
   // Get unique routes from trips for favorite buttons - maintain order from favoriteRouteIds
   const uniqueRoutes = useMemo(() => {
     const routesMap = new Map<string, RouteInfo>();
@@ -161,7 +161,7 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [], onTripSel
 
   const sortedTrips = useMemo(() => {
     const tripsToSort = [...filteredTrips];
-    
+
     switch (sortOption) {
       case 'delay-desc':
         return tripsToSort.sort((a, b) => getMaxDelay(b) - getMaxDelay(a));
@@ -226,10 +226,10 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [], onTripSel
                       "h-16 flex flex-col items-center justify-center gap-1 font-bold text-base transition-all",
                       isSelected && "ring-2 ring-offset-2"
                     )}
-                    style={isSelected ? { 
-                      backgroundColor: routeColor, 
+                    style={isSelected ? {
+                      backgroundColor: routeColor,
                       color: textColor,
-                      borderColor: routeColor 
+                      borderColor: routeColor
                     } : { borderColor: routeColor }}
                     onClick={() => setSelectedFavoriteRouteId(isSelected ? null : routeId)}
                   >
@@ -269,7 +269,7 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [], onTripSel
             )}
           </div>
         )}
-        
+
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -338,15 +338,15 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [], onTripSel
                   onOpenChange={() => toggleExpanded(trip.id)}
                 >
                   <CollapsibleTrigger className="w-full p-4 hover:bg-muted/50 transition-colors text-left">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        {(() => {
-                          const route = getRouteDisplay(trip.routeId);
-                          return (
-                            <>
-                              <div className="flex items-center gap-2 mb-1">
+                    <div className="flex-1 min-w-0">
+                      {(() => {
+                        const route = getRouteDisplay(trip.routeId);
+                        return (
+                          <>
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
                                 {route.color ? (
-                                  <div 
+                                  <div
                                     className="px-2 py-0.5 rounded text-xs font-bold flex-shrink-0"
                                     style={{ backgroundColor: route.color, color: route.textColor }}
                                   >
@@ -367,144 +367,138 @@ export function TripsTable({ trips, isLoading, routeNames, stops = [], onTripSel
                                       const wasFavorite = isFavorite(trip.routeId!);
                                       toggleFavorite(trip.routeId!);
                                       if (!wasFavorite) {
-                                        // Show notification when route is added to favorites
                                         const route = getRouteDisplay(trip.routeId);
                                         const routeName = route.shortName || trip.routeId;
                                         toast({
                                           title: "✅ Δρομολόγιο προστέθηκε",
                                           description: `Το δρομολόγιο "${routeName}" προστέθηκε στα αγαπημένα`,
                                         });
-                                        // Also send browser notification if permission granted
-                                        if ('Notification' in window && Notification.permission === 'granted') {
-                                          new Notification('🚌 Δρομολόγιο προστέθηκε', {
-                                            body: `Το δρομολόγιο "${routeName}" προστέθηκε στα αγαπημένα`,
-                                            icon: '/pwa-192x192.png',
-                                            tag: 'favorite-route-added',
-                                          });
-                                        }
                                       }
                                     }}
                                   >
                                     <Star className={cn("h-3.5 w-3.5", isFavorite(trip.routeId) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground")} />
                                   </Button>
                                 )}
-                                                {delayInfo && (
-                                                  <span className={`status-badge ${delayInfo.className}`}>
-                                                    {delayInfo.text}
-                                                  </span>
-                                                )}
-                                                {getDirectionLabel(trip.directionId) && (
-                                                  <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                                    {getDirectionLabel(trip.directionId)}
-                                                  </span>
-                                                )}
-                                              </div>
-                                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mb-1">
-                                                <span>Trip: {trip.tripId || '-'}</span>
-                                                {trip.vehicleId && (
-                                                  <span>
-                                                    Όχημα: {trip.vehicleId}
-                                                    {trip.vehicleLabel && ` (${trip.vehicleLabel})`}
-                                                  </span>
-                                                )}
-                                                {trip.startTime && (
-                                                  <span>Αναχώρηση: {trip.startTime}</span>
-                                                )}
-                                                {trip.startDate && (
-                                                  <span>Ημερ/νία: {trip.startDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1')}</span>
-                                                )}
-                                              </div>
-                                              {route.longName && (
-                                                <div className="text-xs text-muted-foreground mb-1">
-                                                  {route.longName}
-                                                </div>
-                                              )}
-                                              {getScheduleRelationshipLabel(trip.scheduleRelationship) && (
-                                                <div className="text-xs text-muted-foreground/70">
-                                                  Κατάσταση: {getScheduleRelationshipLabel(trip.scheduleRelationship)}
-                                                </div>
-                                              )}
-                                            </>
-                                          );
-                                        })()}
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs text-muted-foreground">
-                                          {formatTimestamp(trip.timestamp)}
-                                        </span>
-                                        {isExpanded ? (
-                                          <ChevronUp className="h-4 w-4" />
-                                        ) : (
-                                          <ChevronDown className="h-4 w-4" />
-                                        )}
-                                      </div>
-                                    </div>
-                                  </CollapsibleTrigger>
+                                {delayInfo && (
+                                  <span className={`status-badge ${delayInfo.className}`}>
+                                    {delayInfo.text}
+                                  </span>
+                                )}
+                                {getDirectionLabel(trip.directionId) && (
+                                  <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                    {getDirectionLabel(trip.directionId)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                                <span className="text-xs text-muted-foreground">
+                                  {formatTimestamp(trip.timestamp)}
+                                </span>
+                                {isExpanded ? (
+                                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                )}
+                              </div>
+                            </div>
 
-                                  <CollapsibleContent>
-                                    <div className="px-4 pb-4">
-                                      {/* View on Map Button */}
-                                      {trip.vehicleId && onTripSelect && (
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="w-full mb-3 gap-2"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            onTripSelect(trip);
-                                          }}
-                                        >
-                                          <MapPin className="h-4 w-4" />
-                                          Δες στον Χάρτη
-                                        </Button>
-                                      )}
-                                      <div className="bg-muted/30 rounded-lg p-3">
-                                        <h4 className="text-xs font-medium mb-2 text-muted-foreground">
-                                          Ενημερώσεις Στάσεων ({trip.stopTimeUpdates.length})
-                                        </h4>
-                                        {trip.stopTimeUpdates.length === 0 ? (
-                                          <p className="text-sm text-muted-foreground">
-                                            Δεν υπάρχουν ενημερώσεις στάσεων
-                                          </p>
-                                        ) : (
-                                          <div className="space-y-2 max-h-48 overflow-auto scrollbar-thin">
-                                            {trip.stopTimeUpdates.map((stu, idx) => {
-                                              const arrDelay = formatDelay(stu.arrivalDelay);
-                                              const depDelay = formatDelay(stu.departureDelay);
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mb-1">
+                              <span>Trip: {trip.tripId || '-'}</span>
+                              {trip.vehicleId && (
+                                <span>
+                                  Όχημα: {trip.vehicleId}
+                                  {trip.vehicleLabel && ` (${trip.vehicleLabel})`}
+                                </span>
+                              )}
+                              {trip.startTime && (
+                                <span>Αναχώρηση: {trip.startTime}</span>
+                              )}
+                              {trip.startDate && (
+                                <span>Ημερ/νία: {trip.startDate.replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1')}</span>
+                              )}
+                            </div>
 
-                                              return (
-                                                <div
-                                                  key={idx}
-                                                  className="flex items-center justify-between text-sm py-1 border-b border-border/50 last:border-0"
-                                                >
-                                                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                    <span className="w-6 h-6 bg-primary/20 text-primary rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0">
-                                                      {stu.stopSequence || idx + 1}
-                                                    </span>
-                                                    <span className="text-xs truncate">
-                                                      {getStopName(stu.stopId)}
-                                                    </span>
-                                                  </div>
-                                                  <div className="flex items-center gap-2">
-                                                    {arrDelay && (
-                                                      <span className={`text-xs ${arrDelay.className.replace('status-', 'text-transit-')}`}>
-                                                        Άφ: {arrDelay.text}
-                                                      </span>
-                                                    )}
-                                                    {depDelay && (
-                                                      <span className={`text-xs ${depDelay.className.replace('status-', 'text-transit-')}`}>
-                                                        Αν: {depDelay.text}
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                              );
-                                            })}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </CollapsibleContent>
+                            {route.longName && (
+                              <div className="text-xs text-muted-foreground mb-1">
+                                {route.longName}
+                              </div>
+                            )}
+
+                            {getScheduleRelationshipLabel(trip.scheduleRelationship) && (
+                              <div className="text-xs text-muted-foreground/70">
+                                Κατάσταση: {getScheduleRelationshipLabel(trip.scheduleRelationship)}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </CollapsibleTrigger>
+
+                  <CollapsibleContent>
+                    <div className="px-4 pb-4">
+                      {/* View on Map Button */}
+                      {trip.vehicleId && onTripSelect && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full mb-3 gap-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onTripSelect(trip);
+                          }}
+                        >
+                          <MapPin className="h-4 w-4" />
+                          Δες στον Χάρτη
+                        </Button>
+                      )}
+                      <div className="bg-muted/30 rounded-lg p-3">
+                        <h4 className="text-xs font-medium mb-2 text-muted-foreground">
+                          Ενημερώσεις Στάσεων ({trip.stopTimeUpdates.length})
+                        </h4>
+                        {trip.stopTimeUpdates.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">
+                            Δεν υπάρχουν ενημερώσεις στάσεων
+                          </p>
+                        ) : (
+                          <div className="space-y-2 max-h-48 overflow-auto scrollbar-thin">
+                            {trip.stopTimeUpdates.map((stu, idx) => {
+                              const arrDelay = formatDelay(stu.arrivalDelay);
+                              const depDelay = formatDelay(stu.departureDelay);
+
+                              return (
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-between text-sm py-1 border-b border-border/50 last:border-0"
+                                >
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <span className="w-6 h-6 bg-primary/20 text-primary rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0">
+                                      {stu.stopSequence || idx + 1}
+                                    </span>
+                                    <span className="text-xs truncate">
+                                      {getStopName(stu.stopId)}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {arrDelay && (
+                                      <span className={`text-xs ${arrDelay.className.replace('status-', 'text-transit-')}`}>
+                                        Άφ: {arrDelay.text}
+                                      </span>
+                                    )}
+                                    {depDelay && (
+                                      <span className={`text-xs ${depDelay.className.replace('status-', 'text-transit-')}`}>
+                                        Αν: {depDelay.text}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CollapsibleContent>
                 </Collapsible>
               );
             })}

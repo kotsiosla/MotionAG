@@ -11,15 +11,18 @@ const queryClient = new QueryClient();
 
 // Get base path for GitHub Pages
 const getBasePath = () => {
-  if (typeof window !== 'undefined') {
-    const path = window.location.pathname;
-    if (path.startsWith('/MotionAG')) {
-      return '/MotionAG';
+  try {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.startsWith('/MotionAG')) {
+        return '/MotionAG';
+      }
+      if (path.startsWith('/MotionBus_AI')) {
+        return '/MotionBus_AI';
+      }
     }
-    // Check for old path just in case, or remove it if we want strict migration
-    if (path.startsWith('/MotionBus_AI')) {
-      return '/MotionBus_AI';
-    }
+  } catch (e) {
+    console.error('[App.tsx] Error determining base path:', e);
   }
   return import.meta.env.BASE_URL || '/';
 };
@@ -29,12 +32,10 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <Sonner />
       <BrowserRouter basename={getBasePath()}>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/install" element={<Install />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

@@ -22,7 +22,7 @@ export function RouteSelector({ value, onChange, routes, routeNames, disabled, i
     // Try to get short names for sorting
     const nameA = routeNames?.get(a)?.route_short_name || a;
     const nameB = routeNames?.get(b)?.route_short_name || b;
-    
+
     const numA = parseInt(nameA);
     const numB = parseInt(nameB);
     if (!isNaN(numA) && !isNaN(numB)) {
@@ -60,10 +60,10 @@ export function RouteSelector({ value, onChange, routes, routeNames, disabled, i
     <div className="flex items-center gap-2">
       <Route className="h-4 w-4 text-muted-foreground" />
       <Select value={value} onValueChange={onChange} disabled={disabled || routes.length === 0}>
-        <SelectTrigger className="w-full min-w-[320px] h-8 text-xs">
+        <SelectTrigger className="w-full min-w-[180px] h-8 text-xs">
           <div className="flex items-center gap-2 overflow-hidden">
             {selectedColor && (
-              <div 
+              <div
                 className="w-3 h-3 rounded-full flex-shrink-0 border border-border/50"
                 style={{ backgroundColor: selectedColor }}
               />
@@ -84,7 +84,7 @@ export function RouteSelector({ value, onChange, routes, routeNames, disabled, i
               <SelectItem key={routeId} value={routeId} className="text-xs">
                 <div className="flex items-center gap-2">
                   {color ? (
-                    <div 
+                    <div
                       className="w-6 h-5 rounded flex items-center justify-center text-[10px] font-bold flex-shrink-0"
                       style={{ backgroundColor: color, color: textColor }}
                     >

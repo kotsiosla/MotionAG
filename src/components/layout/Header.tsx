@@ -157,7 +157,7 @@ export function Header({
             <AnimatedLogo height="1rem" className="h-auto" />
             <Badge variant="outline" className="px-2 py-0 h-6 text-[10px] font-mono border-zinc-700/50 text-emerald-400 bg-emerald-500/10 gap-1.5 shadow-[0_0_10px_-3px_rgba(52,211,153,0.3)] backdrop-blur-sm">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-[pulse_3s_ease-in-out_infinite]" />
-              v2.0.0
+              v1.7.8
             </Badge>
           </div>
 
@@ -262,7 +262,7 @@ export function Header({
                   </div>
                 </div>
                 <p className="text-[0.6rem] sm:text-[0.7rem] text-muted-foreground font-medium flex items-center gap-[0.25rem] whitespace-nowrap">
-                  <span className="hidden sm:inline">Cyprus</span> Public Transport <span className="text-primary/70 font-bold ml-auto hidden sm:inline">v1.7.7</span>
+                  <span className="hidden sm:inline">Cyprus</span> Public Transport <span className="text-primary/70 font-bold ml-auto hidden sm:inline">v1.7.8</span>
                 </p>
               </div>
               {onShowLiveOnlyChange && (
@@ -333,15 +333,18 @@ export function Header({
               />
             </div>
             {onShowLiveOnlyChange && (
-              <div className="flex items-center gap-2 border-l border-border pl-3">
-                <Switch
-                  id="live-only-header"
-                  checked={showLiveOnly}
-                  onCheckedChange={onShowLiveOnlyChange}
-                />
-                <Label htmlFor="live-only-header" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
-                  Live ({liveRoutesCount || 0})
-                </Label>
+              <div className="flex items-center gap-2 border-l border-border pl-4">
+                <div className="flex items-center gap-1.5">
+                  <Switch
+                    id="live-only-header"
+                    checked={showLiveOnly}
+                    onCheckedChange={onShowLiveOnlyChange}
+                    className="data-[state=checked]:bg-emerald-500"
+                  />
+                  <Label htmlFor="live-only-header" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground cursor-pointer whitespace-nowrap">
+                    Live ({liveRoutesCount || 0})
+                  </Label>
+                </div>
               </div>
             )}
           </div>

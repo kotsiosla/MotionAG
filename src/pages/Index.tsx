@@ -64,12 +64,38 @@ const Index = () => {
   const [showTripResults, setShowTripResults] = useState(false);
 
   const [maxWalkingDistance, setMaxWalkingDistance] = useState<number>(() => {
-    const saved = localStorage.getItem('maxWalkingDistance');
-    return saved ? parseInt(saved, 10) : 1000; // Default to 1km
+    try {
+      const saved = localStorage.getItem('maxWalkingDistance');
+      return saved ? parseInt(saved, 10) : 1000; // Default to 1km
+    } catch {
+      return 1000;
+    }
   });
-  const [maxTransfers, setMaxTransfers] = useState<number>(2);
-  const [optimizationPreference, setOptimizationPreference] = useState<OptimizationPreference>('balanced');
-  const [includeNightBuses, setIncludeNightBuses] = useState<boolean>(true);
+  const [maxTransfers, setMaxTransfers] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('maxTransfers');
+      return saved ? parseInt(saved, 10) : 2;
+    } catch {
+      return 2;
+    }
+  });
+  const [optimizationPreference, setOptimizationPreference] = useState<OptimizationPreference>(() => {
+    try {
+      const saved = localStorage.getItem('optimizationPreference');
+      if (saved === 'fastest' || saved === 'leastWalking' || saved === 'leastTransfers' || saved === 'balanced') {
+        return saved as OptimizationPreference;
+      }
+    } catch { }
+    return 'balanced';
+  });
+  const [includeNightBuses, setIncludeNightBuses] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('includeNightBuses');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
 
   // Highlighted stop (for nearby stops panel)
   const [highlightedStop, setHighlightedStop] = useState<StaticStop | null>(null);
@@ -105,15 +131,26 @@ const Index = () => {
     }
   }, [isDark]);
 
-  // Apply accessibility enhancement to body
   useEffect(() => {
     if (isAccessibilityEnhanced) {
       document.body.classList.add('accessibility-enhanced');
     } else {
       document.body.classList.remove('accessibility-enhanced');
     }
-    localStorage.setItem('isAccessibilityEnhanced', JSON.stringify(isAccessibilityEnhanced));
+    try {
+      localStorage.setItem('isAccessibilityEnhanced', JSON.stringify(isAccessibilityEnhanced));
+    } catch { }
   }, [isAccessibilityEnhanced]);
+
+  // Persist trip planning settings
+  useEffect(() => {
+    try {
+      localStorage.setItem('maxWalkingDistance', maxWalkingDistance.toString());
+      localStorage.setItem('maxTransfers', maxTransfers.toString());
+      localStorage.setItem('optimizationPreference', optimizationPreference);
+      localStorage.setItem('includeNightBuses', JSON.stringify(includeNightBuses));
+    } catch { }
+  }, [maxWalkingDistance, maxTransfers, optimizationPreference, includeNightBuses]);
 
   // Unlock audio on any user interaction (required for iOS)
   useEffect(() => {
@@ -198,6 +235,10 @@ const Index = () => {
   const alertsQuery = useAlerts(refreshInterval, selectedOperator);
   const staticRoutesQuery = useStaticRoutes(selectedOperator);
   const staticStopsQuery = useStaticStops(selectedOperator);
+
+  const isLoading = vehiclesQuery.isLoading || tripsQuery.isLoading || alertsQuery.isLoading;
+  const hasError = vehiclesQuery.isError || tripsQuery.isError || alertsQuery.isError;
+  const errorMessage = vehiclesQuery.error?.message || tripsQuery.error?.message || alertsQuery.error?.message;
 
   // Cache for last known good data - initialize from localStorage
   const [cachedVehicles, setCachedVehicles] = useState<GtfsResponse<Vehicle[]> | null>(() => {
@@ -377,55 +418,82 @@ const Index = () => {
     staticStopsQuery.refetch();
   }, [selectedOperator]);
 
+  // Use a ref to prevent loops between state updates and URL updates
+  const isInternalUrlUpdate = useRef(false);
+
   // Handle deep links from URL parameters
   useEffect(() => {
+    // If we just updated the URL from state, don't process these params again
+    if (isInternalUrlUpdate.current) {
+      console.log('[Index] Skipping sync from URL: update originated from state');
+      isInternalUrlUpdate.current = false;
+      return;
+    }
+
     const routeParam = searchParams.get('route');
     const stopParam = searchParams.get('stop');
 
-    // Only update if specific params exist and differ from current state
-    // This prevents circular updates and unwanted tab switching
-    let shouldSwitchToMap = false;
+    let stateChanged = false;
 
     if (routeParam && routeParam !== 'all' && routeParam !== selectedRoute) {
       setSelectedRoute(routeParam);
-      shouldSwitchToMap = true;
+      stateChanged = true;
+    } else if (!routeParam && selectedRoute !== "all") {
+      // URL cleared the route, update state
+      setSelectedRoute("all");
+      stateChanged = true;
     }
 
     if (stopParam && stopParam !== deepLinkStopId) {
       setDeepLinkStopId(stopParam);
-      shouldSwitchToMap = true;
+      stateChanged = true;
+    } else if (!stopParam && deepLinkStopId !== null) {
+      // URL cleared the stop, update state
+      setDeepLinkStopId(null);
+      stateChanged = true;
     }
 
-    // Only switch to map on initial load or genuine deep link, not just param updates
-    // We can use a ref to track if it's the first load if needed, but checking diff is usually enough
-    if (shouldSwitchToMap) {
+    if (stateChanged) {
       setActiveTab("map");
     }
-  }, [searchParams, selectedRoute, deepLinkStopId]);
+  }, [searchParams]); // Only react to URL changes, not state changes
 
   // Update URL when route or stop changes
   const updateUrlParams = useCallback((params: { route?: string | null; stop?: string | null }) => {
     const newParams = new URLSearchParams(searchParams);
+    let changed = false;
 
     if (params.route !== undefined) {
-      if (params.route && params.route !== 'all') {
-        newParams.set('route', params.route);
-      } else {
-        newParams.delete('route');
+      const currentRoute = searchParams.get('route');
+      const targetRoute = params.route === 'all' ? null : params.route;
+
+      if (targetRoute !== currentRoute) {
+        if (targetRoute) {
+          newParams.set('route', targetRoute);
+        } else {
+          newParams.delete('route');
+        }
+        changed = true;
       }
     }
 
     if (params.stop !== undefined) {
-      if (params.stop) {
-        newParams.set('stop', params.stop);
-      } else {
-        newParams.delete('stop');
+      const currentStop = searchParams.get('stop');
+      if (params.stop !== currentStop) {
+        if (params.stop) {
+          newParams.set('stop', params.stop);
+        } else {
+          newParams.delete('stop');
+        }
+        changed = true;
       }
     }
 
-    // Push to history if we have params (so back button works), otherwise replace (cleanup)
-    const shouldPush = params.route || params.stop;
-    setSearchParams(newParams, { replace: !shouldPush });
+    if (changed) {
+      console.log('[Index] Updating URL from state:', params);
+      isInternalUrlUpdate.current = true;
+      setSearchParams(newParams, { replace: true });
+    }
   }, [searchParams, setSearchParams]);
 
   // Update URL when route changes
@@ -461,9 +529,6 @@ const Index = () => {
     document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
 
-  const isLoading = vehiclesQuery.isLoading || tripsQuery.isLoading || alertsQuery.isLoading;
-  const hasError = vehiclesQuery.isError || tripsQuery.isError || alertsQuery.isError;
-  const errorMessage = vehiclesQuery.error?.message || tripsQuery.error?.message || alertsQuery.error?.message;
 
   // Track previous error state to detect connection restored
   const wasOfflineRef = useRef(false);

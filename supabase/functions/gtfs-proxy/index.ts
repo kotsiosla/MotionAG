@@ -1577,6 +1577,40 @@ async function fetchStaticShapes(operatorId?: string): Promise<ShapePoint[]> {
   return allShapes;
 }
 
+/**
+ * Helper to find trips matching a route ID using multiple strategies
+ * (Exact, Prefix removal, Suffix matching)
+ */
+function findMatchingTrips(trips: TripStaticInfo[], routeId: string): { trips: TripStaticInfo[], matchedRouteId: string } {
+  // Strategy 0: Exact match
+  let matchedTrips = trips.filter((t) => t.route_id === routeId);
+  if (matchedTrips.length > 0) return { trips: matchedTrips, matchedRouteId: routeId };
+
+  // Strategy 1: If route ID starts with 8, extract the static route ID
+  if (routeId.startsWith('8') && routeId.length >= 4) {
+    const last4 = routeId.slice(-4);
+    const last4NoZeros = last4.replace(/^0+/, '');
+
+    matchedTrips = trips.filter((t) => t.route_id === last4 || t.route_id === last4NoZeros);
+    if (matchedTrips.length > 0) return { trips: matchedTrips, matchedRouteId: matchedTrips[0].route_id };
+  }
+
+  // Strategy 2: Try removing the "8XX" prefix (operator encoding)  
+  if (routeId.length > 3) {
+    const shortRouteId = routeId.substring(3);
+    const shortNoZeros = shortRouteId.replace(/^0+/, '');
+    matchedTrips = trips.filter((t) => t.route_id === shortRouteId || t.route_id === shortNoZeros);
+    if (matchedTrips.length > 0) return { trips: matchedTrips, matchedRouteId: matchedTrips[0].route_id };
+  }
+
+  // Strategy 3: Try finding any route ID that ends with the same digits (stripped)
+  const baseId = routeId.startsWith('8') ? routeId.slice(-4).replace(/^0+/, '') : routeId.replace(/^0+/, '');
+  matchedTrips = trips.filter((t) => t.route_id.replace(/^0+/, '') === baseId);
+  if (matchedTrips.length > 0) return { trips: matchedTrips, matchedRouteId: matchedTrips[0].route_id };
+
+  return { trips: [], matchedRouteId: routeId };
+}
+
 // Fetch stop times filtered by trip IDs to avoid memory issues with large files
 async function fetchStaticStopTimesForTrips(operatorId: string | undefined, tripIds: Set<string>): Promise<StopTimeInfo[]> {
   const operators = operatorId && operatorId !== 'all' ? [operatorId] : Object.keys(GTFS_STATIC_URLS);
@@ -2236,44 +2270,9 @@ serve(async (req) => {
       const uniqueRouteIds = [...new Set(tripsStatic.map((t: TripStaticInfo) => t.route_id))].slice(0, 20);
       console.log(`Sample route IDs from trips: ${uniqueRouteIds.join(', ')}`);
 
-      // Find trips for this route
-      // Route IDs in realtime have format like "8040012" (8 + operatorId + staticRouteId)
-      // We need to try multiple matching strategies
-      let routeTrips: TripStaticInfo[] = tripsStatic.filter((t: TripStaticInfo) => t.route_id === routeId);
-      let matchedRouteId = routeId;
-
-      // Strategy 1: If route ID starts with 8, extract the static route ID (last 4 digits typically)
-      if (routeTrips.length === 0 && routeId.startsWith('8') && routeId.length >= 4) {
-        // Try extracting just the last 4 characters (e.g., "0012" from "8040012")
-        const last4 = routeId.slice(-4);
-        routeTrips = tripsStatic.filter((t: TripStaticInfo) => t.route_id === last4);
-        if (routeTrips.length > 0) {
-          matchedRouteId = last4;
-          console.log(`Matched using last 4 chars: ${last4}, found ${routeTrips.length} trips`);
-        }
-      }
-
-      // Strategy 2: Try removing the "8XX" prefix (operator encoding)  
-      if (routeTrips.length === 0 && routeId.length > 3) {
-        const shortRouteId = routeId.substring(3);
-        routeTrips = tripsStatic.filter((t: TripStaticInfo) => t.route_id === shortRouteId);
-        if (routeTrips.length > 0) {
-          matchedRouteId = shortRouteId;
-          console.log(`Matched using substring(3): ${shortRouteId}, found ${routeTrips.length} trips`);
-        }
-      }
-
-      // Strategy 3: Try finding any route ID that ends with the same digits
-      if (routeTrips.length === 0) {
-        const suffix = routeId.slice(-4);
-        routeTrips = tripsStatic.filter((t: TripStaticInfo) => t.route_id.endsWith(suffix) || t.route_id === suffix);
-        if (routeTrips.length > 0) {
-          matchedRouteId = routeTrips[0].route_id;
-          console.log(`Matched using suffix ${suffix}: found ${routeTrips.length} trips with route_id ${matchedRouteId}`);
-        }
-      }
-
-      console.log(`Found ${routeTrips.length} trips for route ${routeId}`);
+      // Find trips for this route using fuzzy matching
+      const { trips: routeTrips, matchedRouteId } = findMatchingTrips(tripsStatic, routeId);
+      console.log(`Found ${routeTrips.length} trips for route ${routeId} (matched as ${matchedRouteId})`);
 
       if (routeTrips.length === 0) {
         return new Response(
@@ -2445,11 +2444,11 @@ serve(async (req) => {
         // Search each operator's trips to find the route
         for (const opId of allOperators) {
           const trips = await fetchStaticTrips(opId);
-          const hasRoute = trips.some((t: TripStaticInfo) => t.route_id === routeId);
+          const { trips: matchedTrips } = findMatchingTrips(trips, routeId);
 
-          if (hasRoute) {
+          if (matchedTrips.length > 0) {
             foundOperator = opId;
-            console.log(`Found route ${routeId} in operator ${opId}`);
+            console.log(`Found route ${routeId} in operator ${opId} (via fuzzy match)`);
             break;
           }
         }
@@ -2480,8 +2479,8 @@ serve(async (req) => {
         fetchStaticStops(effectiveOperatorId),
       ]);
 
-      // Find trips for this route
-      const routeTrips: TripStaticInfo[] = tripsStatic.filter((t: TripStaticInfo) => t.route_id === routeId);
+      // Find trips for this route using fuzzy matching
+      const { trips: routeTrips, matchedRouteId } = findMatchingTrips(tripsStatic, routeId);
       if (routeTrips.length === 0) {
         return new Response(
           JSON.stringify({ data: null, error: 'Route not found' }),
@@ -2508,21 +2507,11 @@ serve(async (req) => {
         direction_id: number;
         shape: Array<{ lat: number; lng: number }>;
         stops: Array<{ stop_id: string; stop_name: string; stop_sequence: number; lat?: number; lng?: number }>;
+        is_fallback_shape?: boolean;
       }> = [];
 
       for (const [directionId, dirTrips] of tripsByDirection) {
-        // Use first trip with shape_id
-        const tripWithShape = dirTrips.find((t: TripStaticInfo) => t.shape_id);
-
-        let shapePoints: Array<{ lat: number; lng: number }> = [];
-        if (tripWithShape?.shape_id) {
-          shapePoints = shapes
-            .filter((s: ShapePoint) => s.shape_id === tripWithShape.shape_id)
-            .sort((a: ShapePoint, b: ShapePoint) => a.shape_pt_sequence - b.shape_pt_sequence)
-            .map((s: ShapePoint) => ({ lat: s.shape_pt_lat, lng: s.shape_pt_lon }));
-        }
-
-        // Get stop sequence from first trip
+        // Get stop sequence from first trip (often more reliable than shape alone)
         const firstTrip = dirTrips[0];
         const tripStopTimes = stopTimes
           .filter((st: StopTimeInfo) => st.trip_id === firstTrip.trip_id)
@@ -2537,12 +2526,39 @@ serve(async (req) => {
             lat: stopInfo?.stop_lat,
             lng: stopInfo?.stop_lon,
           };
-        });
+        }).filter(s => s.lat !== undefined && s.lng !== undefined);
+
+        // Use first trip with shape_id
+        const tripWithShape = dirTrips.find((t: TripStaticInfo) => t.shape_id);
+
+        let shapePoints: Array<{ lat: number; lng: number }> = [];
+        let isFallbackShape = false;
+
+        if (tripWithShape?.shape_id) {
+          shapePoints = shapes
+            .filter((s: ShapePoint) => s.shape_id === tripWithShape.shape_id)
+            .sort((a: ShapePoint, b: ShapePoint) => a.shape_pt_sequence - b.shape_pt_sequence)
+            .map((s: ShapePoint) => ({ lat: s.shape_pt_lat, lng: s.shape_pt_lon }));
+        }
+
+        // FALLBACK LOGIC: If no shape points found, use the stop sequence as a rough shape
+        if (shapePoints.length === 0 && stopSequence.length > 0) {
+          if (routeId.includes('612') || effectiveOperatorId === '2') {
+            console.log(`[PaphosDebug] Generating fallback shape from ${stopSequence.length} stops for route ${routeId} dir ${directionId}`);
+          } else {
+            console.log(`Generating fallback shape from ${stopSequence.length} stops for route ${routeId} dir ${directionId}`);
+          }
+          shapePoints = stopSequence.map(s => ({ lat: s.lat!, lng: s.lng! }));
+          isFallbackShape = true;
+        } else if (routeId.includes('612') || effectiveOperatorId === '2') {
+          console.log(`[PaphosDebug] Found valid shape with ${shapePoints.length} points for route ${routeId} dir ${directionId}`);
+        }
 
         directions.push({
           direction_id: directionId,
           shape: shapePoints,
           stops: stopSequence,
+          is_fallback_shape: isFallbackShape,
         });
       }
 
