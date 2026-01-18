@@ -5,7 +5,26 @@ import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { supabase } from "@/integrations/supabase/client";
 import "./index.css";
 
-const APP_VERSION = "v1.7.8";
+const APP_VERSION = "v1.7.11";
+
+// Handle dynamic import failures (common after new deployments)
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    if (event.reason &&
+      (event.reason.name === 'ChunkLoadError' ||
+        event.reason.message?.includes('Failed to fetch dynamically imported module'))) {
+      console.error('[main.tsx] 🚨 Dynamic import failed. Force reloading to get latest assets...', event.reason);
+
+      // Only reload if we haven't reloaded in the last 10 seconds to prevent loops
+      const lastReload = sessionStorage.getItem('last_asset_reload');
+      const now = Date.now();
+      if (!lastReload || now - parseInt(lastReload) > 10000) {
+        sessionStorage.setItem('last_asset_reload', now.toString());
+        window.location.reload();
+      }
+    }
+  });
+}
 
 // Force trailing slash for MotionAG to ensure Service Worker scope is always valid
 if (typeof window !== 'undefined' && window.location.pathname === '/MotionAG') {
