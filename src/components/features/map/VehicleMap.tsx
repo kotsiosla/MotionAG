@@ -2830,12 +2830,12 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       )}
 
       {/* Toolbar */}
-      <div className={`absolute right-[0.5rem] z-[1000] flex flex-col gap-[0.5rem] transition-all duration-300 ${!isMobile && nearestStopWithArrivals && userLocation && !notificationModalStop ? 'bottom-[18rem]' : 'bottom-[8rem]'}`}>
+      <div className={`absolute right-[0.5rem] z-[5000] flex flex-col gap-[0.5rem] transition-all duration-300 ${!isMobile && nearestStopWithArrivals && userLocation && !notificationModalStop ? 'bottom-[18rem]' : 'bottom-[8rem]'}`}>
         {followedVehicleId && (
           <Button
             variant="destructive"
             size="icon"
-            className="rounded-full shadow-lg transition-all duration-150 active:scale-95 animate-pulse"
+            className="rounded-full shadow-lg h-12 w-12 shrink-0 animate-pulse-subtle border-2 border-white/20 active:scale-90"
             onClick={() => {
               setFollowedVehicleId(null);
               onFollowVehicle?.(null);
@@ -2853,7 +2853,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         <Button
           variant="secondary"
           size="icon"
-          className={`rounded-full shadow-lg transition-all duration-150 active:scale-95 ${showStops ? 'bg-orange-500 text-white hover:bg-orange-600' : 'bg-card/90 backdrop-blur-sm'}`}
+          className={`rounded-full shadow-lg h-12 w-12 shrink-0 transition-all duration-150 active:scale-95 ${showStops ? 'bg-orange-500 text-white hover:bg-orange-600' : 'bg-card/90 backdrop-blur-sm'}`}
           onClick={() => setShowStops(!showStops)}
           title={showStops ? `Απόκρυψη στάσεων (${stops.length})` : `Εμφάνιση στάσεων (${stops.length})`}
         >
@@ -2863,7 +2863,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         <Button
           variant="secondary"
           size="icon"
-          className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
+          className="rounded-full shadow-lg h-12 w-12 shrink-0 bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
           onClick={locateUser}
           disabled={isLocating}
           title="Εντοπισμός τοποθεσίας"
@@ -2874,7 +2874,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         <Button
           variant="secondary"
           size="icon"
-          className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
+          className="rounded-full shadow-lg h-12 w-12 shrink-0 bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
           title="Αρχική θέση"
           onClick={() => {
             if (mapRef.current) {
@@ -2888,7 +2888,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         <Button
           variant="secondary"
           size="icon"
-          className={`rounded-full shadow-lg backdrop-blur-sm transition-all duration-150 active:scale-95 ${mapStyle !== 'light' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-card/90 hover:bg-card'}`}
+          className={`rounded-full shadow-lg h-12 w-12 shrink-0 backdrop-blur-sm transition-all duration-150 active:scale-95 ${mapStyle !== 'light' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-card/90 hover:bg-card'}`}
           title={mapStyle === 'light' ? 'Νυχτερινός χάρτης' : mapStyle === 'dark' ? 'Δορυφορικός χάρτης' : 'Κανονικός χάρτης'}
           onClick={() => setMapStyle(mapStyle === 'light' ? 'dark' : mapStyle === 'dark' ? 'satellite' : 'light')}
         >
@@ -2898,7 +2898,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         <Button
           variant="secondary"
           size="icon"
-          className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
+          className="rounded-full shadow-lg h-12 w-12 shrink-0 bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
           title="Μεγέθυνση"
           onClick={() => mapRef.current?.zoomIn()}
         >
@@ -2908,7 +2908,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         <Button
           variant="secondary"
           size="icon"
-          className="rounded-full shadow-lg bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
+          className="rounded-full shadow-lg h-12 w-12 shrink-0 bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 active:scale-95"
           title="Σμίκρυνση"
           onClick={() => mapRef.current?.zoomOut()}
         >
@@ -2918,7 +2918,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
         <Button
           variant="secondary"
           size="icon"
-          className="h-8 w-8 rounded-full shadow-md bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
+          className="h-12 w-12 shrink-0 rounded-full shadow-md bg-card/90 backdrop-blur-sm hover:bg-card transition-all duration-150 hover:scale-105 active:scale-90"
           title="Κοινοποίηση"
           onClick={async () => {
             const shareData = {
@@ -2957,7 +2957,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       </div>
 
       {/* Info Bar */}
-      <div className="absolute bottom-4 left-4 glass-card rounded-lg px-3 py-2 text-sm z-[1000]">
+      <div className="absolute bottom-4 left-4 glass-card rounded-lg px-3 py-2 text-sm z-[5000]">
         <div className="flex items-center gap-3">
           <div>
             <span className="font-medium">{vehicles.filter(v => v.latitude && v.longitude).length}</span>
