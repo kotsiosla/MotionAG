@@ -94,9 +94,9 @@ const formatTime = (timestamp?: number) => {
 };
 
 const formatDuration = (minutes: number) => {
-  if (minutes < 60) return `${Math.round(minutes)} λεπτά`;
+  if (minutes < 60) return `${Number(minutes.toFixed(2))} λεπτά`;
   const hours = Math.floor(minutes / 60);
-  const mins = Math.round(minutes % 60);
+  const mins = Number((minutes % 60).toFixed(2));
   return `${hours} ώρ${hours > 1 ? 'ες' : 'α'}${mins > 0 ? ` ${mins} λ.` : ''} `;
 };
 
@@ -1477,7 +1477,7 @@ export function RoutePlannerPanel({
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm">Περπάτημα</div>
                         <div className="text-xs text-muted-foreground mt-0.5">
-                          {formatDistance(step.distance || 0)} • {Math.round(step.duration || 0)} λεπτά
+                          {formatDistance(step.distance || 0)} • {Number((step.duration || 0).toFixed(2))} λεπτά
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
                           Προς <span className="font-medium text-foreground">{step.to.name}</span>
