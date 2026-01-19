@@ -150,7 +150,7 @@ export function Header({
 
   return (
     <header className="glass-card border-b sticky top-0 z-50 safe-area-top flex-shrink-0">
-      <div className="container mx-auto px-2 sm:px-4 py-1.5 sm:py-2">
+      <div className="container mx-auto px-2 sm:px-4 py-1 sm:md:py-1.5">
         {/* Mobile Header - Compact single-row layout v2.0.0 */}
         <div className="flex items-center justify-between gap-[0.375rem] md:hidden">
           <div className="flex items-center gap-[0.25rem] flex-shrink-0">
@@ -315,7 +315,7 @@ export function Header({
 
           {/* Center: Selectors and Live toggle */}
           <div className="flex items-center gap-3">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-1 lg:gap-3">
               <OperatorSelector
                 value={selectedOperator}
                 onChange={onOperatorChange}

@@ -635,9 +635,9 @@ export function SmartTripPlanner({
     <div className="bg-card/80 backdrop-blur-sm rounded-lg border border-border p-2 sm:p-3">
       <div className="flex flex-col gap-2">
         {/* Row 1: Origin and Destination */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2">
+        <div className="flex flex-col sm:flex-row lg:items-center items-stretch sm:items-end gap-2">
           {/* Origin */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 lg:max-w-md">
             <div className="flex items-center gap-1 mb-1">
               <span className="text-xs text-muted-foreground">Αφετηρία</span>
               <button
@@ -676,7 +676,7 @@ export function SmartTripPlanner({
           </Button>
 
           {/* Destination */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 lg:max-w-md">
             <div className="flex items-center gap-1 mb-1">
               <span className="text-xs text-muted-foreground">Προορισμός</span>
             </div>
@@ -698,7 +698,7 @@ export function SmartTripPlanner({
         </div>
 
         {/* Row 2: Date, Time, Favorites, Search */}
-        <div className="flex flex-wrap items-end gap-2">
+        <div className="flex flex-wrap lg:flex-nowrap items-end gap-2">
           {/* Date Picker */}
           <div className="w-[calc(50%-4px)] sm:w-[120px] flex-shrink-0">
             <div className="flex items-center gap-1 mb-1">
