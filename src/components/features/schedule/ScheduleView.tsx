@@ -1,7 +1,5 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { Calendar, Loader2, Bus, Star, X, MapPin, Route as RouteIcon, Navigation } from "lucide-react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import { useState, useMemo, useEffect } from "react";
+import { Calendar, Loader2, Bus, Star, X, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -11,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { useStaticRoutes, useRouteSchedule, useRouteShape } from "@/hooks/useGtfsData";
+import { useStaticRoutes, useRouteSchedule } from "@/hooks/useGtfsData";
 import { useFavoriteRouteIds } from "@/hooks/useFavoriteRouteIds";
 import { toast } from "@/hooks/use-toast";
 import { OPERATORS } from "@/types/gtfs";
@@ -26,42 +24,6 @@ interface ScheduleViewProps {
 
 // Filter out 'all' option for schedule view - user must pick a specific operator
 const scheduleOperators = OPERATORS.filter(op => op.id !== 'all');
-
-// Calculate total route distance in kilometers using Haversine formula
-const calculateRouteDistance = (shape: Array<{ lat: number; lng: number }>): number => {
-  try {
-    if (!shape || !Array.isArray(shape) || shape.length < 2) return 0;
-
-    let totalDistance = 0; // in meters
-    const R = 6371000; // Earth's radius in meters
-
-    for (let i = 0; i < shape.length - 1; i++) {
-      const p1 = shape[i];
-      const p2 = shape[i + 1];
-
-      // Safety check for valid coordinates
-      if (!p1 || !p2 || typeof p1.lat !== 'number' || typeof p1.lng !== 'number' ||
-        typeof p2.lat !== 'number' || typeof p2.lng !== 'number') {
-        continue; // Skip invalid points
-      }
-
-      const dLat = (p2.lat - p1.lat) * Math.PI / 180;
-      const dLon = (p2.lng - p1.lng) * Math.PI / 180;
-
-      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(p1.lat * Math.PI / 180) * Math.cos(p2.lat * Math.PI / 180) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      totalDistance += R * c;
-    }
-
-    return totalDistance / 1000; // Convert to kilometers
-  } catch (error) {
-    console.error('[calculateRouteDistance] Error:', error);
-    return 0;
-  }
-};
 
 export function ScheduleView({
   selectedOperator,
@@ -79,17 +41,7 @@ export function ScheduleView({
     setSelectedDirection(0);
   }, [effectiveRouteId]);
 
-  const { favoriteRouteIds, isFavorite, toggleFavorite } = useFavoriteRouteIds();
-  const [mapReady, setMapReady] = useState(false);
-  const mapReadyRef = useRef(false); // Track map ready state in ref for closure access
-
-  // Map refs
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const routePolylineRef = useRef<L.Polyline | null>(null);
-  const stopMarkersRef = useRef<L.Marker[]>([]);
-  const userInteractedRef = useRef(false); // Track if user has manually interacted with map
-  const lastFittedRouteRef = useRef<string | null>(null); // Track last route we auto-fitted
+  const { favoriteRouteIds } = useFavoriteRouteIds();
 
   const dayNames = ['Κυριακή', 'Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο'];
   const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
@@ -100,12 +52,6 @@ export function ScheduleView({
 
   // Fetch schedule for selected route
   const scheduleQuery = useRouteSchedule(
-    effectiveRouteId || null,
-    selectedOperator !== 'all' ? selectedOperator : undefined
-  );
-
-  // Fetch route shape data (includes stops and shape points)
-  const routeShapeQuery = useRouteShape(
     effectiveRouteId || null,
     selectedOperator !== 'all' ? selectedOperator : undefined
   );
@@ -136,549 +82,13 @@ export function ScheduleView({
     return sortedRoutes.find(r => r.route_id === effectiveRouteId);
   }, [sortedRoutes, effectiveRouteId]);
 
-
-
   // Get available directions
   const availableDirections = useMemo(() => {
     if (!scheduleQuery.data?.by_direction) return [];
     return Object.keys(scheduleQuery.data.by_direction).map(Number);
   }, [scheduleQuery.data]);
 
-
-
   const bgColor = selectedRouteInfo?.route_color ? `#${selectedRouteInfo.route_color}` : 'hsl(var(--primary))';
-
-  // Define handleResize as stable callback using useCallback
-  // MUST be declared BEFORE useEffect to prevent "Cannot access before initialization" error
-  // This ensures it's always accessible in cleanup, even during hot reload
-  const handleResize = useCallback(() => {
-    if (mapRef.current) {
-      setTimeout(() => {
-        mapRef.current?.invalidateSize(true);
-      }, 100);
-    }
-  }, []); // Empty deps - mapRef is stable
-
-  // Initialize map when route is selected - simple approach like VehicleMap
-  useEffect(() => {
-    if (!effectiveRouteId) {
-      // Cleanup when no route selected
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-        setMapReady(false);
-      }
-      return;
-    }
-
-    if (!mapContainerRef.current || mapRef.current) {
-      return; // Container not ready or already initialized
-    }
-
-    const container = mapContainerRef.current;
-
-    // Ensure container has proper dimensions before initialization
-    // CRITICAL: Set explicit fixed height to prevent infinite retry loops
-    container.style.display = 'block';
-    container.style.width = '100%';
-    // Use smaller height for mobile to avoid taking up entire screen
-    const isSmallScreen = window.innerWidth < 1024;
-    const initialHeight = isSmallScreen ? '250px' : '300px';
-    container.style.height = initialHeight;
-    container.style.minHeight = initialHeight;
-    container.style.position = 'relative';
-    container.style.overflow = 'hidden';
-
-    // Initialize map immediately (like VehicleMap does)
-
-    try {
-      console.log('[ScheduleView] Initializing map...');
-      const map = L.map(container, {
-        zoomControl: true,
-        scrollWheelZoom: true,
-        center: [35.0, 33.0], // Default center (Cyprus)
-        zoom: 10,
-        maxZoom: 18,
-        minZoom: 8,
-      });
-
-      // Add tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 19,
-      }).addTo(map);
-
-      // Track user interactions (zoom, pan, drag) to disable auto-fit
-      map.on('zoomstart', () => {
-        userInteractedRef.current = true;
-        console.log('[ScheduleView] User zoom detected');
-      });
-
-      map.on('dragstart', () => {
-        userInteractedRef.current = true;
-        console.log('[ScheduleView] User drag detected');
-      });
-
-      // Track mouse wheel zoom
-      map.on('wheel', () => {
-        userInteractedRef.current = true;
-      });
-
-      mapRef.current = map;
-      console.log('[ScheduleView] Map created');
-
-      // Reset interaction flag and map ready state when route changes
-      userInteractedRef.current = false;
-      lastFittedRouteRef.current = null;
-      mapReadyRef.current = false;
-
-      // Listen for window resize - use the stable handleResize callback
-      window.addEventListener('resize', handleResize);
-
-      // Check if map is ready - similar to VehicleMap
-      let checkCount = 0;
-      const maxChecks = 20; // Max 4 seconds of retries
-      let isCheckingReady = true; // Flag to stop checking once ready
-      let checkReadyTimeout: NodeJS.Timeout | null = null;
-
-      const checkReady = () => {
-        // Stop checking if already marked as ready
-        if (!isCheckingReady) {
-          return;
-        }
-
-        checkCount++;
-        if (checkCount > maxChecks) {
-          console.warn('[ScheduleView] Map ready check timeout - forcing ready state');
-          isCheckingReady = false;
-          setMapReady(true);
-          return;
-        }
-
-        if (!mapRef.current) {
-          console.log(`[ScheduleView] Map ref is null (check ${checkCount}/${maxChecks}), retrying...`);
-          if (isCheckingReady) {
-            checkReadyTimeout = setTimeout(checkReady, 200);
-          }
-          return;
-        }
-
-        // Check container dimensions first
-        const rect = container.getBoundingClientRect();
-        console.log(`[ScheduleView] Check ${checkCount}/${maxChecks} - Container rect:`, rect.width, 'x', rect.height);
-
-        // CRITICAL FIX: Stop infinite retry if container size remains zero after multiple checks
-        if (rect.width === 0 || rect.height === 0) {
-          if (checkCount >= 5) {
-            // After 5 checks (1 second), if container still has no size, force ready state
-            console.warn('[ScheduleView] Container size still zero after 5 checks - forcing ready state to prevent infinite loop');
-            isCheckingReady = false;
-            mapReadyRef.current = true;
-            setMapReady(true);
-            return;
-          }
-          console.log('[ScheduleView] Container has no dimensions yet, retrying...');
-          if (isCheckingReady) {
-            checkReadyTimeout = setTimeout(checkReady, 200);
-          }
-          return;
-        }
-
-        // CRITICAL FIX: Only call invalidateSize when container is visible
-        const isVisible = rect.width > 0 && rect.height > 0 &&
-          container.offsetParent !== null &&
-          window.getComputedStyle(container).visibility !== 'hidden';
-
-        try {
-          // Only invalidate size if container is visible
-          if (isVisible) {
-            mapRef.current.invalidateSize(true);
-          }
-
-          // Verify zoom is accessible
-          const zoom = mapRef.current.getZoom();
-          const size = mapRef.current.getSize();
-          console.log('[ScheduleView] Map size:', size, 'zoom:', zoom);
-
-          // Check if map is already marked as ready (to prevent re-checking after fitBounds)
-          if (mapReadyRef.current || !isCheckingReady) {
-            // Map is already ready or checking was stopped, don't check again
-            return;
-          }
-
-          if (typeof zoom === 'number' && size.x > 0 && size.y > 0) {
-            // Map is ready - stop all checking
-            isCheckingReady = false;
-            mapReadyRef.current = true;
-            if (checkReadyTimeout) {
-              clearTimeout(checkReadyTimeout);
-              checkReadyTimeout = null;
-            }
-            setMapReady(true);
-            console.log('[ScheduleView] Map is ready!');
-            return; // Exit early
-          }
-
-          // Size might be 0 temporarily during fitBounds animation - check container instead
-          if (rect.width > 0 && rect.height > 0 && typeof zoom === 'number') {
-            // Container has size and zoom is valid, map is likely ready but size is temporarily 0
-            console.log('[ScheduleView] Map appears ready (container has size, zoom valid), but map size is 0 - likely during animation');
-            isCheckingReady = false;
-            mapReadyRef.current = true;
-            if (checkReadyTimeout) {
-              clearTimeout(checkReadyTimeout);
-              checkReadyTimeout = null;
-            }
-            setMapReady(true);
-            return; // Exit early
-          }
-
-          // Not ready yet, retry only if still checking
-          if (isCheckingReady) {
-            console.log('[ScheduleView] Map not fully ready (size or zoom invalid), retrying...');
-            checkReadyTimeout = setTimeout(checkReady, 200);
-          }
-        } catch (e) {
-          // Map not ready yet, retry
-          console.log('[ScheduleView] Map getZoom/getSize failed, retrying...', e);
-          if (isCheckingReady) {
-            checkReadyTimeout = setTimeout(checkReady, 200);
-          }
-        }
-      };
-
-      // Use requestAnimationFrame to ensure DOM is ready
-      const readyTimeout = setTimeout(() => {
-        requestAnimationFrame(checkReady);
-      }, 150);
-
-      // Also try after a delay in case container needs time to render
-      const retryTimeout = setTimeout(() => {
-        if (mapRef.current) {
-          console.log('[ScheduleView] Retry checkReady - container size:', container.offsetWidth, 'x', container.offsetHeight);
-          checkReady();
-        }
-      }, 500);
-
-      return () => {
-        // Stop all checking
-        isCheckingReady = false;
-        mapReadyRef.current = false;
-        if (checkReadyTimeout) {
-          clearTimeout(checkReadyTimeout);
-          checkReadyTimeout = null;
-        }
-        clearTimeout(readyTimeout);
-        clearTimeout(retryTimeout);
-        // CRITICAL FIX: Use same handleResize reference for removeEventListener
-        window.removeEventListener('resize', handleResize);
-        if (mapRef.current) {
-          mapRef.current.remove();
-          mapRef.current = null;
-          setMapReady(false);
-        }
-        // Reset interaction tracking when route changes
-        userInteractedRef.current = false;
-        lastFittedRouteRef.current = null;
-      };
-
-    } catch (error) {
-      console.error('[ScheduleView] Error initializing map:', error);
-
-      // Cleanup on error - use stable handleResize callback
-      return () => {
-        // CRITICAL FIX: Use same handleResize reference for removeEventListener
-        window.removeEventListener('resize', handleResize);
-        mapReadyRef.current = false;
-        if (mapRef.current) {
-          mapRef.current.remove();
-          mapRef.current = null;
-          setMapReady(false);
-        }
-        userInteractedRef.current = false;
-        lastFittedRouteRef.current = null;
-      };
-    }
-  }, [effectiveRouteId, handleResize]); // CRITICAL FIX: Add handleResize to dependencies
-
-  // Ensure map is visible and resized when data changes
-  useEffect(() => {
-    if (!mapRef.current || !effectiveRouteId) return;
-
-    // Always ensure map is properly sized
-    setTimeout(() => {
-      if (mapRef.current) {
-        mapRef.current.invalidateSize(true); // Force flag
-        const size = mapRef.current.getSize();
-        console.log('[ScheduleView] Map resized, size:', size);
-      }
-    }, 200);
-  }, [effectiveRouteId, routeShapeQuery.data, mapReady]);
-
-  // Draw route shape and stops on map
-  useEffect(() => {
-    if (!mapRef.current) {
-      console.log('[ScheduleView] Map not ready yet');
-      return;
-    }
-
-    if (!effectiveRouteId) {
-      console.log('[ScheduleView] No route selected');
-      return;
-    }
-
-    const map = mapRef.current;
-
-    if (!routeShapeQuery.data || !routeShapeQuery.data.directions || routeShapeQuery.data.directions.length === 0) {
-      console.warn('[ScheduleView] No route shape data available for route:', effectiveRouteId);
-      if (routeShapeQuery.isError) {
-        console.error('[ScheduleView] Route shape query error:', routeShapeQuery.error);
-      }
-      // Map should still be visible even without route data - just ensure it's resized
-      setTimeout(() => {
-        if (mapRef.current) {
-          mapRef.current.invalidateSize(true);
-        }
-      }, 200);
-      return;
-    }
-
-    console.log('[ScheduleView] Drawing route shape, directions:', routeShapeQuery.data.directions.length);
-
-    // Check if any direction has empty shape
-    routeShapeQuery.data.directions.forEach((dir, idx) => {
-      if (!dir.shape || dir.shape.length === 0) {
-        console.warn(`[ScheduleView] Direction ${dir.direction_id ?? idx} has no shape data (${dir.stops?.length || 0} stops available)`);
-      }
-    });
-
-    // Clear existing route and stops
-    if (routePolylineRef.current) {
-      map.removeLayer(routePolylineRef.current);
-      routePolylineRef.current = null;
-    }
-    stopMarkersRef.current.forEach(marker => map.removeLayer(marker));
-    stopMarkersRef.current = [];
-
-    // Get current direction
-    const currentDirection = routeShapeQuery.data.directions.find(
-      d => (d.direction_id ?? routeShapeQuery.data!.directions.indexOf(d)) === selectedDirection
-    ) || routeShapeQuery.data.directions[0];
-
-    if (!currentDirection) {
-      // Even if no direction, ensure map is visible
-      setTimeout(() => {
-        if (mapRef.current) {
-          mapRef.current.invalidateSize();
-        }
-      }, 100);
-      return;
-    }
-
-    // Draw route polyline
-    if (currentDirection.shape && currentDirection.shape.length > 0) {
-      const shapePoints: L.LatLngExpression[] = currentDirection.shape
-        .filter(p => p && typeof p.lat === 'number' && typeof p.lng === 'number')
-        .map(p => [p.lat, p.lng] as L.LatLngExpression);
-
-      if (shapePoints.length > 0) {
-        routePolylineRef.current = L.polyline(shapePoints, {
-          color: bgColor,
-          weight: 5,
-          opacity: 0.8,
-          lineCap: 'round',
-          lineJoin: 'round',
-        }).addTo(map);
-
-        // Collect all points for bounds calculation (shape + stops)
-        const allPoints: L.LatLngExpression[] = [...shapePoints];
-
-        // Add stop positions to bounds calculation
-        if (currentDirection.stops && currentDirection.stops.length > 0) {
-          currentDirection.stops.forEach(stop => {
-            if (stop.lat && stop.lng && typeof stop.lat === 'number' && typeof stop.lng === 'number') {
-              allPoints.push([stop.lat, stop.lng]);
-            }
-          });
-        }
-
-        // Fit map to route bounds - include all stops too
-        // Only auto-fit if:
-        // 1. Route has changed (not just direction)
-        // 2. User hasn't manually interacted with the map
-        const routeKey = `${effectiveRouteId}-${selectedDirection}`;
-        const shouldAutoFit = !userInteractedRef.current || lastFittedRouteRef.current !== routeKey;
-
-        if (shouldAutoFit) {
-          // Use requestAnimationFrame to ensure map is fully rendered before fitting
-          requestAnimationFrame(() => {
-            if (!mapRef.current || allPoints.length === 0) return;
-
-            // Force invalidate size first to ensure map has correct dimensions
-            mapRef.current.invalidateSize(true);
-
-            try {
-              const bounds = L.latLngBounds(allPoints);
-              const boundsSize = bounds.getNorthEast().distanceTo(bounds.getSouthWest());
-              console.log('[ScheduleView] Route bounds size:', boundsSize.toFixed(2), 'km');
-
-              // Adjust padding based on route size
-              // Smaller routes need less padding, larger routes need more
-              let padding: [number, number] = [80, 80];
-              if (boundsSize < 5) {
-                padding = [60, 60]; // Small routes
-              } else if (boundsSize > 50) {
-                padding = [100, 100]; // Very large routes
-              }
-
-              // Temporarily disable interaction tracking during programmatic fit
-              const wasInteracting = userInteractedRef.current;
-              userInteractedRef.current = false;
-
-              // Fit bounds with dynamic padding and max zoom
-              mapRef.current.fitBounds(bounds, {
-                padding: padding,
-                maxZoom: 14, // Prevent too much zoom in
-                animate: true
-              });
-
-              // Restore interaction state after fit (but allow one auto-fit per route)
-              lastFittedRouteRef.current = routeKey;
-              userInteractedRef.current = wasInteracting;
-
-              console.log('[ScheduleView] Fitted bounds to route, padding:', padding);
-
-              // Double-check after animation completes (only if user hasn't interacted)
-              setTimeout(() => {
-                if (mapRef.current && !userInteractedRef.current) {
-                  mapRef.current.invalidateSize(true);
-                  const currentZoom = mapRef.current.getZoom();
-                  const currentBounds = mapRef.current.getBounds();
-
-                  // Verify bounds include all points
-                  let allInBounds = true;
-                  for (const point of allPoints) {
-                    if (Array.isArray(point) && !currentBounds.contains([point[0], point[1]])) {
-                      allInBounds = false;
-                      break;
-                    }
-                  }
-
-                  // Only auto-adjust if user hasn't interacted
-                  if ((currentZoom > 15 || currentZoom < 8 || !allInBounds) && !userInteractedRef.current) {
-                    console.log('[ScheduleView] Adjusting bounds - zoom:', currentZoom, 'allInBounds:', allInBounds);
-                    try {
-                      userInteractedRef.current = false; // Temporarily disable
-                      const bounds = L.latLngBounds(allPoints);
-                      mapRef.current.fitBounds(bounds, {
-                        padding: padding,
-                        maxZoom: 14,
-                        animate: false
-                      });
-                      userInteractedRef.current = false; // Keep disabled after programmatic adjust
-                    } catch (e) {
-                      console.error('[ScheduleView] Error adjusting bounds:', e);
-                    }
-                  }
-                }
-              }, 400);
-            } catch (e) {
-              console.error('[ScheduleView] Error fitting bounds:', e);
-              // Fallback to default center if bounds fail (only if user hasn't interacted)
-              if (mapRef.current && !userInteractedRef.current) {
-                mapRef.current.setView([35.0, 33.0], 10);
-              }
-            }
-          });
-        } else {
-          console.log('[ScheduleView] Skipping auto-fit - user has interacted with map');
-        }
-      }
-    } else {
-      // No shape data - use stops as fallback
-      console.warn(`[ScheduleView] No shape data for direction ${selectedDirection}. Using stops as fallback.`);
-
-      if (currentDirection.stops && currentDirection.stops.length > 0) {
-        const stopPoints: L.LatLngExpression[] = currentDirection.stops
-          .filter(stop => stop.lat && stop.lng && typeof stop.lat === 'number' && typeof stop.lng === 'number')
-          .sort((a, b) => (a.stop_sequence || 0) - (b.stop_sequence || 0))
-          .map(stop => [stop.lat!, stop.lng!] as L.LatLngExpression);
-
-        if (stopPoints.length > 1) {
-          console.log(`[ScheduleView] Drawing approximate route using ${stopPoints.length} stops`);
-          routePolylineRef.current = L.polyline(stopPoints, {
-            color: bgColor,
-            weight: 4,
-            opacity: 0.6,
-            lineCap: 'round',
-            lineJoin: 'round',
-            dashArray: '10, 5', // Dashed line to indicate it's approximate
-          }).addTo(map);
-
-          // Fit bounds to stops
-          try {
-            const bounds = L.latLngBounds(stopPoints);
-            map.fitBounds(bounds, {
-              padding: [80, 80],
-              maxZoom: 14,
-              animate: true
-            });
-          } catch (e) {
-            console.error('[ScheduleView] Error fitting bounds to stops:', e);
-          }
-        }
-      }
-    }
-
-    // Add stop markers
-    if (currentDirection.stops && currentDirection.stops.length > 0) {
-      currentDirection.stops
-        .filter(stop => stop && stop.lat && stop.lng && typeof stop.lat === 'number' && typeof stop.lng === 'number')
-        .sort((a, b) => (a.stop_sequence || 0) - (b.stop_sequence || 0))
-        .forEach((stop, idx) => {
-          const stopIcon = L.divIcon({
-            className: 'route-stop-marker',
-            html: `
-              <div style="
-                width: 24px;
-                height: 24px;
-                background-color: ${bgColor};
-                border: 3px solid white;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 10px;
-                font-weight: bold;
-                color: white;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-              ">
-                ${stop.stop_sequence ?? idx + 1}
-              </div>
-            `,
-            iconSize: [24, 24],
-            iconAnchor: [12, 12],
-          });
-
-          const marker = L.marker([stop.lat!, stop.lng!], {
-            icon: stopIcon,
-          }).addTo(map);
-
-          if (stop.stop_name) {
-            marker.bindPopup(`<strong>${stop.stop_name}</strong><br/>Σταθμός #${stop.stop_sequence ?? idx + 1}`);
-          }
-
-          stopMarkersRef.current.push(marker);
-        });
-
-      // Final invalidateSize to ensure markers are visible
-      setTimeout(() => {
-        if (mapRef.current) {
-          mapRef.current.invalidateSize();
-        }
-      }, 300);
-    }
-  }, [routeShapeQuery.data, selectedRoute, selectedDirection, bgColor]);
 
   return (
     <div className="h-full flex flex-col p-2 lg:p-4 overflow-hidden">
@@ -860,244 +270,168 @@ export function ScheduleView({
               </div>
             )}
 
-            {/* Split Layout: Left = Map/Shape, Right = Schedule by Week */}
-            {routeShapeQuery.isLoading ? (
-              <div className="mb-4 p-4 rounded-lg border bg-muted/30 flex items-center justify-center">
-                <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
-                <span className="text-sm text-muted-foreground">Φόρτωση χάρτη διαδρομής...</span>
+            {/* Schedule View - Full Width */}
+            <div className="flex-1 flex flex-col overflow-hidden space-y-3 h-full">
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Calendar className="h-5 w-5 text-primary" />
+                <h3 className="text-base font-semibold">Πρόγραμμα Εβδομάδας</h3>
               </div>
-            ) : routeShapeQuery.data && routeShapeQuery.data.directions && routeShapeQuery.data.directions.length > 0 ? (
-              <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 overflow-hidden" style={{ height: 'calc(100% - 20px)', minHeight: '500px' }}>
-                {/* Left: Map with Shape File and Distance in km */}
-                <div className="flex flex-col space-y-2 lg:space-y-3 h-full min-h-0">
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <RouteIcon className="h-4 w-4 lg:h-5 lg:w-5 text-primary" />
-                    <h3 className="text-sm lg:text-base font-semibold">Χάρτης Διαδρομής</h3>
-                  </div>
 
-                  {/* Direction Tabs */}
-                  {routeShapeQuery.data.directions.length > 1 && (
-                    <div className="flex gap-2 flex-shrink-0">
-                      {routeShapeQuery.data.directions.map((dir, idx) => (
-                        <Button
-                          key={dir.direction_id || idx}
-                          variant={selectedDirection === (dir.direction_id ?? idx) ? "default" : "outline"}
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => setSelectedDirection(dir.direction_id ?? idx)}
+              {/* Direction Selector */}
+              {availableDirections.length > 1 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Κατεύθυνση:</span>
+                  {availableDirections.map((dir) => (
+                    <Button
+                      key={dir}
+                      variant={selectedDirection === dir ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setSelectedDirection(dir)}
+                    >
+                      {dir === 0 ? "Μετάβαση" : "Επιστροφή"}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
+              {/* Weekly Schedule list */}
+              {(() => {
+                const scheduleData = scheduleQuery.data;
+                const directionSchedule = scheduleData?.by_direction[selectedDirection] || scheduleData?.schedule || [];
+
+                // Calculate trips for each day
+                const tripsByDay = dayNames.map((_, dayIdx) => {
+                  let dayServiceIds = new Set<string>();
+
+                  if (scheduleData) {
+                    if (scheduleData.calendar && scheduleData.calendar.length > 0) {
+                      const dayKey = dayKeys[dayIdx];
+                      dayServiceIds = new Set(
+                        scheduleData.calendar
+                          .filter((cal: any) => cal[dayKey])
+                          .map((cal: any) => cal.service_id)
+                      );
+                    } else if (scheduleData.calendar_dates && scheduleData.calendar_dates.length > 0) {
+                      const now = new Date();
+                      const targetDate = new Date(now);
+                      const dayDiff = dayIdx - now.getDay();
+                      targetDate.setDate(now.getDate() + dayDiff);
+                      const dateStr = targetDate.toISOString().slice(0, 10).replace(/-/g, '');
+
+                      dayServiceIds = new Set(
+                        scheduleData.calendar_dates
+                          .filter((cd: any) => cd.date === dateStr && cd.exception_type === 1)
+                          .map((cd: any) => cd.service_id)
+                      );
+                    }
+                  }
+
+                  // Use bgColor for schedule items
+                  const scheduleItemColor = selectedRouteInfo?.route_color ?
+                    `#${selectedRouteInfo.route_color}` :
+                    'hsl(var(--primary))';
+
+                  let filtered = directionSchedule;
+                  if (dayServiceIds.size > 0 && filtered.length > 0) {
+                    filtered = filtered.filter((entry: any) => dayServiceIds.has(entry.service_id));
+                  }
+
+                  return {
+                    dayTrips: [...filtered].sort((a, b) => a.departure_minutes - b.departure_minutes),
+                    scheduleItemColor
+                  };
+                });
+
+                const now = new Date();
+                const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+                // Reorder days to start from today
+                const reorderedDays = [];
+                for (let i = 0; i < dayNames.length; i++) {
+                  const dayIdx = (today + i) % dayNames.length;
+                  const { dayTrips, scheduleItemColor } = tripsByDay[dayIdx];
+                  reorderedDays.push({
+                    dayIdx,
+                    dayName: dayNames[dayIdx],
+                    dayTrips,
+                    scheduleItemColor
+                  });
+                }
+
+                return (
+                  <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-2 lg:space-y-3 pr-1 lg:pr-2 scrollbar-thin">
+                    {reorderedDays.map(({ dayIdx, dayName, dayTrips, scheduleItemColor }) => {
+                      const isToday = dayIdx === today;
+
+                      return (
+                        <div
+                          key={dayIdx}
+                          className={cn(
+                            "p-2 lg:p-3 rounded-lg border bg-card flex-shrink-0",
+                            isToday && "ring-2 ring-primary/50 bg-primary/5"
+                          )}
                         >
-                          {dir.direction_id === 0 ? "Μετάβαση" : "Επιστροφή"} {(dir as { direction_name?: string }).direction_name ? `(${(dir as { direction_name?: string }).direction_name})` : ''}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Selected Direction Info */}
-                  {(() => {
-                    const currentDirection = routeShapeQuery.data.directions.find(
-                      d => (d.direction_id ?? routeShapeQuery.data!.directions.indexOf(d)) === selectedDirection
-                    ) || routeShapeQuery.data.directions[0];
-
-                    if (!currentDirection) return null;
-
-                    const distanceKm = calculateRouteDistance(currentDirection.shape || []);
-                    const stopsCount = currentDirection.stops?.length || 0;
-
-                    return (
-                      <div className="flex-1 flex flex-col space-y-2 lg:space-y-3" style={{ height: '100%', minHeight: 0 }}>
-                        {/* Statistics */}
-                        <div className="grid grid-cols-2 gap-2 lg:gap-3 flex-shrink-0">
-                          <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Navigation className="h-4 w-4 text-primary" />
-                              <span className="text-xs text-muted-foreground">Συνολική Διαδρομή</span>
-                            </div>
-                            <div className="text-xl font-bold">{distanceKm.toFixed(2)} km</div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={cn(
+                              "text-xs lg:text-sm font-semibold",
+                              isToday && "text-primary"
+                            )}>
+                              {dayName}
+                              {isToday && <span className="ml-1 text-[10px] lg:text-xs">(σήμερα)</span>}
+                            </span>
+                            <span className="text-[10px] lg:text-xs text-muted-foreground ml-auto">
+                              {dayTrips.length} δρομολόγια
+                            </span>
                           </div>
-                          <div className="p-3 rounded-lg bg-secondary/50 border">
-                            <div className="flex items-center gap-2 mb-1">
-                              <MapPin className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">Στάσεις</span>
+                          {dayTrips.length === 0 ? (
+                            <div className="text-xs text-muted-foreground py-2">
+                              Δεν υπάρχουν δρομολόγια
                             </div>
-                            <div className="text-xl font-bold">{stopsCount}</div>
-                          </div>
-                        </div>
+                          ) : (
+                            <div
+                              className="flex gap-1.5 overflow-x-auto overflow-y-hidden pb-2 -mx-1 px-1"
+                              style={{
+                                scrollbarWidth: 'thin',
+                                WebkitOverflowScrolling: 'touch',
+                                scrollBehavior: 'smooth',
+                              }}
+                            >
+                              {dayTrips.map((entry) => {
+                                const isPast = isToday && entry.departure_minutes < currentMinutes;
+                                const isNext = isToday && !isPast &&
+                                  entry.departure_minutes >= currentMinutes &&
+                                  (dayTrips.findIndex(t => t.trip_id === entry.trip_id) === 0 ||
+                                    dayTrips[dayTrips.findIndex(t => t.trip_id === entry.trip_id) - 1]?.departure_minutes < currentMinutes);
 
-                        {/* Map with Route Shape and Stops */}
-                        <div className="flex-1 rounded-lg border overflow-hidden bg-muted/30 relative min-h-[300px] sm:min-h-[400px] lg:min-h-0">
-                          <div
-                            ref={mapContainerRef}
-                            className="w-full h-full"
-                            style={{ minHeight: '300px', height: '100%' }}
-                          />
-                          {!mapReady && (
-                            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground z-50 bg-background/95 pointer-events-none">
-                              <div className="text-center pointer-events-auto">
-                                <Loader2 className="h-12 w-12 mx-auto mb-2 opacity-30 animate-spin" />
-                                <p className="text-sm">Προετοιμασία χάρτη...</p>
-                              </div>
+                                return (
+                                  <span
+                                    key={entry.trip_id}
+                                    className={cn(
+                                      "inline-flex items-center justify-center px-2.5 py-1 rounded-md text-xs font-mono transition-all flex-shrink-0",
+                                      "select-none touch-none", // Prevent text selection and touch callouts
+                                      isPast && "bg-muted/50 text-muted-foreground/50",
+                                      isNext && "bg-primary text-white shadow-md scale-105 ring-2 ring-primary/30",
+                                      !isPast && !isNext && "bg-primary/20 border border-primary/30",
+                                    )}
+                                    style={!isPast && !isNext ? { color: scheduleItemColor, borderColor: scheduleItemColor } : undefined}
+                                  >
+                                    {entry.departure_time}
+                                  </span>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Right: Schedule by Week */}
-                <div className="flex flex-col overflow-hidden space-y-3 h-full">
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    <h3 className="text-base font-semibold">Πρόγραμμα Εβδομάδας</h3>
+                      );
+                    })}
                   </div>
-
-                  {/* Direction Selector */}
-                  {availableDirections.length > 1 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Κατεύθυνση:</span>
-                      {availableDirections.map((dir) => (
-                        <Button
-                          key={dir}
-                          variant={selectedDirection === dir ? "default" : "outline"}
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => setSelectedDirection(dir)}
-                        >
-                          {dir === 0 ? "Μετάβαση" : "Επιστροφή"}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Schedule for all days - compute trips for each day */}
-                  {(() => {
-                    const scheduleData = scheduleQuery.data;
-                    const directionSchedule = scheduleData?.by_direction[selectedDirection] || scheduleData?.schedule || [];
-
-                    // Calculate trips for each day
-                    const tripsByDay = dayNames.map((_, dayIdx) => {
-                      let dayServiceIds = new Set<string>();
-
-                      if (scheduleData) {
-                        if (scheduleData.calendar && scheduleData.calendar.length > 0) {
-                          const dayKey = dayKeys[dayIdx];
-                          dayServiceIds = new Set(
-                            scheduleData.calendar
-                              .filter(cal => cal[dayKey])
-                              .map(cal => cal.service_id)
-                          );
-                        } else if (scheduleData.calendar_dates && scheduleData.calendar_dates.length > 0) {
-                          const now = new Date();
-                          const targetDate = new Date(now);
-                          const dayDiff = dayIdx - now.getDay();
-                          targetDate.setDate(now.getDate() + dayDiff);
-                          const dateStr = targetDate.toISOString().slice(0, 10).replace(/-/g, '');
-
-                          dayServiceIds = new Set(
-                            scheduleData.calendar_dates
-                              .filter(cd => cd.date === dateStr && cd.exception_type === 1)
-                              .map(cd => cd.service_id)
-                          );
-                        }
-                      }
-                      // Define bgColor for schedule usage
-                      const bgColor = selectedRouteInfo?.route_color ?
-                        `#${selectedRouteInfo.route_color}` :
-                        'hsl(var(--primary))';
-
-                      let filtered = directionSchedule;
-                      if (dayServiceIds.size > 0 && filtered.length > 0) {
-                        filtered = filtered.filter(entry => dayServiceIds.has(entry.service_id));
-                      }
-
-                      return [...filtered].sort((a, b) => a.departure_minutes - b.departure_minutes);
-                    });
-
-                    const now = new Date();
-                    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-                    // Reorder days to start from today
-                    const reorderedDays = [];
-                    for (let i = 0; i < dayNames.length; i++) {
-                      const dayIdx = (today + i) % dayNames.length;
-                      reorderedDays.push({ dayIdx, dayName: dayNames[dayIdx], dayTrips: tripsByDay[dayIdx] });
-                    }
-
-                    return (
-                      <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-2 lg:space-y-3 pr-1 lg:pr-2 scrollbar-thin">
-                        {reorderedDays.map(({ dayIdx, dayName, dayTrips }) => {
-                          const isToday = dayIdx === today;
-
-                          return (
-                            <div
-                              key={dayIdx}
-                              className={cn(
-                                "p-2 lg:p-3 rounded-lg border bg-card flex-shrink-0",
-                                isToday && "ring-2 ring-primary/50 bg-primary/5"
-                              )}
-                            >
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className={cn(
-                                  "text-xs lg:text-sm font-semibold",
-                                  isToday && "text-primary"
-                                )}>
-                                  {dayName}
-                                  {isToday && <span className="ml-1 text-[10px] lg:text-xs">(σήμερα)</span>}
-                                </span>
-                                <span className="text-[10px] lg:text-xs text-muted-foreground ml-auto">
-                                  {dayTrips.length} δρομολόγια
-                                </span>
-                              </div>
-                              {dayTrips.length === 0 ? (
-                                <div className="text-xs text-muted-foreground py-2">
-                                  Δεν υπάρχουν δρομολόγια
-                                </div>
-                              ) : (
-                                <div
-                                  className="flex gap-1.5 overflow-x-auto overflow-y-hidden pb-2 -mx-1 px-1"
-                                  style={{
-                                    scrollbarWidth: 'thin',
-                                    WebkitOverflowScrolling: 'touch',
-                                    scrollBehavior: 'smooth',
-                                  }}
-                                >
-                                  {dayTrips.map((entry) => {
-                                    const isPast = isToday && entry.departure_minutes < currentMinutes;
-                                    const isNext = isToday && !isPast &&
-                                      entry.departure_minutes >= currentMinutes &&
-                                      (dayTrips.findIndex(t => t.trip_id === entry.trip_id) === 0 ||
-                                        dayTrips[dayTrips.findIndex(t => t.trip_id === entry.trip_id) - 1]?.departure_minutes < currentMinutes);
-
-                                    return (
-                                      <span
-                                        key={entry.trip_id}
-                                        className={cn(
-                                          "inline-flex items-center justify-center px-2.5 py-1 rounded-md text-xs font-mono transition-all flex-shrink-0",
-                                          "select-none touch-none", // Prevent text selection and touch callouts
-                                          isPast && "bg-muted/50 text-muted-foreground/50",
-                                          isNext && "bg-primary text-white shadow-md scale-105 ring-2 ring-primary/30",
-                                          !isPast && !isNext && "bg-primary/20 border border-primary/30",
-                                        )}
-                                        style={!isPast && !isNext ? { color: bgColor, borderColor: bgColor } : undefined}
-                                      >
-                                        {entry.departure_time}
-                                      </span>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            ) : null}
+                );
+              })()}
+            </div>
           </div>
         )
       }
-    </div >
+    </div>
   );
 }
