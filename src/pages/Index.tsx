@@ -364,6 +364,7 @@ const Index = () => {
     effectiveTripsData?.data || [],
     routeNamesMap,
     stopNotificationSettings,
+    effectiveVehiclesData?.data || [],
     true
   );
 
@@ -568,7 +569,7 @@ const Index = () => {
     if (selectedRoute === "all") return vehicles;
 
     // Robust comparison for route IDs (handle string/number differences)
-    const filtered = vehicles.filter(v => String(v.routeId) === String(selectedRoute));
+    const filtered = vehicles.filter((v: any) => String(v.routeId) === String(selectedRoute));
 
     // Notify if specific route selected but no vehicles found (and not loading)
     if (selectedRoute !== "all" && filtered.length === 0 && !isLoading && vehicles.length > 0) {
@@ -583,7 +584,7 @@ const Index = () => {
     const trips = effectiveTripsData?.data || [];
     if (selectedRoute === "all") return trips;
     // Robust comparison for route IDs
-    return trips.filter(t => String(t.routeId) === String(selectedRoute));
+    return trips.filter((t: any) => String(t.routeId) === String(selectedRoute));
   }, [effectiveTripsData, selectedRoute]);
 
   useEffect(() => {
@@ -920,6 +921,7 @@ const Index = () => {
                 <AlertsList
                   alerts={effectiveAlertsData?.data || []}
                   trips={filteredTrips}
+                  vehicles={effectiveVehiclesData?.data || []}
                   routeNamesMap={routeNamesMap}
                   isLoading={alertsQuery.isLoading}
                 />

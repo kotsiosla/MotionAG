@@ -8,11 +8,12 @@ import { toast } from "@/hooks/use-toast";
 import { useStopNotifications } from "@/hooks/useStopNotifications";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 import { unlockAudio, speakTest } from "@/lib/audio-engine";
-import type { Alert, Trip, RouteInfo } from "@/types/gtfs";
+import type { Alert, Trip, RouteInfo, Vehicle } from "@/types/gtfs";
 
 interface AlertsListProps {
   alerts: Alert[];
   trips: Trip[];
+  vehicles?: Vehicle[];
   routeNamesMap?: Map<string, RouteInfo>;
   isLoading: boolean;
 }
@@ -86,7 +87,7 @@ const formatPeriod = (start?: number, end?: number) => {
   return null;
 };
 
-export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoading }: AlertsListProps) {
+export function AlertsList({ alerts, trips, vehicles = [], routeNamesMap, isLoading }: AlertsListProps) {
   // Use the hook for centralized state management
   const {
     notifications: stopNotifications,
@@ -97,6 +98,33 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
   } = useStopNotifications();
 
   const { subscribe } = usePushSubscription();
+
+  // Helper to find next arrival for a stop
+  const getNextArrivalForStop = (stopId: string) => {
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const arrivals: any[] = [];
+
+    trips.forEach(trip => {
+      const stu = trip.stopTimeUpdates?.find(u => u.stopId === stopId);
+      if (stu && stu.arrivalTime && stu.arrivalTime > nowSeconds) {
+        const vehicle = vehicles.find(v => v.tripId === trip.tripId || (trip.vehicleId && v.vehicleId === trip.vehicleId));
+        const routeInfo = routeNamesMap?.get(trip.routeId || '');
+        const longName = routeInfo?.route_long_name || '';
+        const destination = longName.includes(' - ') ? longName.split(' - ').pop()?.trim() : longName;
+
+        arrivals.push({
+          tripId: trip.tripId,
+          routeShortName: routeInfo?.route_short_name,
+          arrivalTime: stu.arrivalTime,
+          minutesUntil: Math.round((stu.arrivalTime - nowSeconds) / 60),
+          licensePlate: vehicle?.licensePlate,
+          destination: destination || undefined
+        });
+      }
+    });
+
+    return arrivals.sort((a, b) => a.arrivalTime - b.arrivalTime)[0];
+  };
 
   // Toggle notification enabled state
   const toggleNotification = (stopId: string) => {
@@ -156,65 +184,93 @@ export function AlertsList({ alerts, trips, routeNamesMap: _routeNamesMap, isLoa
             </div>
           ) : (
             <div className="space-y-[1rem]">
-              {stopNotifications.map((notification) => (
-                <div
-                  key={notification.stopId}
-                  className={`rounded-[1rem] border p-[1rem] animate-fade-in ${notification.enabled
-                    ? 'bg-primary/10 border-primary/30'
-                    : 'bg-muted/30 border-muted-foreground/20'
-                    }`}
-                >
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-[1rem]">
-                    <div className="flex items-start gap-[1rem] flex-1 min-w-0 w-full">
-                      <div
-                        className={`w-[2.75rem] h-[2.75rem] rounded-[0.75rem] flex items-center justify-center flex-shrink-0 ${notification.enabled
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground'
-                          }`}
-                      >
-                        {notification.enabled ? <Bell /> : <BellOff />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-[0.5rem]">
-                          <MapPin className="text-muted-foreground" />
-                          <div className="text-center pb-8 opacity-30 font-mono text-[10px] tracking-widest text-zinc-500 hover:text-emerald-500/50 transition-colors uppercase">
-                            System v2.0.0
+              {stopNotifications.map((notification) => {
+                const nextArrival = getNextArrivalForStop(notification.stopId);
+
+                return (
+                  <div
+                    key={notification.stopId}
+                    className={`rounded-[1rem] border p-[1rem] animate-fade-in ${notification.enabled
+                      ? 'bg-primary/10 border-primary/30'
+                      : 'bg-muted/30 border-muted-foreground/20'
+                      }`}
+                  >
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-[1rem]">
+                      <div className="flex items-start gap-[1rem] flex-1 min-w-0 w-full">
+                        <div
+                          className={`w-[2.75rem] h-[2.75rem] rounded-[0.75rem] flex items-center justify-center flex-shrink-0 ${notification.enabled
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground'
+                            }`}
+                        >
+                          {notification.enabled ? <Bell /> : <BellOff />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-[0.5rem]">
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            <h3 className="font-bold text-[1rem] truncate">{notification.stopName}</h3>
                           </div>
-                          <h3 className="font-bold text-[1rem] truncate">{notification.stopName}</h3>
-                        </div>
-                        <p className={`text-[0.875rem] mt-[0.25rem] ${notification.enabled ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
-                          {notification.enabled ? '✓ Ενεργή ειδοποίηση' : 'Απενεργοποιημένη'}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-[0.5rem] mt-[0.5rem] text-[0.75rem] text-muted-foreground">
-                          <span className="bg-muted px-[0.5rem] py-[0.125rem] rounded-full">⏱️ {notification.beforeMinutes}λ</span>
-                          {notification.voice && <span title="Φωνή">🗣️</span>}
-                          {notification.push && <span title="Push">📲</span>}
+
+                          {notification.enabled && nextArrival && (
+                            <div className="mt-2 p-2 bg-background/50 rounded-lg border border-primary/20">
+                              <div className="flex items-center justify-between text-xs font-medium text-primary">
+                                <span className="flex items-center gap-1">
+                                  <Bus className="h-3 w-3" />
+                                  Γραμμή {nextArrival.routeShortName}
+                                </span>
+                                <span>σε {nextArrival.minutesUntil}λ</span>
+                              </div>
+                              <div className="mt-1 text-[10px] text-muted-foreground flex flex-col gap-0.5">
+                                {nextArrival.destination && (
+                                  <div className="flex items-center gap-1">
+                                    <span className="opacity-70">Προς:</span>
+                                    <span className="font-medium">{nextArrival.destination}</span>
+                                  </div>
+                                )}
+                                {nextArrival.licensePlate && (
+                                  <div className="flex items-center gap-1">
+                                    <span className="opacity-70">Λεωφορείο:</span>
+                                    <span className="font-mono bg-muted px-1 rounded">{nextArrival.licensePlate}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          <p className={`text-[0.875rem] mt-[0.25rem] ${notification.enabled ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                            {notification.enabled ? '✓ Ενεργή ειδοποίηση' : 'Απενεργοποιημένη'}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-[0.5rem] mt-[0.5rem] text-[0.75rem] text-muted-foreground">
+                            <span className="bg-muted px-[0.5rem] py-[0.125rem] rounded-full">⏱️ {notification.beforeMinutes}λ</span>
+                            {notification.voice && <span title="Φωνή">🗣️</span>}
+                            {notification.push && <span title="Push">📲</span>}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex sm:flex-col gap-[0.5rem] w-full sm:w-auto mt-[0.5rem] sm:mt-0 pt-[0.5rem] sm:pt-0 border-t sm:border-t-0 border-border/50">
-                      <Button
-                        variant={notification.enabled ? "secondary" : "default"}
-                        size="sm"
-                        className="flex-1 sm:h-[2.5rem] sm:w-[2.5rem] p-0 gap-2"
-                        onClick={() => toggleNotification(notification.stopId)}
-                      >
-                        {notification.enabled ? <BellOff /> : <Bell />}
-                        <span className="sm:hidden">{notification.enabled ? 'Κλείσιμο' : 'Άνοιγμα'}</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="flex-1 sm:h-[2.5rem] sm:w-[2.5rem] p-0 text-destructive hover:bg-destructive/10 gap-2"
-                        onClick={() => removeNotification(notification.stopId)}
-                      >
-                        <Trash2 />
-                        <span className="sm:hidden">Διαγραφή</span>
-                      </Button>
+                      <div className="flex sm:flex-col gap-[0.5rem] w-full sm:w-auto mt-[0.5rem] sm:mt-0 pt-[0.5rem] sm:pt-0 border-t sm:border-t-0 border-border/50">
+                        <Button
+                          variant={notification.enabled ? "secondary" : "default"}
+                          size="sm"
+                          className="flex-1 sm:h-[2.5rem] sm:w-[2.5rem] p-0 gap-2"
+                          onClick={() => toggleNotification(notification.stopId)}
+                        >
+                          {notification.enabled ? <BellOff /> : <Bell />}
+                          <span className="sm:hidden">{notification.enabled ? 'Κλείσιμο' : 'Άνοιγμα'}</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 sm:h-[2.5rem] sm:w-[2.5rem] p-0 text-destructive hover:bg-destructive/10 gap-2"
+                          onClick={() => removeNotification(notification.stopId)}
+                        >
+                          <Trash2 />
+                          <span className="sm:hidden">Διαγραφή</span>
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { toast } from '@/hooks/use-toast';
 
-import type { Trip, RouteInfo } from '@/types/gtfs';
+import type { Trip, RouteInfo, Vehicle } from '@/types/gtfs';
 import type { StopNotificationSettings } from './useStopNotifications';
 import { speak, playSound, vibrate } from '@/lib/audio-engine';
 
@@ -15,9 +15,9 @@ interface ArrivalInfo {
   confidence?: 'high' | 'medium' | 'low';
   source?: string;
   delaySeconds?: number;
+  licensePlate?: string;
+  destination?: string;
 }
-
-
 
 // Track notifications we've already sent to avoid spam
 const notifiedArrivals = new Map<string, { timestamp: number; arrivalTime: number }>();
@@ -26,6 +26,7 @@ export function useStopArrivalNotifications(
   trips: Trip[],
   routeNamesMap: Map<string, RouteInfo> | undefined,
   stopNotifications: StopNotificationSettings[],
+  vehicles: Vehicle[] = [],
   enabled: boolean = true
 ) {
   const lastCheckRef = useRef<number>(0);
@@ -133,12 +134,14 @@ export function useStopArrivalNotifications(
 
     const routeName = arrival.routeShortName || arrival.routeId;
     const urgency = getUrgency(arrival.minutesUntil);
+    const plateText = arrival.licensePlate ? ` με πινακίδα ${arrival.licensePlate}` : '';
+    const destText = arrival.destination ? ` προς ${arrival.destination}` : '';
 
     // Announcement message following "Announcement Engine" rules
     // - Short sentences, no technical terms, no abbreviations, Greek only.
-    let voiceMessage = `Το λεωφορείο της γραμμής ${routeName} φτάνει στη στάση ${arrival.stopName}.`;
+    let voiceMessage = `Η γραμμή ${routeName}${destText}${plateText} φτάνει στη στάση ${arrival.stopName}.`;
     if (arrival.minutesUntil <= 1) {
-      voiceMessage = `Το λεωφορείο της γραμμής ${routeName} φτάνει τώρα στη στάση ${arrival.stopName}.`;
+      voiceMessage = `Η γραμμή ${routeName}${destText}${plateText} φτάνει τώρα στη στάση ${arrival.stopName}.`;
     } else {
       voiceMessage += ` Θα είναι εδώ σε ${arrival.minutesUntil} λεπτά.`;
     }
@@ -151,7 +154,10 @@ export function useStopArrivalNotifications(
 
     // Prepare toast/UI message separately (can keep emojis/abbreviations for visuals)
     const urgencyText = urgency === 'high' ? 'ΤΩΡΑ! ' : urgency === 'medium' ? 'Σύντομα: ' : '';
-    let uiMessage = `${urgencyText}Γραμμή ${routeName} φτάνει στη στάση ${arrival.stopName}`;
+    const uiPlate = arrival.licensePlate ? ` [${arrival.licensePlate}]` : '';
+    const uiDest = arrival.destination ? ` → ${arrival.destination}` : '';
+
+    let uiMessage = `${urgencyText}Γραμμή ${routeName}${uiDest}${uiPlate} φτάνει στη στάση ${arrival.stopName}`;
     if (arrival.minutesUntil <= 1) {
       uiMessage += ' τώρα!';
     } else {
@@ -276,6 +282,11 @@ export function useStopArrivalNotifications(
 
         // Track all upcoming arrivals (up to 15 minutes ahead)
         if (minutesUntil > 0 && minutesUntil <= 15) {
+          const vehicle = vehicles.find((v: any) => v.tripId === trip.tripId || (trip.vehicleId && v.vehicleId === trip.vehicleId));
+          const longName = routeInfo?.route_long_name || '';
+          // Simple heuristic: extract destination from "Origin - Destination"
+          const destination = longName.includes(' - ') ? longName.split(' - ').pop()?.trim() : longName;
+
           const existingArrivals = arrivalsByStop.get(stu.stopId) || [];
           existingArrivals.push({
             stopId: stu.stopId,
@@ -286,6 +297,8 @@ export function useStopArrivalNotifications(
             minutesUntil,
             confidence: 'medium',
             source: 'gtfs',
+            licensePlate: (vehicle as any)?.licensePlate,
+            destination: destination || undefined,
           });
           arrivalsByStop.set(stu.stopId, existingArrivals);
         }
@@ -306,6 +319,10 @@ export function useStopArrivalNotifications(
           }
           // If notifyType === 'all', we proceed (notify for everything)
 
+          const vehicle = vehicles.find((v: any) => v.tripId === trip.tripId || (trip.vehicleId && v.vehicleId === trip.vehicleId));
+          const longName = routeInfo?.route_long_name || '';
+          const destination = longName.includes(' - ') ? longName.split(' - ').pop()?.trim() : longName;
+
           triggerNotification({
             stopId: stu.stopId,
             stopName: settings.stopName,
@@ -315,7 +332,9 @@ export function useStopArrivalNotifications(
             minutesUntil,
             confidence: 'medium',
             source: 'gtfs',
-            delaySeconds: stu.arrivalDelay
+            delaySeconds: stu.arrivalDelay,
+            licensePlate: (vehicle as any)?.licensePlate,
+            destination: destination || undefined,
           }, settings);
         }
       });
