@@ -2830,7 +2830,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       )}
 
       {/* Toolbar */}
-      <div className={`absolute right-[0.5rem] z-[5000] flex flex-col gap-[0.5rem] transition-all duration-300 ${!isMobile && nearestStopWithArrivals && userLocation && !notificationModalStop ? 'bottom-[18rem]' : 'bottom-[8rem]'}`}>
+      <div className={`absolute right-[0.5rem] z-[5000] flex flex-col gap-[0.5rem] transition-all duration-300 ${!isMobile && nearestStopWithArrivals && userLocation && !notificationModalStop ? 'md:bottom-24 bottom-[18rem]' : 'md:bottom-4 bottom-[8rem]'}`}>
         {followedVehicleId && (
           <Button
             variant="destructive"
