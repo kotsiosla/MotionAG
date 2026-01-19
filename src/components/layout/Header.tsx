@@ -150,7 +150,7 @@ export function Header({
 
   return (
     <header className="glass-card border-b sticky top-0 z-50 safe-area-top flex-shrink-0">
-      <div className="container mx-auto px-2 sm:px-4 py-1 sm:md:py-1.5">
+      <div className="container mx-auto px-2 sm:px-4 py-1 md:py-1.5">
         {/* Mobile Header - Compact single-row layout v2.0.0 */}
         <div className="flex items-center justify-between gap-[0.375rem] md:hidden">
           <div className="flex items-center gap-[0.25rem] flex-shrink-0">
