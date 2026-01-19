@@ -484,10 +484,11 @@ const Index = () => {
   // Re-placed History Effects after state and callbacks are defined
   // Handle back button for modals and UI state
   useEffect(() => {
-    // Initial push to allow "Back" without immediate exit from app
-    if (window.history.state === null) {
-      window.history.replaceState({ base: true }, '');
-      window.history.pushState({ app: 'main' }, '');
+    // Initial stable sentinel push to prevent exit from app root
+    if (window.history.state === null || !window.history.state.root) {
+      window.history.replaceState({ root: true, app: 'main', tab: 'map' }, '');
+      // Push an extra state so the first "Back" has something to pop without exiting
+      window.history.pushState({ app: 'main', active: true }, '');
     }
 
     const handlePopState = (event: PopStateEvent) => {
@@ -496,12 +497,15 @@ const Index = () => {
       // Priority 1: Search results modal
       if (showTripResults) {
         setShowTripResults(false);
+        // Ensure we always have a dummy state to pop next time
+        window.history.pushState({ app: 'main', active: true }, '');
         return;
       }
 
       // Priority 2: Saved trips panel
       if (showSavedTrips) {
         setShowSavedTrips(false);
+        window.history.pushState({ app: 'main', active: true }, '');
         return;
       }
 
@@ -509,6 +513,7 @@ const Index = () => {
       if (deepLinkStopId) {
         updateUrlParams({ stop: null });
         setDeepLinkStopId(null);
+        window.history.pushState({ app: 'main', active: true }, '');
         return;
       }
 
@@ -516,14 +521,21 @@ const Index = () => {
       if (selectedRoute !== 'all') {
         updateUrlParams({ route: 'all' });
         setSelectedRoute('all');
+        window.history.pushState({ app: 'main', active: true }, '');
         return;
       }
 
       // Priority 5: Return to map tab
       if (activeTab !== 'map') {
         setActiveTab('map');
+        window.history.pushState({ app: 'main', active: true }, '');
         return;
       }
+
+      // Final: Trap at Map Root - if we are here, everything is closed and we are on the Map.
+      // Re-push state to prevent exiting the app.
+      console.log('[Index] Trapping at Map root to prevent exit');
+      window.history.pushState({ root: true, app: 'main', tab: 'map' }, '');
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -533,30 +545,44 @@ const Index = () => {
   }, [showTripResults, showSavedTrips, deepLinkStopId, selectedRoute, activeTab, updateUrlParams]);
 
   // Push state when key UI elements open to allow "Back" to close them
+  // We only push if we aren't already in a state that represents this UI
   useEffect(() => {
     if (showTripResults) {
-      window.history.pushState({ modal: 'tripResults' }, '');
+      // Check if current state already represents a modal to avoid double push
+      if (window.history.state?.modal !== 'tripResults') {
+        window.history.pushState({ modal: 'tripResults' }, '');
+      }
     }
   }, [showTripResults]);
 
   useEffect(() => {
     if (showSavedTrips) {
-      window.history.pushState({ panel: 'savedTrips' }, '');
+      if (window.history.state?.panel !== 'savedTrips') {
+        window.history.pushState({ panel: 'savedTrips' }, '');
+      }
     }
   }, [showSavedTrips]);
 
-  // Track selection changes in history only if they are not already in URL (to avoid double push)
+  // Track selection changes in history for strict backtracking
   useEffect(() => {
     if (selectedRoute !== 'all' || deepLinkStopId !== null) {
-      const currentRoute = searchParams.get('route');
-      const currentStop = searchParams.get('stop');
-
-      if (selectedRoute !== (currentRoute || 'all') || deepLinkStopId !== currentStop) {
-        // This selection wasn't from a URL change (e.g. user clicked on map/list)
+      const currentState = window.history.state;
+      // Only push if the current selection is different from the selection in the top state
+      if (currentState?.route !== selectedRoute || currentState?.stop !== deepLinkStopId) {
         window.history.pushState({ route: selectedRoute, stop: deepLinkStopId }, '');
       }
     }
-  }, [selectedRoute, deepLinkStopId, searchParams]);
+  }, [selectedRoute, deepLinkStopId]);
+
+  // Track tab changes in history
+  useEffect(() => {
+    if (activeTab !== 'map') {
+      const currentState = window.history.state;
+      if (currentState?.tab !== activeTab) {
+        window.history.pushState({ tab: activeTab }, '');
+      }
+    }
+  }, [activeTab]);
 
   // Update URL when route changes
   useEffect(() => {
