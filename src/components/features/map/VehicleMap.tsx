@@ -2977,57 +2977,61 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
       {/* Panels */}
       <Suspense fallback={null}>
         {nearestStopWithArrivals && userLocation && !notificationModalStop && selectedRoute === 'all' && !followedVehicleId && (
-          <NearestStopPanel
-            stop={nearestStopWithArrivals.stop}
-            distance={nearestStopWithArrivals.distance}
-            arrivals={getArrivalsForStop(nearestStopWithArrivals.stop.stop_id)}
-            walkingRoute={walkingRoute}
-            isLoadingRoute={isLoadingWalkingRoute}
-            currentNotificationSettings={getNotification(nearestStopWithArrivals.stop.stop_id)}
-            onClose={() => {
-              setUserLocation(null);
-              setWalkingRoute(null);
-              if (walkingRouteLineRef.current && mapRef.current) {
-                mapRef.current.removeLayer(walkingRouteLineRef.current);
-                walkingRouteLineRef.current = null;
-              }
-            }}
-            onOpenDetails={() => {
-              openStopPanel(
-                nearestStopWithArrivals.stop.stop_id,
-                nearestStopWithArrivals.stop.stop_name || nearestStopWithArrivals.stop.stop_id
-              );
-            }}
-            onNavigate={() => {
-              if (nearestStopWithArrivals.stop.stop_lat && nearestStopWithArrivals.stop.stop_lon) {
-                mapRef.current?.setView([nearestStopWithArrivals.stop.stop_lat, nearestStopWithArrivals.stop.stop_lon], 17, { animate: true });
-              }
-            }}
-            onSaveNotification={setStopNotification}
-            onRemoveNotification={removeStopNotification}
-          />
+          <ErrorBoundary>
+            <NearestStopPanel
+              stop={nearestStopWithArrivals.stop}
+              distance={nearestStopWithArrivals.distance}
+              arrivals={getArrivalsForStop(nearestStopWithArrivals.stop.stop_id)}
+              walkingRoute={walkingRoute}
+              isLoadingRoute={isLoadingWalkingRoute}
+              currentNotificationSettings={getNotification(nearestStopWithArrivals.stop.stop_id)}
+              onClose={() => {
+                setUserLocation(null);
+                setWalkingRoute(null);
+                if (walkingRouteLineRef.current && mapRef.current) {
+                  mapRef.current.removeLayer(walkingRouteLineRef.current);
+                  walkingRouteLineRef.current = null;
+                }
+              }}
+              onOpenDetails={() => {
+                openStopPanel(
+                  nearestStopWithArrivals.stop.stop_id,
+                  nearestStopWithArrivals.stop.stop_name || nearestStopWithArrivals.stop.stop_id
+                );
+              }}
+              onNavigate={() => {
+                if (nearestStopWithArrivals.stop.stop_lat && nearestStopWithArrivals.stop.stop_lon) {
+                  mapRef.current?.setView([nearestStopWithArrivals.stop.stop_lat, nearestStopWithArrivals.stop.stop_lon], 17, { animate: true });
+                }
+              }}
+              onSaveNotification={setStopNotification}
+              onRemoveNotification={removeStopNotification}
+            />
+          </ErrorBoundary>
         )}
 
         {notificationModalStop && selectedRoute === 'all' && !followedVehicleId && (
-          <StopDetailPanel
-            stopId={notificationModalStop.stopId}
-            stopName={notificationModalStop.stopName}
-            arrivals={getArrivalsForStop(notificationModalStop.stopId)}
-            currentSettings={getNotification(notificationModalStop.stopId)}
-            onSave={setStopNotification}
-            onRemove={removeStopNotification}
-            onClose={closeStopPanel}
-            onFollowRoute={(routeId) => {
-              closeStopPanel();
-              if (onRouteClose) onRouteClose();
-              window.dispatchEvent(new CustomEvent('selectRoute', { detail: { routeId } }));
-            }}
-            onTrackVehicle={(vehicleId) => {
-              closeStopPanel();
-              setFollowedVehicleId(vehicleId);
-              onFollowVehicle?.(vehicleId);
-            }}
-          />
+          <ErrorBoundary>
+            <StopDetailPanel
+              stopId={notificationModalStop.stopId}
+              stopName={notificationModalStop.stopName}
+              arrivals={getArrivalsForStop(notificationModalStop.stopId)}
+              currentSettings={getNotification(notificationModalStop.stopId)}
+              onSave={setStopNotification}
+              onRemove={removeStopNotification}
+              onClose={closeStopPanel}
+              onFollowRoute={(routeId) => {
+                closeStopPanel();
+                if (onRouteClose) onRouteClose();
+                window.dispatchEvent(new CustomEvent('selectRoute', { detail: { routeId } }));
+              }}
+              onTrackVehicle={(vehicleId) => {
+                closeStopPanel();
+                setFollowedVehicleId(vehicleId);
+                onFollowVehicle?.(vehicleId);
+              }}
+            />
+          </ErrorBoundary>
         )}
       </Suspense>
     </div>
