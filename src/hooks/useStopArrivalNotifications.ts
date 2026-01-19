@@ -206,9 +206,10 @@ export function useStopArrivalNotifications(
     const enabledNotifications = stopNotifications.filter(n => n.enabled);
 
     trips.forEach(trip => {
-      if (!trip.stopTimeUpdates?.length || !trip.routeId) return;
+      const updates = trip.stopTimeUpdates;
+      if (!updates || !Array.isArray(updates) || !trip.routeId) return;
 
-      trip.stopTimeUpdates.forEach(stu => {
+      updates.forEach(stu => {
         if (!stu.stopId || !stu.arrivalTime) return;
 
         const settings = enabledNotifications.find(n => n.stopId === stu.stopId);
@@ -267,7 +268,7 @@ export function useStopArrivalNotifications(
 
     // Check each trip for arrivals at our monitored stops
     trips.forEach(trip => {
-      if (!trip.stopTimeUpdates?.length || !trip.routeId) return;
+      if (!trip.stopTimeUpdates || !Array.isArray(trip.stopTimeUpdates) || !trip.routeId) return;
 
       const routeInfo = routeNamesMap?.get(trip.routeId);
 
@@ -282,7 +283,10 @@ export function useStopArrivalNotifications(
 
         // Track all upcoming arrivals (up to 15 minutes ahead)
         if (minutesUntil > 0 && minutesUntil <= 15) {
-          const vehicle = vehicles.find((v: any) => v.tripId === trip.tripId || (trip.vehicleId && v.vehicleId === trip.vehicleId));
+          const vehicle = Array.isArray(vehicles)
+            ? vehicles.find((v: any) => v.tripId === trip.tripId || (trip.vehicleId && v.vehicleId === trip.vehicleId))
+            : null;
+
           const longName = routeInfo?.route_long_name || '';
           // Simple heuristic: extract destination from "Origin - Destination"
           const destination = longName.includes(' - ') ? longName.split(' - ').pop()?.trim() : longName;
@@ -319,7 +323,10 @@ export function useStopArrivalNotifications(
           }
           // If notifyType === 'all', we proceed (notify for everything)
 
-          const vehicle = vehicles.find((v: any) => v.tripId === trip.tripId || (trip.vehicleId && v.vehicleId === trip.vehicleId));
+          const vehicle = Array.isArray(vehicles)
+            ? vehicles.find((v: any) => v.tripId === trip.tripId || (trip.vehicleId && v.vehicleId === trip.vehicleId))
+            : null;
+
           const longName = routeInfo?.route_long_name || '';
           const destination = longName.includes(' - ') ? longName.split(' - ').pop()?.trim() : longName;
 

@@ -105,9 +105,15 @@ export function AlertsList({ alerts, trips, vehicles = [], routeNamesMap, isLoad
     const arrivals: any[] = [];
 
     trips.forEach(trip => {
-      const stu = trip.stopTimeUpdates?.find(u => u.stopId === stopId);
+      const updates = trip.stopTimeUpdates;
+      if (!updates || !Array.isArray(updates)) return;
+
+      const stu = updates.find(u => u.stopId === stopId);
       if (stu && stu.arrivalTime && stu.arrivalTime > nowSeconds) {
-        const vehicle = vehicles.find(v => v.tripId === trip.tripId || (trip.vehicleId && v.vehicleId === trip.vehicleId));
+        const vehicle = Array.isArray(vehicles)
+          ? vehicles.find(v => v.tripId === trip.tripId || (trip.vehicleId && v.vehicleId === trip.vehicleId))
+          : null;
+
         const routeInfo = routeNamesMap?.get(trip.routeId || '');
         const longName = routeInfo?.route_long_name || '';
         const destination = longName.includes(' - ') ? longName.split(' - ').pop()?.trim() : longName;
