@@ -172,23 +172,6 @@ const Index = () => {
     };
   }, []);
 
-  // Handle back button for modal
-  useEffect(() => {
-    if (showTripResults) {
-      // Push specific state for modal
-      window.history.pushState({ modal: 'tripResults' }, '');
-
-      const handlePopState = () => {
-        // If we popped back, close the modal
-        setShowTripResults(false);
-      };
-
-      window.addEventListener('popstate', handlePopState);
-      return () => {
-        window.removeEventListener('popstate', handlePopState);
-      };
-    }
-  }, [showTripResults]);
 
   // Sync theme and map style
   const handleThemeToggle = useCallback(() => {
@@ -387,10 +370,10 @@ const Index = () => {
   // Get routes with active vehicles/trips
   const liveRoutes = useMemo(() => {
     const routeSet = new Set<string>();
-    effectiveVehiclesData?.data?.forEach(v => {
+    effectiveVehiclesData?.data?.forEach((v: any) => {
       if (v.routeId) routeSet.add(v.routeId);
     });
-    effectiveTripsData?.data?.forEach(t => {
+    effectiveTripsData?.data?.forEach((t: any) => {
       if (t.routeId) routeSet.add(t.routeId);
     });
     return routeSet;
@@ -492,9 +475,87 @@ const Index = () => {
     if (changed) {
       console.log('[Index] Updating URL from state:', params);
       isInternalUrlUpdate.current = true;
-      setSearchParams(newParams, { replace: true });
+      // Use replace: false to allow history navigation between routes/stops
+      setSearchParams(newParams, { replace: false });
     }
   }, [searchParams, setSearchParams]);
+
+  // Re-placed History Effects after state and callbacks are defined
+  // Handle back button for modals and UI state
+  useEffect(() => {
+    // Initial push to allow "Back" without immediate exit from app
+    if (window.history.state === null) {
+      window.history.replaceState({ base: true }, '');
+      window.history.pushState({ app: 'main' }, '');
+    }
+
+    const handlePopState = (event: PopStateEvent) => {
+      console.log('[Index] popstate received:', event.state);
+
+      // Priority 1: Search results modal
+      if (showTripResults) {
+        setShowTripResults(false);
+        return;
+      }
+
+      // Priority 2: Saved trips panel
+      if (showSavedTrips) {
+        setShowSavedTrips(false);
+        return;
+      }
+
+      // Priority 3: Clear stop selection
+      if (deepLinkStopId) {
+        updateUrlParams({ stop: null });
+        setDeepLinkStopId(null);
+        return;
+      }
+
+      // Priority 4: Clear route selection
+      if (selectedRoute !== 'all') {
+        updateUrlParams({ route: 'all' });
+        setSelectedRoute('all');
+        return;
+      }
+
+      // Priority 5: Return to map tab
+      if (activeTab !== 'map') {
+        setActiveTab('map');
+        return;
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [showTripResults, showSavedTrips, deepLinkStopId, selectedRoute, activeTab, updateUrlParams]);
+
+  // Push state when key UI elements open to allow "Back" to close them
+  useEffect(() => {
+    if (showTripResults) {
+      window.history.pushState({ modal: 'tripResults' }, '');
+    }
+  }, [showTripResults]);
+
+  useEffect(() => {
+    if (showSavedTrips) {
+      window.history.pushState({ panel: 'savedTrips' }, '');
+    }
+  }, [showSavedTrips]);
+
+  // Track selection changes in history only if they are not already in URL (to avoid double push)
+  useEffect(() => {
+    if (selectedRoute !== 'all' || deepLinkStopId !== null) {
+      const currentRoute = searchParams.get('route');
+      const currentStop = searchParams.get('stop');
+
+      if (selectedRoute !== (currentRoute || 'all') || deepLinkStopId !== currentStop) {
+        // This selection wasn't from a URL change (e.g. user clicked on map/list)
+        window.history.pushState({ route: selectedRoute, stop: deepLinkStopId }, '');
+      }
+    }
+  }, [selectedRoute, deepLinkStopId, searchParams]);
 
   // Update URL when route changes
   useEffect(() => {
@@ -588,7 +649,7 @@ const Index = () => {
 
       // Start countdown
       countdownIntervalRef.current = setInterval(() => {
-        setRetryCountdown(prev => {
+        setRetryCountdown((prev: number) => {
           if (prev <= 1) {
             if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
             return 0;
@@ -735,7 +796,10 @@ const Index = () => {
           data={tripPlanQuery.data}
           isLoading={tripPlanQuery.isLoading}
           error={tripPlanQuery.error}
-          onClose={() => window.history.back()}
+          onClose={() => {
+            // Use window.history.back() to trigger popstate handler and close modal
+            window.history.back();
+          }}
           isFavorite={tripOrigin && tripDestination ? isFavorite(tripOrigin.stop_id, tripDestination.stop_id) : false}
           onToggleFavorite={() => {
             if (tripOrigin && tripDestination) {
@@ -805,7 +869,7 @@ const Index = () => {
                   isLoading={tripsQuery.isLoading}
                   routeNames={routeNamesMap}
                   stops={staticStopsQuery.data?.data || []}
-                  onTripSelect={(trip) => {
+                  onTripSelect={(trip: any) => {
                     // Set the route
                     if (trip.routeId) {
                       setSelectedRoute(trip.routeId);
@@ -829,7 +893,7 @@ const Index = () => {
                   routeNamesMap={routeNamesMap}
                   isLoading={tripsQuery.isLoading}
                   selectedOperator={selectedOperator}
-                  onTripSelect={(trip) => {
+                  onTripSelect={(trip: any) => {
                     if (trip.routeId) setSelectedRoute(trip.routeId);
                     if (trip.vehicleId) setFollowVehicleId(trip.vehicleId);
                     setActiveTab("map");

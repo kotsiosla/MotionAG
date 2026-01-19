@@ -66,6 +66,17 @@ export function StopNotificationModal({
   const [isSaving, setIsSaving] = useState(false);
   const isEnabled = currentSettings?.enabled ?? false;
 
+  // Add Back button support
+  useState(() => {
+    window.history.pushState({ modal: 'stopNotification' }, '');
+  });
+
+  useState(() => {
+    const handlePop = () => onClose();
+    window.addEventListener('popstate', handlePop);
+    return () => window.removeEventListener('popstate', handlePop);
+  });
+
   const [notifyType, setNotifyType] = useState<'all' | 'selected'>(currentSettings?.notifyType || 'all');
   const [watchedRoutes, setWatchedRoutes] = useState<string[]>(currentSettings?.watchedRoutes || []);
 
