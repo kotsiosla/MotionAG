@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Calendar, Loader2, Bus, Star, X, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,7 @@ export function ScheduleView({
   // Use prop directly - treat 'all' as empty
   const effectiveRouteId = selectedRoute === 'all' ? "" : selectedRoute;
   const [selectedDirection, setSelectedDirection] = useState<number>(0);
+  const nextDepartureRef = useRef<HTMLSpanElement | null>(null);
 
   // Reset direction when route changes
   useEffect(() => {
@@ -55,6 +56,21 @@ export function ScheduleView({
     effectiveRouteId || null,
     selectedOperator !== 'all' ? selectedOperator : undefined
   );
+
+  // Auto-scroll to next departure when schedule loads or direction changes
+  useEffect(() => {
+    if (scheduleQuery.data && nextDepartureRef.current) {
+      // Add a small delay to ensure rendering is complete
+      const timer = setTimeout(() => {
+        nextDepartureRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center'
+        });
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [scheduleQuery.data, selectedDirection, effectiveRouteId]);
 
   // Sort routes by short name
   const sortedRoutes = useMemo(() => {
@@ -407,6 +423,7 @@ export function ScheduleView({
                                 return (
                                   <span
                                     key={entry.trip_id}
+                                    ref={isNext ? nextDepartureRef : null}
                                     className={cn(
                                       "inline-flex items-center justify-center px-2.5 py-1 rounded-md text-xs font-mono transition-all flex-shrink-0",
                                       "select-none touch-none", // Prevent text selection and touch callouts
