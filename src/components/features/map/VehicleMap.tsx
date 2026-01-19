@@ -11,7 +11,6 @@ import { RoutePlannerPanel } from "@/components/features/planning/RoutePlannerPa
 import { StopDetailPanel } from "@/components/features/schedule/StopDetailPanel";
 // Lazy load UnifiedRoutePanel to break circular dependency
 const UnifiedRoutePanel = React.lazy(() => import("@/components/features/routes/UnifiedRoutePanel").then(module => ({ default: module.UnifiedRoutePanel })));
-const NearestStopPanel = React.lazy(() => import("@/components/features/map/NearestStopPanel").then(module => ({ default: module.NearestStopPanel })));
 import { DataSourceHealthIndicator } from "@/components/common/DataSourceHealthIndicator";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { useRouteShape } from "@/hooks/useGtfsData";
@@ -467,6 +466,7 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
     trips || [],
     routeNamesMap,
     stopNotifications,
+    vehicles || [], // vehicles data
     true // enabled
   );
 
@@ -564,8 +564,8 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
 
   // Walking route state
-  const [walkingRoute, setWalkingRoute] = useState<{ distance: number; duration: number; geometry: Array<[number, number]> } | null>(null);
-  const [isLoadingWalkingRoute, setIsLoadingWalkingRoute] = useState(false);
+  const [_walkingRoute, setWalkingRoute] = useState<{ distance: number; duration: number; geometry: Array<[number, number]> } | null>(null);
+  const [_isLoadingWalkingRoute, setIsLoadingWalkingRoute] = useState(false);
   const walkingRouteLineRef = useRef<L.Polyline | null>(null);
 
   // Trail effect: store position history for each vehicle
@@ -2976,39 +2976,9 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
       {/* Panels */}
       <Suspense fallback={null}>
-        {nearestStopWithArrivals && userLocation && !notificationModalStop && selectedRoute === 'all' && !followedVehicleId && (
-          <ErrorBoundary>
-            <NearestStopPanel
-              stop={nearestStopWithArrivals.stop}
-              distance={nearestStopWithArrivals.distance}
-              arrivals={getArrivalsForStop(nearestStopWithArrivals.stop.stop_id)}
-              walkingRoute={walkingRoute}
-              isLoadingRoute={isLoadingWalkingRoute}
-              currentNotificationSettings={getNotification(nearestStopWithArrivals.stop.stop_id)}
-              onClose={() => {
-                setUserLocation(null);
-                setWalkingRoute(null);
-                if (walkingRouteLineRef.current && mapRef.current) {
-                  mapRef.current.removeLayer(walkingRouteLineRef.current);
-                  walkingRouteLineRef.current = null;
-                }
-              }}
-              onOpenDetails={() => {
-                openStopPanel(
-                  nearestStopWithArrivals.stop.stop_id,
-                  nearestStopWithArrivals.stop.stop_name || nearestStopWithArrivals.stop.stop_id
-                );
-              }}
-              onNavigate={() => {
-                if (nearestStopWithArrivals.stop.stop_lat && nearestStopWithArrivals.stop.stop_lon) {
-                  mapRef.current?.setView([nearestStopWithArrivals.stop.stop_lat, nearestStopWithArrivals.stop.stop_lon], 17, { animate: true });
-                }
-              }}
-              onSaveNotification={setStopNotification}
-              onRemoveNotification={removeStopNotification}
-            />
-          </ErrorBoundary>
-        )}
+        {/* NearestStopPanel automatically appears when near a stop. 
+            Removed from UI as per user request, but logic for nearestStopWithArrivals is preserved in the component. 
+        */}
 
         {notificationModalStop && selectedRoute === 'all' && !followedVehicleId && (
           <ErrorBoundary>
