@@ -15,10 +15,10 @@ const getBasePath = () => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
       if (path.startsWith('/MotionAG')) {
-        return '/MotionAG';
+        return '/MotionAG/';
       }
       if (path.startsWith('/MotionBus_AI')) {
-        return '/MotionBus_AI';
+        return '/MotionBus_AI/';
       }
     }
   } catch (e) {

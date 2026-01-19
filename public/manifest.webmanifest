@@ -3,6 +3,7 @@
     "short_name": "Motion Bus",
     "description": "Παρακολούθηση θέσεων λεωφορείων και δρομολογίων σε πραγματικό χρόνο",
     "start_url": "/MotionAG/",
+    "scope": "/MotionAG/",
     "display": "standalone",
     "background_color": "#0a0a0b",
     "theme_color": "#0ea5e9",
