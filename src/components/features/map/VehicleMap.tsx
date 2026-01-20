@@ -2618,18 +2618,18 @@ export function VehicleMap({ vehicles, trips = [], stops = [], routeNamesMap, se
 
       {/* Debug Overlay - Check href to support HashRouter */}
       {window.location.href.includes('debug=true') && (
-        <div className="absolute top-20 left-4 z-[1000] bg-black/80 text-white p-4 rounded-lg text-xs font-mono max-w-xs pointer-events-none">
-          <div className="font-bold border-b border-white/20 mb-2 pb-1">MAP DEBUG</div>
+        <div className="debug-info-container">
+          <div className="debug-info-header">MAP DEBUG</div>
           <div>Selected Route: {selectedRoute || 'none'}</div>
           <div>Following: {followedVehicleId || 'none'}</div>
           <div>Follow Route ID: {followedVehicleRouteId || 'none'}</div>
           <div>Map Ready: {mapReady ? 'YES' : 'NO'}</div>
-          <div className="mt-2 text-emerald-400">
+          <div className="mt-2 debug-info-success">
             <div>Shape Data: {effectiveRouteShapeData?.directions?.length ?? 0} dirs</div>
             <div>Is Fallback: {(effectiveRouteShapeData as any)?.directions?.[0]?.stops?.some?.((s: any) => s.is_fallback_shape) ? 'YES' : 'NO'}</div>
-            {effectiveRouteShapeData?.directions?.length === 0 && <div style={{ color: 'red' }}>NO SHAPE DATA</div>}
-            {(effectiveRouteShapeData as any)?.directions?.[0]?.stops?.some?.((s: any) => s.is_fallback_shape) && <div style={{ color: 'yellow' }}>USING STOP-BASED FALLBACK</div>}
-            <div className="mt-1">
+            {effectiveRouteShapeData?.directions?.length === 0 && <div className="debug-info-error">NO SHAPE DATA</div>}
+            {(effectiveRouteShapeData as any)?.directions?.[0]?.stops?.some?.((s: any) => s.is_fallback_shape) && <div className="debug-info-warning">USING STOP-BASED FALLBACK</div>}
+            <div className="mt-1 text-white opacity-80">
               Last Drawn: {lastDrawnRouteRef.current || 'nothing'}
             </div>
           </div>

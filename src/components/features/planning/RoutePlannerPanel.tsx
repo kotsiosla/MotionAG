@@ -1109,125 +1109,120 @@ export function RoutePlannerPanel({
               {selectedVehicleTripInfo.stops.map((stop, index) => (
                 <div
                   key={`${stop.stopId}-${index}`}
-                  role="button"
-                  tabIndex={0}
                   ref={stop.isCurrent ? currentStopRef : null}
-                  onClick={() => {
-                    if (stop.stopLat !== undefined && stop.stopLon !== undefined) {
-                      onTripStopClick?.(stop.stopId, stop.stopLat, stop.stopLon);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
+                  className={`w-full flex items-stretch gap-3 p-2 rounded-lg transition-all duration-300 ${stop.isCurrent
+                    ? 'bg-primary/20 border border-primary/30 shadow-md animate-pulse-subtle'
+                    : stop.isPassed
+                      ? 'opacity-50'
+                      : 'hover:bg-muted/50'
+                    }`}
+                >
+                  <div
+                    className="flex-1 flex gap-3 cursor-pointer"
+                    onClick={() => {
                       if (stop.stopLat !== undefined && stop.stopLon !== undefined) {
                         onTripStopClick?.(stop.stopId, stop.stopLat, stop.stopLon);
                       }
-                    }
-                  }}
-                  className={`w-full text-left flex items-start gap-3 p-2 rounded-lg transition-all duration-300 cursor-pointer ${stop.isCurrent
-                    ? 'bg-primary/20 border border-primary/30 shadow-md animate-pulse-subtle'
-                    : stop.isPassed
-                      ? 'opacity-50 hover:opacity-70'
-                      : 'hover:bg-muted/50'
-                    } ${stop.stopLat === undefined ? 'cursor-not-allowed' : ''}`}
-                >
-                  {/* Timeline indicator */}
-                  <div className="flex flex-col items-center pt-1">
-                    <div
-                      className={`w-3 h-3 rounded-full border-2 ${stop.isCurrent
-                        ? 'bg-primary border-primary animate-pulse'
-                        : stop.isPassed
-                          ? 'bg-muted-foreground/50 border-muted-foreground/50'
-                          : 'bg-background border-primary'
-                        }`}
-                      style={{
-                        '--route-color': !stop.isPassed && !stop.isCurrent && selectedVehicleTripInfo.routeColor
-                          ? `#${selectedVehicleTripInfo.routeColor}`
-                          : undefined
-                      } as React.CSSProperties}
-                    />
-                    {index < selectedVehicleTripInfo.stops.length - 1 && (
+                    }}
+                  >
+                    {/* Timeline indicator */}
+                    <div className="flex flex-col items-center pt-1">
                       <div
-                        className={`w-0.5 h-6 mt-1 ${stop.isPassed ? 'bg-muted-foreground/30' : 'bg-primary/30'}`}
+                        className={`w-3 h-3 rounded-full border-2 ${stop.isCurrent
+                          ? 'bg-primary border-primary animate-pulse'
+                          : stop.isPassed
+                            ? 'bg-muted-foreground/50 border-muted-foreground/50'
+                            : 'bg-background border-primary'
+                          }`}
                         style={{
-                          '--route-color': !stop.isPassed && selectedVehicleTripInfo.routeColor
+                          '--route-color': !stop.isPassed && !stop.isCurrent && selectedVehicleTripInfo.routeColor
                             ? `#${selectedVehicleTripInfo.routeColor}`
                             : undefined
                         } as React.CSSProperties}
                       />
-                    )}
-                  </div>
-
-                  {/* Stop info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`text-sm truncate ${stop.isCurrent ? 'font-semibold text-primary' : ''}`}>
-                        {stop.stopName}
-                      </span>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {/* Notification bell for upcoming stops */}
-                        {!stop.isPassed && !stop.isCurrent && (
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              if (watchedStopId === stop.stopId) {
-                                setWatchedStopId(null);
-                              } else {
-                                // Request notification permission when enabling watch
-                                await requestNotificationPermission();
-                                setWatchedStopId(stop.stopId);
-                                setNotifiedStops(new Set());
-                              }
-                            }}
-                            className={`p-1 rounded-full transition-colors ${watchedStopId === stop.stopId
-                              ? 'bg-primary text-primary-foreground'
-                              : 'hover:bg-muted text-muted-foreground hover:text-foreground'
-                              }`}
-                            title={watchedStopId === stop.stopId ? 'Απενεργοποίηση ειδοποίησης' : 'Ειδοποίηση όταν πλησιάζει'}
-                          >
-                            {watchedStopId === stop.stopId ? (
-                              <Volume2 className="h-3.5 w-3.5" />
-                            ) : (
-                              <Bell className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                        )}
-                        {stop.isCurrent && (
-                          <span className="text-[10px] font-medium bg-primary text-primary-foreground px-1.5 py-0.5 rounded">
-                            ΤΩΡΑ
-                          </span>
-                        )}
-                      </div>
+                      {index < selectedVehicleTripInfo.stops.length - 1 && (
+                        <div
+                          className={`w-0.5 h-6 mt-1 ${stop.isPassed ? 'bg-muted-foreground/30' : 'bg-primary/30'}`}
+                          style={{
+                            '--route-color': !stop.isPassed && selectedVehicleTripInfo.routeColor
+                              ? `#${selectedVehicleTripInfo.routeColor}`
+                              : undefined
+                          } as React.CSSProperties}
+                        />
+                      )}
                     </div>
 
-                    {/* ETA based on vehicle speed */}
-                    {!stop.isPassed && !stop.isCurrent && stop.estimatedArrival && selectedVehicleTripInfo.vehicleSpeed && selectedVehicleTripInfo.vehicleSpeed > 0 && (
-                      <div className="flex items-center gap-2 text-xs mt-0.5">
-                        <div className="flex items-center gap-1 text-primary font-medium">
-                          <Navigation className="h-3 w-3" />
-                          <span>~{formatTime(stop.estimatedArrival)}</span>
-                        </div>
-                        {stop.distanceFromVehicle && (
-                          <span className="text-muted-foreground">
-                            ({stop.distanceFromVehicle < 1000
-                              ? `${Math.round(stop.distanceFromVehicle)}μ`
-                              : `${(stop.distanceFromVehicle / 1000).toFixed(1)}χλμ`})
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Scheduled time */}
-                    {(stop.arrivalTime || stop.departureTime) && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                        <Clock className="h-3 w-3" />
-                        <span>
-                          Πρόγραμμα: {stop.arrivalTime && formatTime(stop.arrivalTime)}
-                          {stop.departureTime && stop.departureTime !== stop.arrivalTime && (
-                            <span className="text-muted-foreground/70"> → {formatTime(stop.departureTime)}</span>
-                          )}
+                    {/* Stop info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-sm truncate ${stop.isCurrent ? 'font-semibold text-primary' : ''}`}>
+                          {stop.stopName}
                         </span>
                       </div>
+
+                      {/* ETA based on vehicle speed */}
+                      {!stop.isPassed && !stop.isCurrent && stop.estimatedArrival && selectedVehicleTripInfo.vehicleSpeed && selectedVehicleTripInfo.vehicleSpeed > 0 && (
+                        <div className="flex items-center gap-2 text-xs mt-0.5">
+                          <div className="flex items-center gap-1 text-primary font-medium">
+                            <Navigation className="h-3 w-3" />
+                            <span>~{formatTime(stop.estimatedArrival)}</span>
+                          </div>
+                          {stop.distanceFromVehicle && (
+                            <span className="text-muted-foreground">
+                              ({stop.distanceFromVehicle < 1000
+                                ? `${Math.round(stop.distanceFromVehicle)}μ`
+                                : `${(stop.distanceFromVehicle / 1000).toFixed(1)}χλμ`})
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Scheduled time */}
+                      {(stop.arrivalTime || stop.departureTime) && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          <Clock className="h-3 w-3" />
+                          <span>
+                            Πρόγραμμα: {stop.arrivalTime && formatTime(stop.arrivalTime)}
+                            {stop.departureTime && stop.departureTime !== stop.arrivalTime && (
+                              <span className="text-muted-foreground/70"> → {formatTime(stop.departureTime)}</span>
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {/* Notification bell for upcoming stops */}
+                    {!stop.isPassed && !stop.isCurrent && (
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (watchedStopId === stop.stopId) {
+                            setWatchedStopId(null);
+                          } else {
+                            await requestNotificationPermission();
+                            setWatchedStopId(stop.stopId);
+                            setNotifiedStops(new Set());
+                          }
+                        }}
+                        className={`p-1 rounded-full transition-colors ${watchedStopId === stop.stopId
+                          ? 'bg-primary text-primary-foreground'
+                          : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                          }`}
+                        title={watchedStopId === stop.stopId ? 'Απενεργοποίηση ειδοποίησης' : 'Ειδοποίηση όταν πλησιάζει'}
+                      >
+                        {watchedStopId === stop.stopId ? (
+                          <Volume2 className="h-3.5 w-3.5" />
+                        ) : (
+                          <Bell className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    )}
+                    {stop.isCurrent && (
+                      <span className="text-[10px] font-medium bg-primary text-primary-foreground px-1.5 py-0.5 rounded">
+                        ΤΩΡΑ
+                      </span>
                     )}
                   </div>
                 </div>
@@ -1238,341 +1233,349 @@ export function RoutePlannerPanel({
       )}
 
       {/* Location inputs - hidden when showing vehicle trip */}
-      {!selectedVehicleTripInfo && (
-        <div className="p-3 space-y-3 border-b border-border">
-          {/* Origin input */}
-          <div className="relative">
-            <div className="flex items-center gap-2 glass-card rounded-lg p-2">
-              <div className="w-3 h-3 rounded-full bg-blue-500" />
-              <div className="flex-1 relative">
-                <Input
-                  type="text"
-                  placeholder="Από πού ξεκινάς;"
-                  value={originQuery}
-                  onChange={(e) => {
-                    setOriginQuery(e.target.value);
-                    setShowOriginStops(true);
-                    setShowOriginResults(false);
-                  }}
-                  onKeyDown={(e) => e.key === 'Enter' && searchAddress(originQuery, 'origin')}
-                  onFocus={() => setShowOriginStops(true)}
-                  className="border-0 bg-transparent h-8 focus-visible:ring-0 p-0"
-                />
-              </div>
-              {isSearchingOrigin ? (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              ) : (
-                <div className="flex gap-1">
-                  {userLocation && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={useCurrentLocation} title="Χρήση τρέχουσας τοποθεσίας">
-                      <LocateFixed className="h-3.5 w-3.5 text-blue-500" />
+      {
+        !selectedVehicleTripInfo && (
+          <div className="p-3 space-y-3 border-b border-border">
+            {/* Origin input */}
+            <div className="relative">
+              <div className="flex items-center gap-2 glass-card rounded-lg p-2">
+                <div className="w-3 h-3 rounded-full bg-blue-500" />
+                <div className="flex-1 relative">
+                  <Input
+                    type="text"
+                    placeholder="Από πού ξεκινάς;"
+                    value={originQuery}
+                    onChange={(e) => {
+                      setOriginQuery(e.target.value);
+                      setShowOriginStops(true);
+                      setShowOriginResults(false);
+                    }}
+                    onKeyDown={(e) => e.key === 'Enter' && searchAddress(originQuery, 'origin')}
+                    onFocus={() => setShowOriginStops(true)}
+                    className="border-0 bg-transparent h-8 focus-visible:ring-0 p-0"
+                  />
+                </div>
+                {isSearchingOrigin ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <div className="flex gap-1">
+                    {userLocation && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={useCurrentLocation} title="Χρήση τρέχουσας τοποθεσίας">
+                        <LocateFixed className="h-3.5 w-3.5 text-blue-500" />
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => requestMapClick('origin')} title="Επιλογή από χάρτη">
+                      <MousePointer2 className="h-3.5 w-3.5" />
                     </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => searchAddress(originQuery, 'origin')} title="Αναζήτηση διεύθυνσης">
+                      <Search className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Origin dropdown - shows stops and search results */}
+              {(showOriginStops || showOriginResults) && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg max-h-64 overflow-y-auto z-20 shadow-xl">
+                  {/* Geocoding results */}
+                  {showOriginResults && originResults.length > 0 && (
+                    <div className="border-b border-border">
+                      <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50">Διευθύνσεις</div>
+                      {originResults.map((result, idx) => (
+                        <button
+                          key={`addr-${idx}`}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors flex items-start gap-2"
+                          onClick={() => {
+                            selectSearchResult(result, 'origin');
+                            setShowOriginStops(false);
+                          }}
+                        >
+                          <MapPin className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                          <span className="line-clamp-2">{result.display_name}</span>
+                        </button>
+                      ))}
+                    </div>
                   )}
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => requestMapClick('origin')} title="Επιλογή από χάρτη">
-                    <MousePointer2 className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => searchAddress(originQuery, 'origin')} title="Αναζήτηση διεύθυνσης">
-                    <Search className="h-3.5 w-3.5" />
-                  </Button>
+
+                  {/* Bus stops */}
+                  <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50">Στάσεις λεωφορείων</div>
+                  {filteredOriginStops.map((stop) => (
+                    <button
+                      key={stop.stop_id}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors flex items-start gap-2"
+                      onClick={() => selectStop(stop, 'origin')}
+                    >
+                      <Bus className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-medium">{stop.stop_name || stop.stop_id}</div>
+                        {stop.stop_code && <div className="text-xs text-muted-foreground">Κωδ: {stop.stop_code}</div>}
+                      </div>
+                    </button>
+                  ))}
+                  {filteredOriginStops.length === 0 && (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">Δεν βρέθηκαν στάσεις</div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Origin dropdown - shows stops and search results */}
-            {(showOriginStops || showOriginResults) && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg max-h-64 overflow-y-auto z-20 shadow-xl">
-                {/* Geocoding results */}
-                {showOriginResults && originResults.length > 0 && (
-                  <div className="border-b border-border">
-                    <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50">Διευθύνσεις</div>
-                    {originResults.map((result, idx) => (
-                      <button
-                        key={`addr-${idx}`}
-                        className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors flex items-start gap-2"
-                        onClick={() => {
-                          selectSearchResult(result, 'origin');
-                          setShowOriginStops(false);
-                        }}
-                      >
-                        <MapPin className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                        <span className="line-clamp-2">{result.display_name}</span>
-                      </button>
-                    ))}
+            {/* Swap button */}
+            <div className="flex justify-center">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={swapLocations} title="Εναλλαγή">
+                <div className="flex flex-col items-center">
+                  <ChevronUp className="h-3 w-3" />
+                  <ChevronDown className="h-3 w-3 -mt-1" />
+                </div>
+              </Button>
+            </div>
+
+            {/* Destination input */}
+            <div className="relative">
+              <div className="flex items-center gap-2 glass-card rounded-lg p-2">
+                <div className="w-3 h-3 rounded-full bg-red-500" />
+                <div className="flex-1 relative">
+                  <Input
+                    type="text"
+                    placeholder="Πού θέλεις να πας;"
+                    value={destinationQuery}
+                    onChange={(e) => {
+                      setDestinationQuery(e.target.value);
+                      setShowDestinationStops(true);
+                      setShowDestinationResults(false);
+                    }}
+                    onKeyDown={(e) => e.key === 'Enter' && searchAddress(destinationQuery, 'destination')}
+                    onFocus={() => setShowDestinationStops(true)}
+                    className="border-0 bg-transparent h-8 focus-visible:ring-0 p-0"
+                  />
+                </div>
+                {isSearchingDestination ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => requestMapClick('destination')} title="Επιλογή από χάρτη">
+                      <MousePointer2 className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => searchAddress(destinationQuery, 'destination')} title="Αναζήτηση διεύθυνσης">
+                      <Search className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 )}
+              </div>
 
-                {/* Bus stops */}
-                <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50">Στάσεις λεωφορείων</div>
-                {filteredOriginStops.map((stop) => (
-                  <button
-                    key={stop.stop_id}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors flex items-start gap-2"
-                    onClick={() => selectStop(stop, 'origin')}
-                  >
-                    <Bus className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-medium">{stop.stop_name || stop.stop_id}</div>
-                      {stop.stop_code && <div className="text-xs text-muted-foreground">Κωδ: {stop.stop_code}</div>}
+              {/* Destination dropdown - shows stops and search results */}
+              {(showDestinationStops || showDestinationResults) && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg max-h-64 overflow-y-auto z-20 shadow-xl">
+                  {/* Geocoding results */}
+                  {showDestinationResults && destinationResults.length > 0 && (
+                    <div className="border-b border-border">
+                      <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50">Διευθύνσεις</div>
+                      {destinationResults.map((result, idx) => (
+                        <button
+                          key={`addr-${idx}`}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors flex items-start gap-2"
+                          onClick={() => {
+                            selectSearchResult(result, 'destination');
+                            setShowDestinationStops(false);
+                          }}
+                        >
+                          <MapPin className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                          <span className="line-clamp-2">{result.display_name}</span>
+                        </button>
+                      ))}
                     </div>
-                  </button>
-                ))}
-                {filteredOriginStops.length === 0 && (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">Δεν βρέθηκαν στάσεις</div>
-                )}
-              </div>
-            )}
-          </div>
+                  )}
 
-          {/* Swap button */}
-          <div className="flex justify-center">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={swapLocations} title="Εναλλαγή">
-              <div className="flex flex-col items-center">
-                <ChevronUp className="h-3 w-3" />
-                <ChevronDown className="h-3 w-3 -mt-1" />
-              </div>
-            </Button>
-          </div>
-
-          {/* Destination input */}
-          <div className="relative">
-            <div className="flex items-center gap-2 glass-card rounded-lg p-2">
-              <div className="w-3 h-3 rounded-full bg-red-500" />
-              <div className="flex-1 relative">
-                <Input
-                  type="text"
-                  placeholder="Πού θέλεις να πας;"
-                  value={destinationQuery}
-                  onChange={(e) => {
-                    setDestinationQuery(e.target.value);
-                    setShowDestinationStops(true);
-                    setShowDestinationResults(false);
-                  }}
-                  onKeyDown={(e) => e.key === 'Enter' && searchAddress(destinationQuery, 'destination')}
-                  onFocus={() => setShowDestinationStops(true)}
-                  className="border-0 bg-transparent h-8 focus-visible:ring-0 p-0"
-                />
-              </div>
-              {isSearchingDestination ? (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              ) : (
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => requestMapClick('destination')} title="Επιλογή από χάρτη">
-                    <MousePointer2 className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => searchAddress(destinationQuery, 'destination')} title="Αναζήτηση διεύθυνσης">
-                    <Search className="h-3.5 w-3.5" />
-                  </Button>
+                  {/* Bus stops */}
+                  <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50">Στάσεις λεωφορείων</div>
+                  {filteredDestinationStops.map((stop) => (
+                    <button
+                      key={stop.stop_id}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors flex items-start gap-2"
+                      onClick={() => selectStop(stop, 'destination')}
+                    >
+                      <Bus className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-medium">{stop.stop_name || stop.stop_id}</div>
+                        {stop.stop_code && <div className="text-xs text-muted-foreground">Κωδ: {stop.stop_code}</div>}
+                      </div>
+                    </button>
+                  ))}
+                  {filteredDestinationStops.length === 0 && (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">Δεν βρέθηκαν στάσεις</div>
+                  )}
                 </div>
               )}
             </div>
-
-            {/* Destination dropdown - shows stops and search results */}
-            {(showDestinationStops || showDestinationResults) && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg max-h-64 overflow-y-auto z-20 shadow-xl">
-                {/* Geocoding results */}
-                {showDestinationResults && destinationResults.length > 0 && (
-                  <div className="border-b border-border">
-                    <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50">Διευθύνσεις</div>
-                    {destinationResults.map((result, idx) => (
-                      <button
-                        key={`addr-${idx}`}
-                        className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors flex items-start gap-2"
-                        onClick={() => {
-                          selectSearchResult(result, 'destination');
-                          setShowDestinationStops(false);
-                        }}
-                      >
-                        <MapPin className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
-                        <span className="line-clamp-2">{result.display_name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Bus stops */}
-                <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50">Στάσεις λεωφορείων</div>
-                {filteredDestinationStops.map((stop) => (
-                  <button
-                    key={stop.stop_id}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-muted/50 transition-colors flex items-start gap-2"
-                    onClick={() => selectStop(stop, 'destination')}
-                  >
-                    <Bus className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-medium">{stop.stop_name || stop.stop_id}</div>
-                      {stop.stop_code && <div className="text-xs text-muted-foreground">Κωδ: {stop.stop_code}</div>}
-                    </div>
-                  </button>
-                ))}
-                {filteredDestinationStops.length === 0 && (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">Δεν βρέθηκαν στάσεις</div>
-                )}
-              </div>
-            )}
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Route results - hidden when showing vehicle trip */}
-      {!selectedVehicleTripInfo && (
-        <div className="flex-1 overflow-y-auto">
-          {isCalculating && (
-            <div className="flex items-center justify-center p-8">
-              <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
-              <span className="text-muted-foreground">Υπολογισμός διαδρομής...</span>
-            </div>
-          )}
-
-          {!isCalculating && !plannedRoute && origin && destination && (
-            <div className="p-6 text-center text-muted-foreground">
-              <Bus className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>Δεν βρέθηκε διαθέσιμη διαδρομή</p>
-              <p className="text-xs mt-2">Δοκιμάστε διαφορετικό προορισμό ή ελέγξτε αν υπάρχουν διαθέσιμα δρομολόγια</p>
-            </div>
-          )}
-
-          {!isCalculating && !origin && !destination && (
-            <div className="p-6 text-center text-muted-foreground">
-              <MapPin className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>Επιλέξτε αφετηρία και προορισμό</p>
-              <p className="text-xs mt-2">Χρησιμοποιήστε την αναζήτηση ή πατήστε στον χάρτη</p>
-            </div>
-          )}
-
-          {plannedRoute && (
-            <div className="divide-y divide-border">
-              {/* Summary */}
-              <div className="p-4 bg-primary/5">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-primary" />
-                    <span className="font-semibold">{formatDuration(plannedRoute.totalDuration)}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Footprints className="h-4 w-4" />
-                    <span>{formatDistance(plannedRoute.totalWalkingDistance)}</span>
-                  </div>
-                </div>
-                {plannedRoute.departureTime && plannedRoute.arrivalTime && (
-                  <div className="text-sm text-muted-foreground">
-                    {formatTime(plannedRoute.departureTime)} → {formatTime(plannedRoute.arrivalTime)}
-                  </div>
-                )}
+      {
+        !selectedVehicleTripInfo && (
+          <div className="flex-1 overflow-y-auto">
+            {isCalculating && (
+              <div className="flex items-center justify-center p-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+                <span className="text-muted-foreground">Υπολογισμός διαδρομής...</span>
               </div>
+            )}
 
-              {/* Steps */}
-              {plannedRoute.steps.map((step, idx) => (
-                <div key={idx} className="p-3">
-                  {step.type === 'walk' ? (
-                    <div className="flex items-start gap-3">
-                      <div className="flex flex-col items-center">
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                          <Footprints className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        {idx < plannedRoute.steps.length - 1 && (
-                          <div className="w-0.5 h-8 bg-muted-foreground/30 my-1" style={{ borderStyle: 'dashed', borderWidth: '0 0 0 2px' }} />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm">Περπάτημα</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {formatDistance(step.distance || 0)} • {Number((step.duration || 0).toFixed(2))} λεπτά
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          Προς <span className="font-medium text-foreground">{step.to.name}</span>
-                        </div>
-                      </div>
+            {!isCalculating && !plannedRoute && origin && destination && (
+              <div className="p-6 text-center text-muted-foreground">
+                <Bus className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>Δεν βρέθηκε διαθέσιμη διαδρομή</p>
+                <p className="text-xs mt-2">Δοκιμάστε διαφορετικό προορισμό ή ελέγξτε αν υπάρχουν διαθέσιμα δρομολόγια</p>
+              </div>
+            )}
+
+            {!isCalculating && !origin && !destination && (
+              <div className="p-6 text-center text-muted-foreground">
+                <MapPin className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>Επιλέξτε αφετηρία και προορισμό</p>
+                <p className="text-xs mt-2">Χρησιμοποιήστε την αναζήτηση ή πατήστε στον χάρτη</p>
+              </div>
+            )}
+
+            {plannedRoute && (
+              <div className="divide-y divide-border">
+                {/* Summary */}
+                <div className="p-4 bg-primary/5">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-primary" />
+                      <span className="font-semibold">{formatDuration(plannedRoute.totalDuration)}</span>
                     </div>
-                  ) : (
-                    <div className="flex items-start gap-3">
-                      <div className="flex flex-col items-center">
-                        <div
-                          className="route-badge route-badge-sm w-8 h-8 !rounded-full"
-                          style={{ '--route-color': step.routeColor ? `#${step.routeColor}` : 'var(--primary)' } as React.CSSProperties}
-                        >
-                          {step.routeShortName || <Bus className="h-4 w-4" />}
-                        </div>
-                        {idx < plannedRoute.steps.length - 1 && (
-                          <div
-                            className="w-0.5 h-8 my-1"
-                            style={{ backgroundColor: step.routeColor ? `#${step.routeColor}` : 'var(--primary)' }}
-                          />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="route-badge route-badge-sm"
-                            style={{ '--route-color': step.routeColor ? `#${step.routeColor}` : 'var(--primary)' } as React.CSSProperties}
-                          >
-                            {step.routeShortName || step.routeId}
-                          </span>
-                          {step.routeLongName && (
-                            <span className="text-xs text-muted-foreground truncate">{step.routeLongName}</span>
-                          )}
-                        </div>
-
-                        <div className="mt-2 space-y-1">
-                          <div className="flex items-center gap-2 text-sm">
-                            <div className="w-2 h-2 rounded-full bg-blue-500" />
-                            <span className="font-medium">{step.from.name}</span>
-                            {step.departureTime && (
-                              <span className="text-xs font-mono text-primary">{formatTime(step.departureTime)}</span>
-                            )}
-                          </div>
-
-                          {/* Intermediate stops - collapsible */}
-                          {step.intermediateStops && step.intermediateStops.length > 0 && (
-                            <div className="ml-1">
-                              <button
-                                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                                onClick={() => setExpandedStep(expandedStep === idx ? null : idx)}
-                              >
-                                {expandedStep === idx ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                                {step.intermediateStops.length} στάσεις
-                              </button>
-                              {expandedStep === idx && (
-                                <div className="mt-1 ml-2 space-y-1 border-l-2 border-dashed border-muted-foreground/30 pl-3">
-                                  {step.intermediateStops.map((stop, stopIdx) => (
-                                    <div key={stopIdx} className="text-xs text-muted-foreground flex items-center gap-2">
-                                      <span>{stop.stopName}</span>
-                                      {stop.arrivalTime && (
-                                        <span className="font-mono">{formatTime(stop.arrivalTime)}</span>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          <div className="flex items-center gap-2 text-sm">
-                            <div className="w-2 h-2 rounded-full bg-red-500" />
-                            <span className="font-medium">{step.to.name}</span>
-                            {step.arrivalTime && (
-                              <span className="text-xs font-mono text-primary">{formatTime(step.arrivalTime)}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Footprints className="h-4 w-4" />
+                      <span>{formatDistance(plannedRoute.totalWalkingDistance)}</span>
+                    </div>
+                  </div>
+                  {plannedRoute.departureTime && plannedRoute.arrivalTime && (
+                    <div className="text-sm text-muted-foreground">
+                      {formatTime(plannedRoute.departureTime)} → {formatTime(plannedRoute.arrivalTime)}
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+
+                {/* Steps */}
+                {plannedRoute.steps.map((step, idx) => (
+                  <div key={idx} className="p-3">
+                    {step.type === 'walk' ? (
+                      <div className="flex items-start gap-3">
+                        <div className="flex flex-col items-center">
+                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                            <Footprints className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          {idx < plannedRoute.steps.length - 1 && (
+                            <div className="w-0.5 h-8 bg-muted-foreground/30 my-1" style={{ borderStyle: 'dashed', borderWidth: '0 0 0 2px' }} />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">Περπάτημα</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {formatDistance(step.distance || 0)} • {Number((step.duration || 0).toFixed(2))} λεπτά
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Προς <span className="font-medium text-foreground">{step.to.name}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-3">
+                        <div className="flex flex-col items-center">
+                          <div
+                            className="route-badge route-badge-sm w-8 h-8 !rounded-full"
+                            style={{ '--route-color': step.routeColor ? `#${step.routeColor}` : 'var(--primary)' } as React.CSSProperties}
+                          >
+                            {step.routeShortName || <Bus className="h-4 w-4" />}
+                          </div>
+                          {idx < plannedRoute.steps.length - 1 && (
+                            <div
+                              className="w-0.5 h-8 my-1"
+                              style={{ '--route-color': step.routeColor ? `#${step.routeColor}` : 'var(--primary)' } as React.CSSProperties}
+                            >
+                              <div className="w-full h-full bg-[var(--route-color)]" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="route-badge route-badge-sm"
+                              style={{ '--route-color': step.routeColor ? `#${step.routeColor}` : 'var(--primary)' } as React.CSSProperties}
+                            >
+                              {step.routeShortName || step.routeId}
+                            </span>
+                            {step.routeLongName && (
+                              <span className="text-xs text-muted-foreground truncate">{step.routeLongName}</span>
+                            )}
+                          </div>
+
+                          <div className="mt-2 space-y-1">
+                            <div className="flex items-center gap-2 text-sm">
+                              <div className="w-2 h-2 rounded-full bg-blue-500" />
+                              <span className="font-medium">{step.from.name}</span>
+                              {step.departureTime && (
+                                <span className="text-xs font-mono text-primary">{formatTime(step.departureTime)}</span>
+                              )}
+                            </div>
+
+                            {/* Intermediate stops - collapsible */}
+                            {step.intermediateStops && step.intermediateStops.length > 0 && (
+                              <div className="ml-1">
+                                <button
+                                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                  onClick={() => setExpandedStep(expandedStep === idx ? null : idx)}
+                                >
+                                  {expandedStep === idx ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                  {step.intermediateStops.length} στάσεις
+                                </button>
+                                {expandedStep === idx && (
+                                  <div className="mt-1 ml-2 space-y-1 border-l-2 border-dashed border-muted-foreground/30 pl-3">
+                                    {step.intermediateStops.map((stop, stopIdx) => (
+                                      <div key={stopIdx} className="text-xs text-muted-foreground flex items-center gap-2">
+                                        <span>{stop.stopName}</span>
+                                        {stop.arrivalTime && (
+                                          <span className="font-mono">{formatTime(stop.arrivalTime)}</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-2 text-sm">
+                              <div className="w-2 h-2 rounded-full bg-red-500" />
+                              <span className="font-medium">{step.to.name}</span>
+                              {step.arrivalTime && (
+                                <span className="text-xs font-mono text-primary">{formatTime(step.arrivalTime)}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      }
 
       {/* Footer with calculate button - hidden when showing vehicle trip */}
-      {!selectedVehicleTripInfo && origin && destination && !isCalculating && (
-        <div className="p-3 border-t border-border shrink-0 bg-card">
-          <Button className="w-full" onClick={calculateRoute} disabled={isCalculating}>
-            <Navigation className="h-4 w-4 mr-2" />
-            Υπολογισμός Διαδρομής
-          </Button>
-        </div>
-      )}
+      {
+        !selectedVehicleTripInfo && origin && destination && !isCalculating && (
+          <div className="p-3 border-t border-border shrink-0 bg-card">
+            <Button className="w-full" onClick={calculateRoute} disabled={isCalculating}>
+              <Navigation className="h-4 w-4 mr-2" />
+              Υπολογισμός Διαδρομής
+            </Button>
+          </div>
+        )
+      }
     </>
   );
 

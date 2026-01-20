@@ -485,6 +485,7 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
                                 removeFavorite(favData.type);
                               }}
                               className="text-muted-foreground hover:text-destructive transition-colors"
+                              title="Αφαίρεση από τα αγαπημένα"
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -654,6 +655,7 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
                               ? 'bg-yellow-500 text-white'
                               : 'bg-muted hover:bg-yellow-500/20 text-muted-foreground hover:text-yellow-500'
                               }`}
+                            title={favType ? "Αφαίρεση από τα αγαπημένα" : "Προσθήκη στα αγαπημένα"}
                           >
                             <Star className={`h-3 w-3 ${favType ? 'fill-current' : ''}`} />
                           </button>
@@ -688,6 +690,7 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
                                   }
                                 }
                               }}
+                              title={isFavoriteStopId(data.stop.stop_id) ? "Αφαίρεση από τα αγαπημένα" : "Προσθήκη στα αγαπημένα"}
                             >
                               <Star className={cn("h-3.5 w-3.5", isFavoriteStopId(data.stop.stop_id) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground")} />
                             </Button>
@@ -712,8 +715,8 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
                                   {uniqueRoutes.slice(0, 5).map((route, idx) => (
                                     <span
                                       key={idx}
-                                      className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold text-white whitespace-nowrap"
-                                      style={{ backgroundColor: route.routeColor ? `#${route.routeColor}` : '#0ea5e9' }}
+                                      className="route-badge route-badge-sm"
+                                      style={{ "--route-color": route.routeColor ? `#${route.routeColor}` : '#0ea5e9' } as React.CSSProperties}
                                     >
                                       {route.routeShortName || route.routeId}
                                     </span>

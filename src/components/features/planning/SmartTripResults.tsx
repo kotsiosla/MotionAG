@@ -189,17 +189,18 @@ function JourneyLegView({ leg, isLast }: { leg: JourneyLeg; isLast: boolean }) {
         {!isLast && (
           <div
             className="absolute top-10 left-5 w-0.5 h-full opacity-30"
-            // @ts-expect-error - Dynamic transit colors
-            style={{ '--route-color': bgColor } as CustomCSS}
+            style={{ '--route-color': bgColor } as React.CSSProperties}
           />
         )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap mb-1">
           <span
-            className="text-xs font-heavy px-2 py-0.5 rounded shadow-sm"
-            // @ts-expect-error - Dynamic transit colors
-            style={{ '--route-color': bgColor, '--text-color': textColor } as CustomCSS}
+            className="route-badge route-badge-sm shadow-sm"
+            style={{
+              '--route-color': bgColor,
+              '--route-text-color': textColor
+            } as React.CSSProperties}
           >
             {leg.route?.route_short_name}
           </span>

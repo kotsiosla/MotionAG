@@ -685,7 +685,7 @@ export function TripPlanResults({
                             >
                               <div className="flex items-center gap-2">
                                 <Clock className="h-3 w-3 text-muted-foreground" />
-                                <span className="font-mono font-bold" style={{ color: bgColor }}>
+                                <span className="font-mono font-bold" style={{ "--route-color": bgColor } as React.CSSProperties}>
                                   {trip.departureTime.substring(0, 5)}
                                 </span>
                                 <ChevronRight className="h-3 w-3 text-muted-foreground" />

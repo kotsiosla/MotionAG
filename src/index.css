@@ -810,6 +810,7 @@ main {
   border-radius: var(--radius);
   transition: all 0.2s ease;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .route-badge-sm {
@@ -873,6 +874,26 @@ main {
 .stop-panel-header {
   @apply flex items-center justify-between p-3 cursor-grab active:cursor-grabbing;
   background-color: var(--stop-theme-color, #6B8E23);
+}
+
+.debug-info-container {
+  @apply absolute top-20 left-4 z-[1000] bg-black/80 text-white p-4 rounded-lg text-xs font-mono max-w-xs pointer-events-none;
+}
+
+.debug-info-header {
+  @apply font-bold border-b border-white/20 mb-2 pb-1 uppercase;
+}
+
+.debug-info-error {
+  @apply text-red-500 font-bold;
+}
+
+.debug-info-warning {
+  @apply text-yellow-400 font-bold;
+}
+
+.debug-info-success {
+  @apply text-emerald-400 font-bold;
 }
 
 /* Accessibility Enhanced Mode (WCAG 2.2 / 2025) */
