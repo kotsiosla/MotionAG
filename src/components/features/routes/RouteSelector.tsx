@@ -64,8 +64,8 @@ export function RouteSelector({ value, onChange, routes, routeNames, disabled, i
           <div className="flex items-center gap-2 overflow-hidden">
             {selectedColor && (
               <div
-                className="w-3 h-3 rounded-full flex-shrink-0 border border-border/50"
-                style={{ backgroundColor: selectedColor }}
+                className="route-indicator route-indicator-sm"
+                style={{ "--route-color": selectedColor } as React.CSSProperties}
               />
             )}
             <span className="truncate">
@@ -85,8 +85,11 @@ export function RouteSelector({ value, onChange, routes, routeNames, disabled, i
                 <div className="flex items-center gap-2">
                   {color ? (
                     <div
-                      className="w-6 h-5 rounded flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-                      style={{ backgroundColor: color, color: textColor }}
+                      className="route-indicator-box w-6 h-5"
+                      style={{
+                        "--route-color": color,
+                        "--route-text-color": textColor
+                      } as React.CSSProperties}
                     >
                       {getShortLabel(routeId)}
                     </div>

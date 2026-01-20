@@ -57,32 +57,13 @@ const createVehicleIcon = (_bearing?: number, isFollowed?: boolean, routeColor?:
     return L.divIcon({
       className: 'route-vehicle-marker cursor-pointer pointer-events-auto leaflet-interactive leaflet-marker-icon',
       html: `
-        <div style="
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-        ">
+        <div class="map-marker-container" style="--route-color: ${bgColor}">
           ${routeShortName ? `
-            <div style="
-              background: ${bgColor};
-              color: white;
-              font-size: ${isFollowed ? '12px' : '10px'};
-              font-weight: 700;
-              padding: 3px 6px;
-              border-radius: 4px;
-              margin-bottom: 2px;
-              white-space: nowrap;
-              box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-              border: 2px solid white;
-              z-index: 10;
-            ">${routeShortName}</div>
+            <div class="map-vehicle-badge ${isFollowed ? 'map-vehicle-badge-large' : ''}">
+              ${routeShortName}
+            </div>
           ` : ''}
-          <div style="
-            width: ${iconSize}px;
-            height: ${iconSize}px;
-            filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4));
-          ">
+          <div class="map-vehicle-icon-wrap" style="width: ${iconSize}px; height: ${iconSize}px;">
             <img src="${busIconPath}" 
               style="width: 100%; height: 100%; object-fit: contain;"
               alt="Bus"
@@ -99,11 +80,7 @@ const createVehicleIcon = (_bearing?: number, isFollowed?: boolean, routeColor?:
   return L.divIcon({
     className: 'vehicle-marker cursor-pointer pointer-events-auto leaflet-interactive leaflet-marker-icon',
     html: `
-      <div style="
-        width: ${iconSize}px;
-        height: ${iconSize}px;
-        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-      ">
+      <div class="map-vehicle-icon-wrap" style="width: ${iconSize}px; height: ${iconSize}px;">
         <img src="${busIconPath}" 
           style="width: 100%; height: 100%; object-fit: contain;"
           alt="Bus"
@@ -139,7 +116,7 @@ const createStopIcon = (hasVehicleStopped?: boolean, sequenceNumber?: number, ro
   return L.divIcon({
     className: `stop-marker ${isNearest ? 'z-[1001]' : ''}`,
     html: `
-      <div class="${size} rounded-full flex items-center justify-center shadow-lg ${borderClass} ${pulseClass}" style="background: ${bgColor}">
+      <div class="map-stop-dot ${isNearest ? 'map-stop-dot-nearest' : ''} ${size} ${pulseClass}" style="--stop-theme-color: ${bgColor}">
         ${isNearest
         ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`
         : (sequenceNumber !== undefined

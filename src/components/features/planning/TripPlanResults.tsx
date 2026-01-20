@@ -109,13 +109,13 @@ const printTripResults = (
       </div>`;
     }).join('');
 
-    return `<div style="margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-      <div style="background: ${bgColor}; color: white; padding: 10px;">
-        <strong style="font-size: 18px; margin-right: 10px;">${escapeHtml(result.route.route_short_name)}</strong>
+    return `<div class="route-result-card">
+      <div class="route-badge route-badge-md w-full !justify-start !px-3 !py-2" style="--route-color: ${bgColor}">
+        <strong class="text-lg mr-2">${escapeHtml(result.route.route_short_name)}</strong>
         ${escapeHtml(result.route.route_long_name)}
       </div>
-      <div style="padding: 10px;">
-        <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Δρομολόγια:</div>
+      <div class="p-2.5">
+        <div class="text-[10px] text-muted-foreground uppercase font-black mb-1">Δρομολόγια:</div>
         ${tripsHtml}
       </div>
     </div>`;
@@ -377,12 +377,12 @@ export function TripPlanResults({
                     )}
                     <div className="grid gap-2 sm:grid-cols-2 pl-8">
                       {interCityJourney.localToIntercityStation.routes.map((routeInfo, idx) => {
-                        const bgColor = routeInfo.route.route_color ? `#${routeInfo.route.route_color}` : 'hsl(var(--primary))';
+                        const bgColor = routeInfo.route.route_color ? `#${routeInfo.route.route_color}` : 'var(--primary)';
                         return (
                           <div key={idx} className="rounded-lg border border-border bg-card/80 p-2 flex items-center gap-2">
                             <span
-                              className="text-white text-xs font-bold px-2 py-0.5 rounded flex-shrink-0"
-                              style={{ backgroundColor: bgColor }}
+                              className="route-badge route-badge-sm"
+                              style={{ '--route-color': bgColor } as React.CSSProperties}
                             >
                               {routeInfo.route.route_short_name}
                             </span>
@@ -428,8 +428,8 @@ export function TripPlanResults({
                         return (
                           <div key={idx} className="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/30 p-2 flex items-center gap-2">
                             <span
-                              className="text-white text-xs font-bold px-2 py-0.5 rounded flex-shrink-0"
-                              style={{ backgroundColor: bgColor }}
+                              className="route-badge route-badge-sm"
+                              style={{ '--route-color': bgColor } as React.CSSProperties}
                             >
                               {routeInfo.route.route_short_name}
                             </span>
@@ -470,12 +470,12 @@ export function TripPlanResults({
                     )}
                     <div className="grid gap-2 sm:grid-cols-2 pl-8">
                       {interCityJourney.localFromIntercityStation.routes.map((routeInfo, idx) => {
-                        const bgColor = routeInfo.route.route_color ? `#${routeInfo.route.route_color}` : 'hsl(var(--primary))';
+                        const bgColor = routeInfo.route.route_color ? `#${routeInfo.route.route_color}` : 'var(--primary)';
                         return (
                           <div key={idx} className="rounded-lg border border-border bg-card/80 p-2 flex items-center gap-2">
                             <span
-                              className="text-white text-xs font-bold px-2 py-0.5 rounded flex-shrink-0"
-                              style={{ backgroundColor: bgColor }}
+                              className="route-badge route-badge-sm"
+                              style={{ '--route-color': bgColor } as React.CSSProperties}
                             >
                               {routeInfo.route.route_short_name}
                             </span>
@@ -510,12 +510,12 @@ export function TripPlanResults({
                     <div key={idx} className="rounded-lg border border-border bg-card overflow-hidden">
                       <div className="p-3 space-y-3">
                         {transfer.legs.map((leg, legIdx) => {
-                          const bgColor = leg.route.route_color ? `#${leg.route.route_color}` : 'hsl(var(--primary))';
+                          const bgColor = leg.route.route_color ? `#${leg.route.route_color}` : 'var(--primary)';
                           return (
                             <div key={legIdx} className="flex items-center gap-2 flex-wrap">
                               <span
-                                className="text-white text-sm font-bold px-2 py-0.5 rounded"
-                                style={{ backgroundColor: bgColor }}
+                                className="route-badge route-badge-sm"
+                                style={{ '--route-color': bgColor } as React.CSSProperties}
                               >
                                 {leg.route.route_short_name}
                               </span>
@@ -549,12 +549,12 @@ export function TripPlanResults({
                   </p>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {originStopRoutes.slice(0, 6).map((routeInfo, idx) => {
-                      const bgColor = routeInfo.route.route_color ? `#${routeInfo.route.route_color}` : 'hsl(var(--primary))';
+                      const bgColor = routeInfo.route.route_color ? `#${routeInfo.route.route_color}` : 'var(--primary)';
                       return (
                         <div key={idx} className="rounded-lg border border-border bg-card/50 p-2 flex items-center gap-2">
                           <span
-                            className="text-white text-sm font-bold px-2 py-0.5 rounded flex-shrink-0"
-                            style={{ backgroundColor: bgColor }}
+                            className="route-badge route-badge-sm"
+                            style={{ '--route-color': bgColor } as React.CSSProperties}
                           >
                             {routeInfo.route.route_short_name}
                           </span>
@@ -586,12 +586,12 @@ export function TripPlanResults({
                   </p>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {destinationStopRoutes.slice(0, 6).map((routeInfo, idx) => {
-                      const bgColor = routeInfo.route.route_color ? `#${routeInfo.route.route_color}` : 'hsl(var(--primary))';
+                      const bgColor = routeInfo.route.route_color ? `#${routeInfo.route.route_color}` : 'var(--primary)';
                       return (
                         <div key={idx} className="rounded-lg border border-border bg-card/50 p-2 flex items-center gap-2">
                           <span
-                            className="text-white text-sm font-bold px-2 py-0.5 rounded flex-shrink-0"
-                            style={{ backgroundColor: bgColor }}
+                            className="route-badge route-badge-sm"
+                            style={{ '--route-color': bgColor } as React.CSSProperties}
                           >
                             {routeInfo.route.route_short_name}
                           </span>
@@ -651,10 +651,10 @@ export function TripPlanResults({
                   >
                     {/* Route Header */}
                     <div
-                      className="p-3 flex items-center gap-3"
-                      style={{ backgroundColor: bgColor }}
+                      className="route-badge route-badge-md w-full !justify-start !px-3 !py-2 !rounded-none"
+                      style={{ '--route-color': bgColor } as React.CSSProperties}
                     >
-                      <span className="bg-white/20 text-white text-lg font-bold px-3 py-1 rounded">
+                      <span className="bg-white/20 text-white text-lg font-bold px-3 py-1 rounded mr-3">
                         {result.route.route_short_name}
                       </span>
                       <span className="text-white font-medium truncate">

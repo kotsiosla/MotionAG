@@ -134,17 +134,19 @@ export function ScheduleView({
                     "h-16 flex flex-col items-center justify-center gap-1 font-bold text-base transition-all",
                     isSelected && "ring-2 ring-offset-2"
                   )}
-                  style={isSelected ? {
-                    backgroundColor: routeColor,
-                    color: textColor,
-                  } : { borderColor: routeColor }}
+                  style={isSelected ? ({
+                    "--route-color": routeColor,
+                    "--text-color": textColor,
+                  } as React.CSSProperties) : ({
+                    "--route-border-color": routeColor
+                  } as React.CSSProperties)}
                   onClick={() => {
                     const newValue = isSelected ? '' : route.route_id;
                     if (onUnsyncedRouteSelect) onUnsyncedRouteSelect(newValue);
                   }}
                   title={route.route_long_name || route.route_short_name}
                 >
-                  <Bus className="h-5 w-5" style={{ color: isSelected ? textColor : routeColor }} />
+                  <Bus className="h-5 w-5" style={{ "--text-color": isSelected ? textColor : routeColor } as React.CSSProperties} />
                   <span>{route.route_short_name || route.route_id}</span>
                 </Button>
               );
@@ -229,7 +231,7 @@ export function ScheduleView({
                   <div className="flex items-center gap-2 w-full">
                     <span
                       className="px-1.5 py-0.5 rounded text-xs font-bold text-white flex-shrink-0"
-                      style={{ backgroundColor: route.route_color ? `#${route.route_color}` : 'hsl(var(--primary))' }}
+                      style={{ "--route-color": route.route_color ? `#${route.route_color}` : 'hsl(var(--primary))' } as React.CSSProperties}
                     >
                       {route.route_short_name}
                     </span>
@@ -261,7 +263,7 @@ export function ScheduleView({
             {selectedRouteInfo && (
               <div
                 className="p-3 rounded-lg mb-3 flex items-center justify-between gap-3 shadow-md"
-                style={{ backgroundColor: bgColor }}
+                style={{ "--route-color": bgColor } as React.CSSProperties}
               >
                 <div className="flex items-center gap-3">
                   <span className="bg-white/20 text-white text-lg font-bold px-3 py-1 rounded">
@@ -406,12 +408,7 @@ export function ScheduleView({
                             </div>
                           ) : (
                             <div
-                              className="flex gap-1.5 overflow-x-auto overflow-y-hidden pb-2 -mx-1 px-1"
-                              style={{
-                                scrollbarWidth: 'thin',
-                                WebkitOverflowScrolling: 'touch',
-                                scrollBehavior: 'smooth',
-                              }}
+                              className="schedule-trips-container"
                             >
                               {dayTrips.map((entry) => {
                                 const isPast = isToday && entry.departure_minutes < currentMinutes;
@@ -431,7 +428,7 @@ export function ScheduleView({
                                       isNext && "bg-primary text-white shadow-md scale-105 ring-2 ring-primary/30",
                                       !isPast && !isNext && "bg-primary/20 border border-primary/30",
                                     )}
-                                    style={!isPast && !isNext ? { color: scheduleItemColor, borderColor: scheduleItemColor } : undefined}
+                                    style={!isPast && !isNext ? ({ "--text-color": scheduleItemColor, "--route-border-color": scheduleItemColor } as React.CSSProperties) : undefined}
                                   >
                                     {entry.departure_time}
                                   </span>

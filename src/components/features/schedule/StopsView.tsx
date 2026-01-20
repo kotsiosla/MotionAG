@@ -246,8 +246,8 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
               {/* Route header */}
               <div className="flex items-center gap-2 mb-2">
                 <span
-                  className="inline-flex items-center px-2.5 py-1 rounded text-sm font-bold text-white"
-                  style={{ backgroundColor: route.routeColor ? `#${route.routeColor}` : '#0ea5e9' }}
+                  className="route-badge route-badge-md"
+                  style={{ "--route-color": route.routeColor ? `#${route.routeColor}` : '#0ea5e9' } as React.CSSProperties}
                 >
                   {route.routeShortName || route.routeId}
                 </span>
@@ -328,8 +328,8 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
               {staticOnlyRoutes.map((route) => (
                 <div key={route.route_id} className="flex items-center gap-1.5">
                   <span
-                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold text-white opacity-60"
-                    style={{ backgroundColor: route.route_color ? `#${route.route_color}` : '#6b7280' }}
+                    className="route-badge route-badge-sm opacity-60"
+                    style={{ "--route-color": route.route_color ? `#${route.route_color}` : '#6b7280' } as React.CSSProperties}
                   >
                     {route.route_short_name || route.route_id}
                   </span>
@@ -382,10 +382,10 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
                     variant={isSelected ? 'default' : 'outline'}
                     size="lg"
                     className={cn(
-                      "h-16 flex flex-col items-center justify-center gap-1 font-bold text-xs transition-all",
-                      isSelected && "ring-2 ring-offset-2"
+                      "favorite-stop-btn",
+                      isSelected ? "favorite-stop-btn-selected" : "favorite-stop-btn-outline"
                     )}
-                    style={isSelected ? { backgroundColor } : borderColor ? { borderColor } : {}}
+                    style={{ "--stop-theme-color": isSelected ? backgroundColor : borderColor } as React.CSSProperties}
                     onClick={() => setSelectedFavoriteStopId(isSelected ? null : favStop.stop.stop_id)}
                     title={stopName}
                   >
@@ -507,8 +507,8 @@ export function StopsView({ trips, stops, routeNamesMap, isLoading, selectedOper
                                   {uniqueRoutes.slice(0, 5).map((route, idx) => (
                                     <span
                                       key={idx}
-                                      className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold text-white whitespace-nowrap"
-                                      style={{ backgroundColor: route.routeColor ? `#${route.routeColor}` : '#0ea5e9' }}
+                                      className="route-badge route-badge-sm"
+                                      style={{ "--route-color": route.routeColor ? `#${route.routeColor}` : '#0ea5e9' } as React.CSSProperties}
                                     >
                                       {route.routeShortName || route.routeId}
                                     </span>

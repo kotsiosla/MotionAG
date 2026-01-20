@@ -924,13 +924,12 @@ export function RoutePlannerPanel({
 
   if (!isOpen) return null;
 
-  const headerColor = '#6B8E23'; // Dark olive-green
 
   // Panel content (shared between mobile and desktop)
   const panelContent = (
     <>
       {/* Header with dark olive-green */}
-      <div className="flex items-center justify-between p-3 shrink-0" style={{ backgroundColor: headerColor }}>
+      <div className="stop-panel-header flex items-center justify-between p-3 shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-9 h-9 rounded-lg bg-white/20 text-white flex items-center justify-center">
             <Navigation className="h-5 w-5" />
@@ -970,13 +969,13 @@ export function RoutePlannerPanel({
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <div
-                  className="w-4 h-4 rounded-full flex items-center justify-center"
-                  style={{ background: selectedVehicleTripInfo.routeColor ? `#${selectedVehicleTripInfo.routeColor}` : 'hsl(var(--primary))' }}
+                  className="route-indicator route-indicator-box rounded-full flex items-center justify-center p-0.5"
+                  style={{ '--route-color': selectedVehicleTripInfo.routeColor ? `#${selectedVehicleTripInfo.routeColor}` : 'var(--primary)' } as React.CSSProperties}
                 >
                   <Bus className="h-2.5 w-2.5 text-white" />
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="font-semibold" style={{ color: selectedVehicleTripInfo.routeColor ? `#${selectedVehicleTripInfo.routeColor}` : undefined }}>
+                  <span className="font-semibold" style={{ color: selectedVehicleTripInfo.routeColor ? `#${selectedVehicleTripInfo.routeColor}` : 'var(--primary)' }}>
                     {selectedVehicleTripInfo.routeShortName || 'Γραμμή'}
                   </span>
                   {selectedVehicleTripInfo.vehicleLabel && (
@@ -1142,19 +1141,19 @@ export function RoutePlannerPanel({
                           : 'bg-background border-primary'
                         }`}
                       style={{
-                        borderColor: !stop.isPassed && !stop.isCurrent && selectedVehicleTripInfo.routeColor
+                        '--route-color': !stop.isPassed && !stop.isCurrent && selectedVehicleTripInfo.routeColor
                           ? `#${selectedVehicleTripInfo.routeColor}`
                           : undefined
-                      }}
+                      } as React.CSSProperties}
                     />
                     {index < selectedVehicleTripInfo.stops.length - 1 && (
                       <div
                         className={`w-0.5 h-6 mt-1 ${stop.isPassed ? 'bg-muted-foreground/30' : 'bg-primary/30'}`}
                         style={{
-                          background: !stop.isPassed && selectedVehicleTripInfo.routeColor
-                            ? `#${selectedVehicleTripInfo.routeColor}40`
+                          '--route-color': !stop.isPassed && selectedVehicleTripInfo.routeColor
+                            ? `#${selectedVehicleTripInfo.routeColor}`
                             : undefined
-                        }}
+                        } as React.CSSProperties}
                       />
                     )}
                   </div>
@@ -1488,23 +1487,23 @@ export function RoutePlannerPanel({
                     <div className="flex items-start gap-3">
                       <div className="flex flex-col items-center">
                         <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                          style={{ backgroundColor: step.routeColor ? `#${step.routeColor}` : '#0ea5e9' }}
+                          className="route-badge route-badge-sm w-8 h-8 !rounded-full"
+                          style={{ '--route-color': step.routeColor ? `#${step.routeColor}` : 'var(--primary)' } as React.CSSProperties}
                         >
                           {step.routeShortName || <Bus className="h-4 w-4" />}
                         </div>
                         {idx < plannedRoute.steps.length - 1 && (
                           <div
                             className="w-0.5 h-8 my-1"
-                            style={{ backgroundColor: step.routeColor ? `#${step.routeColor}` : '#0ea5e9' }}
+                            style={{ backgroundColor: step.routeColor ? `#${step.routeColor}` : 'var(--primary)' }}
                           />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span
-                            className="font-bold px-2 py-0.5 rounded text-white text-xs"
-                            style={{ backgroundColor: step.routeColor ? `#${step.routeColor}` : '#0ea5e9' }}
+                            className="route-badge route-badge-sm"
+                            style={{ '--route-color': step.routeColor ? `#${step.routeColor}` : 'var(--primary)' } as React.CSSProperties}
                           >
                             {step.routeShortName || step.routeId}
                           </span>

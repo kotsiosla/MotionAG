@@ -258,8 +258,30 @@
     background-color: var(--route-color);
   }
 
+  [style*="--route-border-color"] {
+    border-color: var(--route-border-color);
+  }
+
   [style*="--text-color"] {
     color: var(--text-color);
+  }
+
+  .schedule-trips-container {
+    display: flex;
+    gap: 0.375rem;
+    /* 1.5 * 0.25rem = 0.375rem (gap-1.5) */
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.5rem;
+    /* pb-2 */
+    margin-left: -0.25rem;
+    /* -mx-1 */
+    margin-right: -0.25rem;
+    padding-left: 0.25rem;
+    /* px-1 */
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
   }
 }
 
@@ -524,26 +546,89 @@
   }
 }
 
-/* Stop with imminent arrival (< 2 minutes) - pulse animation */
+/* Map Markers */
+.map-marker-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.map-vehicle-badge {
+  background-color: var(--route-color, #0ea5e9);
+  color: white;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  border: 2px solid white;
+  z-index: 10;
+  font-size: 10px;
+}
+
+.map-vehicle-badge-large {
+  font-size: 12px;
+  padding: 3px 8px;
+}
+
+.map-vehicle-icon-wrap {
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
+  transition: all 0.3s ease;
+}
+
+.map-stop-dot {
+  background-color: var(--stop-theme-color, #0ea5e9);
+  border: 2px solid white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  color: white;
+  font-weight: 700;
+}
+
+.map-stop-dot-nearest {
+  border-width: 4px;
+  z-index: 1001;
+}
+
+/* Animations for markers */
 .stop-imminent-arrival {
-  animation: stop-pulse 1.5s ease-in-out infinite;
-  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  animation: stop-pulse 1.5s infinite;
+}
+
+.stop-nearest-highlight {
+  animation: stop-pulse-blue 2s infinite;
 }
 
 @keyframes stop-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
-    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7);
   }
 
-  50% {
-    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
-    transform: scale(1.1);
+  70% {
+    box-shadow: 0 0 0 10px rgba(234, 179, 8, 0);
   }
 
   100% {
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
-    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(234, 179, 8, 0);
+  }
+}
+
+@keyframes stop-pulse-blue {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 12px rgba(59, 130, 246, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
   }
 }
 
@@ -711,6 +796,83 @@ main {
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+
+/* Specialized Component Styles */
+.route-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--route-text-color, #ffffff);
+  background-color: var(--route-color, #0ea5e9);
+  border-radius: var(--radius);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.route-badge-sm {
+  height: 1.25rem;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+}
+
+.route-badge-md {
+  height: 1.75rem;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+}
+
+.route-result-card {
+  margin: 1rem 0;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  overflow: hidden;
+  background-color: hsl(var(--card));
+  box-shadow: var(--shadow-sm);
+}
+
+.route-result-card .route-badge {
+  color: white;
+}
+
+/* Dynamic color utilities */
+[style*="--route-color"] {
+  --route-border-color: var(--route-color);
+}
+
+.route-indicator {
+  @apply rounded-full flex-shrink-0 border border-border/50;
+  background-color: var(--route-color, #0ea5e9);
+}
+
+.route-indicator-sm {
+  @apply w-3 h-3;
+}
+
+.route-indicator-box {
+  @apply rounded flex items-center justify-center text-[10px] font-bold flex-shrink-0;
+  background-color: var(--route-color, #0ea5e9);
+  color: var(--route-text-color, #ffffff);
+}
+
+.favorite-stop-btn {
+  @apply h-16 flex flex-col items-center justify-center gap-1 font-bold text-xs transition-all;
+}
+
+.favorite-stop-btn-selected {
+  @apply ring-2 ring-offset-2 text-white;
+  background-color: var(--stop-theme-color);
+}
+
+.favorite-stop-btn-outline {
+  border-color: var(--stop-theme-color);
+}
+
+.stop-panel-header {
+  @apply flex items-center justify-between p-3 cursor-grab active:cursor-grabbing;
+  background-color: var(--stop-theme-color, #6B8E23);
 }
 
 /* Accessibility Enhanced Mode (WCAG 2.2 / 2025) */

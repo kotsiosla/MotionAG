@@ -41,7 +41,7 @@ const ConfidenceIndicator = ({ confidence, source }: { confidence?: 'high' | 'me
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className={`inline - flex items - center gap - 0.5 px - 1 py - 0.5 rounded text - [8px] font - bold ${color} ${bg} `}>
+          <span className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold ${color} ${bg}`}>
             {icon}
           </span>
         </TooltipTrigger>
@@ -88,7 +88,7 @@ const formatDelay = (delay?: number) => {
   if (delay === undefined || delay === null) return '';
   const minutes = Math.round(delay / 60);
   if (minutes === 0) return '';
-  if (minutes > 0) return `+ ${minutes} '`;
+  if (minutes > 0) return `+ ${minutes}'`;
   return `${minutes}'`;
 };
 
@@ -138,7 +138,7 @@ export function StopDetailPanel({
     });
 
     toast({
-      title: isWatched ? "Ειδοποίηση αφαιρέθηκε" : "Ειδοποίηση προστέθηκε",
+      title: isWatched ? "Ειδοποίηση αφαιρερέθηκε" : "Ειδοποίηση προστέθηκε",
       description: `Για τη γραμμή ${routeId} στη στάση ${stopName}`,
     });
   };
@@ -215,8 +215,6 @@ export function StopDetailPanel({
 
   const routeGroups = Object.values(arrivalsByRoute);
 
-  const headerColor = '#6B8E23'; // Dark olive-green like bus panels
-
   return (
     <>
       <div
@@ -228,10 +226,9 @@ export function StopDetailPanel({
           cursor: isDragging ? 'grabbing' : 'auto',
         }}
       >
-        {/* Header - draggable with dark olive-green */}
+        {/* Header - draggable */}
         <div
-          className="flex items-center justify-between p-3 cursor-grab active:cursor-grabbing"
-          style={{ backgroundColor: headerColor }}
+          className="stop-panel-header"
           onMouseDown={handleDragStart}
           onTouchStart={handleDragStart}
         >
@@ -268,7 +265,6 @@ export function StopDetailPanel({
 
         {/* Content - White background */}
         <ScrollArea className="max-h-[calc(70vh-56px)] bg-white">
-          {/* Routes & Arrivals */}
           <div className="p-4 space-y-2">
             {routeGroups.length === 0 ? (
               <div className="text-center py-6 text-sm text-muted-foreground">
@@ -280,15 +276,15 @@ export function StopDetailPanel({
                   key={group.routeId}
                   className="rounded-lg border border-border overflow-hidden"
                 >
-                  {/* Route Header - clickable to follow */}
+                  {/* Route Header */}
                   <div className="w-full flex items-center p-1 bg-muted/30">
                     <button
                       className="flex-1 flex items-center gap-2 p-1.5 hover:bg-muted/50 rounded-md transition-colors text-left"
                       onClick={() => onFollowRoute(group.routeId)}
                     >
                       <Badge
-                        className="text-white font-bold text-[10px] px-1.5"
-                        style={{ backgroundColor: group.routeColor ? `#${group.routeColor}` : '#0ea5e9' }}
+                        className="route-badge route-badge-sm"
+                        style={{ "--route-color": group.routeColor ? `#${group.routeColor}` : undefined } as React.CSSProperties}
                       >
                         {group.routeShortName || group.routeId}
                       </Badge>
@@ -309,7 +305,7 @@ export function StopDetailPanel({
                     </Button>
                   </div>
 
-                  {/* Arrivals for this route */}
+                  {/* Arrivals list */}
                   <div className="divide-y divide-border">
                     {group.arrivals.slice(0, 3).map((arrival, idx) => (
                       <div
@@ -353,7 +349,6 @@ export function StopDetailPanel({
         </ScrollArea>
       </div>
 
-      {/* Notification Modal */}
       {showNotificationModal && (
         <StopNotificationModal
           stopId={stopId}

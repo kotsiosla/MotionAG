@@ -177,10 +177,14 @@ function JourneyLegView({ leg, isLast }: { leg: JourneyLeg; isLast: boolean }) {
       <div className="flex flex-col items-center">
         <div
           className="z-10 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shadow-lg shadow-black/10 transition-transform hover:scale-110 cursor-default"
-          // @ts-expect-error - Dynamic transit colors
-          style={{ '--route-color': bgColor, '--text-color': textColor } as CustomCSS}
+          style={{
+            backgroundColor: bgColor,
+            color: textColor,
+            '--route-color': bgColor,
+            '--route-text-color': textColor
+          } as React.CSSProperties}
         >
-          {leg.route?.route_short_name?.substring(0, 3) || <Bus className="h-5 w-5" />}
+          {leg.route?.route_short_name?.substring(0, 3) || <Bus className="h-5 w-5 drop-shadow-sm" />}
         </div>
         {!isLast && (
           <div
@@ -282,9 +286,8 @@ function JourneyOptionCard({
               {busLegs.map((leg, i) => (
                 <div key={i} className="flex items-center gap-1.5 shrink-0">
                   <div
-                    className="h-6 px-2 rounded-md flex items-center justify-center text-[11px] font-black text-white shadow-sm"
-                    // @ts-expect-error - Dynamic transit colors
-                    style={{ '--route-color': leg.route?.route_color ? `#${leg.route.route_color}` : 'hsl(var(--primary))' } as CustomCSS}
+                    className="route-badge route-badge-sm"
+                    style={{ '--route-color': leg.route?.route_color ? `#${leg.route.route_color}` : 'hsl(var(--primary))' } as React.CSSProperties}
                   >
                     {leg.route?.route_short_name}
                   </div>
