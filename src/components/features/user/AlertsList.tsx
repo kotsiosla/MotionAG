@@ -68,6 +68,32 @@ const getSeverityInfo = (severity?: string | number) => {
   }
 };
 
+const CAUSE_LABELS: Record<string, string> = {
+  '1': 'Άγνωστη Αιτία',
+  '2': 'Άλλη Αιτία',
+  '3': 'Τεχνικό Πρόβλημα',
+  '4': 'Απεργία',
+  '5': 'Διαδήλωση',
+  '6': 'Ατύχημα',
+  '7': 'Αργία',
+  '8': 'Καιρικές Συνθήκες',
+  '9': 'Συντήρηση',
+  '10': 'Έργα Οδοποιίας',
+  '11': 'Ιατρικό Περιστατικό',
+};
+
+const EFFECT_LABELS: Record<string, string> = {
+  '1': 'Διακοπή Υπηρεσίας',
+  '2': 'Μειωμένη Υπηρεσία',
+  '3': 'Σημαντικές Καθυστερήσεις',
+  '4': 'Παράκαμψη',
+  '5': 'Επιπλέον Υπηρεσία',
+  '6': 'Τροποποιημένη Διαδρομή',
+  '7': 'Άλλη Επίδραση',
+  '8': 'Άγνωστη Επίδραση',
+  '9': 'Μετακίνηση Στάσης',
+};
+
 const formatPeriod = (start?: number, end?: number) => {
   const formatDate = (ts: number) => {
     const date = new Date(ts * 1000);
@@ -533,18 +559,18 @@ export function AlertsList({ alerts, trips, vehicles = [], routeNamesMap, isLoad
 
                         {alert.cause && (
                           <Badge variant="secondary" className="text-xs">
-                            {alert.cause}
+                            {CAUSE_LABELS[String(alert.cause)] || alert.cause}
                           </Badge>
                         )}
 
                         {alert.effect && (
                           <Badge variant="outline" className="text-xs">
-                            {alert.effect}
+                            {EFFECT_LABELS[String(alert.effect)] || alert.effect}
                           </Badge>
                         )}
                       </div>
 
-                      {alert.informedEntities.length > 0 && (
+                      {!alert.isScraped && alert.informedEntities.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {alert.informedEntities.slice(0, 5).map((entity, idx) => (
                             <span
