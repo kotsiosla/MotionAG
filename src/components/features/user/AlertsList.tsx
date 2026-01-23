@@ -52,12 +52,16 @@ const GENERAL_INFO = [
   },
 ];
 
-const getSeverityInfo = (severity?: string) => {
-  switch (severity?.toUpperCase()) {
+const getSeverityInfo = (severity?: string | number) => {
+  const s = String(severity || '').toUpperCase();
+  switch (s) {
     case 'SEVERE':
     case 'WARNING':
+    case '3': // GTFS-RT WARNING
+    case '4': // GTFS-RT SEVERE
       return { icon: AlertTriangle, className: 'bg-destructive/20 text-destructive border-destructive/30' };
     case 'INFO':
+    case '2': // GTFS-RT INFO
     case 'UNKNOWN':
     default:
       return { icon: Info, className: 'bg-primary/20 text-primary border-primary/30' };

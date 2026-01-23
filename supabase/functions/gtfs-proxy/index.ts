@@ -1034,7 +1034,7 @@ async function fetchScrapedAlerts(operatorId?: string): Promise<any[]> {
       effect: item.effect || 8, // 8 = OTHER_EFFECT
       headerText: item.header_text || `Route ${item.route_number} Alert`,
       descriptionText: item.alert_text,
-      severityLevel: item.severity === 'WARNING' ? 1 : 0,
+      severityLevel: item.severity || 'WARNING',
       isScraped: true // Marker for frontend
     }));
   } catch (err) {
