@@ -1000,6 +1000,49 @@ function extractAlerts(feed: GtfsRealtimeFeed) {
     }));
 }
 
+/**
+ * Fetches alerts from the scraped alerts table in Supabase
+ */
+async function fetchScrapedAlerts(operatorId?: string): Promise<any[]> {
+  try {
+    let query = supabase
+      .from('route_alerts')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (operatorId && operatorId !== 'all') {
+      query = query.eq('operator_id', operatorId);
+    }
+
+    const { data: scraped, error } = await query;
+
+    if (error) {
+      console.error('Error fetching scraped alerts:', error);
+      return [];
+    }
+
+    // Map scraped alerts to the standard GTFS response format
+    return (scraped || []).map(item => ({
+      id: item.id,
+      activePeriods: item.active_start ? [{ start: item.active_start, end: item.active_end }] : [],
+      informedEntities: [{
+        agencyId: item.operator_id,
+        routeId: item.gtfs_route_id,
+        // Include route_number as metadata if needed
+      }],
+      cause: item.cause || 1, // 1 = UNKNOWN_CAUSE
+      effect: item.effect || 8, // 8 = OTHER_EFFECT
+      headerText: item.header_text || `Route ${item.route_number} Alert`,
+      descriptionText: item.alert_text,
+      severityLevel: item.severity === 'WARNING' ? 1 : 0,
+      isScraped: true // Marker for frontend
+    }));
+  } catch (err) {
+    console.error('Failed to fetch scraped alerts:', err);
+    return [];
+  }
+}
+
 // Static GTFS data URLs by operator
 const GTFS_STATIC_URLS: Record<string, string> = {
   '2': 'https://www.motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C2_google_transit.zip&rel=True', // OSYPA
@@ -2612,9 +2655,12 @@ serve(async (req) => {
       case '/trips':
         data = extractTrips(feed);
         break;
-      case '/alerts':
-        data = extractAlerts(feed);
+      case '/alerts': {
+        const officialAlerts = extractAlerts(feed);
+        const scrapedAlerts = await fetchScrapedAlerts(operatorId);
+        data = [...officialAlerts, ...scrapedAlerts];
         break;
+      }
       case '/arrivals': {
         // High-accuracy arrivals endpoint - merges GTFS-RT and SIRI
         const stopIdParam = url.searchParams.get('stopId') || undefined;

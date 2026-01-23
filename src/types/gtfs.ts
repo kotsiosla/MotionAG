@@ -63,6 +63,7 @@ export interface Alert {
   descriptionText?: string;
   url?: string;
   severityLevel?: string;
+  isScraped?: boolean;
 }
 
 export interface GtfsResponse<T> {

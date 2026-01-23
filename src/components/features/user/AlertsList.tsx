@@ -503,9 +503,16 @@ export function AlertsList({ alerts, trips, vehicles = [], routeNamesMap, isLoad
                   <div className="flex items-start gap-3">
                     <Icon className="h-5 w-5 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-sm">
-                        {alert.headerText || 'Ειδοποίηση'}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-medium text-sm">
+                          {alert.headerText || 'Ειδοποίηση'}
+                        </h3>
+                        {alert.isScraped && (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1 bg-primary/5 text-primary border-primary/20">
+                            Live Scraper
+                          </Badge>
+                        )}
+                      </div>
                       {alert.descriptionText && (
                         <p className="text-sm mt-1 opacity-90">
                           {alert.descriptionText}
