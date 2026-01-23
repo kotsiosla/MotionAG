@@ -1000,6 +1000,32 @@ function extractAlerts(feed: GtfsRealtimeFeed) {
     }));
 }
 
+const CAUSE_LABELS: Record<string, string> = {
+  '1': 'Άγνωστη Αιτία',
+  '2': 'Άλλη Αιτία',
+  '3': 'Τεχνικό Πρόβλημα',
+  '4': 'Απεργία',
+  '5': 'Διαδήλωση',
+  '6': 'Ατύχημα',
+  '7': 'Αργία',
+  '8': 'Καιρικές Συνθήκες',
+  '9': 'Συντήρηση',
+  '10': 'Έργα Οδοποιίας',
+  '11': 'Ιατρικό Περιστατικό',
+};
+
+const EFFECT_LABELS: Record<string, string> = {
+  '1': 'Διακοπή Υπηρεσίας',
+  '2': 'Μειωμένη Υπηρεσία',
+  '3': 'Σημαντικές Καθυστερήσεις',
+  '4': 'Παράκαμψη',
+  '5': 'Επιπλέον Υπηρεσία',
+  '6': 'Τροποποιημένη Διαδρομή',
+  '7': 'Άλλη Επίδραση',
+  '8': 'Άγνωστη Επίδραση',
+  '9': 'Μετακίνηση Στάσης',
+};
+
 /**
  * Fetches alerts from the scraped alerts table in Supabase
  */
@@ -1028,11 +1054,10 @@ async function fetchScrapedAlerts(operatorId?: string): Promise<any[]> {
       informedEntities: [{
         agencyId: item.operator_id,
         routeId: item.gtfs_route_id,
-        // Include route_number as metadata if needed
       }],
-      cause: item.cause || 1, // 1 = UNKNOWN_CAUSE
-      effect: item.effect || 8, // 8 = OTHER_EFFECT
-      headerText: item.header_text || `Route ${item.route_number} Alert`,
+      cause: CAUSE_LABELS[item.cause || '1'] || item.cause || 'Άγνωστη Αιτία',
+      effect: EFFECT_LABELS[item.effect || '8'] || item.effect || 'Άγνωστη Επίδραση',
+      headerText: item.header_text || `Διαδρομή ${item.route_number}`,
       descriptionText: item.alert_text,
       severityLevel: item.severity || 'WARNING',
       isScraped: true // Marker for frontend
@@ -2658,7 +2683,16 @@ serve(async (req) => {
       case '/alerts': {
         const officialAlerts = extractAlerts(feed);
         const scrapedAlerts = await fetchScrapedAlerts(operatorId);
-        data = [...officialAlerts, ...scrapedAlerts];
+        const allAlerts = [...officialAlerts, ...scrapedAlerts];
+
+        // Deduplicate by header and description to avoid spamming the same alert
+        const seen = new Set();
+        data = allAlerts.filter((alert: any) => {
+          const key = `${alert.headerText}_${alert.descriptionText}`.toLowerCase().trim();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
         break;
       }
       case '/arrivals': {
