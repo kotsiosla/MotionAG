@@ -173,6 +173,14 @@
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
 .safe-area-inset {
   padding-top: env(safe-area-inset-top, 0);
   padding-bottom: env(safe-area-inset-bottom, 0);
@@ -772,12 +780,32 @@
   }
 }
 
+@media (max-width: 640px) {
+  /* Prevent iOS input focus zoom and keep forms readable */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .glass-card {
+    padding: 0.75rem;
+  }
+}
+
 /* Fix for mobile horizontal scroll and overflow */
 html,
 body {
   @apply overflow-x-hidden w-full;
   position: relative;
   -webkit-overflow-scrolling: touch;
+}
+
+img,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
 }
 
 #root {

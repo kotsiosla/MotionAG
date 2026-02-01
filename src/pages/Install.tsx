@@ -63,10 +63,10 @@ export default function Install() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-[100dvh] bg-background">
       {/* Header */}
-      <header className="glass-card border-b sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3">
+      <header className="glass-card border-b sticky top-0 z-50 safe-area-top">
+        <div className="container mx-auto px-3 sm:px-4 py-3">
           <div className="flex items-center gap-3">
             <Link to="/">
               <Button variant="ghost" size="icon" className="h-9 w-9">
@@ -79,13 +79,13 @@ export default function Install() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 max-w-lg space-y-6">
+      <main className="container mx-auto px-3 sm:px-4 py-6 max-w-lg space-y-6 pb-safe">
         {/* Hero */}
         <div className="text-center space-y-4 py-6">
-          <div className="w-20 h-20 mx-auto bg-primary/10 rounded-2xl flex items-center justify-center">
-            <Smartphone className="w-10 h-10 text-primary" />
+          <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-primary/10 rounded-2xl flex items-center justify-center">
+            <Smartphone className="w-9 h-9 sm:w-10 sm:h-10 text-primary" />
           </div>
-          <h2 className="text-2xl font-bold">Εγκατάσταση Motion Bus</h2>
+          <h2 className="text-xl sm:text-2xl font-bold">Εγκατάσταση Motion Bus</h2>
           <p className="text-muted-foreground">
             Εγκατάστησε την εφαρμογή στο κινητό σου για γρήγορη πρόσβαση και offline λειτουργία.
           </p>
@@ -114,7 +114,7 @@ export default function Install() {
             <CardContent className="pt-6">
               <Button 
                 onClick={handleInstallClick} 
-                className="w-full h-14 text-lg gap-3"
+                className="w-full h-12 sm:h-14 text-base sm:text-lg gap-3"
                 size="lg"
               >
                 <Download className="h-6 w-6" />

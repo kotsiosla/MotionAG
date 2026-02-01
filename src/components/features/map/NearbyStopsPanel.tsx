@@ -542,7 +542,7 @@ export function NearbyStopsPanel({
       <Button
         variant="default"
         size="lg"
-        className="fixed bottom-24 sm:bottom-20 right-4 z-40 h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-lg hover:scale-105 transition-transform"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] sm:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-40 h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-lg hover:scale-105 transition-transform"
         onClick={handleOpenPanel}
         title="Στάσεις Κοντά μου"
       >
@@ -554,7 +554,7 @@ export function NearbyStopsPanel({
   // Minimized view
   if (isMinimized) {
     return (
-      <div className="fixed bottom-24 sm:bottom-20 right-4 z-40 md:hidden">
+      <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] sm:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-40 md:hidden">
         <Button
           variant="default"
           size="lg"
